@@ -433,8 +433,9 @@ def SetSaveFolder(storefolder=None):
     globV.set_value("RESULT",storefolder)
     printinfo("set save floder: %s" % storefolder)
 
-def MakeSaveFolder():
-    storefolder = globV.get_value("RESULT")
+def MakeSaveFolder(storefolder=None):
+    if storefolder == None:
+        storefolder = globV.get_value("RESULT")
     if os.path.isdir(storefolder) and not globV.get_value("OVERRIDE"):
         n = 1
         bk = storefolder + ".bk%d" % n
