@@ -1,0 +1,5 @@
+{"PARAM":
+	["natom","kpt","ibzk","nelec","nbands","force","stress",
+	"scf_steps","total_time","force_time","stress_time","energy_per_atom","band_gap",
+	{"INPUT":["ecutwfc","mixing_beta"]}]
+}
