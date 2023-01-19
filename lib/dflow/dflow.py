@@ -43,7 +43,8 @@ def SetSaveFolder(storefolder=None):
     globV.set_value("RESULT",storefolder)
     comm.printinfo("set save floder: %s" % storefolder)
 
-def MakeSaveFolder(storefolder=globV.get_value("RESULT")):
+def MakeSaveFolder(storefolder=None):
+    storefolder = globV.get_value("RESULT") if storefolder == None else storefolder
     if not os.path.isdir(storefolder):
         os.makedirs(storefolder)
     elif not globV.get_value("OVERRIDE"):
@@ -56,7 +57,8 @@ def MakeSaveFolder(storefolder=globV.get_value("RESULT")):
         print("Folder %s is exist, rename to %s" % (storefolder,bk))
         os.makedirs(storefolder)
     
-def WriteParamUserFile(storefolder=globV.get_value("RESULT"),override=False):
+def WriteParamUserFile(storefolder=None,override=False):
+    storefolder = globV.get_value("RESULT") if storefolder == None else storefolder
     paraf = os.path.join(storefolder,globV.get_value("PARAM_FNAME"))
     userf = os.path.join(storefolder,globV.get_value("USER_FNAME"))   
     
