@@ -3,6 +3,16 @@ from ..resultAbacus import ResultAbacus
 
 class Abacus(ResultAbacus):
     
+    @ResultAbacus.register(version="the version of ABACUS")
+    def GetVersion(self):
+        if len(self.LOG) > 0:
+            for line in self.LOG:
+                if "WELCOME TO ABACUS" in line:
+                    version = line.split()[-1]
+                    if version[0].lower() != 'v':
+                        print("Unknow version of '%s'" % version)
+                    self['version'] = version
+    
     @ResultAbacus.register(normal_end="if the job is nromal ending")
     def GetNormalEnd(self):
         if len(self.LOG) == 0:
@@ -19,9 +29,6 @@ class Abacus(ResultAbacus):
                 print(''.join(self.LOG))
             else:
                 print(''.join(self.LOG[-10:]))
-
-
-
 
     @ResultAbacus.register(INPUT="a dict to store the setting in OUT.xxx/INPUT")
     def GetInputParameter(self):

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-from lib.dflow import dflowOP,globV
-from dflow.python import upload_packages
 import os,sys
+sys.path.append('myflow')
+from .myflow import flow,globV
+from dflow.python import upload_packages
 import numpy
 upload_packages.append(os.path.split(numpy.__file__)[0])
-upload_packages.append('lib')
+upload_packages.append(os.path.join(os.path.split(__file__)[0],'myflow'))
 
 def main():
     globV._init()
-    dflowOP.RunJobs()
+    flow.RunJobs()
     print("\nAll jobs are finished!!!")
 
 if __name__ == '__main__':
