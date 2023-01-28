@@ -266,7 +266,7 @@ def ProduceRunDFTStep(examples,param,name,DoSlices=True):
     for i in param.get("collectdata_pythonlib",[]):
         collectdata_pythonlib += glob.glob(i)
     '''
-    abacustestpath = "/".join(__file__.split('/')[:-3])
+    abacustestpath = "/".join(__file__.split('/')[:-2])
     collectdata_pythonlib = [abacustestpath]
     image = globV.get_value("ABBREVIATION").get(param['image'],param['image'])
     comm.printinfo("image: %s" % image)
