@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import os,sys,json
-from lib.collectdata.collectdata import RESULT
+from .lib_collectdata.collectdata import RESULT
 import argparse
 
 def parse_param(paramf):
@@ -49,9 +49,8 @@ def Parser():
     parser.add_argument('-t', '--type', type=int, default=0, help='0:abacus, 1:qe, 2:vasp. Default: 0',choices=[0,1,2])
     parser.add_argument('-p', '--param', type=str, default=None, help='the parameter file, should be .json type')
     parser.add_argument('-o', '--output', type=str, default="result.json",help='the file name to store the output results, default is "result.json"')
-    parser.add_argument('--outparam', type=int, default=0,help='output the registed parameters, you can set the type by -t or --type to choose abacus/qe/vasp. 0: No, 1: yes')
+    parser.add_argument('--outparam', nargs='?',type=int, const=1, default=0,help='output the registed parameters, you can set the type by -t or --type to choose abacus/qe/vasp. 0: No, 1: yes')
     return parser.parse_args()
-
 
 def main():
     param = Parser()
