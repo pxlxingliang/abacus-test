@@ -9,6 +9,16 @@ xfml = comm.XmlFindMultiLayer
 
 class Vasp(ResultVasp):
     
+    @ResultVasp.register(version="the vasp version",
+                         ncore = "mpi cores")
+    def GetGeneralInfo(self):
+        if self.XMLROOT != None:
+            self['version'] = self.XMLROOT.find("./generator/i[@name='version']").text
+        
+        for line in self.OUTCAR:
+            if "running on" in line and "total cores" in line:
+                self['ncore'] = int(line.split()[2])
+    
     @ResultVasp.register(normal_end="if the job is normal ending")
     def GetNormalEnd(self):
         if len(self.OUTCAR) == 0:
@@ -55,7 +65,7 @@ class Vasp(ResultVasp):
     @ResultVasp.register(nbands="number of bands",
                          nelec = "total electron number",
                          spin = "the spin number",
-                         encut = "Ry, the energy cutoff",
+                         encut = "eV, the energy cutoff",
                          ismear = "the smearing method",
                          sigma = "the SIGMA setting of smearing, in eV",
                          nelm = "value of NELM, the setted maximum SCF steps",
@@ -72,7 +82,7 @@ class Vasp(ResultVasp):
             self['spin'] = comm.iint(comm.XmlGetText(self.XMLROOT.find(tree)))
             
             tree = ".//separator[@name='electronic']/i[@name='ENMAX']"
-            self['encut'] = comm.imath(comm.EV2RY,comm.ifloat(comm.XmlGetText(self.XMLROOT.find(tree))),"*")
+            self['encut'] = comm.ifloat(comm.XmlGetText(self.XMLROOT.find(tree)))
 
             tree = ".//separator[@name='electronic smearing']/i[@name='ISMEAR']"
             self['ismear'] = comm.iint(comm.XmlGetText(self.XMLROOT.find(tree)))
@@ -165,8 +175,7 @@ class Vasp(ResultVasp):
 
     @ResultVasp.register(total_time = 'Total CPU time (s)',
                          scf_time = 'the total SCF times, s',
-                         stress_time = 'the time of calculating stress')
-                         
+                         stress_time = 'the time of calculating stress')                         
     def GetTimeInfo(self):
         stresst = None
         scft = 0

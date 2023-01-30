@@ -47,6 +47,7 @@ class RunDFT(OP):
                 "collectdata_script": Artifact(Path),
                 "collectdata_pythonlib": Artifact(Path),
                 "collectdata_pythonlib_folders":[str],
+                "collectdata_lib": Artifact(Path),
                 "collectdata_command": str,
                 "outputfiles":[str]
             }
@@ -81,7 +82,7 @@ class RunDFT(OP):
             log = ""
             os.chdir(work_path)
             if op_in["command"].strip() != "":
-                log += "\n".join([i for i in os.popen(op_in["command"])])
+                log += os.popen("(%s) 2>&1" % op_in["command"]).read()
         
             os.chdir(work_path)
             script_folder = "SCRIPT"
@@ -108,10 +109,24 @@ class RunDFT(OP):
                         tpath = os.path.join(op_in["collectdata_pythonlib"],os.path.split(i.strip("/"))[0])
                         cmd += "export PYTHONPATH=%s:$PYTHONPATH && " % tpath
 
+            if op_in["collectdata_lib"] != None:
+                tpath = str(op_in["collectdata_lib"])
+                script = os.path.join(tpath,"collectdata.py")
+                for chkcmd,headline in [("env python -h","#!/usr/bin/env python"),
+                                        ("env python3 -h","#!/usr/bin/env python3"),
+                                        ("/usr/bin/python -h","#!/usr/bin/python"),
+                                        ("/usr/bin/python3 -h","#!/usr/bin/python3")]:
+                    if not os.system(chkcmd+">/dev/null 2>&1"):
+                        with open(script) as f1: lines = ["%s\n"%headline] + f1.readlines()
+                        with open(script,'w') as f1: f1.writelines(lines)
+                        break
+                cmd += "export PATH=%s:$PATH && " % tpath
+                os.chmod(script,0o777)
+            
             if op_in["collectdata_command"] != "":
                 cmd += op_in["collectdata_command"]
                 log += "\ncommand:" + cmd + "\n"
-                log += "\n".join([i for i in os.popen(cmd)])
+                log += os.popen("(%s) 2>&1" % cmd).read()
             
             os.chdir(work_path)
             logfile_name = "STDOUTER"
@@ -195,7 +210,7 @@ class PostDFT(OP):
         os.chdir(data_path)
         if op_in["command"].strip() != "":
             outt += "execute command:\n%s\n" % op_in["command"]
-            outt += "\n".join([i for i in os.popen(op_in["command"])])
+            outt +=  os.popen("(%s) 2>&1" % op_in["command"]).read()
         
         os.chdir(data_path)
         for i in allscript:
@@ -250,6 +265,7 @@ def ProduceExecutor(param):
                 "context_type": "Bohrium",
                 "remote_profile": {"input_data": bohrium_set},
                 },
+            image_pull_policy = "IfNotPresent"
         )
         comm.printinfo("set bohrium: %s"%str(bohrium_set))
         return dispatcher_executor
@@ -261,13 +277,7 @@ def ProduceRunDFTStep(examples,param,name,DoSlices=True):
     for i in param.get("collectdata_script",[]):
         collectdata_scripts += glob.glob(i)
     
-    '''
-    collectdata_pythonlib = []
-    for i in param.get("collectdata_pythonlib",[]):
-        collectdata_pythonlib += glob.glob(i)
-    '''
-    abacustestpath = "/".join(__file__.split('/')[:-2])
-    collectdata_pythonlib = [abacustestpath]
+    #define OP
     image = globV.get_value("ABBREVIATION").get(param['image'],param['image'])
     comm.printinfo("image: %s" % image)
     if DoSlices:
@@ -283,11 +293,17 @@ def ProduceRunDFTStep(examples,param,name,DoSlices=True):
         else:
             sub_path = list(examples)
 
-    artifacts = {"example": upload_artifact(examples,archive=None)}
+    #define artifacts
+    artifacts = {"example": upload_artifact(examples,archive=None)} 
+    
     if len(collectdata_scripts) > 0:
         artifacts["collectdata_script"] = upload_artifact(collectdata_scripts)
     else:
         pt.inputs.artifacts["collectdata_script"].optional = True
+        
+    collectdata_pythonlib = []
+    for i in param.get("collectdata_pythonlib",[]):
+        collectdata_pythonlib += glob.glob(i)
     if len(collectdata_pythonlib) > 0:
         artifacts["collectdata_pythonlib"] = upload_artifact(collectdata_pythonlib)
         if len(collectdata_pythonlib) == 1:
@@ -297,7 +313,11 @@ def ProduceRunDFTStep(examples,param,name,DoSlices=True):
     else:
         pt.inputs.artifacts["collectdata_pythonlib"].optional = True
         collectdata_pythonlib_folders = [""]
-
+        
+    abacustestpath = "/".join(__file__.split('/')[:-2])
+    artifacts["collectdata_lib"] = upload_artifact(abacustestpath)
+    
+    #produce step
     step = Step(name=name,template=pt,
             parameters = {"command": param['command'], "sub_path":sub_path,
                           "collectdata_command":param.get("collectdata_command",""),
@@ -339,54 +359,91 @@ def ProducePostDFTStep(param,data):
     if executor != None: step.executor = executor
     return step
 
+def FindExamples(example):
+    #use glob.glob find all examples
+    #example = [*[*],*]
+    examples = []      
+    for i in example:
+        if isinstance(i,list):
+            example_tmp = []
+            for j in i:
+                example_tmp += glob.glob(j)
+            if len(example_tmp) > 0:
+                examples.append(example_tmp)
+        elif isinstance(i,str):
+            examples += glob.glob(i)
+        else:
+            comm.printinfo(i,"element of 'example' should be a list, or str")
+    return examples
+
+def SplitGroup(examples,ngroup): 
+    #examples = [*[*],*]
+    newexamples = [] 
+    se = 0
+    mod = len(examples) % ngroup
+    for i in range(ngroup):
+        example_tmp = []
+        add = 1 if mod > 0 else 0 
+        ee = se + int(len(examples)/ngroup) + add
+        for ie in examples[se:ee]:
+            ie = ie if isinstance(ie,list) else [ie]
+            example_tmp += ie
+        newexamples.append(example_tmp)
+        
+        if mod > 0: mod -= 1
+        se = ee
+    return newexamples
+
 def ProduceOneSteps(stepname,param):
     if "run_dft" not in param:
         return None
     rundft_set = param["run_dft"]
-
+    if "post_dft" not in param or ("ifrun" in param["post_dft"] and not param["post_dft"]['ifrun']):
+        post_dft = False
+    else:
+        post_dft = True
+        model_output_artifact = S3Artifact(key="{{workflow.name}}/%s"%stepname) #if has post dft, put all dft results in one place
+    
     steps = Steps(name=stepname+"-steps",
-                  outputs=Outputs(artifacts={"outputs" : OutputArtifact()}))
+                  outputs=Outputs(artifacts={"outputs" : OutputArtifact()})) 
     #rundft
-    model_output_artifact = S3Artifact(key="{{workflow.name}}/%s"%stepname)
+    allstepname = []
     def step1(example_tmp,rundft,istep,DoSlices):
         example_tmp.sort()
-        print("\nrun-dft-%d:\n    %s" % (istep,"\n    ".join(example_tmp)))
-        step1_tmp = ProduceRunDFTStep(example_tmp,rundft,"run-dft-%d"%istep,DoSlices=DoSlices)
-        step1_tmp.template.outputs.artifacts["outputs"].save = [model_output_artifact]
-        step1_tmp.template.outputs.artifacts["outputs"].archive = None
+        step1name = "%s-run-dft-%d"%(stepname,istep)
+        comm.printinfo("\n%s:\n    %s" % (step1name,"\n    ".join(example_tmp)))
+        step1_tmp = ProduceRunDFTStep(example_tmp,rundft,step1name,DoSlices=DoSlices)
+        if post_dft:
+            step1_tmp.template.outputs.artifacts["outputs"].save = [model_output_artifact]
+            step1_tmp.template.outputs.artifacts["outputs"].archive = None
+        else:
+            allstepname.append(step1name)
         return step1_tmp
+    
     rundft_step = []
-    istep = 0
-    print("\n%s" % stepname)
+    istep = 1
+    comm.printinfo("\n%s" % stepname)
     for rundft in rundft_set:
         if 'ifrun' in rundft and not rundft['ifrun']: continue
-        examples = []
-        for i in rundft['example']:
-            if isinstance(i,(list,tuple)):
-                example_tmp = []
-                for j in i:
-                    example_tmp += glob.glob(j)
-                if len(example_tmp) > 0:
-                    rundft_step.append(step1(example_tmp,rundft,istep,False))
-                    istep += 1
-            elif isinstance(i,str):
-                examples += glob.glob(i)
-            else:
-                print(i,"element of 'example' should be a list, tuple or str")
+        examples = FindExamples(rundft['example'])
 
+        #split the examples to ngroup and produce ngroup step
         if len(examples) > 0:
-            if len(examples) > 1:
-                rundft_step.append(step1(examples,rundft,istep,True))
-            else:
-                rundft_step.append(step1(examples,rundft,istep,False))
-            istep += 1
+            ngroup = rundft.get("ngroup",0)
+            if ngroup == None or ngroup < 1:
+                ngroup = len(examples)
+
+            for example_tmp in SplitGroup(examples,ngroup):
+                rundft_step.append(step1(example_tmp,rundft,istep,False))
+                istep += 1
+
     if len(rundft_step) == 0:
-        print("No examples matched in %s, skip it!" % stepname)
-        return None
+        comm.printinfo("No examples matched in %s, skip it!" % stepname)
+        return None,None
     steps.add(rundft_step)
     
     #post dft
-    if "post_dft" not in param or ("ifrun" in param["post_dft"] and not param["post_dft"]['ifrun']):
+    if not post_dft:
         step3 = rundft_step[0]
         if isinstance(step3,list):
             step3 = step3[0]
@@ -395,19 +452,18 @@ def ProduceOneSteps(stepname,param):
         steps.add(step3)
 
     steps.outputs.artifacts['outputs']._from = step3.outputs.artifacts["outputs"]
-    return steps
+    step = Step(name=stepname,template=steps)
+    return step,allstepname
 
 def ProduceAllStep(alljobs):
     allstep = []
-    stepname = []
+    allstepname = []
     for k in alljobs:
-        steps = ProduceOneSteps(k,alljobs[k])
-        if steps == None:
+        step,stepname = ProduceOneSteps(k,alljobs[k])
+        if step == None:
             continue
-        step = Step(name=k,template=steps)
         allstep.append(step)
-        stepname.append(k)
-        print("Complete the preparing of %s\n" % k)
+        allstepname += stepname
+        comm.printinfo("Complete the preparing for %s\n" % k)
 
-    globV.set_value("STEPNAME",stepname)
-    return allstep
+    return allstep,allstepname

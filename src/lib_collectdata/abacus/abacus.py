@@ -12,6 +12,13 @@ class Abacus(ResultAbacus):
                     if version[0].lower() != 'v':
                         print("Unknow version of '%s'" % version)
                     self['version'] = version
+                    
+    @ResultAbacus.register(ncore="the mpi cores")
+    def GetNcore(self):
+        for line in self.LOG:
+            if "DSIZE =" in line:
+                self['ncore'] = int(line.split()[-1])
+                return
     
     @ResultAbacus.register(normal_end="if the job is nromal ending")
     def GetNormalEnd(self):
@@ -242,3 +249,17 @@ class Abacus(ResultAbacus):
             self['scf_steps'] = len(scftime)
             self['scf_time_each_step'] = scftime
 
+    @ResultAbacus.register(atom_mag="list, the magnization of each atom")
+    def GetAtomMag(self):
+        mullikenf = os.path.join(os.path.split(self.LOGf)[0],"mulliken.txt")
+        if not os.path.isfile(mullikenf):
+            self['atom_mag'] = None
+            return
+        
+        with open(mullikenf) as f1: lines = f1.readlines()
+        
+        self['atom_mag'] = None
+        return
+        #for i,line in enumerate(lines):
+            
+            

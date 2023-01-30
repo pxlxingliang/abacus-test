@@ -1,11 +1,13 @@
-# abacus-test
+# abacustest
 do the performance test of ABACUS
+install:
+`pip install .`
 
-## run.py
-excecute it to run the test flow
+There are two commands:
+- `abacustest`
+- `collectdata`
 
-## collectdata.py
-excecute it to do collection of the results of ABAUCS/QE/VASP
+Please use `abacustest/collectdata -h` to get the usage
 
 ## example
 some exmaples
