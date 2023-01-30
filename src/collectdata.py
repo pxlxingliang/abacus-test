@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os,sys,json
 sys.path.append(os.path.split(__file__)[0])
 from lib_collectdata.collectdata import RESULT
