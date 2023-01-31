@@ -96,6 +96,9 @@ class Abacus(ResultAbacus):
                 self['nbands'] = int(line.split()[2])
             elif 'charge density convergence is achieved' in line:
                 self['converge'] = True
+            elif 'convergence has NOT been achieved!' in line or\
+                'convergence has not been achieved' in line:
+                self['converge'] = False
             elif 'total magnetism (Bohr mag/cell)' in line:
                 total_mag = float(line.split()[-1])
             elif 'absolute magnetism' in line:
@@ -164,10 +167,9 @@ class Abacus(ResultAbacus):
                         force.append(float(k))
                     j += 1
                 getforce = True
-        if stress != None:
-            self['stress'] = stress
-        if force != None:
-            self['force'] = force
+
+        self['stress'] = stress
+        self['force'] = force
     
     @ResultAbacus.register(band_gap = "band gap of the system")
     def GetBandGapFromLog(self):
@@ -256,10 +258,12 @@ class Abacus(ResultAbacus):
             self['atom_mag'] = None
             return
         
+        atom_mag = []
         with open(mullikenf) as f1: lines = f1.readlines()
+        for line in lines:
+            if "Total Magnetism on atom" in line:
+                atom_mag.append(float(line.split()[-1]))
+        self['atom_mag'] = None if len(atom_mag) == 0 else atom_mag
         
-        self['atom_mag'] = None
-        return
-        #for i,line in enumerate(lines):
             
             

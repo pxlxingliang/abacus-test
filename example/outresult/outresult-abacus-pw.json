@@ -1,0 +1,39 @@
+{
+"allresults":{
+	"example_name":["REFERENCE/abacus-pw/0*"],
+	"example_name_layer":-1,
+
+	"outparams":[
+		["natom",["natom","natom"],0],
+		["ecutwfc",["INPUT/ecutwfc","ecutwfc"],1],
+		["mixing_beta",["INPUT/mixing_beta","mixing_beta"],2],
+		["k_points",["kpt","kpt"],-1],
+        	["ibzk",["ibzk","ibzk"],0],
+        	["nelec",["nelec","nelec"],1],
+        	["nband",["nbands","nbands"],0],
+        	["SCF_steps",["scf_steps","scf_steps"],0],
+        	["total_time(s)",["total_time","total_time"],2],
+        	["Force_time(s)",["force_time","force_time"],2],
+        	["Stress_time(s)",["stress_time","stress_time"],2],
+        	["E/natom(eV)",["energy_per_atom","energy_per_atom"],5]
+	],
+
+    	"type_name": ["abacus/v3.0.0","abacus/v3.1.0","develop","qe/v6.8","qe/v6.8/mpi16"],
+    	"type_idx":[0,0,0,1,1],
+    	"result":[
+		["v3.0.0/abacus-pw/0*/abacus/result.json"],
+              	["v3.1.0/abacus-pw/0*/abacus/result.json"],
+              	["/root/examples/workflow/result/20230104/abacus-pw/0*/abacus/result.json"],
+              	["REFERENCE/abacus-pw/0*/qe/result.json"],
+    	      	["REFERENCE-mpi16/abacus-pw/0*/qe/result.json"]
+	],
+
+	"metrics":[
+		{"name":"GM of the inverse of total_time",
+		 "param_name":"total_time(s)",
+		 "method":"iGM"},
+		{"name":"GM of the inverse of SCF steps",
+         	"param_name":"SCF_steps",
+         	"method":"iGM"}]
+}	
+}
