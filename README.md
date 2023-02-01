@@ -1,6 +1,6 @@
 # abacustest
-do the performance test of ABACUS
-install:
+Do the performance test of ABACUS \
+Install:
 `pip install .`
 
 There are two commands:
@@ -134,7 +134,26 @@ An example is like:
 }
 ```
 Only one key "PARAM" is recongnized by `collectdata`, the value is a list of keys. \
-If the value of one key (such as "INPUT") is a dictionary, you can write as {key: [key1_in_dict, key2_in_dict]}. 
+If the value of one key (such as "INPUT") is a dictionary, you can write as {key: [key1_in_dict, key2_in_dict]}. \
+The results will be save as json type, and you can define the file name by `-o`.
+
+### Get the keys
+You can set `--outparam` to print out all of the keys of one type. Such as: `collectdata --outparam 1 -t 0` will print out the keys of ABACUS:
+```
+             version:	           Abacus.GetVersion()	the version of ABACUS
+               ncore:	             Abacus.GetNcore()	the mpi cores
+          normal_end:	         Abacus.GetNormalEnd()	if the job is nromal ending
+               INPUT:	    Abacus.GetInputParameter()	a dict to store the setting in OUT.xxx/INPUT
+...
+```
+
+
+## outresult
+```
+usage: outresult [-h] [-p PARAM]
+```
+print out the results as table.
+
 
 
 
