@@ -148,9 +148,12 @@ def ProduceExpandDic(allresult,example_idx):
     return expand_dic
 
 def OutParam(allresult,split_example="----"):
+    outtable = [['example']]
     param = allresult.get("outparams")
-    ncol = len(param) + 1
-    outtable = [['example'] + [i[0] for i in param]]  # table head
+    for i in param:
+        if i[-1] != None: outtable[0].append(i[0])
+           
+    ncol = len(outtable[0])
     if split_example != None: outtable.append(ncol * [split_example])
     
     results = allresult.get("result",[[]])
@@ -171,7 +174,8 @@ def OutParam(allresult,split_example="----"):
                         value = GetParamValue(expand_dic[iparam[0]],expand_formula[j],example_name[i]+"/"+iparam[0])
                     else:
                         value = " "
-                iexample.append(value) 
+                if iparam[-1] != None:
+                    iexample.append(value) 
                 #print(results_final_value[j][-1])
                 results_final_value[j][-1][iparam[0]] = value if value != " " else None 
             outtable.append(iexample)
@@ -211,8 +215,11 @@ class MetricsMethod:
     
     def method_list(self):
         return {"GM":[self.GM,"calculate the geometric mean value"],
-                "iGM":[self.iGM, "calculate the geometric mean of the inverse of value"]
+                "iGM":[self.iGM, "calculate the geometric mean of the inverse of value"],
+                "MEAN":[self.MEAN,"mean of all values"]
                 }
+    def MEAN(self,valuelist):
+        return np.array(valuelist).mean()
         
     def CalGM(self,valuelist,func=lambda x:x):
         n = len(valuelist)
@@ -243,6 +250,7 @@ def OutMetrics(allresults,result_final_value):
         paramname = metric.get("param_name") 
         method = metric.get("method")
         condition = metric.get("condition","").strip() 
+        doclean = metric.get("doclean",True)
         #if paramname not in outparams_paramname:
         #    print("key '%s' defined in 'metrics/param_name' is not defined in 'outparams', skip it" % paramname) 
         #    continue
@@ -266,22 +274,28 @@ def OutMetrics(allresults,result_final_value):
                         value = None
                 if value == None:
                     hasnone = True
-                else:
-                    tmp.append(value)
-            if hasnone:
+                tmp.append(value)
+            if doclean and hasnone:
                 continue
             else:
-                for j,itmp in enumerate(tmp): tmp_result[j].append(itmp)
-        if len(tmp_result[0]) == 0:
-            print("%s: all examples has value of None for some job type, skipt it!" % name)
+                for j,itmp in enumerate(tmp): 
+                    if itmp!=None: tmp_result[j].append(itmp)
+        if doclean and len(tmp_result[0]) == 0:
+            print("%s: All examples with values of None for some job type, skipt it!" % name)
             continue
         
+        nresult = [str(len(i)) for i in tmp_result]
+        nexample = nresult[0] if doclean else "/".join(nresult)
+               
         outtable.append([name])
         metric_value = []
         for i in range(len(tmp_result)):
             metric_value.append(method_list[method](tmp_result[i]))
-            outtable[-1].append(metric_value[i]/metric_value[0]) #do normalization by divide by the first value
-        outtable[-1] += [len(tmp_result[0])] + [metric_value[0]]
+            if doclean:
+                outtable[-1].append(metric_value[i]/metric_value[0]) #do normalization by divide by the first value
+            else:
+                outtable[-1].append(metric_value[i])
+        outtable[-1] += [nexample] + [metric_value[0]]
         
     if hasnotsupportmethod:
         print("Method %s are not supportted now.\nSupported methods are:\n%s" % (" ".join(notsupportmethod),MetricsMethod.allmethod_str()))
@@ -293,6 +307,7 @@ def OutMetrics(allresults,result_final_value):
     cc = "\nSome key metrics\nThe middle %d columns are relative value devided by %s\n" % (len(type_name),type_name[0])
     cc += "The last column is the calculated value of %s\n" % type_name[0]
     cc += TableOutput(outtable,maxlen=50,digit=digit,left=left,scintific=scintific)
+    #cc += "Notice: the exmaples with value of None for some job type will be excluded.\n"
     return cc
 
 def GetAllResults(jsonf):

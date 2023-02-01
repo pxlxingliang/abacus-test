@@ -396,13 +396,20 @@ def SplitGroup(examples,ngroup):
 
 def ProduceOneSteps(stepname,param):
     if "run_dft" not in param:
-        return None
+        return None,None,None
     rundft_set = param["run_dft"]
     if "post_dft" not in param or ("ifrun" in param["post_dft"] and not param["post_dft"]['ifrun']):
         post_dft = False
     else:
         post_dft = True
         model_output_artifact = S3Artifact(key="{{workflow.name}}/%s"%stepname) #if has post dft, put all dft results in one place
+    save_path = param.get("save_path",None)
+    if save_path != None:
+        save_path = save_path.strip()
+        if save_path == '':
+            save_path = globV.get_value("RESULT")
+    else:
+        save_path = globV.get_value("RESULT")
     
     steps = Steps(name=stepname+"-steps",
                   outputs=Outputs(artifacts={"outputs" : OutputArtifact()})) 
@@ -439,7 +446,7 @@ def ProduceOneSteps(stepname,param):
 
     if len(rundft_step) == 0:
         comm.printinfo("No examples matched in %s, skip it!" % stepname)
-        return None,None
+        return None,None,None
     steps.add(rundft_step)
     
     #post dft
@@ -453,17 +460,19 @@ def ProduceOneSteps(stepname,param):
 
     steps.outputs.artifacts['outputs']._from = step3.outputs.artifacts["outputs"]
     step = Step(name=stepname,template=steps)
-    return step,allstepname
+    return step,allstepname,save_path
 
 def ProduceAllStep(alljobs):
     allstep = []
     allstepname = []
+    allsave_path = []
     for k in alljobs:
-        step,stepname = ProduceOneSteps(k,alljobs[k])
+        step,stepname,save_path = ProduceOneSteps(k,alljobs[k])
         if step == None:
-            continue
+            continue  
         allstep.append(step)
         allstepname += stepname
-        comm.printinfo("Complete the preparing for %s\n" % k)
+        allsave_path += len(stepname) * [save_path]
+        comm.printinfo("Complete the preparing for %s. Results will be downloaded to %s\n" % (k,save_path))
 
-    return allstep,allstepname
+    return allstep,allstepname,allsave_path
