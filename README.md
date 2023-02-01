@@ -3,12 +3,12 @@ Do the performance test of ABACUS \
 Install:
 `pip install .`
 
-There are two commands:
+There are 3 commands:
 - `abacustest`
 - `collectdata`
 - `outresult`
 
-Please use `abacustest/collectdata/outresult -h` to get the usage
+Please use `abacustest/collectdata/outresult -h` to get the usages
 
 ## abacustest
 ```
