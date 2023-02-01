@@ -10,13 +10,13 @@ There are 3 commands:
 
 Please use `abacustest/collectdata/outresult -h` to get the usages
 
-## abacustest
+## 1. abacustest
 ```
 usage: abacustest [-h] [-p PARAM] [-u USER] [-s SAVE] [--override OVERRIDE] [--outinfo OUTINFO]. 
 ```
 Two files are needed as input: job.json and user.json
 
-### job.json
+### 1.1 job.json
 This file defines the detail of the jobs. \
 An example is like:
 ```
@@ -100,7 +100,7 @@ An example is like:
   
     - `post_dft`: define the detail of post processing, and now all examples will be put at one same place. The usage of key `ifurn`,`image`,`bohrium`,`command`,`outputs` are same as those in `run_dft`. Key `script` is to define the files used in this step.
 
-### user.json
+### 1.2 user.json
 This file defines the detail of the account information to Bohrium. \
 An example is like: 
 ```
@@ -112,13 +112,13 @@ An example is like:
 ```
 If you do not use Bohrium, this file and the keys is also needed, but the values are not matter.
 
-### submit a test
+### 1.3 submit a test
 ```
 abacustest -p job.json -u user.json -s result/test
 ```
 
 
-## collectdata
+## 2. collectdata
 ```
 usage: collectdata [-h] [-j [JOBS [JOBS ...]]] [-t {0,1,2}] [-p PARAM] [-o OUTPUT] [--outparam [OUTPARAM]]
 ```
@@ -137,7 +137,7 @@ Only one key "PARAM" is recongnized by `collectdata`, the value is a list of key
 If the value of one key (such as "INPUT") is a dictionary, you can write as {key: [key1_in_dict, key2_in_dict]}. \
 The results will be save as json type, and you can define the file name by `-o`.
 
-### Get the keys
+### 2.1 Get the keys
 You can set `--outparam` to print out all of the keys of one type. Such as: `collectdata --outparam 1 -t 0` will print out the keys of ABACUS:
 ```
              version:	           Abacus.GetVersion()	the version of ABACUS
@@ -148,7 +148,7 @@ You can set `--outparam` to print out all of the keys of one type. Such as: `col
 ```
 
 
-## outresult
+## 3. outresult
 ```
 usage: outresult [-h] [-p PARAM]
 ```
@@ -157,6 +157,6 @@ print out the results as table.
 
 
 
-## example
+## 4. example
 some exmaples
 
