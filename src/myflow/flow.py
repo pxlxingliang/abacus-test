@@ -17,17 +17,18 @@ def ParamParser(param):
         if v : alljobs[k] = {}
     for k in alljobs:
         if k not in param['param']:
-            print("%s is not set in param,skip" % k)
+            comm.printinfo("%s is not set in param,skip" % k)
             continue
         if "run_dft" not in param['param'][k]:
-            print("run_dft is not set for param/%s" % k)
+            comm.printinfo("run_dft is not set for param/%s" % k)
             sys.exit(1)
         if "post_dft" not in param['param'][k]:
-            #print("post_dft is not set for param/%s" % k)
+            #comm.printinfo("post_dft is not set for param/%s" % k)
             param['param'][k]["post_dft"] = {"ifrun":False}
 
         alljobs[k]["run_dft"] = param['param'][k]["run_dft"]
         alljobs[k]["post_dft"] = param['param'][k]["post_dft"]
+        alljobs[k]["save_path"] = param['param'][k].get("save_path",None)
         
     globV.set_value("ABBREVIATION",param.get('ABBREVIATION',{}))
         
@@ -54,7 +55,7 @@ def MakeSaveFolder(storefolder=None):
             n += 1
             bk = storefolder + ".bk%d" % n
         os.rename(storefolder,bk)
-        print("Folder %s is exist, rename to %s" % (storefolder,bk))
+        comm.printinfo("Folder %s is exist, rename to %s" % (storefolder,bk))
         os.makedirs(storefolder)
     
 def WriteParamUserFile(storefolder=None,override=False):
@@ -80,15 +81,15 @@ def WriteParamUserFile(storefolder=None,override=False):
 def set_env(param):
     globV.set_value("OUTINFO", param.outinfo)
     globV.set_value("OVERRIDE", param.override)
-    comm.printinfo("Set enviroment ...")
+    comm.printinfo("\nSet enviroment ...")
 
     comm.printinfo(param)
     if not os.path.isfile(param.user):
-        print("ERROR: Can not find the bohrium account setting file '%s' " % param.user)
+        comm.printinfo("ERROR: Can not find the bohrium account setting file '%s' " % param.user)
         sys.exit(1)
 
     if not os.path.isfile(param.param):
-        print("ERROR: Can not find the test setting file '%s' " % param.param)
+        comm.printinfo("ERROR: Can not find the test setting file '%s' " % param.param)
         sys.exit(1)
 
     globV.set_value("PARAM_FNAME", os.path.split(param.param)[1])
@@ -111,45 +112,50 @@ def set_env(param):
 
     globV.set_value("HOST", config["host"])
 
-def waitrun(wf):
+def waitrun(wf,stepnames,allsave_path):
     wfid = wf.id
-    print("\nResults will be downloaded to %s\n" % globV.get_value("RESULT"))
-    hasmakefolder = False
-    allstepnames = globV.get_value("STEPNAME")
+    #comm.printinfo("\nResults will be downloaded to %s\n" % globV.get_value("RESULT"))
+    makedfolder = []
+    allstepnames = set(stepnames)
+    finishstep = []
     hasdownload = False
+    #print(stepnames)
     while True:
-        if len(allstepnames) == 0:
+        if len(finishstep) == len(stepnames):
             return
-        for i in allstepnames:
-            step = wf.query_step(name = i)
-            if len(step) > 0: step = step[0]
-            else: continue
-            if step.phase not in ["Pending","Running"]:
-                allstepnames.remove(i)
-            else:
-                continue
-            if step.phase != 'Succeeded':
-                print("%s is not Succeeded, please check on: %s, workflow ID is: %s" %
-                      (i,globV.get_value("HOST"),wfid))
+        for i,ia in enumerate(allstepnames):
+            steps = wf.query_step(name = ia)
+            #comm.printinfo("i:%d ia:%s step number: %d" % (i,ia,len(steps)))
+            if len(steps) > 0: 
+                idx = -1
+                for i,step in enumerate(steps):
+                    idx += stepnames[idx+1:].index(ia) + 1   #find the idx of ia in stepnames, to get the savepath
+                    save_path = allsave_path[idx] if allsave_path[idx] != None else globV.get_value("RESULT")
+                    if step.name in finishstep:
+                        continue
+                    if step.phase in ["Pending","Running"]:
+                        continue
+                    finishstep.append(step.name) 
 
-            if True:
-                if not hasmakefolder:
-                    MakeSaveFolder()
-                    WriteParamUserFile()
-                    hasmakefolder = True
-
-                print("%s is finished, download the results!" % i)
-                download_artifact(step.outputs.artifacts["outputs"],path=globV.get_value("RESULT"))
-                hasdownload = True
+                    if save_path not in makedfolder:
+                        MakeSaveFolder(save_path)
+                        WriteParamUserFile(storefolder=save_path)
+                        makedfolder.append(save_path)
+                    comm.printinfo("%4d/%4d: %s is finished, download the results to %s!" % (len(finishstep), len(stepnames),step.name,save_path))
+                    if step.phase != 'Succeeded':
+                        comm.printinfo("    This job is not Succeeded, please check on: %s, workflow ID is: %s" %
+                              (globV.get_value("HOST"),wfid))
+                    download_artifact(step.outputs.artifacts["outputs"],path=save_path)
+                    hasdownload = True
         time.sleep(4)
 
     if hasdownload:
-        print("Results are downloaded to %s\n" % globV.get_value("RESULT"))
+        comm.printinfo("Results are downloaded to %s\n" % globV.get_value("RESULT"))
 
 def Parser():
-    print("Parse commands ...")
+    comm.printinfo("\nParse commands ...")
     parser = argparse.ArgumentParser(description="This script is used to run a testing")
-    parser.add_argument('-p', '--param', type=str, default="param.json",help='the parameter setting file')
+    parser.add_argument('-p', '--param', type=str, default="job.json",help='the job setting file, default is job.json')
     parser.add_argument('-u', '--user', type=str, default="user.json",help='the file for bohrium account information, default is "user.json"')
     parser.add_argument('-s', '--save', type=str, default=None,help='the folder where the results will be put in, default: result/date_of_today (e.g. result/20230101)')
     parser.add_argument('--override', type=int, default=1,help="when the save folder exists, if override it. 0: no, 1: yes. ")
@@ -160,13 +166,14 @@ def RunJobs():
     param = Parser()
     set_env(param)
     alljobs = ParamParser(json.load(open(param.param)))
-    allstep = dflowOP.ProduceAllStep(alljobs)
+    allstep,stepname,allsave_path = dflowOP.ProduceAllStep(alljobs)
     
-    wf = Workflow(name="abacus-test")
+    wf = Workflow(name="abacustest")
     wf.add(allstep)
     wf.submit()
-    print("You can track the flow by using your browser to access the URL:\n %s" % globV.get_value("HOST"))
+    comm.printinfo("job ID: %s" % wf.id)
+    comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % globV.get_value("HOST"))
 
-    waitrun(wf)
+    waitrun(wf,stepname,allsave_path)
         
 

@@ -1,0 +1,54 @@
+{
+"allresults":{
+	"example_name":["REFERENCE/plusu/0*"],
+	"example_name_layer":-1,
+	
+   	"type_name": ["abacus","abacus-u","vasp5.4.4","vasp-u"],
+    	"result":[["20230129/plusu/0*/abacus/result.json"],
+              ["20230129/plusu/0*/abacus-u/result.json"],
+              ["REFERENCE/plusu/0*/vasp/result.json"],
+              ["REFERENCE/plusu/0*/vasp-u/result.json"]
+	],
+
+	"outparams":[
+		["natom",["natom","natom"],0],
+		["ecutwfc(eV)",["INPUT/ecutwfc","encut"],1],
+		["sigma(Ry)",["INPUT/smearing_sigma","'sigma'/13.6056"],3],
+		["k_points",["kpt","kpt"],-1],
+        	["ibzk",["ibzk","ibzk"],0],
+        	["nelec",["nelec","nelec"],1],
+        	["nband",["nbands","nbands"],0],
+        	["SCF_steps",["scf_steps","scf_steps"],0],
+        	["Ttotal(s)",["total_time","total_time"],2],
+        	["Tstress(s)",["stress_time","stress_time"],2],
+		["tot_mag",["total_mag","total_mag"],1],
+		["band_gap(eV)",["band_gap","band_gap"],2],
+		["converge",["converge","converge"],0],
+		["NormalEnd",["normal_end","normal_end"],0],
+		["MaxForceDiff",["force","force"],2],
+		["MaxStressDiff",["stress","stress"],1]
+	],
+	"type_idx":[0,0,1,1],
+
+	"outparams_expand":{
+            "MaxForceDiff":["max(abs('0'-'2'))","max(abs('1'-'3'))","",""],
+            "MaxStressDiff": ["max(abs('0'-'2'))","max(abs('1'-'3'))","",""]
+	},
+
+	"outparams_command":[
+		"MaxForceDiff:  The maximum absolute force difference between ABACUS and VASP, and ABACUS-U and VASP-U",
+		"MaxStressDiff: The maximum absolute stress difference between ABACUS and VASP, and ABACUS-U and VASP-U"
+	],
+
+	"metrics":[
+		{"name":"GM of the inverse of total_time",
+		 "param_name":"Ttotal(s)",
+		 "method":"iGM",
+		 "condition": "'converge' and 'NormalEnd'"},
+		{"name":"GM of the inverse of SCF steps",
+         	"param_name":"SCF_steps",
+         	"method":"iGM",
+		"condition": "'converge'"}
+	]
+}	
+}

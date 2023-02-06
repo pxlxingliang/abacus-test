@@ -12,6 +12,13 @@ class Abacus(ResultAbacus):
                     if version[0].lower() != 'v':
                         print("Unknow version of '%s'" % version)
                     self['version'] = version
+                    
+    @ResultAbacus.register(ncore="the mpi cores")
+    def GetNcore(self):
+        for line in self.LOG:
+            if "DSIZE =" in line:
+                self['ncore'] = int(line.split()[-1])
+                return
     
     @ResultAbacus.register(normal_end="if the job is nromal ending")
     def GetNormalEnd(self):
@@ -89,6 +96,9 @@ class Abacus(ResultAbacus):
                 self['nbands'] = int(line.split()[2])
             elif 'charge density convergence is achieved' in line:
                 self['converge'] = True
+            elif 'convergence has NOT been achieved!' in line or\
+                'convergence has not been achieved' in line:
+                self['converge'] = False
             elif 'total magnetism (Bohr mag/cell)' in line:
                 total_mag = float(line.split()[-1])
             elif 'absolute magnetism' in line:
@@ -157,10 +167,9 @@ class Abacus(ResultAbacus):
                         force.append(float(k))
                     j += 1
                 getforce = True
-        if stress != None:
-            self['stress'] = stress
-        if force != None:
-            self['force'] = force
+
+        self['stress'] = stress
+        self['force'] = force
     
     @ResultAbacus.register(band_gap = "band gap of the system")
     def GetBandGapFromLog(self):
@@ -242,3 +251,19 @@ class Abacus(ResultAbacus):
             self['scf_steps'] = len(scftime)
             self['scf_time_each_step'] = scftime
 
+    @ResultAbacus.register(atom_mag="list, the magnization of each atom")
+    def GetAtomMag(self):
+        mullikenf = os.path.join(os.path.split(self.LOGf)[0],"mulliken.txt")
+        if not os.path.isfile(mullikenf):
+            self['atom_mag'] = None
+            return
+        
+        atom_mag = []
+        with open(mullikenf) as f1: lines = f1.readlines()
+        for line in lines:
+            if "Total Magnetism on atom" in line:
+                atom_mag.append(float(line.split()[-1]))
+        self['atom_mag'] = None if len(atom_mag) == 0 else atom_mag
+        
+            
+            

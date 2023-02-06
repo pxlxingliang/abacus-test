@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os,sys
-sys.path.append('myflow')
-from .myflow import flow,globV
+sys.path.append(os.path.split(__file__)[0])
+from myflow import flow,globV
 from dflow.python import upload_packages
 import numpy
 upload_packages.append(os.path.split(numpy.__file__)[0])

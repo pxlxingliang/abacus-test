@@ -9,6 +9,13 @@ xfml = comm.XmlFindMultiLayer
 
 class Qe(ResultQe):
 
+    @ResultQe.register(version="the version of QE",
+                       ncore = "the mpi cores")
+    def GetGeneralInfo(self):
+        if self.XMLROOT != None:
+            self['version'] = self.XMLROOT.find("general_info/creator[@name='PWSCF']").attrib['VERSION']
+            self['ncore'] = self.XMLROOT.find("parallel_info/nprocs").text
+    
     @ResultQe.register(natom="total atom number",
                        nbands="band number",
                        ecutwfc="energy cutoff in Ry",
