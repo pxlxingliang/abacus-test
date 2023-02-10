@@ -148,6 +148,26 @@ def ProduceExpandDic(allresult,example_idx):
     return expand_dic
 
 def OutParam(allresult,split_example="----"):
+    '''
+    allresult = {
+        "result": [[type1_result1,type1_result2,...],[type2_result1,type2_result2,..],...],
+        "type_name": [str],
+        "example_name": ["example1","example2",...],
+        "outparams": [[param1_name_in_table, [param1_name_in_typeAresult,param_name1_in_typeBresult,...], significant_digit_number, False],
+                      [param2_name_in_table, [param2_name_in_typeAresult,param_name2_in_typeBresult,...], significant_digit_number, False],
+                      ...],
+        "type_idx": [],
+        "outparams_expand": {str:[]},
+        "outparams_command": ""
+    }
+    
+    type_name: the name of each job type.
+    type_result: is a dictionary, whose key is param name.
+    type_idx: ntype elemens. Each element is the index outparams[][1], which indicate the param name in this job type.
+    outparams_expand: a dictionary. The key is outparams[][0], and value is a list of each job type. You can define the calculation between different job types.
+                        Such as: to calculate the enery difference between job type 0 and 1, and show in line of type0, you can write as {"energy": ["'0' - '1'",""]}
+    
+    '''
     outtable = [['example']]
     param = allresult.get("outparams")
     for i in param:
@@ -159,12 +179,12 @@ def OutParam(allresult,split_example="----"):
     results = allresult.get("result",[[]])
     example_name = allresult.get("example_name",[])
     type_idx = allresult.get("type_idx",[])
-    results_final_value = [[] for i in range(len(results))] #[[type1_example1_dict, type1_example2_dict],[type2_...]]
+    allparam_value = [[] for i in range(len(results))] #[[type1_example1_dict, type1_example2_dict],[type2_...]]
     for i in range(len(results[0])):  #i for example
         expand_dic = ProduceExpandDic(allresult,i)
         for j in range(len(results)):  # j for job type
             iexample = [example_name[i]] if j==0 else [" "]   #add example name
-            results_final_value[j].append({})
+            allparam_value[j].append({})
             for iparam in param:
                 if iparam[0] not in expand_dic:
                     value = GetParamValue(results[j][i],iparam[1][type_idx[j]],example_name[i])
@@ -176,8 +196,8 @@ def OutParam(allresult,split_example="----"):
                         value = " "
                 if iparam[-1] != None:
                     iexample.append(value) 
-                #print(results_final_value[j][-1])
-                results_final_value[j][-1][iparam[0]] = value if value != " " else None 
+                #print(allparam_value[j][-1])
+                allparam_value[j][-1][iparam[0]] = value if value != " " else None 
             outtable.append(iexample)
         if split_example != None: outtable.append(ncol * [split_example])
     
@@ -194,7 +214,7 @@ def OutParam(allresult,split_example="----"):
     if len(command) > 0:
         cc += "\n".join(command) + "\n"
     cc += TableOutput(outtable[:-1],maxlen=18,digit=digit,left=left)
-    return cc,results_final_value
+    return cc,allparam_value
 
 class MetricsMethod:
     @classmethod
@@ -234,7 +254,7 @@ class MetricsMethod:
     def iGM(self,valuelist):
         return self.CalGM(valuelist,lambda x: 1/x)
         
-def OutMetrics(allresults,result_final_value):
+def OutMetrics(allresults,allparam_value):
     type_name = allresults.get("type_name")
     example_name = allresults.get("example_name",[])
     results = allresults.get("result",[[]])
@@ -245,12 +265,18 @@ def OutMetrics(allresults,result_final_value):
     method_list = MetricsMethod.allmethod()
     hasnotsupportmethod = False
     notsupportmethod = []
+    command = []
+    allmetric_value = {}
     for metric in metrics:
         name = metric.get("name")
         paramname = metric.get("param_name") 
         method = metric.get("method")
         condition = metric.get("condition","").strip() 
         doclean = metric.get("doclean",True)
+        if "command" in metric:
+            icommand = metric["command"].strip()
+            if icommand != "":
+                command.append("%s:%s\n" % (name,icommand))
         #if paramname not in outparams_paramname:
         #    print("key '%s' defined in 'metrics/param_name' is not defined in 'outparams', skip it" % paramname) 
         #    continue
@@ -265,11 +291,11 @@ def OutMetrics(allresults,result_final_value):
             for j in range(len(results)):
                 tmp_name = type_name[j] + "/" + example_name[i]
                 if condition == "":
-                    value = GetParamValue(result_final_value[j][i],paramname,tmp_name)
+                    value = GetParamValue(allparam_value[j][i],paramname,tmp_name)
                 else:
-                    conditionvalue = GetParamValue(result_final_value[j][i],condition,tmp_name)
+                    conditionvalue = GetParamValue(allparam_value[j][i],condition,tmp_name)
                     if conditionvalue:
-                        value = GetParamValue(result_final_value[j][i],paramname,tmp_name)
+                        value = GetParamValue(allparam_value[j][i],paramname,tmp_name)
                     else:
                         value = None
                 if value == None:
@@ -296,6 +322,7 @@ def OutMetrics(allresults,result_final_value):
             else:
                 outtable[-1].append(metric_value[i])
         outtable[-1] += [nexample] + [metric_value[0]]
+        allmetric_value[name] = metric_value
         
     if hasnotsupportmethod:
         print("Method %s are not supportted now.\nSupported methods are:\n%s" % (" ".join(notsupportmethod),MetricsMethod.allmethod_str()))
@@ -307,8 +334,9 @@ def OutMetrics(allresults,result_final_value):
     cc = "\nSome key metrics\nThe middle %d columns are relative value devided by %s\n" % (len(type_name),type_name[0])
     cc += "The last column is the calculated value of %s\n" % type_name[0]
     cc += TableOutput(outtable,maxlen=50,digit=digit,left=left,scintific=scintific)
+    cc += "".join(command)
     #cc += "Notice: the exmaples with value of None for some job type will be excluded.\n"
-    return cc
+    return cc,allmetric_value    
 
 def GetAllResults(jsonf):
     #allresults = {"example_name":[examplenames], "type_name":[types],"result": [result1,result2,result3,....] }
@@ -364,6 +392,7 @@ def GetAllResults(jsonf):
     metrics = allresults.get("metrics",[])
     outparams_expand = allresults.get("outparams_expand",{})
     outparams_command = allresults.get("outparams_command",{})
+    plot = allresults.get("plot",[])
     
     return {"example_name": example_name, 
             "type_name": type_name, 
@@ -372,33 +401,27 @@ def GetAllResults(jsonf):
             "outparams": outparams,
             "outparams_expand":outparams_expand,
             "outparams_command":outparams_command,
-            "metrics": metrics}
+            "metrics": metrics,
+            "plot":plot}
 
-def CleanData(list2):
-    length = len(list2[0])
-    for i in range(len(list2[0])):
-        for j in range(len(list2)):
-            if list2[j][i] == None:
-                for k in range(len(list2)):
-                    del list2[k][i-length]
-                break
-    return list2
-
-def Parser():
-    parser = argparse.ArgumentParser(description="This script is used to output the summary of results")
+def OutResultArgs(parser):  
+    parser.description = "This script is used to output the summary of results"
     parser.add_argument('-p', '--param', type=str, default=None, help='the parameter file, should be .json type')
-    return parser.parse_args()
+    return parser
 
-
-def main():
-    param = Parser()
+def outresult(param):
     if not CheckFile(param.param):
         sys.exit(1)
         
     allresults = GetAllResults(param.param)
-    cc_outparam,result_final_value = OutParam(allresults)
-    cc_outmetrics = OutMetrics(allresults,result_final_value)
+    cc_outparam,allparam_value = OutParam(allresults)
+    cc_outmetrics,allmetric_value = OutMetrics(allresults,allparam_value)
     print(cc_outmetrics,cc_outparam)
+
+def main():
+    parser = argparse.ArgumentParser()
+    outresult(OutResultArgs(parser).parse_args())
+    
 if __name__ == "__main__":
     main()
 

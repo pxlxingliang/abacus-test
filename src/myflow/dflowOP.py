@@ -33,6 +33,31 @@ from dflow.python import (
     Slices
 )
 
+from dflow import config, s3_config
+from dflow.plugins import bohrium
+from dflow.plugins.bohrium import TiefblueClient
+
+def SetBohrium(private_set,debug=False):  
+    if debug:
+        config["mode"] = "debug"
+    else:
+        #config["host"] = "https://workflows.deepmodeling.com"
+        #config["k8s_api_server"] = "https://workflows.deepmodeling.com"
+        
+        config["host"] = "https://workflow.test.dp.tech"
+        s3_config["endpoint"] = "39.106.93.187:30900"
+        config["k8s_api_server"] = "https://60.205.59.4:6443"
+        config["token"] = "eyJhbGciOiJSUzI1NiIsImtpZCI6IlhMRGZjbnNRemE4RGQyUXRMZG1MX3NXeG5TMzlQTnhnSHZkS1lGM25SODAifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJhcmdvIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImFyZ28tdG9rZW4tajd0a3MiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiYXJnbyIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjBhNzI1N2JhLWZkZWQtNGI2OS05YWU2LTZhY2U0M2UxNjdlNiIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDphcmdvOmFyZ28ifQ.Gg7pctEsZC-2ZkFjHv-q21mOzBeuThocTMoNV2ZaLtOuxvXQOiVQhS8nq8nyPBiygJ3okOXKPhhrEH8Oe0kWuYtEXc88e1kX_MarQLCXLYSN53cdTLlgZQn01hHaHLO6KJubgU8mymNKj260GjDSf35a7wt8NgQIwm9ftqEwYuPXrm2yZEnhtbuNgfdpLIhw_DQxLXvwjTiny7vwR7ANpHfaynf2l0E12il3C7xeTP-lcPUm9BSFObO3icUbz67n0qsz3j8QWxRdH-jTzIr7tTvFP8SpdJbvMBmI4fgU01FR5CnWx296I9bzXjbuNefZGNu9ZuJ5RLiQDt5xmbTweQ"
+        
+        bohrium.config["username"] = private_set.get('lbg_username','')
+        bohrium.config["password"] = private_set.get('lbg_password','')
+        bohrium.config["project_id"] = private_set.get('project_id','')
+        s3_config["repo_key"] = "oss-bohrium"
+        s3_config["storage_client"] = TiefblueClient()
+    
+    globV.set_value("HOST", "https://workflows.deepmodeling.com")
+    globV.set_value("storage_client", s3_config["storage_client"])
+
 class RunDFT(OP):
     def __init__(self):
         pass
@@ -41,15 +66,17 @@ class RunDFT(OP):
     def get_input_sign(cls):
         return OPIOSign(
             {
-                "example": Artifact(Path),
+                "abacustest_example": Artifact(Path),
                 "command": str,
                 "sub_path": [str],
+                "sub_save_path": str,
                 "collectdata_script": Artifact(Path),
                 "collectdata_pythonlib": Artifact(Path),
                 "collectdata_pythonlib_folders":[str],
                 "collectdata_lib": Artifact(Path),
                 "collectdata_command": str,
-                "outputfiles":[str]
+                "outputfiles":[str],
+                "sum_save_path_example_name": bool
             }
         )
 
@@ -75,21 +102,59 @@ class RunDFT(OP):
                 bk = sfile + ".bak%d" % n
             return bk
 
+        print(op_in["abacustest_example"])
+        print(op_in["sub_path"])
+        print(op_in["sub_save_path"])
+        example_pathname = "dflow_abacustest_example_"
         outpath = []
-        for sub_path in op_in["sub_path"]:
-            work_path = os.path.join(op_in["example"],sub_path)
+        root_path_0 = str(op_in["abacustest_example"]).split(example_pathname)[0]
+        sub_save_path = str(op_in['sub_save_path'])
+
+        for isub,sub_path in enumerate(op_in["sub_path"]):
+            root_path = os.path.join(root_path_0,example_pathname+str(isub))
+            example_path = root_path
+            if bool(op_in["sum_save_path_example_name"]):
+                sub_save_path = os.path.join(op_in['sub_save_path'],sub_path)
+            print("sub_save_path",sub_save_path)
+            if sub_save_path != "":
+                os.chdir(root_path)
+                sub_save_path_list = sub_save_path.split('/')
+
+                #if exist folder name that is same as sub_save_path, create a tmp sub_save_path
+                #and then rename the tmp to sub_save_path
+                hasexist = False
+                if os.path.isdir(sub_save_path_list[0]): 
+                    sub_save_path_list0 = sub_save_path_list[0]
+                    sub_save_path_list[0] = GetBakFile(sub_save_path_list[0])
+                    sub_save_path_tmp = "/".join(sub_save_path_list)
+                    hasexist = True
+                else:
+                    sub_save_path_tmp = sub_save_path
+                os.makedirs(sub_save_path_tmp)
+                for idir in os.listdir("."):
+                    if Path(idir) not in [Path(".dflow"),Path(sub_save_path_list[0])]: 
+                        shutil.move(idir,sub_save_path_tmp)
+                if hasexist:
+                    os.replace(sub_save_path_list[0],sub_save_path_list0)
+                
+                example_path = os.path.join(root_path,op_in['sub_save_path'])
+
+            work_path = os.path.join(example_path,sub_path)
+                
             print("work path:",work_path)
             log = ""
             os.chdir(work_path)
             if op_in["command"].strip() != "":
+                print("BEGIN THE DFT RUNNING...")
                 log += os.popen("(%s) 2>&1" % op_in["command"]).read()
+                print(log)
         
             os.chdir(work_path)
             script_folder = "SCRIPT"
             if op_in["collectdata_script"] != None:
                 if os.path.isdir(script_folder):
                     os.rename(script_folder,GetBakFile(script_folder))
-                script_source_path = str(op_in["collectdata_script"]).split("collectdata_script")[0] + "collectdata_script"
+                script_source_path = str(op_in["collectdata_script"]).split("dflow_collectdata_script_0")[0] + "dflow_collectdata_script_0"
                 shutil.copytree(script_source_path,script_folder)
 
             cmd = ''
@@ -122,11 +187,13 @@ class RunDFT(OP):
                         break
                 cmd += "export PATH=%s:$PATH && " % tpath
                 os.chmod(script,0o777)
+                shutil.copy(script,os.path.join(tpath,"collectdata"))
             
             if op_in["collectdata_command"] != "":
                 cmd += op_in["collectdata_command"]
                 log += "\ncommand:" + cmd + "\n"
                 log += os.popen("(%s) 2>&1" % cmd).read()
+                print(log)
             
             os.chdir(work_path)
             logfile_name = "STDOUTER"
@@ -267,43 +334,45 @@ def ProduceExecutor(param):
                 },
             image_pull_policy = "IfNotPresent"
         )
-        comm.printinfo("set bohrium: %s"%str(bohrium_set))
-        return dispatcher_executor
+        #comm.printinfo("set bohrium: %s"%str(bohrium_set))
+        return dispatcher_executor,bohrium_set
     else:
         return None
 
-def ProduceRunDFTStep(examples,param,name,DoSlices=True):
-    collectdata_scripts = []
-    for i in param.get("collectdata_script",[]):
-        collectdata_scripts += glob.glob(i)
-    
-    #define OP
-    image = globV.get_value("ABBREVIATION").get(param['image'],param['image'])
-    comm.printinfo("image: %s" % image)
+def ProduceRunDFTStep(step_name,
+                      command,   #command of do dft running
+                      example_artifact, 
+                      image, 
+                      collectdata_scripts = [], 
+                      collectdata_command = "", 
+                      collectdata_pythonlib = [], 
+                      outputs=[], 
+                      executor = None, 
+                      example_names =[""],
+                      DoSlices=True,  
+                      sub_save_path = "",
+                      datahub = False):
+    #define template
     if DoSlices:
         pt = PythonOPTemplate(RunDFT,image=image,
                     slices=Slices(sub_path = True,
-                                  input_artifact=["example"],
+                                  input_artifact=["abacustest_example"],
                                   output_artifact=["outputs"]))
         sub_path = [""]
     else:
         pt = PythonOPTemplate(RunDFT,image=image)
-        if len(examples) == 1:
-            sub_path = [""]
-        else:
-            sub_path = list(examples)
+        sub_path = list(example_names)
 
-    #define artifacts
-    artifacts = {"example": upload_artifact(examples,archive=None)} 
+    #define example artifacts
+    artifacts = {"abacustest_example": example_artifact} 
     
+    #collectdata_scripts
     if len(collectdata_scripts) > 0:
         artifacts["collectdata_script"] = upload_artifact(collectdata_scripts)
     else:
         pt.inputs.artifacts["collectdata_script"].optional = True
         
-    collectdata_pythonlib = []
-    for i in param.get("collectdata_pythonlib",[]):
-        collectdata_pythonlib += glob.glob(i)
+    #collectdata_pythonlib    
     if len(collectdata_pythonlib) > 0:
         artifacts["collectdata_pythonlib"] = upload_artifact(collectdata_pythonlib)
         if len(collectdata_pythonlib) == 1:
@@ -313,22 +382,23 @@ def ProduceRunDFTStep(examples,param,name,DoSlices=True):
     else:
         pt.inputs.artifacts["collectdata_pythonlib"].optional = True
         collectdata_pythonlib_folders = [""]
-        
+    
+    #upload collectdata_lib    
     abacustestpath = "/".join(__file__.split('/')[:-2])
     artifacts["collectdata_lib"] = upload_artifact(abacustestpath)
     
     #produce step
-    step = Step(name=name,template=pt,
-            parameters = {"command": param['command'], "sub_path":sub_path,
-                          "collectdata_command":param.get("collectdata_command",""),
+    step = Step(name=step_name,template=pt,
+            parameters = {"command": command, "sub_path":sub_path,
+                          "sum_save_path_example_name": datahub,
+                          "sub_save_path": sub_save_path,
+                          "collectdata_command":collectdata_command,
                           "collectdata_pythonlib_folders": collectdata_pythonlib_folders,
-                          "outputfiles":param.get("outputs",[])},
+                          "outputfiles":outputs},
             artifacts =  artifacts,continue_on_failed=True)
 
-    executor = ProduceExecutor(param)
     if executor != None:
         step.executor = executor
-
     return step
 
 def ProducePostDFTStep(param,data):
@@ -339,6 +409,7 @@ def ProducePostDFTStep(param,data):
         command (str): the command to run the scripts    
     '''
     image = globV.get_value("ABBREVIATION").get(param['image'],param['image'])
+    comm.printinfo("image: %s" % image)
     pt = PythonOPTemplate(PostDFT,image=image)
     
     artifacts = {"data": data}
@@ -355,124 +426,326 @@ def ProducePostDFTStep(param,data):
                           "outputfiles":param.get("outputs",[])},
             artifacts = artifacts,continue_on_failed=True)
 
-    executor = ProduceExecutor(param)
+    executor,bohrium_set = ProduceExecutor(param)
     if executor != None: step.executor = executor
     return step
 
-def FindExamples(example):
-    #use glob.glob find all examples
+def GetBakFile(sfile):
+    n = 1
+    bk = sfile + ".bak%d" % n
+    while os.path.exists(bk):
+        n += 1
+        bk = sfile + ".bak%d" % n
+    return bk
+
+def ProduceRadomPath(tmp_path):
+    import random,string
+    workpath = os.path.join(tmp_path,"." + "".join(random.sample(string.ascii_letters+string.digits,11)))
+    while os.path.isdir(workpath):
+        workpath = os.path.join(tmp_path,"." + "".join(random.sample(string.ascii_letters+string.digits,11)))
+    return workpath
+    
+def RunPostDFTLocal(work_path, save_path, param):
+    cwd = os.getcwd()
+    command = param.get("command","")
+    scripts = []
+    for iscript in param.get("script",[]):
+        scripts += glob.glob(iscript)
+
+    bkf = False
+    if len(scripts) > 0:
+        SCRIPT = os.path.join(work_path,"SCRIPT")
+        if os.path.isdir(SCRIPT):
+            bkf = GetBakFile(SCRIPT)
+            os.rename(SCRIPT,bkf)
+        os.makedirs(SCRIPT)
+        for iscript in scripts:
+            if os.path.isfile(iscript):
+                shutil.copy(iscript,SCRIPT,follow_symlinks=True)
+            elif os.path.isdir(iscript):
+                shutil.copytree(iscript,SCRIPT,symlinks=False,ignore_dangling_symlinks=True,dirs_exist_ok=True)
+
+    if command == None or command == False or str(command).strip() == "":
+        pass
+    else:
+        comm.printinfo(os.popen("(%s) 2>&1" % command).read()) 
+        
+    os.chdir(work_path)
+    files_need_move = [] 
+    outputs = param.get("outputs",[])
+    if len(outputs) > 0:
+        for ifile in outputs:
+            for iifile in glob.glob(ifile):
+                files_need_move.append(iifile)
+    
+    os.chdir(cwd)
+    if len(files_need_move) == 0:
+        shutil.copytree(work_path,save_path)
+    else:
+        for ifile in files_need_move:
+            path,file_tmp = os.path.split(ifile)
+            new_path = os.path.join(save_path,path)
+            if not os.path.isdir(new_path):
+                os.makedirs(new_path)
+            shutil.move(os.path.join(work_path,ifile),new_path)
+    shutil.rmtree(work_path)
+    return
+
+def FindLocalExamples(example):
+    #use glob.glob find all examples, and transfer to artifact
     #example = [*[*],*]
-    examples = []      
+    examples = []    
+    examples_name = []  
     for i in example:
         if isinstance(i,list):
             example_tmp = []
             for j in i:
                 example_tmp += glob.glob(j)
             if len(example_tmp) > 0:
-                examples.append(example_tmp)
+                examples.append([upload_artifact(i,archive=None) for i in example_tmp])
+                examples_name.append(example_tmp)
         elif isinstance(i,str):
-            examples += glob.glob(i)
+            for ii in glob.glob(i):
+                examples.append([upload_artifact(ii,archive=None)])
+                examples_name.append([ii])
         else:
             comm.printinfo(i,"element of 'example' should be a list, or str")
-    return examples
+            
+    return examples,examples_name
 
-def SplitGroup(examples,ngroup): 
+def GetURI(urn,privateset=None):
+    if privateset == None:
+        privateset = globV.get_value("PRIVATE_SET")
+    project = privateset.get("datahub_project")
+    gms_url = privateset.get("datahub_gms_url")
+    gms_token = privateset.get("datahub_gms_token")
+    bohrium_username = privateset.get("datahub_username")
+    bohrium_password = privateset.get("datahub_password")
+    
+    from dp.metadata import MetadataContext
+    from dp.metadata.utils.storage import TiefblueStorageClient
+    metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password)
+    with MetadataContext(project=project,endpoint = gms_url,token = gms_token,storage_client=metadata_storage_client) as context:
+        dataset = context.client.get_dataset(urn)
+        if dataset == None:
+            comm.printinfo("ERRO: can not catch the dataset for urn:'%s'. \nSkip it!!!\n" % urn)
+            return None,None
+        uri = str(dataset.uri)  
+    storage_client =  context.storage_client #globV.get_value("storage_client")
+    return uri,storage_client
+
+def ProduceArtifact(storage_client,uri,name):
+    tmp_artifact = []
+    tmp_name = []
+    #uri = "/12180/" + str(globV.get_value("PRIVATE_SET").get("project_id")) + "/" + uri
+    #print(uri)
+    res = storage_client.list(uri,recursive=False)
+    if len(res) == 0:
+        comm.printinfo("Can not find uri:%s" % uri)
+    else:
+        tmp_artifact.append(S3Artifact(key=res[0]))
+        tmp_name.append(name)
+        if len(res) > 1:
+            comm.printinfo("WARNING: more then one result for uri: %s, use the first one" % uri)
+        #comm.printinfo("example name: %s, uri: %s" % (name,uri) )
+        #download_artifact(tmp_artifact[0],path='result-test/test')
+        #sys.exit(1)
+    return tmp_artifact,tmp_name
+
+def FindDataHubExamples(example,urn):
+    examples,examples_name = [],[]
+    uri,storage_client = GetURI(urn)  
+    if uri == None:
+        return examples,examples_name
+    for ie in example:
+        if isinstance(ie,list):
+            tmp_artifact = []
+            tmp_name = []
+            for j in ie:
+                if j.strip() =="": continue
+                uri_tmp = uri + "/" + j
+                tmp_artifact1,tmp_name1 = ProduceArtifact(storage_client,uri_tmp,j)
+                tmp_artifact += tmp_artifact1
+                tmp_name += tmp_name1
+        elif isinstance(ie,str):
+            if ie.strip() == "": continue
+            uri_tmp = uri + "/" + ie
+            tmp_artifact,tmp_name = ProduceArtifact(storage_client,uri_tmp,ie)
+        else:
+            comm.printinfo(ie,"element of 'example' should be a list, or str")
+        
+        if len(tmp_artifact) > 0:
+            examples.append(tmp_artifact)    
+            examples_name.append(tmp_name)
+    return examples,examples_name
+
+def SplitGroup(examples,examples_name,ngroup): 
     #examples = [*[*],*]
     newexamples = [] 
+    newexamples_name = []
     se = 0
     mod = len(examples) % ngroup
     for i in range(ngroup):
         example_tmp = []
+        example_name_tmp = []
         add = 1 if mod > 0 else 0 
         ee = se + int(len(examples)/ngroup) + add
-        for ie in examples[se:ee]:
-            ie = ie if isinstance(ie,list) else [ie]
-            example_tmp += ie
+        for ie in range(se,ee):
+            example_tmp += examples[ie]
+            example_name_tmp += examples_name[ie]
         newexamples.append(example_tmp)
+        newexamples_name.append(example_name_tmp)
         
         if mod > 0: mod -= 1
         se = ee
-    return newexamples
+    return newexamples,newexamples_name
 
-def ProduceOneSteps(stepname,param):
-    if "run_dft" not in param:
-        return None,None,None
-    rundft_set = param["run_dft"]
-    if "post_dft" not in param or ("ifrun" in param["post_dft"] and not param["post_dft"]['ifrun']):
-        post_dft = False
-    else:
-        post_dft = True
-        model_output_artifact = S3Artifact(key="{{workflow.name}}/%s"%stepname) #if has post dft, put all dft results in one place
-    save_path = param.get("save_path",None)
+def ParseSavePath(save_path):
     if save_path != None:
         save_path = save_path.strip()
         if save_path == '':
             save_path = globV.get_value("RESULT")
     else:
         save_path = globV.get_value("RESULT")
+    return save_path
+
+def ParseSubSavePath(sub_save_path):
+    if sub_save_path == None:
+        sub_save_path = ""
+    elif isinstance(sub_save_path,str):
+        sub_save_path = sub_save_path.strip()
+        if Path(sub_save_path) == Path("."):
+            sub_save_path = ""
+    else:
+        comm.printinfo("the type of 'sub_save_path' should be 'str', but not '%s'. %s" % (type(sub_save_path),str(sub_save_path)))
+        sub_save_path = ""
+    return sub_save_path     
+
+def ParsePostDft(param,stepname):
+    post_dft = True
+    post_dft_local = False
+    model_output_artifact = None
+    if "post_dft" not in param or ("ifrun" in param["post_dft"] and not param["post_dft"]['ifrun']):
+        post_dft = False
+    else:
+        image = param["post_dft"].get("image")
+        if image == None or str(image).strip() == "":
+            post_dft_local = True
+        else:
+            model_output_artifact = S3Artifact(key="{{workflow.name}}/%s"%stepname) #if has post dft, save all dft results in one place
+    
+    return post_dft,post_dft_local,model_output_artifact
+    
+def ProduceOneSteps(stepname,param):
+    if "run_dft" not in param:
+        return None,None,None,None
+    rundft_set = param["run_dft"]
+    post_dft,post_dft_local,model_output_artifact = ParsePostDft(param,stepname)
+    save_path = ParseSavePath(param.get("save_path",None))
     
     steps = Steps(name=stepname+"-steps",
                   outputs=Outputs(artifacts={"outputs" : OutputArtifact()})) 
     #rundft
     allstepname = []
-    def step1(example_tmp,rundft,istep,DoSlices):
-        example_tmp.sort()
-        step1name = "%s-run-dft-%d"%(stepname,istep)
-        comm.printinfo("\n%s:\n    %s" % (step1name,"\n    ".join(example_tmp)))
-        step1_tmp = ProduceRunDFTStep(example_tmp,rundft,step1name,DoSlices=DoSlices)
-        if post_dft:
-            step1_tmp.template.outputs.artifacts["outputs"].save = [model_output_artifact]
-            step1_tmp.template.outputs.artifacts["outputs"].archive = None
-        else:
-            allstepname.append(step1name)
-        return step1_tmp
-    
+    all_save_path = []
     rundft_step = []
     istep = 1
-    comm.printinfo("\n%s" % stepname)
+    comm.printinfo("\n%s\nPreparing run_dft" % stepname)
     for rundft in rundft_set:
         if 'ifrun' in rundft and not rundft['ifrun']: continue
-        examples = FindExamples(rundft['example'])
-
+        
+        sub_save_path = ParseSubSavePath(rundft.get("sub_save_path",""))
+        executor,bohrium_set = ProduceExecutor(rundft)                   
         #split the examples to ngroup and produce ngroup step
+        example_source = rundft.get("example_source","local").strip()
+        if example_source == 'datahub':
+            examples,examples_name = FindDataHubExamples(rundft['example'],rundft["urn"])
+            datahub = True
+        else:
+            datahub = False
+            examples,examples_name = FindLocalExamples(rundft['example'])
+            if example_source != "local":
+                comm.printinfo("example_source should be local or datahub, but not %s, will find example on local" % example_source)
+                
         if len(examples) > 0:
+            image = globV.get_value("ABBREVIATION").get(rundft.get("image"),rundft.get("image"))
             ngroup = rundft.get("ngroup",0)
             if ngroup == None or ngroup < 1:
                 ngroup = len(examples)
 
-            for example_tmp in SplitGroup(examples,ngroup):
-                rundft_step.append(step1(example_tmp,rundft,istep,False))
+            for example_tmp,example_name_tmp in zip(*SplitGroup(examples,examples_name,ngroup)):
+                stepname_tmp = "%s-run-dft-%d"%(stepname,istep)
+                space = "\n" + (len(stepname_tmp)+2)*" "
+                comm.printinfo("%s: %s" % (stepname_tmp,space.join(example_name_tmp)))
+                step1_tmp = ProduceRunDFTStep(stepname_tmp,
+                      command = rundft.get("command"),   #command of do dft running
+                      example_artifact = example_tmp, 
+                      image = image, 
+                      collectdata_scripts = rundft.get("collectdata_scripts",[]), 
+                      collectdata_command = rundft.get("collectdata_command",""), 
+                      collectdata_pythonlib = rundft.get("collectdata_pythonlib",[]), 
+                      outputs=rundft.get("outputs",[]), 
+                      executor = executor, 
+                      example_names = example_name_tmp,
+                      DoSlices=False,  
+                      sub_save_path = sub_save_path,
+                      datahub = datahub)
+                
+                if post_dft and not post_dft_local:
+                    step1_tmp.template.outputs.artifacts["outputs"].save = [model_output_artifact]
+                    step1_tmp.template.outputs.artifacts["outputs"].archive = None
+                else:
+                    allstepname.append(stepname_tmp)
+                    all_save_path.append([save_path,sub_save_path])
+            
+                
+                rundft_step.append(step1_tmp)
                 istep += 1
+                
+            comm.printinfo("image: %s" % image) 
+            comm.printinfo("set bohrium: %s"%str(bohrium_set))   
+            comm.printinfo("results will be download to %s\n" % os.path.join(save_path,sub_save_path))
 
     if len(rundft_step) == 0:
         comm.printinfo("No examples matched in %s, skip it!" % stepname)
-        return None,None,None
+        return None,None,None,None
     steps.add(rundft_step)
     
     #post dft
-    if not post_dft:
+    if post_dft: comm.printinfo("\nPreparing post_dft")
+    post_dft_local_jobs = []
+    if not post_dft or post_dft_local:
         step3 = rundft_step[0]
         if isinstance(step3,list):
             step3 = step3[0]
+        if post_dft_local:
+            comm.printinfo("image is '%s', will run this step on local" % str(param["post_dft"].get("image","")))
+            post_dft_local_jobs = [save_path,param["post_dft"]]
     else:
         step3 = ProducePostDFTStep(param["post_dft"],model_output_artifact)
         steps.add(step3)
+        allstepname = [stepname]
+        all_save_path = [[save_path,""]]
 
     steps.outputs.artifacts['outputs']._from = step3.outputs.artifacts["outputs"]
     step = Step(name=stepname,template=steps)
-    return step,allstepname,save_path
+    return step,allstepname,all_save_path,post_dft_local_jobs
 
 def ProduceAllStep(alljobs):
     allstep = []
     allstepname = []
     allsave_path = []
+    postdft_local_jobs = []
+    test_name = []
     for k in alljobs:
-        step,stepname,save_path = ProduceOneSteps(k,alljobs[k])
+        step,stepname,save_path,postdft_local_job = ProduceOneSteps(k,alljobs[k])
         if step == None:
             continue  
         allstep.append(step)
-        allstepname += stepname
-        allsave_path += len(stepname) * [save_path]
-        comm.printinfo("Complete the preparing for %s. Results will be downloaded to %s\n" % (k,save_path))
+        allstepname.append(stepname)
+        allsave_path.append(save_path) 
+        postdft_local_jobs.append(postdft_local_job) 
+        comm.printinfo("\nComplete the preparing for %s.\n" % (k))
+        test_name.append(k)
 
-    return allstep,allstepname,allsave_path
+    return allstep,allstepname,allsave_path,postdft_local_jobs,test_name

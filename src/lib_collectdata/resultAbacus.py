@@ -33,10 +33,10 @@ class ResultAbacus(Result):
         suffix = "ABACUS"
         calculation = "scf"
         for iline in INPUT:
-            sline = iline.split("#")[0].split(" ",1)
-            if len(sline) == 2 and sline[0].lower() == "suffix":
+            sline = iline.split("#")[0].split()
+            if len(sline) >= 2 and sline[0].lower() == "suffix":
                 suffix = sline[1].strip()
-            elif len(sline) == 2 and sline[0].lower() == "calculation":
+            elif len(sline) >= 2 and sline[0].lower() == "calculation":
                 calculation = sline[1].strip()
 
         return suffix,calculation

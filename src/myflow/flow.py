@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-import os,sys,glob,time,shutil,argparse,json
+import os,sys,glob,time,shutil,argparse,json,traceback
+import numpy as np
 
 from dflow import (
     Workflow,
     download_artifact,
 )
+
 import  os, shutil, glob
-from dflow import config, s3_config
-from dflow.plugins import bohrium
-from dflow.plugins.bohrium import TiefblueClient
 from . import globV,dflowOP,comm
 
 def ParamParser(param):
@@ -98,75 +97,88 @@ def set_env(param):
     globV.set_value("USER_FNAME", os.path.split(param.user)[1])
     with open(param.user) as f1: 
         globV.set_value("USER_CONTEXT", f1.read())
-    
+        
     SetSaveFolder(param.save)
 
     private_set = json.load(open(param.user))
-    config["host"] = "https://workflows.deepmodeling.com"
-    config["k8s_api_server"] = "https://workflows.deepmodeling.com"
-    bohrium.config["username"] = private_set.get('lbg_username','')
-    bohrium.config["password"] = private_set.get('lbg_password','')
-    bohrium.config["project_id"] = private_set.get('project_id','')
-    s3_config["repo_key"] = "oss-bohrium"
-    s3_config["storage_client"] = TiefblueClient()
+    globV.set_value("PRIVATE_SET", private_set)
+    dflowOP.SetBohrium(private_set,debug=param.debug) 
 
-    globV.set_value("HOST", config["host"])
-
-def waitrun(wf,stepnames,allsave_path):
-    wfid = wf.id
-    #comm.printinfo("\nResults will be downloaded to %s\n" % globV.get_value("RESULT"))
+def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name):
+    '''
+    stepnames = [[test1_stepname1,test1_stepname2,...],[test2_stepname1,test2_stepname2,...],...]
+    allsave_path = [[[save_path,sub_save_path],[save_path,sub_save_path],...],[]...] similar to stepnames
+    postdft_local_jobs = [[],[save_path,param["post_dft"]],[],..], null list means no postdft_local,
+    '''
+    tmp_local_path = len(stepnames) * [False]
+    finishtest = []
     makedfolder = []
-    allstepnames = set(stepnames)
-    finishstep = []
-    hasdownload = False
-    #print(stepnames)
-    while True:
-        if len(finishstep) == len(stepnames):
-            return
-        for i,ia in enumerate(allstepnames):
-            steps = wf.query_step(name = ia)
-            #comm.printinfo("i:%d ia:%s step number: %d" % (i,ia,len(steps)))
-            if len(steps) > 0: 
-                idx = -1
-                for i,step in enumerate(steps):
-                    idx += stepnames[idx+1:].index(ia) + 1   #find the idx of ia in stepnames, to get the savepath
-                    save_path = allsave_path[idx] if allsave_path[idx] != None else globV.get_value("RESULT")
-                    if step.name in finishstep:
-                        continue
+    for i,istep in enumerate(stepnames):
+        finishtest.append(len(istep)*[False])
+        if len(postdft_local_jobs[i]) == 0:
+            tmp_local_path.append(False)
+        else:
+            tmp_local_path.append(dflowOP.ProduceRadomPath(".tmp"))
+            os.makedirs(tmp_local_path[-1])
+    finishtest = np.array(finishtest)  
+          
+    wfid = wf.id
+
+    while False in finishtest:
+        for i,istep in enumerate(stepnames):
+            for j,jfinish in enumerate(finishtest[i]):
+                if jfinish:
+                    continue
+                steps = wf.query_step(name = istep[j])
+                if len(steps) > 0: 
+                    step = steps[0]
                     if step.phase in ["Pending","Running"]:
                         continue
-                    finishstep.append(step.name) 
+                    finishtest[i][j] = True
 
-                    if save_path not in makedfolder:
-                        MakeSaveFolder(save_path)
-                        WriteParamUserFile(storefolder=save_path)
-                        makedfolder.append(save_path)
-                    comm.printinfo("%4d/%4d: %s is finished, download the results to %s!" % (len(finishstep), len(stepnames),step.name,save_path))
+                    if len(postdft_local_jobs[i]) > 0:
+                        #do postdft on local 
+                        #mkdir the tmp work path
+                        if not tmp_local_path[i]:
+                            tmp_local_path[i] = dflowOP.ProduceRadomPath(".")
+                            os.makedirs(tmp_local_path[i])
+                        save_path = tmp_local_path[i]
+                    else:
+                        save_path = allsave_path[i][j][0]
+                        part_save_path = os.path.join(allsave_path[i][j][0],allsave_path[i][j][1])                      
+                            
+                        if part_save_path not in makedfolder:
+                            MakeSaveFolder(part_save_path)
+                            WriteParamUserFile(storefolder=part_save_path)
+                            makedfolder.append(part_save_path)
+                        comm.printinfo("%s is finished (remaining %d jobs for this test), download the results to %s!" % 
+                                       (step.name,len(finishtest[i]) - np.sum(finishtest[i]),part_save_path))
                     if step.phase != 'Succeeded':
                         comm.printinfo("    This job is not Succeeded, please check on: %s, workflow ID is: %s" %
                               (globV.get_value("HOST"),wfid))
-                    download_artifact(step.outputs.artifacts["outputs"],path=save_path)
-                    hasdownload = True
+                        
+                    try:
+                        download_artifact(step.outputs.artifacts["outputs"],path=save_path)
+                    except:
+                        traceback.print_exc()
+            if False not in finishtest[i] and len(postdft_local_jobs[i]) > 0:
+                comm.printinfo("Test '%s' has finished the run_dft, do post_dft on local %s\n..." % (test_name[i], tmp_local_path[i]))
+                dflowOP.RunPostDFTLocal(tmp_local_path[i],postdft_local_jobs[i][0],postdft_local_jobs[i][1])
+                comm.printinfo("Test '%s' has finished the post_dft, move the outputs to %s" % (test_name[i],postdft_local_jobs[i][0]))
+                part_save_path = postdft_local_jobs[i][0]
+                if part_save_path not in makedfolder:
+                    WriteParamUserFile(storefolder=part_save_path)
+                    makedfolder.append(part_save_path)              
         time.sleep(4)
 
-    if hasdownload:
-        comm.printinfo("Results are downloaded to %s\n" % globV.get_value("RESULT"))
-
-def Parser():
-    comm.printinfo("\nParse commands ...")
-    parser = argparse.ArgumentParser(description="This script is used to run a testing")
-    parser.add_argument('-p', '--param', type=str, default="job.json",help='the job setting file, default is job.json')
-    parser.add_argument('-u', '--user', type=str, default="user.json",help='the file for bohrium account information, default is "user.json"')
-    parser.add_argument('-s', '--save', type=str, default=None,help='the folder where the results will be put in, default: result/date_of_today (e.g. result/20230101)')
-    parser.add_argument('--override', type=int, default=1,help="when the save folder exists, if override it. 0: no, 1: yes. ")
-    parser.add_argument('--outinfo', type=int, default=1,help='if output detail informations, 0: no, 1: yes')
-    return parser.parse_args()
-
-def RunJobs():
-    param = Parser()
+def RunJobs(param):
     set_env(param)
     alljobs = ParamParser(json.load(open(param.param)))
-    allstep,stepname,allsave_path = dflowOP.ProduceAllStep(alljobs)
+    allstep,stepname,allsave_path,postdft_local_jobs,test_name = dflowOP.ProduceAllStep(alljobs)
+
+    if len(allstep) == 0:
+        comm.printinfo("No step is produced, exit!!!")
+        sys.exit(1)
     
     wf = Workflow(name="abacustest")
     wf.add(allstep)
@@ -174,6 +186,9 @@ def RunJobs():
     comm.printinfo("job ID: %s" % wf.id)
     comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % globV.get_value("HOST"))
 
-    waitrun(wf,stepname,allsave_path)
+    waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name)
         
-
+def CheckStatus(jobid):
+    wf = Workflow(id = jobid)
+    return(wf.query_status())
+        
