@@ -137,7 +137,24 @@ abacustest submit -p job.json -u user.json -s result/test
 
 ## 2. collectdata
 ```
-usage: abacustest collectdata [-h] [-j [JOBS [JOBS ...]]] [-t {0,1,2}] [-p PARAM] [-o OUTPUT] [--outparam [OUTPARAM]]
+usage: abacustest collectdata [-h] [-j [JOBS [JOBS ...]]] [-t {0,1,2}] [-p PARAM] [-o OUTPUT]
+                              [--outparam [OUTPARAM]]
+
+This script is used to collect some key values from the output of ABACUS/QE/VASP jobs
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -j [JOBS [JOBS ...]], --jobs [JOBS [JOBS ...]]
+                        the path of jobs
+  -t {0,1,2}, --type {0,1,2}
+                        0:abacus, 1:qe, 2:vasp. Default: 0
+  -p PARAM, --param PARAM
+                        the parameter file, should be .json type
+  -o OUTPUT, --output OUTPUT
+                        the file name to store the output results, default is "result.json"
+  --outparam [OUTPARAM]
+                        output the registed parameters, you can set the type by -t or --type to choose
+                        abacus/qe/vasp. 0: No, 1: yes
 ```
 This function is used to get some key values of the ABACUS/QE/VASP jobs. \
 
