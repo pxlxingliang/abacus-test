@@ -2,19 +2,34 @@
 Do the performance test of ABACUS \
 Install:
 `pip install .`
-
-There are 3 commands:
-- `abacustest`
+And then, you can use command `abacustest`. \
+There are 4 sub_commands:
+- `submit`
 - `collectdata`
 - `outresult`
+- `status`
 
-Please use `abacustest/collectdata/outresult -h` to get the usages
+Please use `abacustest -h` to get the usages
 
-## 1. abacustest
+## 1. submit
 ```
-usage: abacustest [-h] [-p PARAM] [-u USER] [-s SAVE] [--override OVERRIDE] [--outinfo OUTINFO]. 
+usage: abacustest submit [-h] [-p PARAM] [-u USER] [-s SAVE] [--override OVERRIDE] [--outinfo OUTINFO]
+                         [--debug [DEBUG]] 
+
+This script is used to run a testing
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PARAM, --param PARAM
+                        the job setting file, default is job.json
+  -u USER, --user USER  the file for bohrium account information, default is "user.json"
+  -s SAVE, --save SAVE  the folder where the results will be put in, default: result/date_of_today (e.g.
+                        result/20230101)
+  --override OVERRIDE   when the save folder exists, if override it. 0: no, 1: yes.
+  --outinfo OUTINFO     if output detail informations, 0: no, 1: yes
+  --debug [DEBUG]       debug mode for dflow
 ```
-Two files are needed as input: job.json and user.json
+Two files are needed as input: (-p) job.json and (-u) user.json
 
 ### 1.1 job.json
 This file defines the detail of the jobs. \
@@ -36,6 +51,7 @@ An example is like:
             "save_path":"result/abacus-pw",
             "run_dft":[
                 {"ifrun": true,
+                 "sub_save_path": "",
                  "image": "ABACUS310_IMAGE",
                  "example":[["00[0-2]"],"abacus-pw/00[3-5]"],
                  "ngroup" : 0,
@@ -86,9 +102,10 @@ An example is like:
 - `ABBREVIATION`: define some abbreviation, and is only valid for `image`.
 - `param`: the detail setting for each test.
   - test-name: the name of your test, and is same to that in `if_run`. If the name of one test is not defined in `if_run`, it will be ignored.
-    - `save_path`: define the path to save the results of this test
+    - `save_path`: define the path to save the results of this test. If this key is not defined or if is deined to be "" or None, the value will be replaced to be the path defined by "-s" (the args of abacustest, the default of "-s" is "result/date_of_today" like "result/20230101")
     - `run_dft`: define the detail of the running of your jobs. The value is a list of dictionaries. You can set any number of dictionaries.
       - `ifrun`: if set it to be `false`, will skip this part. 
+      - `sub_save_path`: the path to save the results of this part in `save_path`, which means the real save path will be "save_path/sub_save_path". If this key is not defined, or is defined to be "" or null, the real save path will be "save_path".
       - `iamge`: define the image name. Also you can use the name defined in `ABBREVIATION`. Progrma will firstly check if the image name is defined in `ABBREVIATION`, if yes, the name will be replaced by the value in `ABBREVIATION`, and if no, the iamge name will be kept to be value of `iamge`.
       - `example`: The folder names of your jobs. Here assume that you have 5 jobs and the folder names are 000, 001, 002, ..., 004. You can write as ["000", "001", "002", "003", "004"], and also you can write as ["00[0-4]"] that can be recongnized by `glob.glob`. Besides, you can put some folders in a list, and they will be set as one group and run the jobs serially. Such as: [["00[0-1]"],"00[2-4]"], "000" and "001" is one group, each of "002", "003" and "004" is one group and total 4 groups.
       - `ngroup`: split `example` to `ngroup` groups, and will apply `ngroup` machines to run the jobs.
@@ -114,13 +131,13 @@ If you do not use Bohrium, this file and the keys is also needed, but the values
 
 ### 1.3 submit a test
 ```
-abacustest -p job.json -u user.json -s result/test
+abacustest submit -p job.json -u user.json -s result/test
 ```
 
 
 ## 2. collectdata
 ```
-usage: collectdata [-h] [-j [JOBS [JOBS ...]]] [-t {0,1,2}] [-p PARAM] [-o OUTPUT] [--outparam [OUTPARAM]]
+usage: abacustest collectdata [-h] [-j [JOBS [JOBS ...]]] [-t {0,1,2}] [-p PARAM] [-o OUTPUT] [--outparam [OUTPARAM]]
 ```
 This function is used to get some key values of the ABACUS/QE/VASP jobs. \
 
@@ -147,16 +164,58 @@ You can set `--outparam` to print out all of the keys of one type. Such as: `col
 ...
 ```
 
+### 2.2 import collectdata.RESULT in your python script
+You can also use this collectdata function in your script by `from abacustest.lib_collectdata.collectdata import RESULT`, \
+`RESULT` is a function, the arguments is: 
+```
+def RESULT(fmt="abacus",outparam=False,**kwargs):
+    #fmt: format type, abacus/qe/vasp is recongnized
+    #outparam: if output all registered parameters
+    #**kwargs: the other input commands for the init function of ResultAbacus/Qe/Vasp
+
+#init function of ResultAbacus
+class ResultAbacus(Result):
+    def __init__(self,path = ".",output = None):
+        #path： path of your ABACUS job
+        #output: the filename of screen output of ABACUS job, 
+        
+#init function of ResultQe        
+class ResultQe(Result):
+    def __init__(self,path = ".",output = None):  
+    #path： path of your qe job  
+    #output: the filename of output of the qe job,  
+
+# ResultVasp     
+class ResultVasp(Result):
+    def __init__(self,path = "."):    
+    #path： path of your VASP job 
+```    
+
+Assume that you have an ABACUS job, whose path is `abacusjob`, and you can use the below codes to catch information of enery, force and stress:
+```
+from abacustest.lib_collectdata.collectdata import RESULT
+
+abacusresult = RESULT(fmt="abacus",path=abacusjob)
+energy = abacusresult["total_energy"] 
+force = abacusresult["force"]
+stress = abacusresult["stress"]
+```
+
 
 ## 3. outresult
 ```
-usage: outresult [-h] [-p PARAM]
+usage: abacustest outresult [-h] [-p PARAM]
 ```
-print out the results as table.
+Out put some specified parameters of some jobs, and also can calculate some specified metrics.
 
 
+## 4. status
+```
+usage: abacustest status [-h] paramf job_id
+```
+Not ready now.
 
 
-## 4. example
+## 5. example
 some exmaples
 
