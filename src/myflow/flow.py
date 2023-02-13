@@ -188,7 +188,22 @@ def RunJobs(param):
 
     waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name)
         
-def CheckStatus(jobid):
+def CheckStatus(param):
+    if os.path.isfile(param.user):
+        private_set = json.load(open(param.user))
+    else:
+        print("config file is not found!\nUse the default setting!")
+        private_set = {}
+        
+    dflowOP.SetBohrium(private_set,debug=False) 
+    
+    jobid = param.job_id
+    
     wf = Workflow(id = jobid)
-    return(wf.query_status())
+    try:
+        return wf.query_status()
+    except:
+        comm.printinfo("Query status error")
+        traceback.print_exc()
+        return "not-running"
         

@@ -40,23 +40,40 @@ from dflow.plugins.bohrium import TiefblueClient
 def SetBohrium(private_set,debug=False):  
     if debug:
         config["mode"] = "debug"
+        host = "LOCAL"
+        client = "LOCAL"
     else:
         #config["host"] = "https://workflows.deepmodeling.com"
         #config["k8s_api_server"] = "https://workflows.deepmodeling.com"
+        comm.printinfo("set config info...")
+        if private_set.get("config_host","").strip() != "":
+            config["host"] = private_set.get("config_host","").strip()
+            host = config["host"]
+            comm.printinfo("set config['host']: %s" % host)
         
-        config["host"] = "https://workflow.test.dp.tech"
-        s3_config["endpoint"] = "39.106.93.187:30900"
-        config["k8s_api_server"] = "https://60.205.59.4:6443"
-        config["token"] = "eyJhbGciOiJSUzI1NiIsImtpZCI6IlhMRGZjbnNRemE4RGQyUXRMZG1MX3NXeG5TMzlQTnhnSHZkS1lGM25SODAifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJhcmdvIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImFyZ28tdG9rZW4tajd0a3MiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiYXJnbyIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjBhNzI1N2JhLWZkZWQtNGI2OS05YWU2LTZhY2U0M2UxNjdlNiIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDphcmdvOmFyZ28ifQ.Gg7pctEsZC-2ZkFjHv-q21mOzBeuThocTMoNV2ZaLtOuxvXQOiVQhS8nq8nyPBiygJ3okOXKPhhrEH8Oe0kWuYtEXc88e1kX_MarQLCXLYSN53cdTLlgZQn01hHaHLO6KJubgU8mymNKj260GjDSf35a7wt8NgQIwm9ftqEwYuPXrm2yZEnhtbuNgfdpLIhw_DQxLXvwjTiny7vwR7ANpHfaynf2l0E12il3C7xeTP-lcPUm9BSFObO3icUbz67n0qsz3j8QWxRdH-jTzIr7tTvFP8SpdJbvMBmI4fgU01FR5CnWx296I9bzXjbuNefZGNu9ZuJ5RLiQDt5xmbTweQ"
+        if private_set.get("s3_config_endpoint","").strip() != "": 
+            s3_config["endpoint"] =  private_set.get("s3_config_endpoint","").strip()
+            comm.printinfo("set s3_config['endpoint']: %s" % s3_config["endpoint"])
         
+        if private_set.get("config_k8s_api_server","").strip() != "":
+            config["k8s_api_server"] = private_set.get("config_k8s_api_server","").strip()
+            comm.printinfo("set config['k8s_api_server']: %s" % config["k8s_api_server"])
+            
+        if private_set.get("config_token","").strip() != "":
+            config["token"] = private_set.get("config_token","").strip()
+            comm.printinfo("set config['token']: ...")
+   
         bohrium.config["username"] = private_set.get('lbg_username','')
         bohrium.config["password"] = private_set.get('lbg_password','')
         bohrium.config["project_id"] = private_set.get('project_id','')
+        comm.printinfo("set bohrium.config['username']/['password']/['project_id']: %s/.../%s" 
+                       % (bohrium.config["username"],bohrium.config["project_id"]))
         s3_config["repo_key"] = "oss-bohrium"
         s3_config["storage_client"] = TiefblueClient()
+        client = s3_config["storage_client"]
     
-    globV.set_value("HOST", "https://workflows.deepmodeling.com")
-    globV.set_value("storage_client", s3_config["storage_client"])
+    globV.set_value("HOST", host)
+    globV.set_value("storage_client", client)
 
 class RunDFT(OP):
     def __init__(self):
@@ -71,6 +88,7 @@ class RunDFT(OP):
                 "sub_path": [str],
                 "sub_save_path": str,
                 "collectdata_script": Artifact(Path),
+                "collectdata_script_name": [str],
                 "collectdata_pythonlib": Artifact(Path),
                 "collectdata_pythonlib_folders":[str],
                 "collectdata_lib": Artifact(Path),
@@ -105,6 +123,7 @@ class RunDFT(OP):
         print(op_in["abacustest_example"])
         print(op_in["sub_path"])
         print(op_in["sub_save_path"])
+        print(op_in["collectdata_script"])
         example_pathname = "dflow_abacustest_example_"
         outpath = []
         root_path_0 = str(op_in["abacustest_example"]).split(example_pathname)[0]
@@ -154,8 +173,17 @@ class RunDFT(OP):
             if op_in["collectdata_script"] != None:
                 if os.path.isdir(script_folder):
                     os.rename(script_folder,GetBakFile(script_folder))
-                script_source_path = str(op_in["collectdata_script"]).split("dflow_collectdata_script_0")[0] + "dflow_collectdata_script_0"
-                shutil.copytree(script_source_path,script_folder)
+                os.makedirs(script_folder)
+                for iii in range(len(op_in["collectdata_script_name"])):
+                    script_source_path = str(op_in["collectdata_script"]).split("dflow_collectdata_script_%d"%iii)[0] + "dflow_collectdata_script_%d"%iii
+                    if bool(op_in["sum_save_path_example_name"]):
+                        dst_path = os.path.join(script_folder,op_in["collectdata_script_name"][iii])
+                    else:
+                        dst_path = script_folder
+                    if os.path.isfile(script_source_path):
+                        shutil.copy(script_source_path,dst_path)
+                    elif  os.path.isdir(script_source_path):
+                        shutil.copytree(script_source_path,dst_path,dirs_exist_ok=True)
 
             cmd = ''
             if op_in["collectdata_pythonlib"] != None:
@@ -337,13 +365,14 @@ def ProduceExecutor(param):
         #comm.printinfo("set bohrium: %s"%str(bohrium_set))
         return dispatcher_executor,bohrium_set
     else:
-        return None
+        return None,None
 
 def ProduceRunDFTStep(step_name,
                       command,   #command of do dft running
                       example_artifact, 
                       image, 
-                      collectdata_scripts = [], 
+                      collectdata_script = [],
+                      collectdata_script_name = [] ,
                       collectdata_command = "", 
                       collectdata_pythonlib = [], 
                       outputs=[], 
@@ -366,9 +395,9 @@ def ProduceRunDFTStep(step_name,
     #define example artifacts
     artifacts = {"abacustest_example": example_artifact} 
     
-    #collectdata_scripts
-    if len(collectdata_scripts) > 0:
-        artifacts["collectdata_script"] = upload_artifact(collectdata_scripts)
+    #collectdata_script
+    if len(collectdata_script) > 0:
+        artifacts["collectdata_script"] = collectdata_script
     else:
         pt.inputs.artifacts["collectdata_script"].optional = True
         
@@ -391,6 +420,7 @@ def ProduceRunDFTStep(step_name,
     step = Step(name=step_name,template=pt,
             parameters = {"command": command, "sub_path":sub_path,
                           "sum_save_path_example_name": datahub,
+                          "collectdata_script_name": collectdata_script_name,
                           "sub_save_path": sub_save_path,
                           "collectdata_command":collectdata_command,
                           "collectdata_pythonlib_folders": collectdata_pythonlib_folders,
@@ -552,8 +582,8 @@ def ProduceArtifact(storage_client,uri,name):
         #sys.exit(1)
     return tmp_artifact,tmp_name
 
-def FindDataHubExamples(example,urn):
-    examples,examples_name = [],[]
+def FindDataHubExamples(example,scripts,urn):
+    examples,examples_name,collectdata_script,collectdata_script_name = [],[],[],[]
     uri,storage_client = GetURI(urn)  
     if uri == None:
         return examples,examples_name
@@ -577,7 +607,15 @@ def FindDataHubExamples(example,urn):
         if len(tmp_artifact) > 0:
             examples.append(tmp_artifact)    
             examples_name.append(tmp_name)
-    return examples,examples_name
+    
+    for iscript in scripts:
+        if iscript.strip() == "": continue
+        uri_tmp = uri + "/" + iscript
+        tmp_script, script_name = ProduceArtifact(storage_client,uri_tmp,iscript)
+        collectdata_script += tmp_script
+        collectdata_script_name += script_name
+        
+    return examples,examples_name,collectdata_script,collectdata_script_name
 
 def SplitGroup(examples,examples_name,ngroup): 
     #examples = [*[*],*]
@@ -659,14 +697,18 @@ def ProduceOneSteps(stepname,param):
         #split the examples to ngroup and produce ngroup step
         example_source = rundft.get("example_source","local").strip()
         if example_source == 'datahub':
-            examples,examples_name = FindDataHubExamples(rundft['example'],rundft["urn"])
+            examples,examples_name,collectdata_script,collectdata_script_name = \
+                FindDataHubExamples(rundft['example'],rundft.get("collectdata_script",[]), rundft["urn"])
             datahub = True
+            comm.printinfo("Example_source is 'datahub', use the example and collectdata_script in 'datahub'")
         else:
             datahub = False
             examples,examples_name = FindLocalExamples(rundft['example'])
+            collectdata_script = [upload_artifact(i) for i in rundft.get("collectdata_script",[])]
+            collectdata_script_name = rundft.get("collectdata_script",[])
             if example_source != "local":
                 comm.printinfo("example_source should be local or datahub, but not %s, will find example on local" % example_source)
-                
+        print(collectdata_script_name)        
         if len(examples) > 0:
             image = globV.get_value("ABBREVIATION").get(rundft.get("image"),rundft.get("image"))
             ngroup = rundft.get("ngroup",0)
@@ -681,7 +723,8 @@ def ProduceOneSteps(stepname,param):
                       command = rundft.get("command"),   #command of do dft running
                       example_artifact = example_tmp, 
                       image = image, 
-                      collectdata_scripts = rundft.get("collectdata_scripts",[]), 
+                      collectdata_script = collectdata_script,
+                      collectdata_script_name = collectdata_script_name, 
                       collectdata_command = rundft.get("collectdata_command",""), 
                       collectdata_pythonlib = rundft.get("collectdata_pythonlib",[]), 
                       outputs=rundft.get("outputs",[]), 

@@ -19,7 +19,7 @@ def AbacusTestArgs(parser):
 
 def AbacusTestCheckStatusArgs(parser):
     parser.description = "Check the status of the dflow job"
-    parser.add_argument("paramf",help="the config file in json format.")
+    parser.add_argument('-u', '--user', type=str, default="user.json",help='the file for bohrium account information, default is "user.json"')
     parser.add_argument("job_id", help="the job id of dflow")
     return parser
 
@@ -29,7 +29,8 @@ def abacustest(param):
     comm.printinfo("\nAll jobs are finished!!!")
 
 def checkstatus(param):
-    status = flow.CheckStatus(param.job_id)
+    globV._init()
+    status = flow.CheckStatus(param)
     print(status)
 
 def main():
