@@ -60,7 +60,8 @@ def MakeSaveFolder(storefolder=None):
 def WriteParamUserFile(storefolder=None,override=False):
     storefolder = globV.get_value("RESULT") if storefolder == None else storefolder
     paraf = os.path.join(storefolder,globV.get_value("PARAM_FNAME"))
-    userf = os.path.join(storefolder,globV.get_value("USER_FNAME"))   
+    if globV.get_value("USER_FNAME") != None:
+        userf = os.path.join(storefolder,globV.get_value("USER_FNAME"))   
     
     if not override:
         def getfname(paraf):
@@ -72,37 +73,47 @@ def WriteParamUserFile(storefolder=None,override=False):
             return paraf_tmp
             
         paraf = getfname(paraf)
-        userf = getfname(userf)
+        if globV.get_value("USER_FNAME") != None:
+            userf = getfname(userf)
 
     with open(paraf,'w') as f1: f1.write(globV.get_value("PARAM_CONTEXT")) 
-    with open(userf,'w') as f1: f1.write(globV.get_value("USER_CONTEXT")) 
+    if globV.get_value("USER_FNAME") != None:
+        with open(userf,'w') as f1: f1.write(globV.get_value("USER_CONTEXT")) 
     
 def set_env(param):
     globV.set_value("OUTINFO", param.outinfo)
     globV.set_value("OVERRIDE", param.override)
     comm.printinfo("\nSet enviroment ...")
-
     comm.printinfo(param)
-    if not os.path.isfile(param.user):
-        comm.printinfo("ERROR: Can not find the bohrium account setting file '%s' " % param.user)
-        sys.exit(1)
 
+    #read job.json
     if not os.path.isfile(param.param):
         comm.printinfo("ERROR: Can not find the test setting file '%s' " % param.param)
         sys.exit(1)
-
     globV.set_value("PARAM_FNAME", os.path.split(param.param)[1])
     with open(param.param) as f1: 
-        globV.set_value("PARAM_CONTEXT", f1.read())
-    globV.set_value("USER_FNAME", os.path.split(param.user)[1])
-    with open(param.user) as f1: 
-        globV.set_value("USER_CONTEXT", f1.read())
-        
+        globV.set_value("PARAM_CONTEXT", f1.read())       
+    param_context = json.load(open(param.param))
+    
+    #read user config information
+    if "USER" in param_context:
+        globV.set_value("USER_FNAME", None)
+        user_context = param_context.get("USER")
+        comm.printinfo("Find 'USER' setting in %s, use the config info in 'USER'" % param.param)
+    else:
+        if not os.path.isfile(param.user):
+            comm.printinfo("ERROR: Can not find the bohrium account setting file '%s' " % param.user)
+            sys.exit(1)
+        globV.set_value("USER_FNAME", os.path.split(param.user)[1])
+        with open(param.user) as f1: 
+            globV.set_value("USER_CONTEXT", f1.read())
+        user_context = json.load(open(param.user))
+    globV.set_value("PRIVATE_SET", user_context)
+    dflowOP.SetBohrium(user_context,debug=param.debug) 
+    
+    #set save folder    
     SetSaveFolder(param.save)
 
-    private_set = json.load(open(param.user))
-    globV.set_value("PRIVATE_SET", private_set)
-    dflowOP.SetBohrium(private_set,debug=param.debug) 
 
 def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name):
     '''
@@ -172,7 +183,7 @@ def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name):
         time.sleep(4)
 
 def RunJobs(param):
-    set_env(param)
+    param_context = set_env(param)
     alljobs = ParamParser(json.load(open(param.param)))
     allstep,stepname,allsave_path,postdft_local_jobs,test_name = dflowOP.ProduceAllStep(alljobs)
 
@@ -191,9 +202,12 @@ def RunJobs(param):
 def CheckStatus(param):
     if os.path.isfile(param.user):
         private_set = json.load(open(param.user))
+        if "USER" in private_set:
+            private_set = private_set["USER"]
     else:
         print("config file is not found!\nUse the default setting!")
         private_set = {}
+    
         
     dflowOP.SetBohrium(private_set,debug=False) 
     
