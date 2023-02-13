@@ -28,6 +28,11 @@ def ParamParser(param):
         alljobs[k]["run_dft"] = param['param'][k]["run_dft"]
         alljobs[k]["post_dft"] = param['param'][k]["post_dft"]
         alljobs[k]["save_path"] = param['param'][k].get("save_path",None)
+    
+    if "dataset_info" in param:
+        globV.set_value("dataset_info",param['dataset_info']) 
+    else:
+        globV.set_value("dataset_info",None)   
         
     globV.set_value("ABBREVIATION",param.get('ABBREVIATION',{}))
         
@@ -90,6 +95,7 @@ def set_env(param):
     if not os.path.isfile(param.param):
         comm.printinfo("ERROR: Can not find the test setting file '%s' " % param.param)
         sys.exit(1)
+    comm.printinfo("Read parameter setting from %s" % param.param)
     globV.set_value("PARAM_FNAME", os.path.split(param.param)[1])
     with open(param.param) as f1: 
         globV.set_value("PARAM_CONTEXT", f1.read())       

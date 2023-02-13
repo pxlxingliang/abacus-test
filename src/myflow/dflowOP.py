@@ -695,10 +695,16 @@ def ProduceOneSteps(stepname,param):
         sub_save_path = ParseSubSavePath(rundft.get("sub_save_path",""))
         executor,bohrium_set = ProduceExecutor(rundft)                   
         #split the examples to ngroup and produce ngroup step
-        example_source = rundft.get("example_source","local").strip()
+        if globV.get_value("dataset_info") == None:
+            example_source = rundft.get("example_source","local").strip()
+        else:
+            example_source = globV.get_value("dataset_info").get("type")
+            urn = globV.get_value("dataset_info").get("dataset_urn",None)
+                
         if example_source == 'datahub':
+            urn = urn if urn != None else rundft["urn"]
             examples,examples_name,collectdata_script,collectdata_script_name = \
-                FindDataHubExamples(rundft['example'],rundft.get("collectdata_script",[]), rundft["urn"])
+                FindDataHubExamples(rundft['example'],rundft.get("collectdata_script",[]), urn)
             datahub = True
             comm.printinfo("Example_source is 'datahub', use the example and collectdata_script in 'datahub'")
         else:
