@@ -111,6 +111,7 @@ def set_env(param):
             comm.printinfo("ERROR: Can not find the bohrium account setting file '%s' " % param.user)
             sys.exit(1)
         globV.set_value("USER_FNAME", os.path.split(param.user)[1])
+        comm.printinfo("Read user config setting from %s" % param.user)
         with open(param.user) as f1: 
             globV.set_value("USER_CONTEXT", f1.read())
         user_context = json.load(open(param.user))
