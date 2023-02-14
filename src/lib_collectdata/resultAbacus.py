@@ -17,7 +17,7 @@ class ResultAbacus(Result):
         self.STRU   = comm.ReadFile(self.STRUf,warn=True)
         self.KPT    = comm.ReadFile(self.KPTf,warn=False)
         
-        self.OUTPUTf = output if output != None else comm.FindOutput(self.PATH,keyinfo="WELCOME TO ABACUS")
+        self.OUTPUTf = output if output != None else comm.FindOutput(self.PATH,keyinfo="Atomic-orbital Based Ab-initio")
         if self.OUTPUTf == None:
             print("WARNING: can not find the output of ABACUS in %s" % self.PATH)
             self.OUTPUT = []

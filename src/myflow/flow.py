@@ -190,7 +190,7 @@ def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name):
         time.sleep(4)
 
 def RunJobs(param):
-    param_context = set_env(param)
+    set_env(param)
     alljobs = ParamParser(json.load(open(param.param)))
     allstep,stepname,allsave_path,postdft_local_jobs,test_name = dflowOP.ProduceAllStep(alljobs)
 
@@ -201,7 +201,9 @@ def RunJobs(param):
     wf = Workflow(name="abacustest")
     wf.add(allstep)
     wf.submit()
-    comm.printinfo("job ID: %s" % wf.id)
+    if param.command == 'mlops-submit':
+        return
+    comm.printinfo("job ID: %s, UID: %s" % (wf.id,wf.uid))
     comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % globV.get_value("HOST"))
 
     waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name)

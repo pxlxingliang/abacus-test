@@ -37,6 +37,7 @@ def main():
     parser = argparse.ArgumentParser(description="abacustest")
     subparser = parser.add_subparsers(dest="command")
     AbacusTestArgs(subparser.add_parser("submit"))
+    AbacusTestArgs(subparser.add_parser("mlops-submit"))
     AbacusTestCheckStatusArgs(subparser.add_parser("status"))
     parser = parser.parse_args()
     if parser.command == "submit":

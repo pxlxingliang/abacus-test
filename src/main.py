@@ -6,6 +6,7 @@ def parser():
     subparser = my_parser.add_subparsers(dest="command")
     
     abacustest.AbacusTestArgs(subparser.add_parser("submit"))
+    abacustest.AbacusTestArgs(subparser.add_parser("mlops-submit"))
     abacustest.AbacusTestCheckStatusArgs(subparser.add_parser("status"))
     collectdata.CollectDataArgs(subparser.add_parser("collectdata"))
     outresult.OutResultArgs(subparser.add_parser("outresult"))
@@ -15,7 +16,7 @@ def parser():
 def main():
     my_parser = parser()
     param = my_parser.parse_args()
-    if param.command == 'submit':
+    if param.command in ['submit','mlops-submit']:
         abacustest.abacustest(param)
     elif param.command == 'status':
         abacustest.checkstatus(param)
