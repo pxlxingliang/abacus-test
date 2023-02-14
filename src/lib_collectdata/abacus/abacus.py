@@ -264,6 +264,18 @@ class Abacus(ResultAbacus):
             if "Total Magnetism on atom" in line:
                 atom_mag.append(float(line.split()[-1]))
         self['atom_mag'] = None if len(atom_mag) == 0 else atom_mag
+    
+    @ResultAbacus.register(drho="[], drho of each scf step")
+    def GetDrho(self):
+        drho = []
+        for line in self.LOG:
+            if "Density error is" in line:
+                drho.append(float(line.split()[-1]))
+        
+        if len(drho) == 0:
+            self['drho'] = None
+        else:
+            self['drho'] = drho
         
             
             
