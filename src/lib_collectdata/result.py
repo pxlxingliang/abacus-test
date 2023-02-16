@@ -7,12 +7,15 @@ class Result:
     @classmethod
     def register(cls,**key):
         def aa(method):
+            
             for ikey,descript in key.items():
+                #print("register",ikey)
                 if ikey in cls._PARAM_DIC:
                     method_org = cls._PARAM_DIC[ikey][0].__name__
                     print("WARNING: '%s' has been defined in %s(), modify to %s()" % 
                           (ikey,method_org,method.__name__))
                 cls._PARAM_DIC[ikey] = (method,descript)
+                #print(cls)
 
                 #for line in inspect.getsourcelines(method):
                 #    if ("self.[\'" in line and "\']" in line) or \

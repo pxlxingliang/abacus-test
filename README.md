@@ -13,8 +13,7 @@ Please use `abacustest -h` to get the usages
 
 ## 1. submit
 ```
-usage: abacustest submit [-h] [-p PARAM] [-u USER] [-s SAVE] [--override OVERRIDE] [--outinfo OUTINFO]
-                         [--debug [DEBUG]] 
+usage: abacustest submit [-h] [-p PARAM] [-s SAVE] [--override OVERRIDE] [--outinfo OUTINFO] [--debug [DEBUG]]
 
 This script is used to run a testing
 
@@ -22,14 +21,12 @@ optional arguments:
   -h, --help            show this help message and exit
   -p PARAM, --param PARAM
                         the job setting file, default is job.json
-  -u USER, --user USER  the file for bohrium account information, default is "user.json"
-  -s SAVE, --save SAVE  the folder where the results will be put in, default: result/date_of_today (e.g.
-                        result/20230101)
+  -s SAVE, --save SAVE  the folder where the results will be put in, default: result/date_of_today (e.g. result/20230101)
   --override OVERRIDE   when the save folder exists, if override it. 0: no, 1: yes.
   --outinfo OUTINFO     if output detail informations, 0: no, 1: yes
   --debug [DEBUG]       debug mode for dflow
 ```
-Two files are needed as input: (-p) job.json and (-u) user.json
+job.json (-p) is needed as input
 
 ### 1.1 job.json
 This file defines the detail of the jobs. \
@@ -41,6 +38,11 @@ An example is like:
         "abacus-pw1": false,
     },
 
+    "config":{
+        "lbg_username":         "xxx",
+        "lbg_password":         "xxx",
+        "project_id":           111
+    },
     "ABBREVIATION":{
             "ABACUS310_IMAGE": "registry.dp.tech/dptech/abacus:3.1.0",
             "PYTHON_IMAGE": "python:3.8"
@@ -53,22 +55,20 @@ An example is like:
                 {"ifrun": true,
                  "sub_save_path": "",
                  "image": "ABACUS310_IMAGE",
-                 "example":[["00[0-2]"],"abacus-pw/00[3-5]"],
+                 "example":[["00[0-2]"],"00[3-5]"],
                  "ngroup" : 0,
                  "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
                  "command": "mpirun -np 8 abacus > log",
-                 "collectdata_script":["collectdata-abacus.json"],
-                 "collectdata_command":"collectdata.py SCRIPT/collectdata-abacus.json -o result.json",
+                 "extra_files":["collectdata-abacus.json"],
                  "outputs":["log","result.json","OUT.*"]
                 },
                 {"ifrun": true,
                  "image": "ABACUS310_IMAGE",
-                 "example":[["00[6-7]"],"abacus-pw/00[8-9]"],
+                 "example":[["00[6-7]"],"00[8-9]"],
                  "ngroup" : 3,
                  "bohrium": {"scass_type":"c16_m32_cpu","job_type":"container","platform":"ali"},
                  "command": "mpirun -np 8 abacus > log",
-                 "collectdata_script":[],
-                 "collectdata_command":"",
+                 "extra_files":[],
                  "outputs":[]
                 }
             ]
@@ -78,20 +78,19 @@ An example is like:
             "run_dft":[
                 {"ifrun": true,
                  "image": "registry.dp.tech/dptech/abacus:3.1.0",
-                 "example":[["00[0-2]"],"abacus-pw/00[3-5]"],
+                 "example":[["00[0-2]"],"00[3-5]"],
                  "ngroup" : 0,
                  "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
-                 "command": "mpirun -np 4 abacus > log",
-                 "collectdata_script":["collectdata-abacus.json"],
-                 "collectdata_command":"collectdata.py SCRIPT/collectdata-abacus.json -o result.json",
+                 "command": "mpirun -np 4 abacus > log && collectdata.py collectdata-abacus.json -o result.json",
+                 "extra_files":["collectdata-abacus.json"],
                  "outputs":["log","result.json","OUT.*"]
                 }
             ],
             "post_dft":{
                         "ifrun": false,
-                        "script": ["collectScf.py"],
+                        "command": "collectdata.py collectdata-abacus.json -o result.json -j 00*",
+                        "extra_files": ["collectScf.py"],
                         "image":   "python:3.8",
-                        "command": "",
                         "outputs": []
             }
         }
@@ -111,11 +110,10 @@ An example is like:
       - `ngroup`: split `example` to `ngroup` groups, and will apply `ngroup` machines to run the jobs.
       - `bohrium`: if you want to submit the job to Bohrium, you need set this key, and if you do not want to use Bohrium, please remove this key or set it to be `false`.
       - `command`: the command to run the job. It is same for all jobs defined in `example`.
-      - `collectdata_script`: if you want to do some post processing, and it need extra files (such as "collectdata-abacus.json"), you can defined them at here.
-      - `collectdata_command`: the command to run the post processing. BE NOTICED: the command will be executed in the folder defined in `example`. Such as "000", program will actually `cd 000` and then execute the command. Besides, program will create a new folder "SCRIPT" in each job floder, and copy the files defined in `collectdata_script` to SCRIPT. So if the command need specify the file in `collectdata_script`, you need add the "SCRIPT" in the path. Such as command: "collectdata.py SCRIPT/collectdata-abacus.json". If you want to use collectdata function of this program, you can directly use "collectdata.py".
+      - `extra_files`: if you need extra files (such as "collectdata-abacus.json"), you can defined them at here. Before run the command, these files will be copied to each example folder.
       - `outputs`: specify which files and folders will be downloaded. If set to be "[]", all of the files in the folder will be downloaded.\
   
-    - `post_dft`: define the detail of post processing, and now all examples will be put at one same place. The usage of key `ifurn`,`image`,`bohrium`,`command`,`outputs` are same as those in `run_dft`. Key `script` is to define the files used in this step.
+    - `post_dft`: define the detail of post processing, and now all examples will be put at one same place. The key are same as those in `run_dft`, but no need the definition of example. 
 
 ### 1.2 user.json
 This file defines the detail of the account information to Bohrium. \
@@ -217,6 +215,36 @@ energy = abacusresult["total_energy"]
 force = abacusresult["force"]
 stress = abacusresult["stress"]
 ```
+
+### 2.3 import self-defined methods
+One can self define the methods by write a python script, and add it to collectdata system by below steps:
+1. define a class and inherit the collect result class.
+2. define a class function, and register it.
+such as:
+```
+from lib_collectdata.resultAbacus import ResultAbacus
+class MyAbacus(ResultAbacus):
+    @ResultAbacus.register(key_name="description of the key")
+    def function_name(self):
+        "your codes the get the value of key"
+        self[key_name] = value
+``` 
+If you want to define a vasp method, you need change the import line and class name, like:
+```
+from lib_collectdata.resultVasp import ResultVasp
+class MyVasp(ResultVasp):
+    @ResultAbacus.register(key_name="description of the key")
+    def function_name(self):
+```
+The class name `MyVasp` is self-defined, and only need to conform to the naming rule of class. \
+The key_name is self-define string, such as: "natom", "scf_steps". \
+Do not forget to save the value by `self[key_name] = value`. \
+
+You can directly add the codes in you python script. \
+Or you can save the codes in a file endwith ".py" (such as "mymethod.py"), and then add the parameters `--newmethods` in command, like:
+```
+abacustest collectdata --newmethods "mymethod"
+``` 
 
 
 ## 3. outresult

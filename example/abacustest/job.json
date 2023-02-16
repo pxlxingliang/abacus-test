@@ -1,47 +1,64 @@
 {
-	"if_run":{
-		"abacus-pw": true,
-		"abacus-lcao": true
-	},
+    "if_run":{
+        "abacus-pw": false,
+        "abacus-pw1": false,
+    },
 
+    "config":{
+        "lbg_username":         "xxx",
+        "lbg_password":         "xxx",
+        "project_id":           111
+    },
+    "ABBREVIATION":{
+            "ABACUS310_IMAGE": "registry.dp.tech/dptech/abacus:3.1.0",
+            "PYTHON_IMAGE": "python:3.8"
+    },
 
-	
-	"param":{
-		"abacus-pw":{
-			"run_dft":[
-				{"ifrun": true,
-                                 "image": "registry.dp.tech/dptech/prod-471/abacus-vasp-qe:20221219",
-				 "bohrium": {"scass_type":"c32_m64_cpu", "job_type":"container","platform":"ali"},
-                                 "example":[["abacus-pw/00[0-5,7,8]*/abacus"],"abacus-pw/00[6,9]*/abacus"],
-                                 "command": "OMP_NUM_THREADS=1 mpirun -np 16 abacus > log",
-                                 "collectdata_script":["abacus-pw-abacus.json"],
-                                 "collectdata_command":"collectdata.py -t 0 -p SCRIPT/abacus-pw-abacus.json -o result.json",
-                                 "outputs":["log","result.json","INPUT","STRU","OUT.*/running*.log"]
-                                },
-				{"ifrun": true,
-                 		 "image":   "registry.dp.tech/dptech/prod-471/abacus-vasp-qe:20221219",
-                 		 "bohrium": {"scass_type":"c32_m64_cpu", "job_type":"container","platform":"ali"},
-				 "example": [["abacus-pw/00[0-5,7]*/qe"],"abacus-pw/00[6,8,9]*/qe"],
-				 "command": "OMP_NUM_THREADS=1 mpirun -np 16 pw.x -i input > result.log ",
-				 "collectdata_script":["abacus-pw-qe.json"],
-                                 "collectdata_command":"collectdata.py -t 1 -p SCRIPT/abacus-pw-qe.json -o result.json",
-				 "outputs":["result.log","result.json","pwscf.xml","input"]
-                		}	
-			]
-		},
-		"abacus-lcao":{
-			"run_dft":[
-				{"ifrun": true,
-                                 "image": "registry.dp.tech/dptech/prod-471/abacus-vasp-qe:20221219",
-                                 "bohrium": {"scass_type":"c32_m64_cpu", "job_type":"container","platform":"ali"},
-                                 "example":[["abacus-lcao/00*/lcao","abacus-lcao/00[0,3]*/pw"],"abacus-lcao/00[5,6]*/pw"],
-                                 "command": "OMP_NUM_THREADS=1 mpirun -np 16 abacus > log",
-                                 "collectdata_script":["abacus-pw-abacus.json"],
-                                 "collectdata_command":"collectdata.py -t 0 -p SCRIPT/abacus-pw-abacus.json -o result.json",
-                                 "outputs":[]
-                                }
-			]
-		}
-	}
+    "param":{
+        "abacus-pw":{
+            "save_path":"result/abacus-pw",
+            "run_dft":[
+                {"ifrun": true,
+                 "sub_save_path": "",
+                 "image": "ABACUS310_IMAGE",
+                 "example":[["00[0-2]"],"00[3-5]"],
+                 "ngroup" : 0,
+                 "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
+                 "command": "mpirun -np 8 abacus > log",
+                 "extra_files":["collectdata-abacus.json"],
+                 "outputs":["log","result.json","OUT.*"]
+                },
+                {"ifrun": true,
+                 "image": "ABACUS310_IMAGE",
+                 "example":[["00[6-7]"],"00[8-9]"],
+                 "ngroup" : 3,
+                 "bohrium": {"scass_type":"c16_m32_cpu","job_type":"container","platform":"ali"},
+                 "command": "mpirun -np 8 abacus > log",
+                 "extra_files":[],
+                 "outputs":[]
+                }
+            ]
+        },
+        "abacus-pw1":{
+            "save_path":"result/abacus-pw1",
+            "run_dft":[
+                {"ifrun": true,
+                 "image": "registry.dp.tech/dptech/abacus:3.1.0",
+                 "example":[["00[0-2]"],"00[3-5]"],
+                 "ngroup" : 0,
+                 "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
+                 "command": "mpirun -np 4 abacus > log && collectdata.py collectdata-abacus.json -o result.json",
+                 "extra_files":["collectdata-abacus.json"],
+                 "outputs":["log","result.json","OUT.*"]
+                }
+            ],
+            "post_dft":{
+                        "ifrun": false,
+                        "command": "collectdata.py collectdata-abacus.json -o result.json -j 00*",
+                        "extra_files": ["collectScf.py"],
+                        "image":   "python:3.8",
+                        "outputs": []
+            }
+        }
+    }
 }
-

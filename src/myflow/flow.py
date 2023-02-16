@@ -28,6 +28,7 @@ def ParamParser(param):
         alljobs[k]["run_dft"] = param['param'][k]["run_dft"]
         alljobs[k]["post_dft"] = param['param'][k]["post_dft"]
         alljobs[k]["save_path"] = param['param'][k].get("save_path",None)
+        alljobs[k]["upload_datahub"] = param['param'][k].get("upload_datahub",False)
     
     if "dataset_info" in param:
         globV.set_value("dataset_info",param['dataset_info']) 
@@ -64,9 +65,7 @@ def MakeSaveFolder(storefolder=None):
     
 def WriteParamUserFile(storefolder=None,override=False):
     storefolder = globV.get_value("RESULT") if storefolder == None else storefolder
-    paraf = os.path.join(storefolder,globV.get_value("PARAM_FNAME"))
-    if globV.get_value("USER_FNAME") != None:
-        userf = os.path.join(storefolder,globV.get_value("USER_FNAME"))   
+    paraf = os.path.join(storefolder,globV.get_value("PARAM_FNAME")) 
     
     if not override:
         def getfname(paraf):
@@ -78,12 +77,9 @@ def WriteParamUserFile(storefolder=None,override=False):
             return paraf_tmp
             
         paraf = getfname(paraf)
-        if globV.get_value("USER_FNAME") != None:
-            userf = getfname(userf)
+
 
     with open(paraf,'w') as f1: f1.write(globV.get_value("PARAM_CONTEXT")) 
-    if globV.get_value("USER_FNAME") != None:
-        with open(userf,'w') as f1: f1.write(globV.get_value("USER_CONTEXT")) 
     
 def set_env(param):
     globV.set_value("OUTINFO", param.outinfo)
@@ -102,19 +98,11 @@ def set_env(param):
     param_context = json.load(open(param.param))
     
     #read user config information
-    if "USER" in param_context:
-        globV.set_value("USER_FNAME", None)
-        user_context = param_context.get("USER")
-        comm.printinfo("Find 'USER' setting in %s, use the config info in 'USER'" % param.param)
+    if "config" in param_context:
+        user_context = param_context.get("config")
     else:
-        if not os.path.isfile(param.user):
-            comm.printinfo("ERROR: Can not find the bohrium account setting file '%s' " % param.user)
-            sys.exit(1)
-        globV.set_value("USER_FNAME", os.path.split(param.user)[1])
-        comm.printinfo("Read user config setting from %s" % param.user)
-        with open(param.user) as f1: 
-            globV.set_value("USER_CONTEXT", f1.read())
-        user_context = json.load(open(param.user))
+        comm.printinfo("ERROR: please set the config information by \"config\".")
+        sys.exit(1)
     globV.set_value("PRIVATE_SET", user_context)
     dflowOP.SetBohrium(user_context,debug=param.debug) 
     
@@ -122,7 +110,7 @@ def set_env(param):
     SetSaveFolder(param.save)
 
 
-def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name):
+def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name,upload_datahub):
     '''
     stepnames = [[test1_stepname1,test1_stepname2,...],[test2_stepname1,test2_stepname2,...],...]
     allsave_path = [[[save_path,sub_save_path],[save_path,sub_save_path],...],[]...] similar to stepnames
@@ -186,13 +174,26 @@ def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name):
                 part_save_path = postdft_local_jobs[i][0]
                 if part_save_path not in makedfolder:
                     WriteParamUserFile(storefolder=part_save_path)
-                    makedfolder.append(part_save_path)              
+                    makedfolder.append(part_save_path)
+                    
+            if False not in finishtest[i] and upload_datahub[i]:
+                steps = wf.query_step(key = test_name[i])
+                if len(steps) > 0:
+                    if steps[0].phase == "Succeeded":
+                        comm.printinfo("upload the outputs of '%s' to datahub" % test_name[i])
+                        dflowOP.Upload2Datahub(steps[0].outputs.artifacts['outputs'],upload_datahub[i])
+                    else:
+                        comm.printinfo("test '%s' is finished, but the phase is %s, will not upload to datahub" % (test_name[i],steps[0].phase))
+                else:
+                    comm.printinfo("WARNING: test '%s' is finished, but query_step can not find it, please check the dflow!" % test_name[i])
+                    
+                              
         time.sleep(4)
 
 def RunJobs(param):
     set_env(param)
     alljobs = ParamParser(json.load(open(param.param)))
-    allstep,stepname,allsave_path,postdft_local_jobs,test_name = dflowOP.ProduceAllStep(alljobs)
+    allstep,stepname,allsave_path,postdft_local_jobs,test_name,upload_datahub = dflowOP.ProduceAllStep(alljobs)
 
     if len(allstep) == 0:
         comm.printinfo("No step is produced, exit!!!")
@@ -206,11 +207,11 @@ def RunJobs(param):
     comm.printinfo("job ID: %s, UID: %s" % (wf.id,wf.uid))
     comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % globV.get_value("HOST"))
 
-    waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name)
+    waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name,upload_datahub)
         
 def CheckStatus(param):
-    if os.path.isfile(param.user):
-        private_set = json.load(open(param.user))
+    if os.path.isfile(param.param):
+        private_set = json.load(open(param.param))
         if "USER" in private_set:
             private_set = private_set["USER"]
     else:

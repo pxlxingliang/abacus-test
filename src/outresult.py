@@ -406,6 +406,7 @@ def GetAllResults(jsonf):
 def OutResultArgs(parser):  
     parser.description = "This script is used to output the summary of results"
     parser.add_argument('-p', '--param', type=str, default=None, help='the parameter file, should be .json type')
+    parser.add_argument('-o', '--output', type=str, default="metrics.json", help='output the metrics')
     return parser
 
 def outresult(param):
@@ -415,6 +416,13 @@ def outresult(param):
     allresults = GetAllResults(param.param)
     cc_outparam,allparam_value = OutParam(allresults)
     cc_outmetrics,allmetric_value = OutMetrics(allresults,allparam_value)
+    
+    output_value = {}
+    output_value['type_name'] = allresults['type_name']
+    output_value['example_name'] =  allresults['example_name']
+    output_value['param_value'] = allparam_value
+    output_value['metrics_value'] = allmetric_value
+    json.dump(output_value,open(param.output,'w'))
     print(cc_outmetrics,cc_outparam)
 
 def main():

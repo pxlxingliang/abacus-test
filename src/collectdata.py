@@ -2,6 +2,7 @@ import os,sys,json
 sys.path.append(os.path.split(__file__)[0])
 from lib_collectdata.collectdata import RESULT
 import argparse
+import traceback
 
 def parse_param(paramf):
     if os.path.isfile(paramf):
@@ -49,10 +50,11 @@ def CollectDataArgs(parser):
     parser.add_argument('-t', '--type', type=int, default=0, help='0:abacus, 1:qe, 2:vasp. Default: 0',choices=[0,1,2])
     parser.add_argument('-p', '--param', type=str, default=None, help='the parameter file, should be .json type')
     parser.add_argument('-o', '--output', type=str, default="result.json",help='the file name to store the output results, default is "result.json"')
+    parser.add_argument('--newmethods', help='the self-defined python modules, and shuold be format of import, such as "abc"(the file name is abc.py), "a.b.c" (teh file is a/b/c.py)', action="extend",nargs="*")
     parser.add_argument('--outparam', nargs='?',type=int, const=1, default=0,help='output the registed parameters, you can set the type by -t or --type to choose abacus/qe/vasp. 0: No, 1: yes')
     return parser
 
-def collectdata(param):
+def collectdata(param):    
     outputf = param.output
     paramf = param.param
     alljobs = param.jobs if len(param.jobs) == 1 else param.jobs[1:]
@@ -61,9 +63,9 @@ def collectdata(param):
     jobtype = alltype.get(param.type)
     
     if param.outparam:
-        RESULT(fmt=jobtype,outparam=True)
+        RESULT(fmt=jobtype,outparam=True,newmethods=param.newmethods)
         return
-
+            
     if paramf == None:
         print("ERROR: you have not define the parameter file. You can specify by -p or --param")
         return
@@ -80,7 +82,7 @@ def collectdata(param):
 
         print("Handle %s" % ipath)
     
-        result = RESULT(fmt=jobtype, path=ipath)
+        result = RESULT(fmt=jobtype, path=ipath,newmethods=param.newmethods)
         allresult[ipath] = parse_value(result,allparams)
 
     print("Write the results to %s" % outputf)

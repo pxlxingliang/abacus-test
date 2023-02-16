@@ -48,8 +48,10 @@ def SetBohrium(private_set,debug=False):
         comm.printinfo("set config info...")
         if private_set.get("config_host","").strip() != "":
             config["host"] = private_set.get("config_host","").strip()
-            host = config["host"]
-            comm.printinfo("set config['host']: %s" % host)
+        else:
+            config["host"] = "https://workflows.deepmodeling.com"
+        host = config["host"]
+        comm.printinfo("set config['host']: %s" % host)  
         
         if private_set.get("s3_config_endpoint","").strip() != "": 
             s3_config["endpoint"] =  private_set.get("s3_config_endpoint","").strip()
@@ -57,7 +59,9 @@ def SetBohrium(private_set,debug=False):
         
         if private_set.get("config_k8s_api_server","").strip() != "":
             config["k8s_api_server"] = private_set.get("config_k8s_api_server","").strip()
-            comm.printinfo("set config['k8s_api_server']: %s" % config["k8s_api_server"])
+        else:
+            config["k8s_api_server"] = "https://workflows.deepmodeling.com"
+        comm.printinfo("set config['k8s_api_server']: %s" % config["k8s_api_server"])
             
         if private_set.get("config_token","").strip() != "":
             config["token"] = private_set.get("config_token","").strip()
@@ -85,14 +89,11 @@ class RunDFT(OP):
             {
                 "abacustest_example": Artifact(Path),
                 "command": str,
-                "sub_path": [str],
+                "example_name": [str],
                 "sub_save_path": str,
                 "collectdata_script": Artifact(Path),
                 "collectdata_script_name": [str],
-                "collectdata_pythonlib": Artifact(Path),
-                "collectdata_pythonlib_folders":[str],
                 "collectdata_lib": Artifact(Path),
-                "collectdata_command": str,
                 "outputfiles":[str],
                 "sum_save_path_example_name": bool
             }
@@ -112,14 +113,6 @@ class RunDFT(OP):
         op_in: OPIO,
     ) -> OPIO:
 
-        def GetBakFile(sfile):
-            n = 1
-            bk = sfile + ".bak%d" % n
-            while os.path.exists(bk):
-                n += 1
-                bk = sfile + ".bak%d" % n
-            return bk
-
         def GetPath(opinname):
             tmp1 = "dflow_" + opinname + "_"
             split1 = str(op_in[opinname]).split(tmp1)
@@ -134,64 +127,29 @@ class RunDFT(OP):
             else:
                 return opinname
         
-        print(op_in["abacustest_example"])
-        print(op_in["sub_path"])
-        print(op_in["sub_save_path"])
-        print(op_in["collectdata_script"])
+        print(op_in)
         outpath = []
         
         root_path_0,hasdflow = GetPath("abacustest_example")
-        sub_save_path = str(op_in['sub_save_path'])
-        for isub,sub_path in enumerate(op_in["sub_path"]):
-            root_path = os.path.join(root_path_0,GetName("abacustest_example",hasdflow,isub))
+        for iexample,example_name in enumerate(op_in["example_name"]):
+            root_path = os.path.join(root_path_0,GetName("abacustest_example",hasdflow,iexample))
+            os.chdir(root_path)
+            
+            sub_save_path = str(op_in['sub_save_path'])
             example_path = root_path
             if bool(op_in["sum_save_path_example_name"]):
-                sub_save_path = os.path.join(op_in['sub_save_path'],sub_path)
-            print("sub_save_path",sub_save_path)
+                sub_save_path = os.path.join(op_in['sub_save_path'],example_name)
+            print("sub_save_path:",sub_save_path)
             if sub_save_path != "":
-                #create the sub_save_path and move all examples to it
-                os.chdir(root_path)
-                sub_save_path_list = sub_save_path.split('/')
-
-                #if exist folder name that is same as sub_save_path, create a tmp sub_save_path
-                #and then rename the tmp to sub_save_path
-                hasexist = False
-                if os.path.isdir(sub_save_path_list[0]): 
-                    sub_save_path_list0 = sub_save_path_list[0]
-                    sub_save_path_list[0] = GetBakFile(sub_save_path_list[0])
-                    sub_save_path_tmp = "/".join(sub_save_path_list)
-                    hasexist = True
-                else:
-                    sub_save_path_tmp = sub_save_path
-                os.makedirs(sub_save_path_tmp)
-                for idir in os.listdir("."):
-                    if Path(idir) not in [Path(".dflow"),Path(sub_save_path_list[0])]: 
-                        shutil.move(idir,sub_save_path_tmp)
-                if hasexist:
-                    os.replace(sub_save_path_list[0],sub_save_path_list0)
-                
+                comm.CopyFiles(root_path,sub_save_path,move=True)
                 example_path = os.path.join(root_path,op_in['sub_save_path'])
-
-            work_path = os.path.join(example_path,sub_path)
+            work_path = os.path.join(example_path,example_name)
                 
             print("work path:",work_path)
-            log = ""
+
             os.chdir(work_path)
-            if op_in["command"].strip() != "":
-                print("BEGIN THE DFT RUNNING...")
-                log += os.popen("(%s) 2>&1" % op_in["command"]).read()
-                if os.path.isfile("output"):
-                    Path(GetBakFile("output")).write_text(log)
-                else:
-                    Path("output").write_text(log)
-                print(log)
-        
-            os.chdir(work_path)
-            script_folder = "SCRIPT"
+            script_folder = "."
             if op_in["collectdata_script"] != None:
-                if os.path.isdir(script_folder):
-                    os.rename(script_folder,GetBakFile(script_folder))
-                os.makedirs(script_folder)
                 script_root_path,script_hasdflow = GetPath("collectdata_script")
                 for iii in range(len(op_in["collectdata_script_name"])):
                     script_source_path = os.path.join(script_root_path,GetName("collectdata_script",script_hasdflow,iii))
@@ -205,22 +163,6 @@ class RunDFT(OP):
                         shutil.copytree(script_source_path,dst_path,dirs_exist_ok=True)
 
             cmd = ''
-            if op_in["collectdata_pythonlib"] != None:
-                if len(op_in["collectdata_pythonlib_folders"]) == 1:
-                    if os.path.isfile(op_in["collectdata_pythonlib"]):
-                        tpath = os.path.split(str(op_in["collectdata_pythonlib"]).rstrip("/"))[0]
-                    elif os.path.isdir(op_in["collectdata_pythonlib"]):
-                        tpath = str(op_in["collectdata_pythonlib"])
-                    else:
-                        print("str(op_in[collectdata_pythonlib]:",str(op_in["collectdata_pythonlib"]),"is either a file or dir")
-                        tpath = str(op_in["collectdata_pythonlib"])
-                    #cmd += "export PYTHONPATH=%s:$PYTHONPATH && " % tpath
-                    cmd += "export PATH=%s:$PATH && " % tpath
-                else:
-                    for i in op_in["collectdata_pythonlib_folders"]: 
-                        tpath = os.path.join(op_in["collectdata_pythonlib"],os.path.split(i.strip("/"))[0])
-                        cmd += "export PYTHONPATH=%s:$PYTHONPATH && " % tpath
-
             if op_in["collectdata_lib"] != None:
                 tpath = str(op_in["collectdata_lib"])
                 cmd += "export PATH=%s:$PATH && " % tpath
@@ -237,16 +179,16 @@ class RunDFT(OP):
                     os.chmod(script,0o777)
                     shutil.copy(script,os.path.join(tpath,ifile[:-3]))
             
-            if op_in["collectdata_command"] != "":
-                cmd += op_in["collectdata_command"]
-                log += "\ncommand:" + cmd + "\n"
+            os.chdir(work_path)
+            log = ""
+            if op_in["command"].strip() != "":
+                cmd += str(op_in["command"])
                 log += os.popen("(%s) 2>&1" % cmd).read()
-                print(log)
-            
+                
             os.chdir(work_path)
             logfile_name = "STDOUTER"
             if os.path.isfile(logfile_name):
-                logfile_name = GetBakFile(logfile_name)
+                logfile_name = comm.GetBakFile(logfile_name)
             logfile = Path(logfile_name)
 
             if len(op_in["outputfiles"]) == 0:
@@ -306,12 +248,10 @@ def ProduceRunDFTStep(step_name,
                       image, 
                       collectdata_script = [],
                       collectdata_script_name = [] ,
-                      collectdata_command = "", 
-                      collectdata_pythonlib = [], 
                       outputs=[], 
                       executor = None, 
                       example_names =[""],
-                      DoSlices=True,  
+                      DoSlices=False,  
                       sub_save_path = "",
                       datahub = False):
     #define template
@@ -320,10 +260,10 @@ def ProduceRunDFTStep(step_name,
                     slices=Slices(sub_path = True,
                                   input_artifact=["abacustest_example"],
                                   output_artifact=["outputs"]))
-        sub_path = [""]
+        example_name = [""]
     else:
         pt = PythonOPTemplate(RunDFT,image=image)
-        sub_path = list(example_names)
+        example_name = list(example_names)
 
     #define example artifacts
     artifacts = {"abacustest_example": example_artifact} 
@@ -333,17 +273,6 @@ def ProduceRunDFTStep(step_name,
         artifacts["collectdata_script"] = collectdata_script
     else:
         pt.inputs.artifacts["collectdata_script"].optional = True
-        
-    #collectdata_pythonlib    
-    if len(collectdata_pythonlib) > 0:
-        artifacts["collectdata_pythonlib"] = upload_artifact(collectdata_pythonlib)
-        if len(collectdata_pythonlib) == 1:
-            collectdata_pythonlib_folders = [""]
-        else:
-            collectdata_pythonlib_folders = collectdata_pythonlib
-    else:
-        pt.inputs.artifacts["collectdata_pythonlib"].optional = True
-        collectdata_pythonlib_folders = [""]
     
     #upload collectdata_lib    
     abacustestpath = "/".join(__file__.split('/')[:-2])
@@ -351,26 +280,16 @@ def ProduceRunDFTStep(step_name,
     
     #produce step
     step = Step(name=step_name,template=pt,
-            parameters = {"command": command, "sub_path":sub_path,
+            parameters = {"command": command, "example_name":example_name,
                           "sum_save_path_example_name": datahub,
                           "collectdata_script_name": collectdata_script_name,
                           "sub_save_path": sub_save_path,
-                          "collectdata_command":collectdata_command,
-                          "collectdata_pythonlib_folders": collectdata_pythonlib_folders,
                           "outputfiles":outputs},
             artifacts =  artifacts,continue_on_failed=True)
 
     if executor != None:
         step.executor = executor
     return step
-
-def GetBakFile(sfile):
-    n = 1
-    bk = sfile + ".bak%d" % n
-    while os.path.exists(bk):
-        n += 1
-        bk = sfile + ".bak%d" % n
-    return bk
 
 def ProduceRadomPath(tmp_path):
     import random,string
@@ -390,7 +309,7 @@ def RunPostDFTLocal(work_path, save_path, param):
     if len(scripts) > 0:
         SCRIPT = os.path.join(work_path,"SCRIPT")
         if os.path.isdir(SCRIPT):
-            bkf = GetBakFile(SCRIPT)
+            bkf = comm.GetBakFile(SCRIPT)
             os.rename(SCRIPT,bkf)
         os.makedirs(SCRIPT)
         for iscript in scripts:
@@ -446,6 +365,31 @@ def FindLocalExamples(example):
             comm.printinfo(i,"element of 'example' should be a list, or str")
             
     return examples,examples_name
+
+def Upload2Datahub(uri,urnseting,privateset=None):
+    if privateset == None:
+        privateset = globV.get_value("PRIVATE_SET")
+    project = privateset.get("datahub_project")
+    gms_url = privateset.get("datahub_gms_url")
+    gms_token = privateset.get("datahub_gms_token")
+    bohrium_username = privateset.get("datahub_username")
+    bohrium_password = privateset.get("datahub_password")
+    
+    datasetname = urnseting.get("datasetname")
+    tags = urnseting.get("tags")
+    properties = urnseting.get("properties")
+    comm.printinfo("project: %s, dataset: %s" % (project,datasetname))
+    comm.printinfo("tags: %s" % tags)
+    comm.printinfo("properties: %s" % str(properties))
+    
+    from dp.metadata import MetadataContext,Dataset
+    from dp.metadata.utils.storage import TiefblueStorageClient
+    metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password)
+    with MetadataContext(project=project,endpoint = gms_url,token = gms_token,storage_client=metadata_storage_client) as context:
+        client = context.client
+    urn = Dataset.gen_urn(context, "tiefblue", datasetname)
+    dataset = Dataset(urn=urn,uri=uri,tags=tags,properties=properties)
+    client.create_dataset(dataset)
 
 def GetURI(urn,privateset=None):
     if privateset == None:
@@ -623,7 +567,7 @@ def ProduceOneSteps(stepname,param):
         
         #get the example and collectdata script
         datahub,examples,examples_name,collectdata_script,collectdata_script_name = \
-            GetExampleScript(rundft,"example_source","example","collectdata_script")  
+            GetExampleScript(rundft,"example_source","example","extra_files")  
         
         #split the examples to ngroup and produce ngroup step      
         if len(examples) > 0:
@@ -641,9 +585,7 @@ def ProduceOneSteps(stepname,param):
                       example_artifact = example_tmp, 
                       image = image, 
                       collectdata_script = collectdata_script,
-                      collectdata_script_name = collectdata_script_name, 
-                      collectdata_command = rundft.get("collectdata_command",""), 
-                      collectdata_pythonlib = rundft.get("collectdata_pythonlib",[]), 
+                      collectdata_script_name = collectdata_script_name,  
                       outputs=rundft.get("outputs",[]), 
                       executor = executor, 
                       example_names = example_name_tmp,
@@ -684,16 +626,14 @@ def ProduceOneSteps(stepname,param):
     else:
         executor,bohrium_set = ProduceExecutor(param["post_dft"])
         datahub,examples,examples_name,collectdata_script,collectdata_script_name = \
-            GetExampleScript(param["post_dft"],"example_source","example","script")
+            GetExampleScript(param["post_dft"],"example_source","example","extra_files")
         image = globV.get_value("ABBREVIATION").get(rundft.get("image"),rundft.get("image"))
         step3 = ProduceRunDFTStep(step_name="post-dft",
-                      command = "",   #command of do dft running
+                      command = param["post_dft"].get("command",""),   #command of do dft running
                       example_artifact = model_output_artifact, 
                       image = image, 
                       collectdata_script = collectdata_script,
                       collectdata_script_name = collectdata_script_name, 
-                      collectdata_command = param["post_dft"].get("command",""), 
-                      collectdata_pythonlib = param["post_dft"].get("pythonlib",[]), 
                       outputs=param["post_dft"].get("outputs",[]), 
                       executor = executor, 
                       example_names = [""],
@@ -708,7 +648,7 @@ def ProduceOneSteps(stepname,param):
         all_save_path = [[save_path,""]]
 
     steps.outputs.artifacts['outputs']._from = step3.outputs.artifacts["outputs"]
-    step = Step(name=stepname,template=steps)
+    step = Step(name=stepname,template=steps,key=stepname)
     return step,allstepname,all_save_path,post_dft_local_jobs
 
 def ProduceAllStep(alljobs):
@@ -717,6 +657,7 @@ def ProduceAllStep(alljobs):
     allsave_path = []
     postdft_local_jobs = []
     test_name = []
+    upload_datahub = []
     for k in alljobs:
         step,stepname,save_path,postdft_local_job = ProduceOneSteps(k,alljobs[k])
         if step == None:
@@ -727,5 +668,8 @@ def ProduceAllStep(alljobs):
         postdft_local_jobs.append(postdft_local_job) 
         comm.printinfo("\nComplete the preparing for %s.\n" % (k))
         test_name.append(k)
+        upload_datahub.append(alljobs[k].get("upload_datahub",False))
+        if upload_datahub[-1] and not (upload_datahub[-1].get("ifrun",True)):
+            upload_datahub[-1] = False
 
-    return allstep,allstepname,allsave_path,postdft_local_jobs,test_name
+    return allstep,allstepname,allsave_path,postdft_local_jobs,test_name,upload_datahub
