@@ -99,6 +99,7 @@ An example is like:
 ```
 - `if_run`: define if the test will be run.
 - `ABBREVIATION`: define some abbreviation, and is only valid for `image`.
+- `config`: The setting of config information.
 - `param`: the detail setting for each test.
   - test-name: the name of your test, and is same to that in `if_run`. If the name of one test is not defined in `if_run`, it will be ignored.
     - `save_path`: define the path to save the results of this test. If this key is not defined or if is deined to be "" or None, the value will be replaced to be the path defined by "-s" (the args of abacustest, the default of "-s" is "result/date_of_today" like "result/20230101")
@@ -115,17 +116,6 @@ An example is like:
   
     - `post_dft`: define the detail of post processing, and now all examples will be put at one same place. The key are same as those in `run_dft`, but no need the definition of example. 
 
-### 1.2 user.json
-This file defines the detail of the account information to Bohrium. \
-An example is like: 
-```
-{
-        "lbg_username":         "xxx",
-        "lbg_password":         "xxx",
-        "project_id":           111
-}
-```
-If you do not use Bohrium, this file and the keys is also needed, but the values are not matter.
 
 ### 1.3 submit a test
 ```
@@ -233,7 +223,7 @@ If you want to define a vasp method, you need change the import line and class n
 ```
 from lib_collectdata.resultVasp import ResultVasp
 class MyVasp(ResultVasp):
-    @ResultAbacus.register(key_name="description of the key")
+    @ResultVasp.register(key_name="description of the key")
     def function_name(self):
 ```
 The class name `MyVasp` is self-defined, and only need to conform to the naming rule of class. \
