@@ -59,7 +59,13 @@ An example is like:
                  "ngroup" : 0,
                  "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
                  "command": "mpirun -np 8 abacus > log",
-                 "extra_files":["collectdata-abacus.json"],
+                 "extra_files":[],
+                 "metrics":{
+					"dft_type":"abacus",
+					"metrics_name": [],
+					"save_file": "result.json",
+					"newmethods": []
+				},
                  "outputs":["log","result.json","OUT.*"]
                 },
                 {"ifrun": true,
@@ -81,8 +87,14 @@ An example is like:
                  "example":[["00[0-2]"],"00[3-5]"],
                  "ngroup" : 0,
                  "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
-                 "command": "mpirun -np 4 abacus > log && collectdata.py collectdata-abacus.json -o result.json",
-                 "extra_files":["collectdata-abacus.json"],
+                 "command": "mpirun -np 4 abacus > log ",
+                 "extra_files":[],
+                 "metrics":{
+					"dft_type":"abacus",
+					"metrics_name": ["total_time","scf_steps"],
+					"save_file": "result.json",
+					"newmethods": []
+				 },
                  "outputs":["log","result.json","OUT.*"]
                 }
             ],
@@ -112,6 +124,11 @@ An example is like:
       - `bohrium`: if you want to submit the job to Bohrium, you need set this key, and if you do not want to use Bohrium, please remove this key or set it to be `false`.
       - `command`: the command to run the job. It is same for all jobs defined in `example`.
       - `extra_files`: if you need extra files (such as "collectdata-abacus.json"), you can defined them at here. Before run the command, these files will be copied to each example folder.
+      - `metrics`: define the metrics information.
+        - `dft_type`: the job type, can be one of: "abacus", "qe", "vasp", and also 0/1/2 is ok, which refers to "abacus"/"qe"/"vasp" respectively.
+        - `metrics_name`: a list of your metric name. Can find all names by `abacustest collectdata --outparam -t 0`. If is a null list, will catch all registered metrics.
+        - `save_file`: the file name to store the values of metrics, which is a json file type.
+        - `newmethods`: if the self-defined methods is needed, please add the file name (generally is a .py file) in `extra_files` and the module name (generally is file name without .py) in here. Detail of newmethods please see [2.3 import self-defined methods](#2.3 import self-defined methods).
       - `outputs`: specify which files and folders will be downloaded. If set to be "[]", all of the files in the folder will be downloaded.\
   
     - `post_dft`: define the detail of post processing, and now all examples will be put at one same place. The key are same as those in `run_dft`, but no need the definition of example. 

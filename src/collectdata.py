@@ -86,7 +86,7 @@ def collectdata(param):
         allresult[ipath] = parse_value(result,allparams)
 
     print("Write the results to %s" % outputf)
-    json.dump(allresult,open(outputf,"w"))
+    json.dump(allresult,open(outputf,"w"),indent=4)
 
 def main():
     parser = argparse.ArgumentParser()

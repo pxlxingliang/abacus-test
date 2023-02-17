@@ -30,12 +30,16 @@ from dflow.python import (
     OPIO,
     OPIOSign,
     Artifact,
-    Slices
+    Slices,
+    BigParameter,
+    Parameter
 )
 
 from dflow import config, s3_config
 from dflow.plugins import bohrium
 from dflow.plugins.bohrium import TiefblueClient,create_job_group
+
+from lib_collectdata.collectdata import RESULT
 
 def SetBohrium(private_set,debug=False):  
     if debug:
@@ -79,6 +83,55 @@ def SetBohrium(private_set,debug=False):
     globV.set_value("HOST", host)
     globV.set_value("storage_client", client)
 
+class Metrics:
+    def __init__(self,dft_type="abacus",metrics_name=[],newmethods=[]):
+        self.dft_type = dft_type
+        self.metrics_name = metrics_name
+        self.newmethods = newmethods
+        pass
+    
+    def get_metrics(self,save_file = None):
+        result = RESULT(fmt=self.dft_type,newmethods=self.newmethods)
+        if len(self.metrics_name) == 0:
+            self.metrics_name = result.AllMethod().keys()
+        allvalue = {}
+        for iparam in self.metrics_name:  
+            allvalue[iparam] = result[iparam] 
+        if save_file != None:
+            json.dump(allvalue,open(save_file,'w'),indent=4) 
+        return allvalue
+    
+    @staticmethod
+    def ParseMetricsOPIO(metrics_io):
+        all_dfttype = {0:"abacus",1:"qw",2:"vasp"}
+        dft_type = metrics_io.get("dft_type",None)
+        dftt = None
+        if dft_type == None:
+            return None
+        elif isinstance(dft_type,int):
+            if dft_type not in all_dfttype:
+                print("Unknow dft type '%d'. Supportted:" % dft_type,str(all_dfttype))
+            else:
+                dftt = all_dfttype[dft_type]
+        elif isinstance(dft_type,str):
+            if dft_type.lower() == "abacus":
+                dftt = "abacus"
+            elif dft_type.lower() == "qe":
+                dftt = "qe"
+            elif dft_type.lower() == "vasp":
+                dftt = "vasp"
+            else:
+                print("Unknow dft type '%s'. Supportted:" % dft_type,str(all_dfttype))
+        else:
+            print("Unknow dft type '",dft_type,"'. Supportted:",str(all_dfttype))
+
+        if dftt == None:
+            return None
+        else:
+            return Metrics(dft_type=dftt,
+                       metrics_name= metrics_io.get("metrics_name",[]),
+                       newmethods=metrics_io.get("newmethods",[]))       
+
 class RunDFT(OP):
     def __init__(self):
         pass
@@ -93,8 +146,8 @@ class RunDFT(OP):
                 "sub_save_path": str,
                 "collectdata_script": Artifact(Path),
                 "collectdata_script_name": [str],
-                "collectdata_lib": Artifact(Path),
                 "outputfiles":[str],
+                "metrics": BigParameter(dict,default={}),
                 "sum_save_path_example_name": bool
             }
         )
@@ -130,6 +183,9 @@ class RunDFT(OP):
         print(op_in)
         outpath = []
         
+        metrics = Metrics.ParseMetricsOPIO(op_in['metrics'])
+        savefile = op_in["metrics"].get("save_file","result.json")
+        
         root_path_0,hasdflow = GetPath("abacustest_example")
         for iexample,example_name in enumerate(op_in["example_name"]):
             root_path = os.path.join(root_path_0,GetName("abacustest_example",hasdflow,iexample))
@@ -161,30 +217,20 @@ class RunDFT(OP):
                         shutil.copy(script_source_path,dst_path)
                     elif  os.path.isdir(script_source_path):
                         shutil.copytree(script_source_path,dst_path,dirs_exist_ok=True)
-
+ 
+            #run command
             cmd = ''
-            if op_in["collectdata_lib"] != None:
-                tpath = str(op_in["collectdata_lib"])
-                cmd += "export PATH=%s:$PATH && " % tpath
-                for ifile in ["collectdata.py","outresult.py"]:
-                    script = os.path.join(tpath,ifile)
-                    for chkcmd,headline in [("env python -h","#!/usr/bin/env python"),
-                                        ("env python3 -h","#!/usr/bin/env python3"),
-                                        ("/usr/bin/python -h","#!/usr/bin/python"),
-                                        ("/usr/bin/python3 -h","#!/usr/bin/python3")]:
-                        if not os.system(chkcmd+">/dev/null 2>&1"):
-                            with open(script) as f1: lines = ["%s\n"%headline] + f1.readlines()
-                            with open(script,'w') as f1: f1.writelines(lines)
-                            break                    
-                    os.chmod(script,0o777)
-                    shutil.copy(script,os.path.join(tpath,ifile[:-3]))
-            
             os.chdir(work_path)
             log = ""
             if op_in["command"].strip() != "":
                 cmd += str(op_in["command"])
                 log += os.popen("(%s) 2>&1" % cmd).read()
-                
+            
+            #read metrics
+            if metrics != None:    
+                os.chdir(work_path)
+                metrics_value = metrics.get_metrics(save_file=savefile)
+
             os.chdir(work_path)
             logfile_name = "STDOUTER"
             if os.path.isfile(logfile_name):
@@ -253,7 +299,8 @@ def ProduceRunDFTStep(step_name,
                       example_names =[""],
                       DoSlices=False,  
                       sub_save_path = "",
-                      datahub = False):
+                      datahub = False,
+                      metrics={}):
     #define template
     if DoSlices:
         pt = PythonOPTemplate(RunDFT,image=image,
@@ -274,17 +321,13 @@ def ProduceRunDFTStep(step_name,
     else:
         pt.inputs.artifacts["collectdata_script"].optional = True
     
-    #upload collectdata_lib    
-    abacustestpath = "/".join(__file__.split('/')[:-2])
-    artifacts["collectdata_lib"] = upload_artifact(abacustestpath)
-    
     #produce step
     step = Step(name=step_name,template=pt,
             parameters = {"command": command, "example_name":example_name,
                           "sum_save_path_example_name": datahub,
                           "collectdata_script_name": collectdata_script_name,
                           "sub_save_path": sub_save_path,
-                          "outputfiles":outputs},
+                          "outputfiles":outputs,"metrics":metrics},
             artifacts =  artifacts,continue_on_failed=True)
 
     if executor != None:
@@ -591,7 +634,8 @@ def ProduceOneSteps(stepname,param):
                       example_names = example_name_tmp,
                       DoSlices=False,  
                       sub_save_path = sub_save_path,
-                      datahub = datahub)
+                      datahub = datahub,
+                      metrics=rundft.get("metrics",{}))
                 
                 if post_dft and not post_dft_local:
                     step1_tmp.template.outputs.artifacts["outputs"].save = [model_output_artifact]
@@ -673,3 +717,6 @@ def ProduceAllStep(alljobs):
             upload_datahub[-1] = False
 
     return allstep,allstepname,allsave_path,postdft_local_jobs,test_name,upload_datahub
+
+
+

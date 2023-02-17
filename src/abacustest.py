@@ -6,6 +6,7 @@ from dflow.python import upload_packages
 import numpy
 upload_packages.append(os.path.split(numpy.__file__)[0])
 upload_packages.append(os.path.join(os.path.split(__file__)[0],'myflow'))
+upload_packages.append(os.path.join(os.path.split(__file__)[0],'lib_collectdata'))
 
 def AbacusTestArgs(parser):
     parser.description = "This script is used to run a testing"
