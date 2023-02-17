@@ -3,8 +3,10 @@ import os,sys,argparse
 sys.path.append(os.path.split(__file__)[0])
 from myflow import flow,globV,comm
 from dflow.python import upload_packages
-import numpy
+import numpy,pandas,pymatgen
 upload_packages.append(os.path.split(numpy.__file__)[0])
+upload_packages.append(os.path.split(pandas.__file__)[0])
+upload_packages.append(os.path.split(pymatgen.__file__)[0])
 upload_packages.append(os.path.join(os.path.split(__file__)[0],'myflow'))
 upload_packages.append(os.path.join(os.path.split(__file__)[0],'lib_collectdata'))
 
