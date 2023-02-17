@@ -11,6 +11,7 @@ import  os, shutil, glob
 from . import globV,dflowOP,comm
 
 def ParamParser(param):
+        
     alljobs = {}
     for k,v in param.get('if_run',{}).items():
         if v : alljobs[k] = {}
@@ -29,6 +30,13 @@ def ParamParser(param):
         alljobs[k]["post_dft"] = param['param'][k]["post_dft"]
         alljobs[k]["save_path"] = param['param'][k].get("save_path",None)
         alljobs[k]["upload_datahub"] = param['param'][k].get("upload_datahub",False)
+    
+    if "run_dft" in param:
+        alljobs = {"testing":{}}
+        alljobs["testing"]["save_path"] = param.get("save_path",None)
+        alljobs["testing"]["run_dft"] = param.get("run_dft")
+        alljobs["testing"]["post_dft"] = param.get("post_dft",{"ifrun":False})
+        alljobs["testing"]["upload_datahub"] = param.get("upload_datahub",None)
     
     if "dataset_info" in param:
         globV.set_value("dataset_info",param['dataset_info']) 

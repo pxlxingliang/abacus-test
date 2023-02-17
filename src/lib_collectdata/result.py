@@ -75,7 +75,8 @@ class Result:
     def AllMethod(cls):
         paramdic = {}
         for key,value in cls._PARAM_DIC.items():
-            value = ("%s()"% (value[0].__qualname__),value[1])
+            filename = value[0].__code__.co_filename
+            value = ("%s()"% (value[0].__qualname__),filename,value[1])
             paramdic[key] = value
         return paramdic
     

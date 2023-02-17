@@ -84,21 +84,25 @@ def SetBohrium(private_set,debug=False):
     globV.set_value("storage_client", client)
 
 class Metrics:
-    def __init__(self,dft_type="abacus",metrics_name=[],newmethods=[]):
+    def __init__(self,dft_type="abacus",metrics_name=[],newmethods=[],path=["."]):
         self.dft_type = dft_type
         self.metrics_name = metrics_name
         self.newmethods = newmethods
+        self.path = path
         pass
     
     def get_metrics(self,save_file = None):
-        result = RESULT(fmt=self.dft_type,newmethods=self.newmethods)
-        if len(self.metrics_name) == 0:
-            self.metrics_name = result.AllMethod().keys()
         allvalue = {}
-        for iparam in self.metrics_name:  
-            allvalue[iparam] = result[iparam] 
-        if save_file != None:
-            json.dump(allvalue,open(save_file,'w'),indent=4) 
+        for ipath in self.path:
+            for iipath in glob.glob(ipath):
+                allvalue[iipath] = {}
+                result = RESULT(fmt=self.dft_type,newmethods=self.newmethods,path=iipath)
+                if len(self.metrics_name) == 0:
+                    self.metrics_name = result.AllMethod().keys()
+                for iparam in self.metrics_name:  
+                    allvalue[iipath][iparam] = result[iparam] 
+                if save_file != None:
+                    json.dump(allvalue,open(save_file,'w'),indent=4) 
         return allvalue
     
     @staticmethod

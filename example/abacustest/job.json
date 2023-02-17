@@ -1,9 +1,4 @@
 {
-    "if_run":{
-        "abacus-pw": false,
-        "abacus-pw1": false,
-    },
-
     "config":{
         "lbg_username":         "xxx",
         "lbg_password":         "xxx",
@@ -14,63 +9,41 @@
             "PYTHON_IMAGE": "python:3.8"
     },
 
-    "param":{
-        "abacus-pw":{
-            "save_path":"result/abacus-pw",
-            "run_dft":[
-                {"ifrun": true,
-                 "sub_save_path": "",
-                 "image": "ABACUS310_IMAGE",
-                 "example":[["00[0-2]"],"00[3-5]"],
-                 "ngroup" : 0,
-                 "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
-                 "command": "mpirun -np 8 abacus > log",
-                 "extra_files":[],
-				 "metrics":{
-					"dft_type":"abacus",
-					"metrics_name": [],
-					"save_file": "result.json",
-					"newmethods": []
-				},
-                 "outputs":["log","result.json","OUT.*"]
-                },
-                {"ifrun": true,
-                 "image": "ABACUS310_IMAGE",
-                 "example":[["00[6-7]"],"00[8-9]"],
-                 "ngroup" : 3,
-                 "bohrium": {"scass_type":"c16_m32_cpu","job_type":"container","platform":"ali"},
-                 "command": "mpirun -np 8 abacus > log",
-                 "extra_files":[],
-                 "outputs":[]
-                }
-            ]
+	"save_path":"result/abacus-pw",
+
+    "run_dft":[
+        {"ifrun": true,
+         "sub_save_path": "",
+         "image": "ABACUS310_IMAGE",
+         "example":[["00[0-2]"],"00[3-5]"],
+         "ngroup" : 0,
+         "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
+         "command": "mpirun -np 8 abacus > log",
+         "extra_files":[],
+         "metrics":{
+			"dft_type":"abacus",
+			"metrics_name": [],
+			"save_file": "result.json",
+			"newmethods": []
+		},
+         "outputs":["log","result.json","OUT.*"]
         },
-        "abacus-pw1":{
-            "save_path":"result/abacus-pw1",
-            "run_dft":[
-                {"ifrun": true,
-                 "image": "registry.dp.tech/dptech/abacus:3.1.0",
-                 "example":[["00[0-2]"],"00[3-5]"],
-                 "ngroup" : 0,
-                 "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
-                 "command": "mpirun -np 4 abacus > log",
-				 "metrics":{
-					"dft_type":"abacus",
-					"metrics_name": ["total_time","scf_steps"],
-					"save_file": "result.json",
-					"newmethods": []
-				},
-                 "extra_files":[],
-                 "outputs":["log","result.json","OUT.*"]
-                }
-            ],
-            "post_dft":{
-                        "ifrun": false,
-                        "command": "collectdata.py collectdata-abacus.json -o result.json -j 00*",
-                        "extra_files": ["collectScf.py"],
-                        "image":   "python:3.8",
-                        "outputs": []
-            }
+        {"ifrun": true,
+         "image": "ABACUS310_IMAGE",
+         "example":[["00[6-7]"],"00[8-9]"],
+         "ngroup" : 3,
+         "bohrium": {"scass_type":"c16_m32_cpu","job_type":"container","platform":"ali"},
+         "command": "mpirun -np 8 abacus > log",
+         "extra_files":[],
+         "outputs":[]
         }
+    ],
+
+    "post_dft":{
+                "ifrun": false,
+                "command": "collectdata.py collectdata-abacus.json -o result.json -j 00*",
+                "extra_files": [],
+                "image":   "python:3.8",
+                "outputs": []
     }
 }

@@ -69,7 +69,8 @@ class Vasp(ResultVasp):
                          ismear = "the smearing method",
                          sigma = "the SIGMA setting of smearing, in eV",
                          nelm = "value of NELM, the setted maximum SCF steps",
-                         natom = "total atom number")
+                         natom = "total atom number",
+                         volume = "volume(A^3). if is relax or md, will return the volume of last ION step")
     def GetInputSetting(self):
         if self.XMLROOT != None:
             tree = ".//separator[@name='electronic']/i[@name='NBANDS']"
@@ -96,6 +97,9 @@ class Vasp(ResultVasp):
             tree = "./atominfo/atoms"
             self['natom'] = comm.iint(comm.XmlGetText(self.XMLROOT.find(tree)))
             
+            tree = "./structure/crystal/i[@name='volume']"
+            self['volume'] = comm.ifloat(comm.XmlGetText(self.XMLROOT.findall(tree),idx=-1))
+            
         else:
             for line in self.OUTCAR:
                 sline = line.split()
@@ -114,6 +118,8 @@ class Vasp(ResultVasp):
                     self["sigma"] = float(sline[5])
                 elif "NELM   =" in line:
                     self['nelm'] = int(sline[2][:-1])
+                elif "volume of cell" in line:
+                    self["volume"] = float(sline[-1])
 
     @ResultVasp.register(ldautype = "value of LDAUTYPE, the type of plus U",
                          ldaul = "list, value of LDAUL, the l-quantum number of each element",
@@ -144,13 +150,13 @@ class Vasp(ResultVasp):
                     self['converge'] = False
                 break
     
-    @ResultVasp.register(energy = 'eV,the total energy',
-                         energy_per_atom = 'eV, the energy divided by natom')
+    @ResultVasp.register(energy = 'eV,the total energy, if is relax or md job, will return the energy of last ION step',
+                         energy_per_atom = 'eV, the energy divided by natom, if is relax or md job, will return the energy of last ION step')
     def GetEnergy(self):
         for i in range(len(self.OUTCAR)):
             line = self.OUTCAR[-i-1]
-            if "energy without entropy =" in line:
-                self['energy'] = float(line.split()[4])
+            if "energy  without entropy=" in line:
+                self['energy'] = float(line.split()[-4])
                 if self['natom'] != None:
                     self['energy_per_atom'] = self['energy'] / self['natom']
                 else:
