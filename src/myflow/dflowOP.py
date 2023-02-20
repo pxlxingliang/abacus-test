@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os,sys,glob,time,shutil,argparse,json
 from . import globV,comm
 from dflow import (
@@ -84,19 +83,22 @@ def SetBohrium(private_set,debug=False):
     globV.set_value("storage_client", client)
 
 class Metrics:
-    def __init__(self,dft_type="abacus",metrics_name=[],newmethods=[],path=["."]):
+    def __init__(self,dft_type="abacus",metrics_name=[],newmethods=[],path=["."],modules=[]):
         self.dft_type = dft_type
         self.metrics_name = metrics_name
         self.newmethods = newmethods
         self.path = path
+        self.modules = modules
         pass
     
     def get_metrics(self,save_file = None):
         allvalue = {}
+        print(os.getcwd(),self.path,self.newmethods,self.dft_type,self.modules)
+        print(os.listdir("."))
         for ipath in self.path:
             for iipath in glob.glob(ipath):
                 allvalue[iipath] = {}
-                result = RESULT(fmt=self.dft_type,newmethods=self.newmethods,path=iipath)
+                result = RESULT(fmt=self.dft_type,newmethods=self.newmethods,path=iipath,modules=self.modules)
                 if len(self.metrics_name) == 0:
                     self.metrics_name = result.AllMethod().keys()
                 for iparam in self.metrics_name:  
@@ -132,9 +134,12 @@ class Metrics:
         if dftt == None:
             return None
         else:
+            print(metrics_io)
             return Metrics(dft_type=dftt,
+                           path= metrics_io.get("path",["."]),
                        metrics_name= metrics_io.get("metrics_name",[]),
-                       newmethods=metrics_io.get("newmethods",[]))       
+                       newmethods=metrics_io.get("newmethods",[]),
+                       modules = metrics_io.get("modules",[]))       
 
 class RunDFT(OP):
     def __init__(self):
@@ -208,7 +213,7 @@ class RunDFT(OP):
             print("work path:",work_path)
 
             os.chdir(work_path)
-            script_folder = "."
+            script_folder = work_path
             if op_in["collectdata_script"] != None:
                 script_root_path,script_hasdflow = GetPath("collectdata_script")
                 for iii in range(len(op_in["collectdata_script_name"])):
@@ -220,7 +225,8 @@ class RunDFT(OP):
                     if os.path.isfile(script_source_path):
                         shutil.copy(script_source_path,dst_path)
                     elif  os.path.isdir(script_source_path):
-                        shutil.copytree(script_source_path,dst_path,dirs_exist_ok=True)
+                        #shutil.copytree(script_source_path,dst_path,dirs_exist_ok=True)
+                        comm.CopyFiles(script_source_path,dst_path,move=False)
  
             #run command
             cmd = ''
@@ -304,8 +310,14 @@ def ProduceRunDFTStep(step_name,
                       DoSlices=False,  
                       sub_save_path = "",
                       datahub = False,
-                      metrics={}):
+                      metrics={},
+                      python_packages=None):
     #define template
+    if python_packages != None:
+        for i in python_packages:
+            if not os.path.isdir(i):
+                comm.printinfo("ERROR: 'python_packages' error! Can not find path: %s" % i)
+                sys.exit(1)
     if DoSlices:
         pt = PythonOPTemplate(RunDFT,image=image,
                     slices=Slices(sub_path = True,
@@ -313,7 +325,7 @@ def ProduceRunDFTStep(step_name,
                                   output_artifact=["outputs"]))
         example_name = [""]
     else:
-        pt = PythonOPTemplate(RunDFT,image=image)
+        pt = PythonOPTemplate(RunDFT,image=image,python_packages=python_packages)
         example_name = list(example_names)
 
     #define example artifacts
@@ -639,7 +651,8 @@ def ProduceOneSteps(stepname,param):
                       DoSlices=False,  
                       sub_save_path = sub_save_path,
                       datahub = datahub,
-                      metrics=rundft.get("metrics",{}))
+                      metrics=rundft.get("metrics",{}),
+                      python_packages=rundft.get("python_packages"))
                 
                 if post_dft and not post_dft_local:
                     step1_tmp.template.outputs.artifacts["outputs"].save = [model_output_artifact]
@@ -675,7 +688,7 @@ def ProduceOneSteps(stepname,param):
         executor,bohrium_set = ProduceExecutor(param["post_dft"])
         datahub,examples,examples_name,collectdata_script,collectdata_script_name = \
             GetExampleScript(param["post_dft"],"example_source","example","extra_files")
-        image = globV.get_value("ABBREVIATION").get(rundft.get("image"),rundft.get("image"))
+        image = globV.get_value("ABBREVIATION").get(param["post_dft"].get("image"),param["post_dft"].get("image"))
         step3 = ProduceRunDFTStep(step_name="post-dft",
                       command = param["post_dft"].get("command",""),   #command of do dft running
                       example_artifact = model_output_artifact, 
@@ -687,7 +700,9 @@ def ProduceOneSteps(stepname,param):
                       example_names = [""],
                       DoSlices=False,  
                       sub_save_path = "",
-                      datahub = datahub)
+                      datahub = datahub,
+                      metrics=param["post_dft"].get("metrics",{}),
+                      python_packages=param["post_dft"].get("python_packages"))
         #step3 = ProducePostDFTStep(param["post_dft"],model_output_artifact)
         comm.printinfo("image: %s" % image) 
         comm.printinfo("set bohrium: %s"%str(bohrium_set))   

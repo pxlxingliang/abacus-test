@@ -14,6 +14,7 @@ def printAllMethod(allmethod,fmt):
 def import_new_method(newmethods=[]):
     if newmethods == None:
         return
+    sys.path.append(os.getcwd())
     for imethod in newmethods:
         try:
             importlib.import_module(imethod)
