@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import List
 from dflow.plugins.dispatcher import DispatcherExecutor
 
-#from dflow.plugins.bohrium import BohriumContext, BohriumExecutor
+from dflow.plugins.bohrium import BohriumContext, BohriumExecutor
 from dflow.python import (
     PythonOPTemplate,
     OP,
@@ -78,7 +78,14 @@ def SetBohrium(private_set,debug=False):
         s3_config["repo_key"] = "oss-bohrium"
         s3_config["storage_client"] = TiefblueClient()
         client = s3_config["storage_client"]
-    
+
+        if globV.get_value("BOHRIUM_EXECUTOR"):
+            globV.set_value("BRM_CONTEXT",BohriumContext(
+                    executor="mixed",
+                    extra={},
+                    username=private_set.get('lbg_username',''),
+                    password=private_set.get('lbg_password','')))
+        
     globV.set_value("HOST", host)
     globV.set_value("storage_client", client)
 
@@ -141,6 +148,163 @@ class Metrics:
                        newmethods=metrics_io.get("newmethods",[]),
                        modules = metrics_io.get("modules",[]))       
 
+
+class UploadTracking:
+    def __init__(self,tracking_setting,tracking_value={}):
+        self.tags = tracking_setting.get("tags")
+        self.name = tracking_setting.get("name")
+        self.experiment = tracking_setting.get("experiment")
+        self.tracking_value = tracking_value
+    
+    def CheckEnv(self):
+        hasconfig = True
+        for i in ["AIM_ACCESS_TOKEN"]:
+            if i not in os.environ:
+                print("Upload tracking error. Please set '%s' information." % i)
+                hasconfig = False
+        
+        #if 'AIM_FORCE_PUBLIC_CERT' not in os.environ:
+        #    os.environ['AIM_FORCE_PUBLIC_CERT'] = str(True)
+        
+        return hasconfig
+    
+    @staticmethod
+    def rotate_metrics(dict1):
+        '''
+        dict1 = {example1: {metric1:,metric2:,...}, example2: {}}
+        will be rotated to:
+        {metric1:[example1_value,example2_value],metric2:[example1_value,example2_value,...]}
+        '''
+        allkey = [i for i in dict1.keys()]
+        allmetrics = dict1[allkey[0]].keys()
+        newdict = {}
+        for imetric in allmetrics:
+            newdict[imetric] = []
+            for iexample in allkey:
+                newdict[imetric].append(dict1.get(iexample,{}).get(imetric,None))
+        return allkey,newdict
+    
+    def upload(self):
+        if not self.CheckEnv():
+            return False
+        
+        from dp.tracking import Run, Text
+        tracking_run = Run(repo='aim://tracking-api.dp.tech:443')
+        tracking_run.name = self.name
+        tracking_run.experiment = self.experiment
+        for tag in self.tags: tracking_run.add_tag(tag)
+        
+        def my_track(value,name):
+            if isinstance(value,(int,float)):
+                tracking_run.track(value,name=name,context={"subset":"report"})
+            elif isinstance(value,str):
+                tracking_run.track(Text(value),name=name,context={"subset":"report"})  
+            else:
+                print(type(value))  
+                tracking_run.track(value,name=name,context={"subset":"report"})
+        
+        for k,v in self.tracking_value.items():
+            k = k.replace("/",".")
+            print("upload to tracking: %s" % k)
+            if isinstance(v,list):
+                for iv in v: 
+                    my_track(iv,k)
+            else:
+                my_track(v,k)
+        
+        tracking_run.close()
+
+class UploadDatahub:
+    def __init__(self, datahub_setting:dict) -> None:
+        self.datalist = datahub_setting.get("datalist",[])
+        self.except_list = datahub_setting.get("except_list",[])
+        self.datasetname = datahub_setting.get("datasetname")+"." +self.today()
+        self.tags = datahub_setting.get("tags")
+        self.properties = datahub_setting.get("properties")
+
+    def today(self):
+        import datetime
+        from time import strftime
+        today = datetime.datetime.now()
+        return today.strftime("%Y%m%d")
+    
+    
+    def CheckEnv(self):
+        hasconfig = True
+        print(os.environ)
+        for i in ["datahub_gms_token", "lbg_username", "lbg_password"]:
+            if i not in os.environ:
+                print("Upload datahub error. Please set '%s' information." % i)
+                hasconfig = False
+        return hasconfig
+    
+    def CreatePath(self,path1,path2):
+        #make dir path2/path1
+        if os.path.isfile(path1):
+            final_path = os.path.join(path2,os.path.split(path1)[0])
+        else:
+            final_path = os.path.join(path2,path1)
+        if not os.path.isdir(final_path):
+            os.makedirs(final_path)
+        return final_path
+    
+    def CollectData(self):
+        tmp_path = comm.GetBakFile("tmp")
+        os.makedirs(tmp_path)
+        hasfile = False
+        if self.datalist == []: 
+            self.datalist = ["*"]
+        for ipath in self.datalist:
+            for i in glob.glob(ipath):
+                if i not in self.except_list:
+                    hasfile = True
+                    dst = self.CreatePath(i,tmp_path)
+                    if os.path.isfile(i):
+                        shutil.copy(i,dst)
+                    else:
+                        comm.CopyFiles(i,dst,move=False)
+        
+        if not hasfile: 
+            print("UploadDatahub: no files can be uploaded. ",self.datalist)
+            return False
+        return tmp_path            
+
+    def Upload(self):
+        if not self.CheckEnv():
+            return False
+        
+        tmp_path = self.CollectData()
+        if not tmp_path: return False
+        
+        gms_token = os.environ["datahub_gms_token"]
+        bohrium_username = os.environ["lbg_username"]
+        bohrium_password = os.environ["lbg_password"]
+        project = os.environ["datahub_project"]
+        gms_url = os.environ["datahub_gms_url"]
+        
+        print("Upload to datahub")
+        print("project: %s, dataset: %s" % (project,self.datasetname))
+        print("tags: %s" % self.tags)
+        print("properties: %s" % str(self.properties))
+
+        from dp.metadata import MetadataContext,Dataset
+        from dp.metadata.utils.storage import TiefblueStorageClient
+        metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password)
+        with MetadataContext(project=project,endpoint = gms_url,token = gms_token,storage_client=metadata_storage_client) as context:
+            client = context.client
+            urn = Dataset.gen_urn(context, "tiefblue", self.datasetname)
+            uri = client.upload_artifact(None, None, tmp_path)
+            dataset = Dataset(
+                urn=urn,
+                uri=uri,
+                tags=self.tags,
+                properties=self.properties
+            )
+            client.create_dataset(dataset)
+            
+        shutil.rmtree(tmp_path)
+        return True
+
 class RunDFT(OP):
     def __init__(self):
         pass
@@ -157,6 +321,8 @@ class RunDFT(OP):
                 "collectdata_script_name": [str],
                 "outputfiles":[str],
                 "metrics": BigParameter(dict,default={}),
+                "upload_datahub": BigParameter(dict,default={}),
+                "upload_tracking": BigParameter(dict,default={}),
                 "sum_save_path_example_name": bool
             }
         )
@@ -240,6 +406,13 @@ class RunDFT(OP):
             if metrics != None:    
                 os.chdir(work_path)
                 metrics_value = metrics.get_metrics(save_file=savefile)
+                #import pandas as pd
+                #log += "\nMetrics:\n%s\n" % str(pd.DataFrame.from_dict(metrics_value))
+                if op_in["upload_tracking"]:
+                    examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
+                    new_dict["samples"] = examples
+                    tracking = UploadTracking( op_in["upload_tracking"],new_dict)
+                    tracking.upload()
 
             os.chdir(work_path)
             logfile_name = "STDOUTER"
@@ -261,6 +434,10 @@ class RunDFT(OP):
             print(log)
             logfile.write_text(log)
 
+            if len(op_in["upload_datahub"]) > 0:
+                datahub = UploadDatahub(op_in["upload_datahub"])
+                datahub.Upload()
+            
         print(str(outpath))
         op_out = OPIO(
             {
@@ -285,18 +462,37 @@ def ProduceExecutor(param):
 
         bohrium_set["bohr_job_group_id"] = create_job_group(globV.get_value("BOHRIUM_GROUP_ID"))
         
-        dispatcher_executor = DispatcherExecutor(
-            machine_dict={
-                "batch_type": "Bohrium",
-                "context_type": "Bohrium",
-                "remote_profile": {"input_data": bohrium_set},
-                },
-            image_pull_policy = "IfNotPresent"
-        )
-        #comm.printinfo("set bohrium: %s"%str(bohrium_set))
-        return dispatcher_executor,bohrium_set
+        if not globV.get_value("BOHRIUM_EXECUTOR"):    
+            dispatcher_executor = DispatcherExecutor(
+                machine_dict={
+                    "batch_type": "Bohrium",
+                    "context_type": "Bohrium",
+                    "remote_profile": {"input_data": bohrium_set},
+                    },
+                image_pull_policy = "IfNotPresent"
+            )
+            #comm.printinfo("set bohrium: %s"%str(bohrium_set))
+            return dispatcher_executor,bohrium_set
+        else:
+            executor = BohriumExecutor(
+                executor= "bohrium_v2",
+                extra={
+                    "scassType": bohrium_set['scass_type'],
+                    "platform": bohrium_set['platform'] ,
+                    "projectId": globV.get_value("PRIVATE_SET").get("project_id"),
+                    "jobType":  bohrium_set['job_type']
+                }
+            )
+            return executor,bohrium_set
     else:
         return None,None
+
+def SetEnvs():
+    from dflow import Secret
+    envs = {}
+    for k,v in globV.get_value("PRIVATE_SET").items():
+        envs[k] = Secret(str(v))
+    return envs
 
 def ProduceRunDFTStep(step_name,
                       command,   #command of do dft running
@@ -311,7 +507,9 @@ def ProduceRunDFTStep(step_name,
                       sub_save_path = "",
                       datahub = False,
                       metrics={},
-                      python_packages=None):
+                      python_packages=None,
+                      upload_datahub={},
+                      upload_tracking={}):
     #define template
     if python_packages != None:
         for i in python_packages:
@@ -319,13 +517,13 @@ def ProduceRunDFTStep(step_name,
                 comm.printinfo("ERROR: 'python_packages' error! Can not find path: %s" % i)
                 sys.exit(1)
     if DoSlices:
-        pt = PythonOPTemplate(RunDFT,image=image,
+        pt = PythonOPTemplate(RunDFT,image=image,envs=SetEnvs(),
                     slices=Slices(sub_path = True,
                                   input_artifact=["abacustest_example"],
                                   output_artifact=["outputs"]))
         example_name = [""]
     else:
-        pt = PythonOPTemplate(RunDFT,image=image,python_packages=python_packages)
+        pt = PythonOPTemplate(RunDFT,image=image,python_packages=python_packages,envs=SetEnvs())
         example_name = list(example_names)
 
     #define example artifacts
@@ -337,13 +535,21 @@ def ProduceRunDFTStep(step_name,
     else:
         pt.inputs.artifacts["collectdata_script"].optional = True
     
+    #
+    if upload_datahub != None and not upload_datahub.get("ifrun",False):
+        upload_datahub = {}
+    if upload_tracking != None and not upload_tracking.get("ifrun",False):
+        upload_tracking = {}
+    
     #produce step
     step = Step(name=step_name,template=pt,
             parameters = {"command": command, "example_name":example_name,
                           "sum_save_path_example_name": datahub,
                           "collectdata_script_name": collectdata_script_name,
                           "sub_save_path": sub_save_path,
-                          "outputfiles":outputs,"metrics":metrics},
+                          "outputfiles":outputs,"metrics":metrics,
+                          "upload_datahub":upload_datahub,
+                          "upload_tracking":upload_tracking},
             artifacts =  artifacts,continue_on_failed=True)
 
     if executor != None:
@@ -431,8 +637,8 @@ def Upload2Datahub(uri,urnseting,privateset=None):
     project = privateset.get("datahub_project")
     gms_url = privateset.get("datahub_gms_url")
     gms_token = privateset.get("datahub_gms_token")
-    bohrium_username = privateset.get("datahub_username")
-    bohrium_password = privateset.get("datahub_password")
+    bohrium_username = privateset.get("lbg_username")
+    bohrium_password = privateset.get("lbg_password")
     
     datasetname = urnseting.get("datasetname")
     tags = urnseting.get("tags")
@@ -456,8 +662,8 @@ def GetURI(urn,privateset=None):
     project = privateset.get("datahub_project")
     gms_url = privateset.get("datahub_gms_url")
     gms_token = privateset.get("datahub_gms_token")
-    bohrium_username = privateset.get("datahub_username")
-    bohrium_password = privateset.get("datahub_password")
+    bohrium_username = privateset.get("lbg_username")
+    bohrium_password = privateset.get("lbg_password")
     
     from dp.metadata import MetadataContext
     from dp.metadata.utils.storage import TiefblueStorageClient
@@ -640,7 +846,7 @@ def ProduceOneSteps(stepname,param):
                 space = "\n" + (len(stepname_tmp)+2)*" "
                 comm.printinfo("%s: %s" % (stepname_tmp,space.join(example_name_tmp)))
                 step1_tmp = ProduceRunDFTStep(stepname_tmp,
-                      command = rundft.get("command"),   #command of do dft running
+                      command = rundft.get("command"), 
                       example_artifact = example_tmp, 
                       image = image, 
                       collectdata_script = collectdata_script,
@@ -652,7 +858,9 @@ def ProduceOneSteps(stepname,param):
                       sub_save_path = sub_save_path,
                       datahub = datahub,
                       metrics=rundft.get("metrics",{}),
-                      python_packages=rundft.get("python_packages"))
+                      python_packages=rundft.get("python_packages"),
+                      upload_datahub=rundft.get("upload_datahub",{}),
+                      upload_tracking=rundft.get("upload_tracking",{}))
                 
                 if post_dft and not post_dft_local:
                     step1_tmp.template.outputs.artifacts["outputs"].save = [model_output_artifact]
@@ -690,7 +898,7 @@ def ProduceOneSteps(stepname,param):
             GetExampleScript(param["post_dft"],"example_source","example","extra_files")
         image = globV.get_value("ABBREVIATION").get(param["post_dft"].get("image"),param["post_dft"].get("image"))
         step3 = ProduceRunDFTStep(step_name="post-dft",
-                      command = param["post_dft"].get("command",""),   #command of do dft running
+                      command = param["post_dft"].get("command",""), 
                       example_artifact = model_output_artifact, 
                       image = image, 
                       collectdata_script = collectdata_script,
@@ -702,7 +910,9 @@ def ProduceOneSteps(stepname,param):
                       sub_save_path = "",
                       datahub = datahub,
                       metrics=param["post_dft"].get("metrics",{}),
-                      python_packages=param["post_dft"].get("python_packages"))
+                      python_packages=param["post_dft"].get("python_packages"),
+                      upload_datahub=param["post_dft"].get("upload_datahub",{}),
+                      upload_tracking=param["post_dft"].get("upload_tracking",{}))
         #step3 = ProducePostDFTStep(param["post_dft"],model_output_artifact)
         comm.printinfo("image: %s" % image) 
         comm.printinfo("set bohrium: %s"%str(bohrium_set))   

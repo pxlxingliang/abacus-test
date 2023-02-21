@@ -106,6 +106,11 @@ def set_env(param):
     param_context = json.load(open(param.param))
     
     #read user config information
+    bohrium_executor = False
+    if "bohrium_executor" in param_context:
+        bohrium_executor = bool(param_context["bohrium_executor"])
+    globV.set_value("BOHRIUM_EXECUTOR",bohrium_executor)
+    
     if "config" in param_context:
         user_context = param_context.get("config")
     else:
@@ -113,7 +118,7 @@ def set_env(param):
         sys.exit(1)
     globV.set_value("PRIVATE_SET", user_context)
     dflowOP.SetBohrium(user_context,debug=param.debug) 
-    
+
     #set save folder    
     SetSaveFolder(param.save)
 
@@ -207,7 +212,11 @@ def RunJobs(param):
         comm.printinfo("No step is produced, exit!!!")
         sys.exit(1)
     
-    wf = Workflow(name="abacustest")
+    if globV.get_value("BOHRIUM_EXECUTOR"):
+        wf = Workflow(name="abacustest",context=globV.get_value("BRM_CONTEXT"))
+    else:
+        wf = Workflow(name="abacustest")
+
     wf.add(allstep)
     wf.submit()
     if param.command == 'mlops-submit':
@@ -232,6 +241,7 @@ def CheckStatus(param):
     jobid = param.job_id
     
     wf = Workflow(id = jobid)
+        
     try:
         return wf.query_status()
     except:
