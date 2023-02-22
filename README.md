@@ -233,9 +233,9 @@ abacustest collectdata --newmethods "mymethod"
 
 ## 3. outresult
 ```
-usage: abacustest outresult [-h] [-p PARAM]
+abacustest outresult [-h] [-r [RESULT [RESULT ...]]]
 ```
-Out put some specified parameters of some jobs, and also can calculate some specified metrics.
+Print out the results from collectdata.
 
 
 ## 4. status
