@@ -88,6 +88,9 @@ def collectdata(param):
 
     print("Write the results to %s" % outputf)
     json.dump(allresult,open(outputf,"w"),indent=4)
+    
+    from .outresult import pandas_out
+    pandas_out(allresult)
 
 def main():
     parser = argparse.ArgumentParser()

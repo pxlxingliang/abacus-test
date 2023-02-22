@@ -166,19 +166,21 @@ class Vasp(ResultVasp):
     @ResultVasp.register(force = 'list, eV/angstrom, the force of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]',
                          stress = 'list, kBar, the stress, [xx,xy,xz,yx,yy,yz,zx,zy,zz]')
     def GetForceStress(self):
-        force = []
-        stress = []
+        force = None
+        stress = None
         for i,line in enumerate(self.OUTCAR):
             if 'TOTAL-FORCE (eV/Angst)' in line:
                 j = i+2
+                force = []
                 while self.OUTCAR[j][:3] != " --":
                     force += [float(k) for k in self.OUTCAR[j].split()[3:6]]
                     j += 1
-                self['force'] = force
             elif '  in kB' in line:
                 s = [float(i) for i in line.split()[2:8]]
-                self['stress'] = [s[0],s[3],s[5],s[3],s[1],s[4],s[5],s[4],s[2]]
-
+                stress = [s[0],s[3],s[5],s[3],s[1],s[4],s[5],s[4],s[2]]
+        self['force'] = force
+        self['stress']  = stress
+        
     @ResultVasp.register(total_time = 'Total CPU time (s)',
                          scf_time = 'the total SCF times, s',
                          stress_time = 'the time of calculating stress')                         

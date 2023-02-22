@@ -7,31 +7,14 @@ import pandas as pd
 from typing import List, Dict, Literal, Union
 
 class BasicProperty(ABC):
-    def __init__(
-            self,
-            out_file,
-            struc_file
-        ):
-        r"""
-        Parameters
-        ----------
-        out_file : Str
-                output filename to read. e.g. OUTCAR of vasp
-        struc_file : Str
-                structure filename to read. e.g. CONTCAR/POSCAR of vasp
-        """
-        self._out_file = out_file
-        self._struc_file = struc_file
-        super().__init__()
-
-    # @abstractmethod
-    # def parse(self) -> None:
-    #     r""" 
-    #     Parse some basic properties when instantiate a BasicProperty object.
-    #     By designation, this method should grasp energy, volume of the calculated
-    #     structure, and a well-formated structure content.
-    #     """
-    #     pass
+    def __init__(self, magnetization: tuple = None, 
+                 energy:float = None, 
+                 volume: float=None, 
+                 structrue: Poscar = None):
+        self._magnetization = magnetization
+        self.energy = energy
+        self.volume = volume
+        self.structure = structrue
 
     @abstractmethod
     def bond_length(
@@ -75,26 +58,6 @@ class BasicProperty(ABC):
                     e.g. {"TM-layer": 2.5, "Alkali-layer": 2.1}
         """
         pass
-        
-class BasicPropertyVasp(BasicProperty):
-
-    def __init__(self, out_file, struc_file):
-        self._magnetization = None
-        self.energy = None
-        self.volume = None
-        self.structure = None
-        super().__init__(out_file, struc_file)
-        self.__parse()
-
-    def __parse(self) -> None:
-        r"""
-        """
-        from pymatgen.io.vasp.outputs import Outcar
-        from pymatgen.io.vasp.inputs import Poscar
-        self.energy = Outcar(self._out_file).final_energy
-        self.volume = Poscar.from_file(self._struc_file).structure.volume
-        self._magnetization = Outcar(self._out_file).magnetization
-        self.structure = Poscar.from_file(self._struc_file)
 
     def __cut(self, sortedList: List[float], num: float) -> List[List[float]]:
         r"""Cut a sorted list into List[List] by the distance of its elements
@@ -176,7 +139,7 @@ class BasicPropertyVasp(BasicProperty):
     def magnetic_moment(
             self, 
             element: Literal['TM', 'O', 'ALL']='ALL'
-        ) -> pd.DataFrame:
+        ) -> list:
         r"""Grasp the magnetic moment of elements interested
         Parameters
         ----------
@@ -199,7 +162,8 @@ class BasicPropertyVasp(BasicProperty):
                 magnetization[real_index]["Element"] = ele
                 magnetization[real_index]["Atomic_index"] = num + 1
         if element == 'ALL':
-            return pd.DataFrame.from_dict(list(magnetization))
+            return list(magnetization)
+            #return pd.DataFrame.from_dict(list(magnetization))
         elif element == 'TM':
             mag = ()
             for ele in num_index.keys():
@@ -240,6 +204,15 @@ class BasicPropertyVasp(BasicProperty):
         for i in range(1, len(height_position)):
             distance.append(height_position[i] - height_position[i - 1])
         return {"d_TM": min(distance[0], distance[1]), "d_alkali": max(distance[0], distance[1])}
+
+class BasicPropertyVasp(BasicProperty):
+    def __init__(self, out_file, struc_file):  
+        from pymatgen.io.vasp.outputs import Outcar
+        from pymatgen.io.vasp.inputs import Poscar
+        self.energy = Outcar(out_file).final_energy
+        self.volume = Poscar.from_file(struc_file).structure.volume
+        self._magnetization = Outcar(out_file).magnetization
+        self.structure = Poscar.from_file(struc_file)
     
 if __name__ == "__main__":
     output = BasicPropertyVasp('OUTCAR', 'CONTCAR')
