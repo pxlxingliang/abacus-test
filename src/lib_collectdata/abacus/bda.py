@@ -1,6 +1,5 @@
 import os,sys,glob,re
 from ..resultAbacus import ResultAbacus
-import dpdata
 
 class BdaAbacus(ResultAbacus):
     
@@ -9,12 +8,9 @@ class BdaAbacus(ResultAbacus):
     def GetBDAinfo(self):
         from pymatgen.core.structure import Structure
         from pymatgen.io.vasp.inputs import Poscar
-        ls = dpdata.LabeledSystem(self.PATH,fmt="abacus/relax")
-        atomname = ls.data["atom_names"]
-        elementlist = [atomname[i] for i in ls.data["atom_types"]]
-        structure = Structure(lattice=ls.data["cells"][-1],
-                              species=elementlist,
-                              coords=ls.data["coords"][-1],
+        structure = Structure(lattice=self['cell'],
+                              species=self['element_list'],
+                              coords=self["coordinate"],
                               coords_are_cartesian=True)
         mag = tuple([{"tot":i} for i in self['atom_mag']])
         from ..comm_funcs.bda import BasicProperty

@@ -276,6 +276,65 @@ class Abacus(ResultAbacus):
             self['drho'] = None
         else:
             self['drho'] = drho
+    
+    
+    @ResultAbacus.register(lattice_constant="unit in angstrom",
+                           cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will out the last one",
+                           coordinate = "[[],..], two dimension list, is a cartessian type, unit in angstrom. If is relax or md, will out the last one",
+                           element_list = "list[], a list of the element name of all atoms",
+                           atomlabel_list = "list[], a list of atom label of all atoms")
+    def GetCell(self):    
+        for line in self.LOG:
+            if "lattice constant (Angstrom)" in line:
+                self["lattice_constant"] = float(line.split()[-1])
+                break
         
-            
+        cell = None
+        for i in range(len(self.LOG)): 
+            iline = -i - 1 
+            line = self.LOG[iline]
+            if "Lattice vectors: (Cartesian coordinate: in unit of a_0)" in line:
+                cell = []
+                for k in range(1, 4):
+                    cell.append([float(x) * self["lattice_constant"] for x in self.LOG[iline + k].split()[0:3]])
+                break
+        self['cell'] = cell
+        
+        coordinate = None
+        for i in range(len(self.LOG)): 
+            iline = -i - 1 
+            line = self.LOG[iline]
+            if len(line.split()) >= 2 and line.split()[1] == "COORDINATES":  
+                coordinate = []
+                if line.split()[0] == "DIRECT":
+                    for k in range(2, 2 + self["natom"]):
+                        coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
+                    import numpy as np
+                    coordinate = np.array(coordinate).dot(np.array(self["cell"])).tolist()
+                elif line.split()[0] == "CARTESIAN":
+                    for k in range(2, 2 + self["natom"]):
+                        coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
+                else:
+                    print("Unrecongnized coordinate type: %s" % (line))   
+                break
+        self['coordinate'] = coordinate   
+              
+        element_list = None
+        atomlabel_list = None
+        for line in self.LOG:
+            if "atom label =" in line:
+                label = line.split()[-1]
+                element = label
+                while element[-1].isdigit():
+                    element = element[:-1]
+            elif "number of atom for this type =" in line:
+                if element_list == None: element_list = []
+                if atomlabel_list == None: atomlabel_list = []
+                natom = int(line.split()[-1])
+                atomlabel_list += natom * [label]
+                element_list += natom * [element]
+                if len(atomlabel_list) >= self['natom']:
+                    break
+        self['element_list'] = element_list
+        self['atomlabel_list'] = atomlabel_list
             

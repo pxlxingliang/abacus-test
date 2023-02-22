@@ -33,6 +33,7 @@ def import_modules(fmt,modules):
     for module in modules:
         try:
             importlib.import_module("lib_collectdata.%s.%s"%(fmt,module))
+            print("import module lib_collectdata.%s.%s" % (fmt,module))
         except:
             traceback.print_exc()
             print("Import module %s failed, skip it!" % module)
