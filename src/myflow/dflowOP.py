@@ -488,7 +488,7 @@ def ProduceExecutor(param):
         return None,None
 
 def SetEnvs():
-    if globV.get_value("PRIVATE_SET").get("config_host").strip() in ["https://workflows.deepmodeling.com"]:
+    if globV.get_value("PRIVATE_SET").get("config_host","").strip() in ["https://workflows.deepmodeling.com",""]:
         return None
     from dflow import Secret
     envs = {}

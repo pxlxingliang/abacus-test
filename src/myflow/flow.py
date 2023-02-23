@@ -104,6 +104,7 @@ def set_env(param):
     with open(param.param) as f1: 
         globV.set_value("PARAM_CONTEXT", f1.read())       
     param_context = json.load(open(param.param))
+    globV.set_value("PARAM", param_context)
     
     #read user config information
     bohrium_executor = False
@@ -121,6 +122,14 @@ def set_env(param):
 
     #set save folder    
     SetSaveFolder(param.save)
+    
+    
+    report = param_context.get("report",{})
+    globV.set_value("REPORT", report)
+    
+    from datetime import datetime
+    globV.set_value("BEGIN", str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
+    
 
 
 def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name,upload_datahub):
@@ -180,6 +189,8 @@ def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name,upload_datahu
                         download_artifact(step.outputs.artifacts["outputs"],path=save_path)
                     except:
                         traceback.print_exc()
+                        
+                        
             if False not in finishtest[i] and len(postdft_local_jobs[i]) > 0:
                 comm.printinfo("Test '%s' has finished the run_dft, do post_dft on local %s\n..." % (test_name[i], tmp_local_path[i]))
                 dflowOP.RunPostDFTLocal(tmp_local_path[i],postdft_local_jobs[i][0],postdft_local_jobs[i][1])
@@ -198,10 +209,60 @@ def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name,upload_datahu
                     else:
                         comm.printinfo("test '%s' is finished, but the phase is %s, will not upload to datahub" % (test_name[i],steps[0].phase))
                 else:
-                    comm.printinfo("WARNING: test '%s' is finished, but query_step can not find it, please check the dflow!" % test_name[i])
-                    
-                              
+                    comm.printinfo("WARNING: test '%s' is finished, but query_step can not find it, please check the dflow!" % test_name[i])               
         time.sleep(4)
+
+def ReportMetrics():
+    report_setting = globV.get_value("REPORT")
+    resultf = report_setting.get("result_file")
+    type_name = report_setting.get("type_name",["abacus"])
+    example_name_idx = report_setting.get("example_name_idx",-1)
+    report_file = report_setting.get("report_file",None)
+    
+    results = json.load(open(resultf))
+    result = [[]]
+    example_name = []
+    for k,v in results.items():
+        example_name.append(k.split("/")[example_name_idx])
+        result[0].append(v)
+    
+    if isinstance(type_name,str):
+        type_name = [type_name]
+        
+    allresults = {"example_name": example_name, 
+            "type_name": type_name, 
+            "result": result,
+            "type_idx": report_setting.get("type_idx",[0]), 
+            "outparams": report_setting.get("outparams"),
+            "outparams_expand":report_setting.get("outparams_expand",{}),
+            "outparams_comment":report_setting.get("outparams_comment",{}),
+            "metrics": report_setting.get("metrics",[])}
+    
+    from abacustest import outresult
+    cc_outparam,allparam_value = outresult.OutParam(allresults,split_example=None)
+    cc_outmetrics,allmetric_value = outresult.OutMetrics(allresults,allparam_value)
+    
+    from datetime import datetime
+    
+    param_context = globV.get_value("PARAM")
+    report  = "\n\nABACUS TESTING report\n"
+    report += "testing begin: %s\n" % globV.get_value("BEGIN")
+    report += "testing   end: %s\n" % str(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+    report += "run_dft setting:\n"
+    for irun in param_context.get("run_dft",[]):
+        image = globV.get_value("ABBREVIATION").get(irun.get("image"),irun.get("image"))
+        bohrium = irun.get("bohrium")
+        report += "\timage: %s\n\tbohrium:%s\n\texample:%s\n" % (image,str(bohrium),str(irun.get("example")))
+        
+    if len(allresults["metrics"]) > 0:
+        report += cc_outmetrics
+    report += cc_outparam
+
+    if report_file != None:
+        with open(report_file,'w') as f1:
+            f1.write(report)
+    else:
+        comm.printinfo(report)
 
 def RunJobs(param):
     set_env(param)
@@ -210,21 +271,23 @@ def RunJobs(param):
 
     if len(allstep) == 0:
         comm.printinfo("No step is produced, exit!!!")
-        sys.exit(1)
-    
-    if globV.get_value("BOHRIUM_EXECUTOR"):
-        wf = Workflow(name="abacustest",context=globV.get_value("BRM_CONTEXT"))
     else:
-        wf = Workflow(name="abacustest")
+        if globV.get_value("BOHRIUM_EXECUTOR"):
+            wf = Workflow(name="abacustest",context=globV.get_value("BRM_CONTEXT"))
+        else:
+            wf = Workflow(name="abacustest")
 
-    wf.add(allstep)
-    wf.submit()
-    if param.command == 'mlops-submit':
-        return
-    comm.printinfo("job ID: %s, UID: %s" % (wf.id,wf.uid))
-    comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % globV.get_value("HOST"))
+        wf.add(allstep)
+        wf.submit()
+        if param.command == 'mlops-submit':
+            return
+        comm.printinfo("job ID: %s, UID: %s" % (wf.id,wf.uid))
+        comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % globV.get_value("HOST"))
 
-    waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name,upload_datahub)
+        waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name,upload_datahub)
+    
+    if globV.get_value("REPORT"):
+        ReportMetrics()
         
 def CheckStatus(param):
     if os.path.isfile(param.param):
