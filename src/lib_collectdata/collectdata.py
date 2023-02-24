@@ -12,6 +12,7 @@ def printAllMethod(allmethod,fmt):
         print("%20s:\t%-30s\t%s"% (k,out,v[2]))
 
 def import_new_method(newmethods=[]):
+    '''import the self-defined methods'''
     if newmethods == None:
         return
     sys.path.append(os.getcwd())
@@ -26,7 +27,7 @@ def import_new_method(newmethods=[]):
 
 def import_modules(fmt,modules):
     '''
-    Can only import the modules in collectdata.fmt
+    Can only import the modules in lib_collectdata.fmt
     '''
     if modules == None:
         return

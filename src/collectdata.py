@@ -68,7 +68,13 @@ def collectdata(param):
         return
             
     if paramf == None:
-        print("ERROR: you have not define the parameter file. You can specify by -p or --param")
+        error_message = """ERROR: you have not defined the parameter file.
+        You can specify by -p or --param. The context can be like: 
+        {
+            "PARAM":["natom","total_time"]
+        }
+        """
+        print(error_message)
         return
     if not os.path.isfile(paramf):
         print("ERROR: can not find parameter file %s!!!" % paramf)
@@ -84,6 +90,8 @@ def collectdata(param):
         print("Handle %s" % ipath)
     
         result = RESULT(fmt=jobtype, path=ipath,newmethods=param.newmethods,modules=param.modules)
+        if len(allparams) == 0:
+            allparams = list(result.AllMethod().keys())
         allresult[ipath] = parse_value(result,allparams)
 
     print("Write the results to %s" % outputf)

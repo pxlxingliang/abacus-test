@@ -876,7 +876,8 @@ def ProduceOneSteps(stepname,param):
                 istep += 1
                 
             comm.printinfo("image: %s" % image) 
-            comm.printinfo("set bohrium: %s"%str(bohrium_set))   
+            comm.printinfo("set bohrium: %s"%str(bohrium_set))
+            comm.printinfo("command: %s"%str(rundft.get("command")))    
             comm.printinfo("results will be download to %s\n" % os.path.join(save_path,sub_save_path))
 
     if len(rundft_step) == 0:

@@ -214,38 +214,22 @@ def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name,upload_datahu
 
 def ReportMetrics():
     report_setting = globV.get_value("REPORT")
-    resultf = report_setting.get("result_file")
-    type_name = report_setting.get("type_name",["abacus"])
-    example_name_idx = report_setting.get("example_name_idx",-1)
-    report_file = report_setting.get("report_file",None)
-    
-    results = json.load(open(resultf))
-    result = [[]]
-    example_name = []
-    for k,v in results.items():
-        example_name.append(k.split("/")[example_name_idx])
-        result[0].append(v)
-    
-    if isinstance(type_name,str):
-        type_name = [type_name]
-        
-    allresults = {"example_name": example_name, 
-            "type_name": type_name, 
-            "result": result,
-            "type_idx": report_setting.get("type_idx",[0]), 
-            "outparams": report_setting.get("outparams"),
-            "outparams_expand":report_setting.get("outparams_expand",{}),
-            "outparams_comment":report_setting.get("outparams_comment",{}),
-            "metrics": report_setting.get("metrics",[])}
-    
+    if not report_setting.get("ifrun",True):
+        return
+
     from abacustest import outresult
-    cc_outparam,allparam_value = outresult.OutParam(allresults,split_example=None)
+    allresults = outresult.GetAllResults(report_setting)
+    if not allresults:
+        return
+    
+    split_example=None if len(allresults["type_name"]) == 1 else "----"
+    cc_outparam,allparam_value = outresult.OutParam(allresults,split_example=split_example)
     cc_outmetrics,allmetric_value = outresult.OutMetrics(allresults,allparam_value)
     
+    #report
     from datetime import datetime
-    
     param_context = globV.get_value("PARAM")
-    report  = "\n\nABACUS TESTING report\n"
+    report  = """\n\n\t\tABACUS TESTING REPORT\n"""
     report += "testing begin: %s\n" % globV.get_value("BEGIN")
     report += "testing   end: %s\n" % str(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
     report += "run_dft setting:\n"
@@ -258,11 +242,11 @@ def ReportMetrics():
         report += cc_outmetrics
     report += cc_outparam
 
+    report_file = report_setting.get("save_file")
     if report_file != None:
         with open(report_file,'w') as f1:
             f1.write(report)
-    else:
-        comm.printinfo(report)
+    comm.printinfo(report)
 
 def RunJobs(param):
     set_env(param)

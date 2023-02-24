@@ -351,38 +351,78 @@ def OutMetrics(allresults,allparam_value):
     #cc += "Notice: the exmaples with value of None for some job type will be excluded.\n"
     return cc,allmetric_value    
 
-def GetAllResults(jsonf):
-    #allresults = {"example_name":[examplenames], "type_name":[types],"result": [result1,result2,result3,....] }
+def GetAllResults(result_setting):
+    #allresults = {"type_name":[types],"result_file": [result1,result2,result3,....] }
     #result is a two dimension list, 1st dimension is for result of each example in each type,
     #second dimension is types
     #len("example_name") = len("result"[i]) = len("result"[j])
     #len("type_name") = len("result")
     #result123 = [example1_result, example2_result, example3_result]
 
-    allresults = json.load(open(jsonf)).get('allresults')
-    example_name = []
-    example_name_layer = allresults.get("example_name_layer",-1)
-    for ie in allresults.get("example_name",[]):
-        example_name += [i.split('/')[example_name_layer] for i in glob.glob(ie)]
+    resultf = result_setting["result_file"]
+    type_name = result_setting.get("type_name",["abacus"])
     
-    type_name = allresults.get("type_name",[])
-    type_idx = allresults.get("type_idx",[0 for i in range(len(type_name))])
+    #deal with type_name
+    if isinstance(type_name,str):
+        if len(resultf) > 1:
+            type_name = [type_name+str(i) for i in range(len(resultf))]
+        else:
+            type_name = [type_name]
+    elif isinstance(type_name,list) and len(type_name) == 1 and len(resultf) > 1:
+            type_name = [type_name[0]+str(i) for i in range(len(resultf))]
+    if not isinstance(type_name,list):
+        print("type_name should be a list of type names")
+        return False
+    if (len(resultf) != len(type_name)):     
+        print("number of result_fiel is not equal to type_name")
+        return False
     
+    #deal with example_name_idx
+    example_name_idx = result_setting.get("example_name_idx",-1) 
+    if isinstance(example_name_idx,int):
+        example_name_idx = len(type_name) * [example_name_idx]
+    elif isinstance(example_name_idx,list) and len(example_name_idx) == 1 and len(type_name) > 1:
+        example_name_idx = len(type_name) * example_name_idx
+    if not isinstance(example_name_idx,list):
+        print("example_name_idx should be a list of int")
+        return False        
+    if (len(example_name_idx) != len(type_name)):
+        print("number of example_name_idx is not equal to type_name")
+        return False
+    
+    #deal with type_idx
+    type_idx = result_setting.get("type_idx",[0 for i in range(len(type_name))])
+    if isinstance(type_idx,int):
+        type_idx = len(type_name) * [type_idx]
+    elif isinstance(type_idx,list) and len(type_idx) == 1 and len(type_name) > 1:
+        type_idx = len(type_name) * type_idx
+    if not isinstance(type_idx,list):
+        print("type_idx should be a list of int")
+        return False 
+    if (len(type_idx) != len(type_name)):
+        print("number of type_idx is not equal to type_name")
+        return False
+    
+    #deal with results
     result = []
-    for ir in allresults.get("result",[]):
+    example_name = []
+    for i,iresultf in enumerate(resultf):
+        results = json.load(open(iresultf))
         result.append([])
-        for iir in ir:
-            alliir = glob.glob(iir)
-            alliir.sort()
-            for iiir in alliir:
-                iresult = json.load(open(iiir))
-                if len(iresult.keys()) > 0:
-                    iresult = list(iresult.values())[0]
-                result[-1].append(iresult)
+        if i==0:
+            for k,v in results.items():
+                example_name.append(k.split("/")[example_name_idx[i]])
+                result[0].append(v)
+        else:
+            tmp_dict = {}
+            for k,v in results.items():
+                tmp_dict[k.split("/")[example_name_idx[i]]] = v
+            for iexample in example_name:
+                result[-1].append(tmp_dict.get(iexample,{}))         
     
-    print("example number: %d" % (len(example_name)))
-    print("type number: %d" % (len(type_name)))
-    print("type idx: %d" % (len(type_idx)))
+    #print("example number: %d" % (len(example_name)))
+    #print("type number: %d" % (len(type_name)))
+    #print("type idx: %d" % (len(type_idx)))
 
     hasfalse = False
     if len(result) != len(type_name):
@@ -399,13 +439,13 @@ def GetAllResults(jsonf):
             hasfalse = True
 
     if hasfalse:
-        sys.exit(1)
+        return False
 
-    outparams = allresults.get("outparams",[])
-    metrics = allresults.get("metrics",[])
-    outparams_expand = allresults.get("outparams_expand",{})
-    outparams_comment = allresults.get("outparams_comment",{})
-    plot = allresults.get("plot",[])
+    outparams = result_setting.get("outparams",[])
+    metrics = result_setting.get("metrics",[])
+    outparams_expand = result_setting.get("outparams_expand",{})
+    outparams_comment = result_setting.get("outparams_comment",{})
+    plot = result_setting.get("plot",[])
     
     return {"example_name": example_name, 
             "type_name": type_name, 
@@ -494,7 +534,12 @@ def outresult(param):
         if not CheckFile(param.param):
             sys.exit(1)
         
-        allresults = GetAllResults(param.param)
+        report_part = json.load(open(param.param))
+        if "allresults" in report_part:
+            report_part = report_part["allresults"]
+        elif "report" in report_part:
+            report_part = report_part["report"]
+        allresults = GetAllResults(report_part)
         if len(allresults['type_name']) == 1: split_example = None
         else: split_example = "----"
         cc_outparam,allparam_value = OutParam(allresults,split_example=split_example)
@@ -510,7 +555,8 @@ def outresult(param):
         print(cc_outmetrics,cc_outparam)
 
 def main():
-    param = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
+    param = OutResultArgs(parser)
     outresult(param)
     
 if __name__ == "__main__":
