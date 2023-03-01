@@ -276,12 +276,13 @@ def RunJobs(param):
 def CheckStatus(param):
     if os.path.isfile(param.param):
         private_set = json.load(open(param.param))
-        if "USER" in private_set:
+        if "config" in private_set:
+            private_set = private_set["config"]
+        elif "USER" in private_set:
             private_set = private_set["USER"]
     else:
         print("config file is not found!\nUse the default setting!")
         private_set = {}
-    
         
     dflowOP.SetBohrium(private_set,debug=False) 
     
