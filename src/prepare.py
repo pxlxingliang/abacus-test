@@ -1,243 +1,9 @@
-import os,sys,argparse,glob,json,traceback,re
+import os,sys,argparse,glob,json,traceback,re,shutil
 import numpy as np
 from typing import Dict, List, Optional, Union
 import copy
 from pathlib import Path
-import dpdata
-
-MASS_DICT = {
-    "H": 1.0079,
-    "He": 4.0026,
-    "Li": 6.941,
-    "Be": 9.0122,
-    "B": 10.811,
-    "C": 12.0107,
-    "N": 14.0067,
-    "O": 15.9994,
-    "F": 18.9984,
-    "Ne": 20.1797,
-    "Na": 22.9897,
-    "Mg": 24.305,
-    "Al": 26.9815,
-    "Si": 28.0855,
-    "P": 30.9738,
-    "S": 32.065,
-    "Cl": 35.453,
-    "K": 39.0983,
-    "Ar": 39.948,
-    "Ca": 40.078,
-    "Sc": 44.9559,
-    "Ti": 47.867,
-    "V": 50.9415,
-    "Cr": 51.9961,
-    "Mn": 54.938,
-    "Fe": 55.845,
-    "Ni": 58.6934,
-    "Co": 58.9332,
-    "Cu": 63.546,
-    "Zn": 65.39,
-    "Ga": 69.723,
-    "Ge": 72.64,
-    "As": 74.9216,
-    "Se": 78.96,
-    "Br": 79.904,
-    "Kr": 83.8,
-    "Rb": 85.4678,
-    "Sr": 87.62,
-    "Y": 88.9059,
-    "Zr": 91.224,
-    "Nb": 92.9064,
-    "Mo": 95.94,
-    "Tc": 98,
-    "Ru": 101.07,
-    "Rh": 102.9055,
-    "Pd": 106.42,
-    "Ag": 107.8682,
-    "Cd": 112.411,
-    "In": 114.818,
-    "Sn": 118.71,
-    "Sb": 121.76,
-    "I": 126.9045,
-    "Te": 127.6,
-    "Xe": 131.293,
-    "Cs": 132.9055,
-    "Ba": 137.327,
-    "La": 138.9055,
-    "Ce": 140.116,
-    "Pr": 140.9077,
-    "Nd": 144.24,
-    "Pm": 145,
-    "Sm": 150.36,
-    "Eu": 151.964,
-    "Gd": 157.25,
-    "Tb": 158.9253,
-    "Dy": 162.5,
-    "Ho": 164.9303,
-    "Er": 167.259,
-    "Tm": 168.9342,
-    "Yb": 173.04,
-    "Lu": 174.967,
-    "Hf": 178.49,
-    "Ta": 180.9479,
-    "W": 183.84,
-    "Re": 186.207,
-    "Os": 190.23,
-    "Ir": 192.217,
-    "Pt": 195.078,
-    "Au": 196.9665,
-    "Hg": 200.59,
-    "Tl": 204.3833,
-    "Pb": 207.2,
-    "Bi": 208.9804,
-    "Po": 209,
-    "At": 210,
-    "Rn": 222,
-    "Fr": 223,
-    "Ra": 226,
-    "Ac": 227,
-    "Pa": 231.0359,
-    "Th": 232.0381,
-    "Np": 237,
-    "U": 238.0289,
-    "Am": 243,
-    "Pu": 244,
-    "Cm": 247,
-    "Bk": 247,
-    "Cf": 251,
-    "Es": 252,
-    "Fm": 257,
-    "Md": 258,
-    "No": 259,
-    "Rf": 261,
-    "Lr": 262,
-    "Db": 262,
-    "Bh": 264,
-    "Sg": 266,
-    "Mt": 268,
-    "Rg": 272,
-    "Hs": 277,
-    "H": 1.0079,
-    "He": 4.0026,
-    "Li": 6.941,
-    "Be": 9.0122,
-    "B": 10.811,
-    "C": 12.0107,
-    "N": 14.0067,
-    "O": 15.9994,
-    "F": 18.9984,
-    "Ne": 20.1797,
-    "Na": 22.9897,
-    "Mg": 24.305,
-    "Al": 26.9815,
-    "Si": 28.0855,
-    "P": 30.9738,
-    "S": 32.065,
-    "Cl": 35.453,
-    "K": 39.0983,
-    "Ar": 39.948,
-    "Ca": 40.078,
-    "Sc": 44.9559,
-    "Ti": 47.867,
-    "V": 50.9415,
-    "Cr": 51.9961,
-    "Mn": 54.938,
-    "Fe": 55.845,
-    "Ni": 58.6934,
-    "Co": 58.9332,
-    "Cu": 63.546,
-    "Zn": 65.39,
-    "Ga": 69.723,
-    "Ge": 72.64,
-    "As": 74.9216,
-    "Se": 78.96,
-    "Br": 79.904,
-    "Kr": 83.8,
-    "Rb": 85.4678,
-    "Sr": 87.62,
-    "Y": 88.9059,
-    "Zr": 91.224,
-    "Nb": 92.9064,
-    "Mo": 95.94,
-    "Tc": 98,
-    "Ru": 101.07,
-    "Rh": 102.9055,
-    "Pd": 106.42,
-    "Ag": 107.8682,
-    "Cd": 112.411,
-    "In": 114.818,
-    "Sn": 118.71,
-    "Sb": 121.76,
-    "I": 126.9045,
-    "Te": 127.6,
-    "Xe": 131.293,
-    "Cs": 132.9055,
-    "Ba": 137.327,
-    "La": 138.9055,
-    "Ce": 140.116,
-    "Pr": 140.9077,
-    "Nd": 144.24,
-    "Pm": 145,
-    "Sm": 150.36,
-    "Eu": 151.964,
-    "Gd": 157.25,
-    "Tb": 158.9253,
-    "Dy": 162.5,
-    "Ho": 164.9303,
-    "Er": 167.259,
-    "Tm": 168.9342,
-    "Yb": 173.04,
-    "Lu": 174.967,
-    "Hf": 178.49,
-    "Ta": 180.9479,
-    "W": 183.84,
-    "Re": 186.207,
-    "Os": 190.23,
-    "Ir": 192.217,
-    "Pt": 195.078,
-    "Au": 196.9665,
-    "Hg": 200.59,
-    "Tl": 204.3833,
-    "Pb": 207.2,
-    "Bi": 208.9804,
-    "Po": 209,
-    "At": 210,
-    "Rn": 222,
-    "Fr": 223,
-    "Ra": 226,
-    "Ac": 227,
-    "Pa": 231.0359,
-    "Th": 232.0381,
-    "Np": 237,
-    "U": 238.0289,
-    "Am": 243,
-    "Pu": 244,
-    "Cm": 247,
-    "Bk": 247,
-    "Cf": 251,
-    "Es": 252,
-    "Fm": 257,
-    "Md": 258,
-    "No": 259,
-    "Rf": 261,
-    "Lr": 262,
-    "Db": 262,
-    "Bh": 264,
-    "Sg": 266,
-    "Mt": 268,
-    "Rg": 272,
-    "Hs": 277,
-}
-
-ABACUS_STRU_KEY_WORD = [
-    "ATOMIC_SPECIES",
-    "NUMERICAL_ORBITAL",
-    "LATTICE_CONSTANT",
-    "LATTICE_VECTORS",
-    "ATOMIC_POSITIONS",
-    "NUMERICAL_DESCRIPTOR",
-]
-
-BOHR2ANGSTROM = 0.5291875321107901
+from abacustest import constant
 
 class AbacusStru:
     def __init__(self,
@@ -247,7 +13,9 @@ class AbacusStru:
                  coord:List[List[float]] ,
                  pp:List[str],
                  orb:List[str] = None,
-                 lattice_constance:float = 1,
+                 mass:List[float] = None,
+                 element:List[str] = None,
+                 lattice_constant:float = 1,
                  magmom: List[float] = None,
                  dpks:str = None,
                  cartessian: bool = False):    
@@ -263,11 +31,15 @@ class AbacusStru:
             pseudopotential file of each type
         orb : List[str], optional
             orbital file of each type, by default None
+        mass : List[float], optional
+            mass of each type, by default None
+        element : List[str], optional
+            element name of each type, by default None
         cell : List[List[float]]
             cell of a, b, c
         coord : List[List[float]]
             coordinate of each atom
-        lattice_constance : float, optional
+        lattice_constant : float, optional
             the lattice constance, by default 1
         magmom : float, optional
             magmom setting of each type, by default None
@@ -288,11 +60,24 @@ class AbacusStru:
         self._cell = cell
         self._coord = coord
         self._pp = pp
-        self._orb = orb
-        self._lattice_constance = lattice_constance
-        self._dpks = dpks
+        self._orb = orb if orb else []
+        self._lattice_constant = lattice_constant
+        self._dpks = dpks if dpks else None
         self._cartessian = cartessian
-        self._magmom = magmom
+        self._magmom = magmom if magmom else []
+        
+        if element != None:
+            self._element = element
+        else:
+            self._element = []
+            for i in label:
+                while i[-1].isdigit(): i = i[:-1]
+                self._element.append(i)
+        
+        if mass != None:
+            self._mass = mass
+        else:
+            self._mass = [constant.MASS_DICT.get(i,1.0) for i in self._element]
     
     def get_pp(self):
         return self._pp
@@ -303,229 +88,79 @@ class AbacusStru:
     def get_label(self):
         return self._label
     
+    def get_dpks(self):
+        return self._dpks
+    
+    def get_mass(self):
+        return self._mass
+    
+    def get_element(self):
+        return self._element
+    
     def get_cell(self,bohr = False):
         "return the cell matrix, in unit of Angstrom"
-        cell = np.array(self._cell) * self._lattice_constance * 
+        transfer_unit = 1 if bohr else constant.BOHR2A
+        cell = np.array(self._cell) * self._lattice_constant * transfer_unit
+        return cell.tolist()
     
     def set_pp(self,pplist):
-        self.pp = pplist
+        self._pp = pplist
     
     def set_orb(self,orblist):
-        self.orb = orblist
+        self._orb = orblist
 
-class PrepareAbacus:
-    def __init__(self,
-                 save_path: str = Path("."),
-                 input_template: str = None,
-                 kpt_template: str = None,
-                 stru_template: str = None,
-                 mix_input: Dict[str,any] = {},
-                 mix_kpt: List = List[Union(list,int)],
-                 mix_stru: List = List[str],
-                 pp_dict: Dict[str,str]= {},
-                 orb_dict: Dict[str,str]= {},
-                 extra_files = List[str]):
-        """To prepare the inputs of abacus
+    def set_dpks(self,descriptor):
+        self._dpks = descriptor
+    
+    def set_mass(self,mass):
+        self._mass = mass
+        
+    def set_element(self,element):
+        self._element = element
+        
+    def write(self,struf="STRU"):
+        cc = ""
+        #write species
+        cc += "ATOMIC_SPECIES\n"
+        for i,ilabel in enumerate(self._label):
+            cc += "%s %f %s\n" % (ilabel,self._mass[i],self._pp[i])
+        
+        #write orb
+        if self._orb:
+            cc += "\nNUMERICAL_ORBITAL\n"
+            for i in self._orb:
+                cc += i + "\n"
+        
+        #write  LATTICE_CONSTANT
+        cc += "\nLATTICE_CONSTANT\n%f\n" % self._lattice_constant
 
-        Parameters
-        ----------
-        save_path : str, optional
-            the path to store inputs, by default Path(".")
-        input_template : str, optional
-            file name of INPUT template, by default None
-        kpt_template : str, optional
-            file name of KPT template, by default None
-        stru_template : str, optional
-            file name of STRU template, by default None
-        mix_input : Dict[str,any], optional
-            mix setting of input parameters, by default {}. 
-            Such as:{"ecutwfc":[50, 60, 70], 
-                     "mixing_beta":[0.3, 0.4, 0.5]}, 
-            then will prepare 3*3 = 9 inputs.
-        mix_kpt : List, optional
-            mixing setting of k point list, by default []. If this parameter
-            is defined, then kpt_template will be invalide.
-            Such as: [[1,1,1,0,0,0],
-                      [2,2,2,0,0,0]], 
-            then will prepare 2 KPT files.
-            The kpoint list can be a list of 6 values (3 int number for K point
-            and 3 float values for the shift value) like: [1,1,1,0,0,0], 
-            or 3 values like: [1,1,1] which means [1,1,1,0,0,0], or one int number
-            like: 3 which means [3,3,3,0,0,0].
-        mix_stru : List, optional
-            a list of STRU files, by default []. If this parameter is defined
-            then stru_template will be invalide.
-            Such as: ["a/STRU","b/STRU"]
-        pp_dict : List, optional
-            a dictionary specify the pseudopotential files, by default {}
-        orb_dict : List, optional
-            a dictionary specify the orbital files, by default {}
-        extra_files : List, optional
-            a list of somes extra files that will be putted in each input, by default []   
-        """        
-        self.save_path = save_path
-        self.input_template = input_template
-        self.kpt_template = kpt_template
-        self.stru_template = stru_template
-        self.mix_input = mix_input
-        self.pp_dict = pp_dict
-        self.orb_dict = orb_dict
-        self.extra_files = extra_files
-        self.mix_kpt = mix_kpt
-        self.mix_stru = mix_stru
+        #write LATTICE_VECTORS
+        cc += "\nLATTICE_VECTORS\n"
+        for i in self._cell:
+            cc += "%17.11f %17.11f %17.11f\n" % tuple(i)
         
-        self.input_list = self.Construct_input_list()
-        self.kpt_list = self.Construct_kpt_list()
-        self.stru_list = self.Construct_stru_list()
-    
-    def Construct_input_list(self):
-        all_inputs = []
-        if self.input_template == None:
-            input_constant = {}
+        #write ATOMIC_POSITIONS
+        cc += "\nATOMIC_POSITIONS\n"
+        if self._cartessian:
+            cc += "Cartessian\n"
         else:
-            input_constant = PrepareAbacus.ReadInput(self.input_template)
+            cc += "Direct\n"
+        icoord = 0
+        for i,ilabel in enumerate(self._label):
+            cc += "\n%s\n%f\n%d\n" % (ilabel,self._magmom[i],self._atom_number[i])
+            for j in range(self._atom_number[i]):
+                cc += "%17.11f %17.11f %17.11f 1 1 1\n" % tuple(self._coord[icoord + j])
+            icoord += self._atom_number[i]
         
-        list_param = {}
-        for k,v in self.mix_input.items():
-            #if value is list type, then we need prepare INPUT for each value
-            #input_constant stores the parameters whose value is constant
-            #list_param stores the parameters that has several values.
-            if isinstance(v,(int,float,str)):
-                input_constant[k] = v
-            elif isinstance(v,list):
-                list_param[k] = v
-            else:
-                print("NOTICE: type of '%s' is" % str(v),type(v))
-                input_constant[k] = v
-        
-        all_inputs.append(input_constant)
-        for k,v in list_param.items():
-            for i,iv in enumerate(v):
-                if i == 0:
-                    #if v only one value, add in all_inputs directly
-                    for iinput in all_inputs:
-                        iinput[k] = iv   
-                else:
-                    #if v has more than two values, deepcopy all_inputs and modify v, and then add to all_inputs
-                    if i == 1:  
-                        tmp_inputs = copy.deepcopy(all_inputs)
-                    for iinput in tmp_inputs:
-                        iinput[k] = iv
-                    all_inputs.append(copy.deepcopy(tmp_inputs))
-        
-        return all_inputs
+        #write dpks
+        if self._dpks:
+            cc += "\nNUMERICAL_DESCRIPTOR\n"
+            cc += self._dpks    
 
-    def Construct_kpt_list(self):
-        """all_kpt is a list of list (6 element) or filename of KPT"""
-        all_kpt = []
-        if len(self.mix_kpt) == 0:
-            if self.kpt_template != None:
-                if os.path.isfile(self.kpt_template):
-                    all_kpt.append(os.path.abspath(self.kpt_template))
-                else:
-                    print("Has define the KPT file '%s', but file is not exist!!!" % self.kpt_template)
-            return all_kpt
-        else:
-            for ikpt in self.mix_kpt:
-                if isinstance(ikpt,int):
-                    all_kpt.append([ikpt,ikpt,ikpt,0,0,0])
-                elif isinstance(ikpt,list):
-                    if len(ikpt) == 3:
-                        all_kpt.append(ikpt+[0,0,0])
-                    elif len(ikpt) == 6:
-                        all_kpt.append(ikpt)
-                    else:
-                        print("mix_kpt should be a int or list of 3/6 element, but not ",ikpt)
-                else:
-                    print("element of mix_kpt should be int or list of 3/6 elements, but not ",ikpt)
-        return all_kpt
-    
-    def Construct_stru_list(self):
-        all_stru = []
-        if len(self.mix_stru) == 0:
-            if self.stru_template != None:
-                if os.path.isfile(self.stru_template):
-                    all_stru.append(os.path.abspath(self.stru_template))
-                else:
-                    print("Has define the STRU file '%s', but file is not exist!!!" % self.stru_template)
-            return all_stru
-        else:
-            for istru in self.mix_stru:
-                if os.path.isfile(istru):
-                    all_stru.append(os.path.abspath(istru))
-                else:
-                    print("Structure file '%s' is not exist" % istru)
-        return all_stru
-    
-    def prepare(self):
-        if not self.stru_list:
-            print("No stru files, skip!!!")
-            return False
-        
-        if not self.kpt_list:
-            print("WARNING: not set KPT")
-            kpt_list = [None]
-        else:
-            kpt_list = self.kpt_list
-        
-        if not self.input_list:
-            input_list = [None]
-        else:
-            input_list = self.input_list 
-                   
-        ipath = 0
-        for istru in self.stru_list: 
-            stru_data = PrepareAbacus.ReadStru(istru)
-            for ikpt in kpt_list:
-                for iinput in input_list:
-                    #create folder
-                    save_path = os.path.join(self.save_path,ipath.zfill(5))
-                    if not os.path.isdir(save_path):
-                        os.makedirs(save_path)
-                    
-                    #create INPUT   
-                    if iinput != None: 
-                        PrepareAbacus.WriteInput(iinput,os.path.join(save_path,"INPUT"))
-                    
-                    #create KPT
-                    if ikpt != None:
-                        kptf = os.path.join(save_path,"KPT")
-                        if isinstance(ikpt,str):
-                            if os.path.isfile(kptf):
-                                os.unlink(kptf)
-                            os.symlink(os.path.abspath(ikpt),kptf)
-                        elif isinstance(ikpt,list):
-                            PrepareAbacus.WriteKpt(ikpt,kptf)
-                    
-                    #create STRU
-                    struf = os.path.join(os.path.join(save_path,"STRU"))
-                    if os.path.isfile(struf):
-                        os.unlink(struf)
-                    os.symlink(os.path.abspath(istru),struf)
-                    
-                    #create pp/orb
-                    for ielement in element:
-                        if ielement in self.pp_dict:
-                            ppf = os.path.join(save_path, os.path.split(self.pp_dict[ielement])[1])
-                            if os.path.isfile(ppf):
-                                os.unlink(ppf)
-                            os.symlink(os.path.abspath(self.pp_dict[ielement]),ppf)
-                        else:
-                            print("WARING: %s: element '%s' is found in STRU, but not specified the pseudopotential file" % (save_path, ielement))
-                        
-                        if ielement in self.orb_dict:
-                            orbf = os.path.join(save_path, os.path.split(self.orb_dict[ielement])[1])
-                            if os.path.isfile(orbf):
-                                os.unlink(orbf)
-                            os.symlink(os.path.abspath(self.orb_dict[ielement]),orbf)
-                        else:
-                            print("WARING: %s: element '%s' is found in STRU, but not specified the pseudopotential file" % (save_path, ielement))
-                        
-                    for ipp in self.pp_dict:
-                        
+        Path(struf).write_text(cc)
 
     @staticmethod
-    def ReadStru(stru:str = "STRU") -> AbacusStru:
+    def ReadStru(stru:str = "STRU"):
         "read the label, pp, orb, cell, coord, deepks-descriptor"
         if not os.path.isfile(stru):
             return None
@@ -541,14 +176,14 @@ class PrepareAbacus:
             block = []
             for i,line in enumerate(lines):
                 if line.strip() == "": continue
-                elif line.strip() == keyname:
+                elif line.split('#')[0].strip() == keyname:
                     for ij in range(i+1,len(lines)):
                         if lines[ij].strip() == "": continue
-                        elif lines[ij].strip() in ABACUS_STRU_KEY_WORD:
+                        elif lines[ij].strip() in constant.ABACUS_STRU_KEY_WORD:
                             return block
                         else:
                             block.append(lines[ij])
-                    break
+                    return block
             return None
         
         atomic_species = get_block("ATOMIC_SPECIES")
@@ -587,10 +222,10 @@ class PrepareAbacus:
         atom_number = []
         coords = []
         magmom = []
-        coord_type = atom_positions[0].strip().lower()
+        coord_type = atom_positions[0].split("#")[0].strip().lower()
         if coord_type == "direct":
             cartessian = False
-        elif coord_type == "cartessian":
+        elif coord_type == "cartesian":
             cartessian = True
         else:
             print("Not support coordinate type %s now." % atom_positions[0].strip())
@@ -614,11 +249,360 @@ class PrepareAbacus:
                           coord=coords,
                           pp=pp,
                           orb=orb,
-                          lattice_constance=lattice_constant,
+                          lattice_constant=lattice_constant,
                           magmom=magmom,
                           dpks=dpks,
-                          cartessian=cartessian)    
+                          cartessian=cartessian)
+    
+        
+class PrepareAbacus:
+    def __init__(self,
+                 save_path: str = Path("."),
+                 example_template: str = None,
+                 input_template: str = None,
+                 kpt_template: str = None,
+                 stru_template: str = None,
+                 mix_input: Dict[str,any] = {},
+                 mix_kpt: List[Union[int,List[int]]] = [],
+                 mix_stru: List[str]=[],
+                 pp_dict: Dict[str,str]= {},
+                 orb_dict: Dict[str,str]= {},
+                 dpks_descriptor:str=None,
+                 extra_files: List[str] = []):
+        """To prepare the inputs of abacus
+
+        Parameters
+        ----------
+        save_path : str, optional
+            the path to store inputs, by default Path(".")
+
+        example_template : str, optional
+            folder name of an abacus inputs template, by default None.
+            If specify input/kpt/stru_template, the related file in exmaple_template will
+            be ingored. The pp/orb defined in example_template/STRU will also added to 
+            pp/orb_dict.
+
+        input_template : str, optional
+            file name of INPUT template, by default None
+
+        kpt_template : str, optional
+            file name of KPT template, by default None
+
+        stru_template : str, optional
+            file name of STRU template, by default None
+
+        mix_input : Dict[str,any], optional
+            mix setting of input parameters, by default {}. 
+            Such as:{"ecutwfc":[50, 60, 70], 
+                     "mixing_beta":[0.3, 0.4, 0.5]}, 
+            then will prepare 3*3 = 9 inputs.
+
+        mix_kpt : List, optional
+            mixing setting of k point list, by default []. If this parameter
+            is defined, then kpt_template will be invalide.
+            Such as: [[1,1,1,0,0,0],
+                      [2,2,2,0,0,0]], 
+            then will prepare 2 KPT files.
+            The kpoint list can be a list of 6 values (3 int number for K point
+            and 3 float values for the shift value) like: [1,1,1,0,0,0], 
+            or 3 values like: [1,1,1] which means [1,1,1,0,0,0], or one int number
+            like: 3 which means [3,3,3,0,0,0].
+
+        mix_stru : List, optional
+            a list of STRU files, by default []. If this parameter is defined
+            then stru_template will be invalide.
+            Such as: ["a/STRU","b/STRU"]
+
+        pp_dict : Dict, optional
+            a dictionary specify the pseudopotential files, by default {}
+
+        orb_dict : Dict, optional
+            a dictionary specify the orbital files, by default {}
+
+        dpks_descriptor : str, optional
+            file name of deepks descriptor, by default None
+
+        extra_files : List, optional
+            a list of somes extra files that will be putted in each input, by default []   
+        """        
+        self.save_path = save_path
+        self.example_template = example_template
+        self.input_template = input_template
+        self.kpt_template = kpt_template
+        self.stru_template = stru_template
+        self.mix_input = mix_input
+        self.pp_dict = pp_dict
+        self.orb_dict = orb_dict
+        self.extra_files = extra_files
+        self.mix_kpt = mix_kpt
+        self.mix_stru = mix_stru
+        self.dpks_descriptor = dpks_descriptor
+        
+        self.input_list,self.input_mix_param = self.Construct_input_list()
+        self.kpt_list = self.Construct_kpt_list()
+        self.stru_list = self.Construct_stru_list()
+    
+    def Construct_input_list(self):
+        all_inputs = []
+        inputf = None
+        if self.example_template != None:
+            if os.path.isfile(os.path.join(self.example_template,"INPUT")):
+                inputf = os.path.join(self.example_template,"INPUT")
+        if self.input_template != None:
+            if os.path.isfile(self.input_template):
+                inputf = self.input_template 
+            else:
+                print("WARNING: File %s is not found" % self.input_template)
+
+        print("INPUT template file: %s" % str(inputf))
+        if inputf != None:
+            input_constant = PrepareAbacus.ReadInput(inputf)
+        else:
+            print("Please define the INPUT template!!!")
+            return None,None 
+        
+        list_param = {}
+        for k,v in self.mix_input.items():
+            #if value is list type, then we need prepare INPUT for each value
+            #input_constant stores the parameters whose value is constant
+            #list_param stores the parameters that has several values.
+            if isinstance(v,(int,float,str)):
+                input_constant[k] = v
+            elif isinstance(v,list):
+                list_param[k] = v
+            else:
+                print("WARNING: type of '%s' is" % str(v),type(v),"will not add to INPUT")
+                input_constant[k] = v
+        
+        all_inputs.append(input_constant)
+        for k,v in list_param.items():
+            for i,iv in enumerate(v):
+                if i == 0:
+                    #if v only one value, add in all_inputs directly
+                    for iinput in all_inputs:
+                        iinput[k] = iv   
+                else:
+                    #if v has more than two values, deepcopy all_inputs and modify v, and then add to all_inputs
+                    if i == 1:  
+                        tmp_inputs = copy.deepcopy(all_inputs)
+                    for iinput in tmp_inputs:
+                        iinput[k] = iv
+                    all_inputs += copy.deepcopy(tmp_inputs)
+
+        return all_inputs,[i for i in list_param.keys()]
+
+    def Construct_kpt_list(self):
+        """
+        all_kpt is a list of list (6 element) or filename of KPT.
+        If not specify mix_kpt and has specify the KPT template, will retrun a list
+        of KPT filename, or will return a null list if no KPT template.
+        """
+        all_kpt = []
+
+        kptf = None
+        if self.example_template != None:
+            if os.path.isfile(os.path.join(self.example_template,"KPT")):
+                kptf = os.path.join(self.example_template,"KPT")
+        if self.kpt_template != None:
+            if os.path.isfile(self.kpt_template):
+                kptf = self.kpt_template 
+            else:
+                print("WARNING: File %s is not found" % self.kpt_template)
+
+        print("KPT template file: %s" % str(kptf))
+
+        if len(self.mix_kpt) == 0:
+            if kptf != None:
+                all_kpt.append(kptf)
+            return all_kpt
+        else:
+            for ikpt in self.mix_kpt:
+                if isinstance(ikpt,int):
+                    all_kpt.append([ikpt,ikpt,ikpt,0,0,0])
+                elif isinstance(ikpt,list):
+                    if len(ikpt) == 3:
+                        all_kpt.append(ikpt+[0,0,0])
+                    elif len(ikpt) == 6:
+                        all_kpt.append(ikpt)
+                    else:
+                        print("mix_kpt should be a int or list of 3/6 element, but not ",ikpt)
+                else:
+                    print("element of mix_kpt should be int or list of 3/6 elements, but not ",ikpt)
+        return all_kpt
+    
+    def Construct_stru_list(self):
+        all_stru = []
+        struf = None
+        if self.example_template != None:
+            if os.path.isfile(os.path.join(self.example_template,"STRU")):
+                struf = os.path.join(self.example_template,"STRU")
+        if self.stru_template != None:
+            if os.path.isfile(self.stru_template):
+                struf = self.stru_template 
+            else:
+                print("WARNING: File %s is not found" % self.stru_template)
+
+        print("STRU template file: %s" % str(struf))
+
+        if len(self.mix_stru) == 0:
+            if struf != None:
+                all_stru.append(struf)
+            else:
+                print("Please set the stru_template!")
+            return all_stru
+        else:
+            for istru in self.mix_stru:
+                if os.path.isfile(istru):
+                    all_stru.append(os.path.abspath(istru))
+                else:
+                    print("Structure file '%s' is not exist" % istru)
+        print(all_stru)
+        return all_stru
+    
+    def prepare(self):
+        "Return a dict, and the key is the path of inputs,"
+        "and the value is list of structure, kpt, and input setting information."
+        "The input setting information is a dict of param name and value"
+
+        if not self.stru_list:
+            print("No stru files, skip!!!")
+            return False
+        
+        if not self.kpt_list:
+            print("WARNING: not set KPT")
+            kpt_list = [None]
+        else:
+            kpt_list = self.kpt_list
+        
+        if not self.input_list:
+            input_list = [None]
+        else:
+            input_list = self.input_list 
+                   
+        ipath = -1
+        param_setting = {}
+        has_create_savepath = False
+        for istru in self.stru_list:  #iteration of STRU
+            cwd = os.getcwd()
+            stru_data = AbacusStru.ReadStru(istru)
+            stru_path = os.path.split(istru)[0]
+            labels = stru_data.get_label()
+            linkstru = True
+            skipstru = False
+            allfiles = []  #files that will be linked
+            pp_list = []   #pp file name
+            orb_list = []  #orb file name
+            dpks = None    #dpks file name
+            for i,ilabel in enumerate(labels):
+                #check pp file 
+                if ilabel not in self.pp_dict:
+                    #print("label '%s' is found in '%s', but not defined in pp_dict." % (ilabel,istru))
+                    os.chdir(stru_path)
+                    pp_in_stru = stru_data.get_pp()[i]
+                    if os.path.isfile(pp_in_stru):
+                        print("label '%s': link the pseudopotential file '%s' defined in %s" % (ilabel,pp_in_stru,istru))
+                        pp_list.append(os.path.split(pp_in_stru)[1])
+                        allfiles.append(os.path.abspath(pp_in_stru))
+                    else:
+                        print("label '%s': the pseudopotential file '%s' defined in %s is not found, skip this structure" % (ilabel,pp_in_stru,istru))
+                        skipstru = True
+                        break
+                    os.chdir(cwd)
+                else:
+                    pp_list.append(os.path.split(self.pp_dict[ilabel])[1])  #only store the file name to pp_list
+                    allfiles.append(self.pp_dict[ilabel]) #store the whole pp file to allfiles                    
+                if pp_list[-1] != stru_data.get_pp()[i]:
+                    linkstru = False
+
+                #check orbital file    
+                if ilabel not in self.orb_dict:
+                    if stru_data.get_orb():
+                        #print("label '%s' is found in '%s', but not defined in orb_dict." % (ilabel,istru))
+                        os.chdir(stru_path)
+                        orb_in_stru = stru_data.get_orb()[i]
+                        if os.path.isfile(orb_in_stru):
+                            print("label '%s': link the orb file '%s' defined in %s" % (ilabel,orb_in_stru,istru))
+                            orb_list.append(os.path.split(orb_in_stru)[1])
+                            allfiles.append(os.path.abspath(orb_in_stru))
+                            if orb_list[-1] != stru_data.get_orb()[i]:  
+                                linkstru = False
+                        else:
+                            print("label '%s': the orbital file '%s' defined in %s is not found." % (ilabel,orb_in_stru,istru))
+                        os.chdir(cwd)
+                else:
+                    orb_list.append(os.path.split(self.orb_dict[ilabel])[1]) 
+                    allfiles.append(self.orb_dict[ilabel])
+                    if orb_list[-1] != stru_data.get_orb()[i]:  
+                        linkstru = False
+
+            if skipstru:
+                continue
             
+            if self.dpks_descriptor != None:
+                dpks = os.path.split(self.dpks_descriptor)[1]
+                
+                allfiles.append(self.dpks_descriptor)
+                if dpks != stru_data.get_dpks():
+                    linkstru = False
+
+            #stru_data will be writen in new folder
+            stru_data.set_pp(pp_list)
+            stru_data.set_orb(orb_list)
+            stru_data.set_dpks(dpks)
+            
+            for ikpt in kpt_list:  #iteration of KPT 
+                for iinput in input_list: #iteration of INPUT
+                    ipath += 1
+                    #create folder
+                    if not has_create_savepath:
+                        if os.path.isdir(self.save_path):
+                            from myflow.comm import GetBakFile
+                            bk = GetBakFile(self.save_path)
+                            shutil.move(self.save_path,bk)
+                        has_create_savepath = True
+                    save_path = os.path.join(self.save_path,str(ipath).zfill(5))
+
+                    #store the param setting and path
+                    param_setting[save_path] = [istru,ikpt,{}]
+                    for input_param in self.input_mix_param:
+                        param_setting[save_path][-1][input_param] = iinput.get(input_param)
+
+                    if not os.path.isdir(save_path):
+                        os.makedirs(save_path)
+                    
+                    #create INPUT   
+                    if iinput != None: 
+                        PrepareAbacus.WriteInput(iinput,os.path.join(save_path,"INPUT"))
+                    
+                    #create KPT
+                    if ikpt != None:
+                        kptf = os.path.join(save_path,"KPT")
+                        if isinstance(ikpt,str):
+                            if os.path.isfile(kptf):
+                                os.unlink(kptf)
+                            os.symlink(os.path.abspath(ikpt),kptf)
+                        elif isinstance(ikpt,list):
+                            PrepareAbacus.WriteKpt(ikpt,kptf)
+                    
+                    #create STRU
+                    struf = os.path.join(os.path.join(save_path,"STRU"))
+                    if os.path.isfile(struf):
+                        os.unlink(struf)
+                    if linkstru:
+                        os.symlink(os.path.abspath(istru),struf)
+                    else:
+                        stru_data.write(struf)
+                    
+                    #link other files
+                    for ifile in allfiles:
+                        ifile = os.path.abspath(ifile)
+                        filename = os.path.split(ifile)[1]
+                        target_file = os.path.join(save_path,filename)
+                        if os.path.isfile(target_file):
+                            os.unlink(target_file)
+                        os.symlink(ifile,target_file)         
+        
+        return param_setting
 
     @staticmethod
     def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT"):
@@ -636,6 +620,7 @@ class PrepareAbacus:
                 return input_context
             with open(INPUTf) as f1: input_lines = f1.readlines()
         if input_lines == None:
+            print(INPUTf)
             print("Please provide the INPUT file name of INPUT lines")
             return input_context
         
@@ -670,6 +655,27 @@ class PrepareAbacus:
 
 
 def PrepareInput(param):
+    """
+    "prepare":{
+                "example_template":"example_path"
+                "input_template":"INPUT",
+                "kpt_template":"KPT",
+                "stru_template":"STRU",
+                "mix_input":{
+                    "ecutwfc":[50,60,70],
+                    "kspacing":[0.1,0.12,0.13]
+                },
+                "mix_kpt":[],
+                "mix_stru":[],
+                "pp_dict":{},
+                "orb_dict":{},
+                "dpks_descriptor":"",
+                "extra_files":[],
+                "mix_input_comment":"Do mixing for several input parameters. The diffrent values of one parameter should put in a list.",
+                "mix_kpt_comment":"If need the mixing of several kpt setting. The element should be an int (like 2 means [2,2,2,0,0,0]), or a list of 3 or 6 elements (like [2,2,2] or [2,2,2,0,0,0]).",
+                "mix_stru_commnet":"If need the mixing of several stru files. Like: ["a/stru","b/stru"],
+        },
+    """
     param_setting_file = param.param
     save_folder = param.save
     
@@ -678,11 +684,48 @@ def PrepareInput(param):
         sys.exit(1)
 
     param_setting = json.load(open(param_setting_file))
+    if "prepare" in param_setting:
+        param_setting = param_setting["prepare"]
+
+    example_template = param_setting.get("example_template",None)
+    if isinstance(example_template,str):
+        example_template = glob.glob(example_template)
+    elif isinstance(example_template,list):
+        tmp = copy.deepcopy(example_template)
+        example_template = []
+        for i in tmp:
+            example_template += glob.glob(i)
+    else:
+        example_template = [example_template]
     
-    
+    for iexample in example_template:
+        if len(example_template) > 1:
+            save_path = os.path.join(save_folder,iexample)
+            print("\n%s" % iexample)
+        else:
+            save_path = save_folder
+
+        prepareabacus = PrepareAbacus(save_path=save_path,
+                                  example_template=iexample,
+                                  input_template=param_setting.get("input_template",None),
+                                  kpt_template=param_setting.get("kpt_template",None),
+                                  stru_template=param_setting.get("stru_template",None),
+                                  mix_input=param_setting.get("mix_input",{}),
+                                  mix_kpt=param_setting.get("mix_kpt",[]),
+                                  mix_stru=param_setting.get("mix_stru",[]),
+                                  pp_dict=param_setting.get("pp_dict",{}),
+                                  orb_dict=param_setting.get("orb_dict",{}),
+                                  dpks_descriptor=param_setting.get("dpks_descriptor",None),
+                                  extra_files=param_setting.get("extra_files",[])
+                                  )
+        path_setting = prepareabacus.prepare() 
+
+        if path_setting:
+            for k,v in path_setting.items():
+                print("%s:%s" % (k,str(v)))
 
 def PrepareArgs(parser):  
-    parser.description = "This script is used to prepare the INPUTS OF ABACUS JOBS"
+    parser.description = "This script is used to prepare the INPUTS OF ABACUS JOB"
     parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type',required=True)
     parser.add_argument('-s', '--save', type=str,  default="abacustest",help='where to store the inputs, default is abacustest ')
     return parser
@@ -690,7 +733,7 @@ def PrepareArgs(parser):
 def main():
     parser = argparse.ArgumentParser()
     param = PrepareArgs(parser)
-    Prepare(param)
+    PrepareInput(param)
     
 if __name__ == "__main__":
     main()

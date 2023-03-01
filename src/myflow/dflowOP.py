@@ -358,8 +358,15 @@ class RunDFT(OP):
         print(op_in)
         outpath = []
         
-        metrics = Metrics.ParseMetricsOPIO(op_in['metrics'])
-        savefile = op_in["metrics"].get("save_file","result.json")
+        allmetrics = []
+        allsavefile = []
+        if isinstance(op_in['metrics'],dict):
+            poin_metrics = [op_in['metrics']]
+        elif isinstance(op_in['metrics'],list):
+            poin_metrics = op_in['metrics']
+        for imetric in poin_metrics:
+            allmetrics.append(Metrics.ParseMetricsOPIO(imetric))
+            allsavefile.append(imetric.get("save_file","result.json"))
         
         root_path_0,hasdflow = GetPath("abacustest_example")
         for iexample,example_name in enumerate(op_in["example_name"]):
@@ -403,16 +410,18 @@ class RunDFT(OP):
                 log += os.popen("(%s) 2>&1" % cmd).read()
             
             #read metrics
-            if metrics != None:    
-                os.chdir(work_path)
-                metrics_value = metrics.get_metrics(save_file=savefile)
-                #import pandas as pd
-                #log += "\nMetrics:\n%s\n" % str(pd.DataFrame.from_dict(metrics_value))
-                if op_in["upload_tracking"]:
-                    examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
-                    new_dict["samples"] = examples
-                    tracking = UploadTracking( op_in["upload_tracking"],new_dict)
-                    tracking.upload()
+            for im,metrics in enumerate(allmetrics):
+                if metrics != None:    
+                    os.chdir(work_path)
+                    savefile = allsavefile[im]
+                    metrics_value = metrics.get_metrics(save_file=savefile)
+                    #import pandas as pd
+                    #log += "\nMetrics:\n%s\n" % str(pd.DataFrame.from_dict(metrics_value))
+                    if op_in["upload_tracking"]:
+                        examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
+                        new_dict["samples"] = examples
+                        tracking = UploadTracking( op_in["upload_tracking"],new_dict)
+                        tracking.upload()
 
             os.chdir(work_path)
             logfile_name = "STDOUTER"

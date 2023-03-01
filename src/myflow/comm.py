@@ -9,6 +9,8 @@ def printinfo(istr):
         print(istr,flush=True)
         
 def GetBakFile(sfile):
+    while sfile[-1] == '/':
+        sfile = sfile[:-1]
     n = 1
     bk = sfile + ".bak%d" % n
     while os.path.exists(bk):
