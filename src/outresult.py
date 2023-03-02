@@ -184,8 +184,8 @@ def OutParam(allresult,split_example="----"):
     for i in param:
         if i[-1] != None: outtable[0].append(i[0])
            
-    ncol = len(outtable[0])
-    if split_example != None: outtable.append(ncol * [split_example])
+    ncol = len(outtable[0]) 
+    outtable.append(ncol * ["----"])
     
     results = allresult.get("result",[[]])
     example_name = allresult.get("example_name",[])
@@ -223,9 +223,9 @@ def OutParam(allresult,split_example="----"):
             left.append(False)
             
     cc = '\nSome key results of ' + ", ".join(allresult.get("type_name")) + "\n"
-    command = allresult.get("outparams_comment",[])
-    if len(command) > 0:
-        cc += "\n".join(command) + "\n"
+    comment = allresult.get("outparams_comment",[])
+    if len(comment) > 0:
+        cc += "\n".join(comment) + "\n"
     cc += TableOutput(outtable,maxlen=18,digit=digit,left=left)
     return cc,allparam_value
 
@@ -249,7 +249,8 @@ class MetricsMethod:
     def method_list(self):
         return {"GM":[self.GM,"calculate the geometric mean value"],
                 "iGM":[self.iGM, "calculate the geometric mean of the inverse of value"],
-                "MEAN":[self.MEAN,"mean of all values"]
+                "MEAN":[self.MEAN,"mean of all values"],
+                "TrueRatio":[self.TrueRatio,"the ratio of True"]
                 }
     def MEAN(self,valuelist):
         return np.array(valuelist).mean()
@@ -266,19 +267,27 @@ class MetricsMethod:
     
     def iGM(self,valuelist):
         return self.CalGM(valuelist,lambda x: 1/x)
+    
+    def TrueRatio(self,valuelist):
+        nTrue = 0
+        for i in valuelist:
+            if bool(i) == True:
+                nTrue += 1
+        
+        return float(nTrue)/float(len(valuelist))
         
 def OutMetrics(allresults,allparam_value):
     type_name = allresults.get("type_name")
     example_name = allresults.get("example_name",[])
     results = allresults.get("result",[[]])
     
-    outtable = [["metrics"] + type_name + ['example_number'] + [type_name[0]],(len(type_name)+3)*["----"]]
+    outtable = [["metrics"] + type_name + ['example_number'],(len(type_name)+2)*["----"]]
     metrics = allresults.get("metrics",[])
 
     method_list = MetricsMethod.allmethod()
     hasnotsupportmethod = False
     notsupportmethod = []
-    command = []
+    comment = []
     allmetric_value = {}
     for metric in metrics:
         name = metric.get("name")
@@ -286,10 +295,11 @@ def OutMetrics(allresults,allparam_value):
         method = metric.get("method")
         condition = metric.get("condition","").strip() 
         doclean = metric.get("doclean",True)
-        if "command" in metric:
-            icommand = metric["command"].strip()
-            if icommand != "":
-                command.append("%s:%s\n" % (name,icommand))
+        normalization = metric.get("normalization",True)
+        if "comment" in metric:
+            icomment = metric["comment"].strip()
+            if icomment != "":
+                comment.append("%s:%s\n" % (name,icomment))
         #if paramname not in outparams_paramname:
         #    print("key '%s' defined in 'metrics/param_name' is not defined in 'outparams', skip it" % paramname) 
         #    continue
@@ -330,24 +340,27 @@ def OutMetrics(allresults,allparam_value):
         metric_value = []
         for i in range(len(tmp_result)):
             metric_value.append(method_list[method](tmp_result[i]))
-            if doclean:
-                outtable[-1].append(metric_value[i]/metric_value[0]) #do normalization by divide by the first value
+            if normalization:
+                outtable[-1].append(metric_value[i]/metric_value[0]) #do normalization by divide by the first value   
             else:
                 outtable[-1].append(metric_value[i])
-        outtable[-1] += [nexample] + [metric_value[0]]
+
+        if normalization:
+            comment += "%-20s is normalized, value of %s is %.3e.\n" % (name,type_name[0],metric_value[0])
+
+        outtable[-1] += [nexample]
         allmetric_value[name] = metric_value
         
     if hasnotsupportmethod:
         print("Method %s are not supportted now.\nSupported methods are:\n%s" % (" ".join(notsupportmethod),MetricsMethod.allmethod_str()))
 
-    digit = [-1] + len(type_name)*[3] + [0] + [3]
-    left = [True] + (len(type_name)+2)*[False]
-    scintific = (len(type_name)+2)*[False] + [True]
+    digit = [-1] + len(type_name)*[3] + [0]
+    left = [True] + (len(type_name)+1)*[False]
+    scintific = (len(type_name)+2)*[False]
     
-    cc = "\nSome key metrics\nThe middle %d columns are relative value devided by %s\n" % (len(type_name),type_name[0])
-    cc += "The last column is the calculated value of %s\n" % type_name[0]
+    cc = "\nSome key metrics\n"
     cc += TableOutput(outtable,maxlen=50,digit=digit,left=left,scintific=scintific)
-    cc += "".join(command)
+    cc += "".join(comment)
     #cc += "Notice: the exmaples with value of None for some job type will be excluded.\n"
     return cc,allmetric_value    
 

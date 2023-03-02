@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 import os,sys,argparse
 sys.path.append(os.path.split(__file__)[0])
-from myflow import flow,globV,comm
+from .myflow import flow,globV,comm
 from dflow.python import upload_packages
 import numpy,pandas,pymatgen
 #upload_packages.append(numpy.__path__[0])
 #upload_packages.append(pandas.__path__[0])
 #upload_packages.append(pymatgen.__path__[0])
-upload_packages.append(os.path.join(os.path.split(__file__)[0],'myflow'))
-upload_packages.append(os.path.join(os.path.split(__file__)[0],'lib_collectdata'))
+#upload_packages.append(os.path.join(os.path.split(__file__)[0],'myflow'))
+#upload_packages.append(os.path.join(os.path.split(__file__)[0],'lib_collectdata'))
+upload_packages.append(os.path.split(__file__)[0])
 
 def AbacusTestArgs(parser):
     parser.description = "This script is used to run a testing"

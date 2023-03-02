@@ -1,4 +1,4 @@
-import os,sys,glob,time,shutil,argparse,json
+import os,sys,glob,time,shutil,argparse,json,traceback
 from . import globV,comm
 from dflow import (
     Workflow,
@@ -38,7 +38,7 @@ from dflow import config, s3_config
 from dflow.plugins import bohrium
 from dflow.plugins.bohrium import TiefblueClient,create_job_group
 
-from lib_collectdata.collectdata import RESULT
+from abacustest.lib_collectdata.collectdata import RESULT
 
 def SetBohrium(private_set,debug=False):  
     if debug:
@@ -100,8 +100,8 @@ class Metrics:
     
     def get_metrics(self,save_file = None):
         allvalue = {}
-        print(os.getcwd(),self.path,self.newmethods,self.dft_type,self.modules)
-        print(os.listdir("."))
+        print("metrics setting (getcwd(), path=, newmethods=, dft_type=, modules=):",os.getcwd(),self.path,self.newmethods,self.dft_type,self.modules)
+        print("os.listdir:",os.listdir("."))
         for ipath in self.path:
             for iipath in glob.glob(ipath):
                 allvalue[iipath] = {}
@@ -110,10 +110,18 @@ class Metrics:
                     self.metrics_name = result.AllMethod().keys()
                 for iparam in self.metrics_name:  
                     allvalue[iipath][iparam] = result[iparam] 
-                if save_file != None:
-                    json.dump(allvalue,open(save_file,'w'),indent=4) 
+        if save_file != None:
+            json.dump(allvalue,open(save_file,'w'),indent=4) 
         return allvalue
     
+    @staticmethod
+    def TransferMetricsOPIO(metrics_io):
+        if isinstance(metrics_io,dict):
+            poin_metrics = [metrics_io]
+        elif isinstance(metrics_io,list):
+            poin_metrics = metrics_io
+        return poin_metrics 
+
     @staticmethod
     def ParseMetricsOPIO(metrics_io):
         all_dfttype = {0:"abacus",1:"qw",2:"vasp"}
@@ -148,13 +156,29 @@ class Metrics:
                        newmethods=metrics_io.get("newmethods",[]),
                        modules = metrics_io.get("modules",[]))       
 
+    @staticmethod
+    def SuperMetricsResult(super_metrics_setting):
+        from abacustest import outresult
+        allresults = outresult.GetAllResults(super_metrics_setting)
+        if not allresults:
+            return None,None,None
+        split_example=None if len(allresults["type_name"]) == 1 else "----"
+        cc_outparam,allparam_value = outresult.OutParam(allresults,split_example=split_example)
+        cc_outmetrics,allmetric_value = outresult.OutMetrics(allresults,allparam_value)
+        report = ""
+        if len(allresults["metrics"]) > 0:
+            report += cc_outmetrics
+            save_file = super_metrics_setting.get("save_file","superMetric.json")
+            json.dump(allmetric_value,open(save_file,'w'),indent=4)
+        report += cc_outparam
+        return allparam_value,allmetric_value,report
+        
 
 class UploadTracking:
-    def __init__(self,tracking_setting,tracking_value={}):
+    def __init__(self,tracking_setting):
         self.tags = tracking_setting.get("tags")
         self.name = tracking_setting.get("name")
         self.experiment = tracking_setting.get("experiment")
-        self.tracking_value = tracking_value
     
     def CheckEnv(self):
         hasconfig = True
@@ -184,7 +208,12 @@ class UploadTracking:
                 newdict[imetric].append(dict1.get(iexample,{}).get(imetric,None))
         return allkey,newdict
     
-    def upload(self):
+    def upload(self,tracking_values):
+        """
+        tracking_values = [(tracking_value1, context1),
+                            (tracking_value2,context2),...]
+        tracking_value = {name:value}
+        """
         if not self.CheckEnv():
             return False
         
@@ -194,23 +223,24 @@ class UploadTracking:
         tracking_run.experiment = self.experiment
         for tag in self.tags: tracking_run.add_tag(tag)
         
-        def my_track(value,name):
+        def my_track(value,name,context):
             if isinstance(value,(int,float)):
-                tracking_run.track(value,name=name,context={"subset":"report"})
+                tracking_run.track(value,name=name,context=context)
             elif isinstance(value,str):
-                tracking_run.track(Text(value),name=name,context={"subset":"report"})  
+                tracking_run.track(Text(value),name=name,context=context)  
             else:
                 print(type(value))  
-                tracking_run.track(value,name=name,context={"subset":"report"})
+                tracking_run.track(value,name=name,context=context)
         
-        for k,v in self.tracking_value.items():
-            k = k.replace("/",".")
-            print("upload to tracking: %s" % k)
-            if isinstance(v,list):
-                for iv in v: 
-                    my_track(iv,k)
-            else:
-                my_track(v,k)
+        for tracking_value,context in tracking_values:
+            for k,v in tracking_value.items():
+                k = k.replace("/",".")
+                print("upload to tracking: %s" % k)
+                if isinstance(v,list):
+                    for iv in v: 
+                        my_track(iv,k,context)
+                else:
+                    my_track(v,k,context)
         
         tracking_run.close()
 
@@ -321,6 +351,7 @@ class RunDFT(OP):
                 "collectdata_script_name": [str],
                 "outputfiles":[str],
                 "metrics": BigParameter(dict,default={}),
+                "super_metrics": BigParameter(dict,default={}),
                 "upload_datahub": BigParameter(dict,default={}),
                 "upload_tracking": BigParameter(dict,default={}),
                 "sum_save_path_example_name": bool
@@ -331,7 +362,7 @@ class RunDFT(OP):
     def get_output_sign(cls):
         return OPIOSign(
             {
-                "outputs": Artifact(List[Path]),
+                "outputs": Artifact(List[Path])
             }
         )
 
@@ -355,19 +386,15 @@ class RunDFT(OP):
             else:
                 return opinname
         
-        print(op_in)
+        print("op_in:",op_in)
         outpath = []
         
-        allmetrics = []
-        allsavefile = []
-        if isinstance(op_in['metrics'],dict):
-            poin_metrics = [op_in['metrics']]
-        elif isinstance(op_in['metrics'],list):
-            poin_metrics = op_in['metrics']
+        poin_metrics = Metrics.TransferMetricsOPIO(op_in['metrics']) 
+        allmetrics,allsavefile = [],[]
         for imetric in poin_metrics:
             allmetrics.append(Metrics.ParseMetricsOPIO(imetric))
-            allsavefile.append(imetric.get("save_file","result.json"))
-        
+            allsavefile.append(imetric.get("save_file","result.json")) 
+
         root_path_0,hasdflow = GetPath("abacustest_example")
         for iexample,example_name in enumerate(op_in["example_name"]):
             root_path = os.path.join(root_path_0,GetName("abacustest_example",hasdflow,iexample))
@@ -410,18 +437,40 @@ class RunDFT(OP):
                 log += os.popen("(%s) 2>&1" % cmd).read()
             
             #read metrics
+            tracking_values = []
             for im,metrics in enumerate(allmetrics):
+                context = {"subset":"matric%d"%im}
                 if metrics != None:    
                     os.chdir(work_path)
                     savefile = allsavefile[im]
                     metrics_value = metrics.get_metrics(save_file=savefile)
-                    #import pandas as pd
-                    #log += "\nMetrics:\n%s\n" % str(pd.DataFrame.from_dict(metrics_value))
-                    if op_in["upload_tracking"]:
-                        examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
-                        new_dict["samples"] = examples
-                        tracking = UploadTracking( op_in["upload_tracking"],new_dict)
-                        tracking.upload()
+                    if not metrics_value:continue
+                    examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
+                    new_dict["samples"] = examples
+                    tracking_values.append((new_dict,context))
+
+            #calculate super_metrics
+            os.chdir(work_path)
+            poin_super_metrics = Metrics.TransferMetricsOPIO(op_in['super_metrics'])               
+            for isuper,super_metrics_setting in enumerate(poin_super_metrics):
+                if super_metrics_setting:
+                    try:
+                        super_metrics_dict = {}
+                        context = {"subset":"super_metric%d"%isuper}
+                        allparam_value,allmetric_value,report = Metrics.SuperMetricsResult(super_metrics_setting)
+                        if allmetric_value:
+                            super_metrics_dict = allmetric_value
+                        super_metrics_dict["report"] = report
+                        log += report
+                        tracking_values.append((super_metrics_dict,context))
+                    except:
+                        traceback.print_exc()
+
+            #upload tracking
+            if op_in["upload_tracking"]:
+                if tracking_values:
+                    tracking = UploadTracking( op_in["upload_tracking"])
+                    tracking.upload(tracking_values=tracking_values)
 
             os.chdir(work_path)
             logfile_name = "STDOUTER"
@@ -440,17 +489,19 @@ class RunDFT(OP):
                             log += "\n%s is not exist" % j
                 outpath.append(Path.resolve(logfile))
 
-            print(log)
+            print("log:",log)
+            print("log:",log,file=sys.stderr)
             logfile.write_text(log)
 
+            #upload_datahub
             if len(op_in["upload_datahub"]) > 0:
                 datahub = UploadDatahub(op_in["upload_datahub"])
                 datahub.Upload()
             
-        print(str(outpath))
+        print("outpath:",str(outpath))
         op_out = OPIO(
             {
-                "outputs": outpath 
+                "outputs": outpath
             }
         )
         return op_out
@@ -518,6 +569,7 @@ def ProduceRunDFTStep(step_name,
                       sub_save_path = "",
                       datahub = False,
                       metrics={},
+                      super_metrics={},
                       python_packages=None,
                       upload_datahub={},
                       upload_tracking={}):
@@ -558,7 +610,7 @@ def ProduceRunDFTStep(step_name,
                           "sum_save_path_example_name": datahub,
                           "collectdata_script_name": collectdata_script_name,
                           "sub_save_path": sub_save_path,
-                          "outputfiles":outputs,"metrics":metrics,
+                          "outputfiles":outputs,"metrics":metrics,"super_metrics":super_metrics,
                           "upload_datahub":upload_datahub,
                           "upload_tracking":upload_tracking},
             artifacts =  artifacts,continue_on_failed=True)
@@ -869,6 +921,7 @@ def ProduceOneSteps(stepname,param):
                       sub_save_path = sub_save_path,
                       datahub = datahub,
                       metrics=rundft.get("metrics",{}),
+                      super_metrics=rundft.get("super_metrics",{}),
                       python_packages=rundft.get("python_packages"),
                       upload_datahub=rundft.get("upload_datahub",{}),
                       upload_tracking=rundft.get("upload_tracking",{}))
@@ -922,6 +975,7 @@ def ProduceOneSteps(stepname,param):
                       sub_save_path = "",
                       datahub = datahub,
                       metrics=param["post_dft"].get("metrics",{}),
+                      super_metrics=param["post_dft"].get("super_metrics",{}),
                       python_packages=param["post_dft"].get("python_packages"),
                       upload_datahub=param["post_dft"].get("upload_datahub",{}),
                       upload_tracking=param["post_dft"].get("upload_tracking",{}))

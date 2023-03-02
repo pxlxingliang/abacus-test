@@ -206,7 +206,7 @@ One can self define the methods by write a python script, and add it to collectd
 2. define a class function, and register it.
 such as:
 ```
-from lib_collectdata.resultAbacus import ResultAbacus
+from abacustest.lib_collectdata.resultAbacus import ResultAbacus
 class MyAbacus(ResultAbacus):
     @ResultAbacus.register(key_name="description of the key")
     def function_name(self):
@@ -215,7 +215,7 @@ class MyAbacus(ResultAbacus):
 ``` 
 If you want to define a vasp method, you need change the import line and class name, like:
 ```
-from lib_collectdata.resultVasp import ResultVasp
+from abacustest.lib_collectdata.resultVasp import ResultVasp
 class MyVasp(ResultVasp):
     @ResultVasp.register(key_name="description of the key")
     def function_name(self):

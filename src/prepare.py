@@ -654,39 +654,34 @@ class PrepareAbacus:
         with open(INPUTf,'w') as f1: f1.write(out)            
 
 
-def PrepareInput(param):
+def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str, dict]]:  
     """
-    "prepare":{
-                "example_template":"example_path"
-                "input_template":"INPUT",
-                "kpt_template":"KPT",
-                "stru_template":"STRU",
-                "mix_input":{
-                    "ecutwfc":[50,60,70],
-                    "kspacing":[0.1,0.12,0.13]
-                },
-                "mix_kpt":[],
-                "mix_stru":[],
-                "pp_dict":{},
-                "orb_dict":{},
-                "dpks_descriptor":"",
-                "extra_files":[],
-                "mix_input_comment":"Do mixing for several input parameters. The diffrent values of one parameter should put in a list.",
-                "mix_kpt_comment":"If need the mixing of several kpt setting. The element should be an int (like 2 means [2,2,2,0,0,0]), or a list of 3 or 6 elements (like [2,2,2] or [2,2,2,0,0,0]).",
-                "mix_stru_commnet":"If need the mixing of several stru files. Like: ["a/stru","b/stru"],
+    param_setting is a dictionary like:
+    {
+        "example_template":"example_path"
+        "input_template":"INPUT",
+        "kpt_template":"KPT",
+        "stru_template":"STRU",
+        "mix_input":{
+            "ecutwfc":[50,60,70],
+            "kspacing":[0.1,0.12,0.13]
         },
+        "mix_kpt":[],
+        "mix_stru":[],
+        "pp_dict":{},
+        "orb_dict":{},
+        "dpks_descriptor":"",
+        "extra_files":[],
+        "mix_input_comment":"Do mixing for several input parameters. The diffrent values of one parameter should put in a list.",
+        "mix_kpt_comment":"If need the mixing of several kpt setting. The element should be an int (like 2 means [2,2,2,0,0,0]), or a list of 3 or 6 elements (like [2,2,2] or [2,2,2,0,0,0]).",
+        "mix_stru_commnet":"If need the mixing of several stru files. Like: ["a/stru","b/stru"],
+    },
+
+    save_folder specifies the destination of the new created examples.
+
+    Return a list of dict, which is related to each example_template element. The key of the dict is the newcreated example path, and the value
+    is the STRU/KPT/INPUT settings. 
     """
-    param_setting_file = param.param
-    save_folder = param.save
-    
-    if not os.path.isfile(param_setting_file):
-        print("Can not find file %s!!!" % param_setting_file)
-        sys.exit(1)
-
-    param_setting = json.load(open(param_setting_file))
-    if "prepare" in param_setting:
-        param_setting = param_setting["prepare"]
-
     example_template = param_setting.get("example_template",None)
     if isinstance(example_template,str):
         example_template = glob.glob(example_template)
@@ -698,6 +693,7 @@ def PrepareInput(param):
     else:
         example_template = [example_template]
     
+    all_path_setting = []
     for iexample in example_template:
         if len(example_template) > 1:
             save_path = os.path.join(save_folder,iexample)
@@ -718,8 +714,24 @@ def PrepareInput(param):
                                   dpks_descriptor=param_setting.get("dpks_descriptor",None),
                                   extra_files=param_setting.get("extra_files",[])
                                   )
-        path_setting = prepareabacus.prepare() 
+        all_path_setting.append(prepareabacus.prepare())
 
+    return all_path_setting
+
+def PrepareInput(param):
+    param_setting_file = param.param
+    save_folder = param.save
+    
+    if not os.path.isfile(param_setting_file):
+        print("Can not find file %s!!!" % param_setting_file)
+        sys.exit(1)
+
+    param_setting = json.load(open(param_setting_file))
+    if "prepare" in param_setting:
+        param_setting = param_setting["prepare"]
+    
+    all_path_setting = DoPrepare(param_setting,save_folder)
+    for path_setting in all_path_setting:
         if path_setting:
             for k,v in path_setting.items():
                 print("%s:%s" % (k,str(v)))

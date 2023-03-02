@@ -1,6 +1,6 @@
 import os,sys,json
 sys.path.append(os.path.split(__file__)[0])
-from lib_collectdata.collectdata import RESULT
+from .lib_collectdata.collectdata import RESULT
 import argparse
 import traceback
 
