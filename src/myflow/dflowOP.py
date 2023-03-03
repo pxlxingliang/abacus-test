@@ -178,8 +178,12 @@ class UploadTracking:
     def __init__(self,tracking_setting):
         self.tags = tracking_setting.get("tags")
         self.name = tracking_setting.get("name")
+        self.run_hash = tracking_setting.get("uid")
         self.experiment = tracking_setting.get("experiment")
-    
+
+        if not self.run_hash:
+            self.run_hash = None
+
     def CheckEnv(self):
         hasconfig = True
         for i in ["AIM_ACCESS_TOKEN"]:
@@ -208,6 +212,23 @@ class UploadTracking:
                 newdict[imetric].append(dict1.get(iexample,{}).get(imetric,None))
         return allkey,newdict
     
+    @staticmethod
+    def Transfer2Table(dict1):
+        '''
+        dict1 = {example1: {metric1:,metric2:,...}, example2: {}}
+        will be transfered to:
+        [{"sample":example1,"metric1":,"metric2":,...},{}]
+        '''
+        from dp.tracking import Run, Text, Table
+        allkey = [i for i in dict1.keys()]
+        allmetrics = dict1[allkey[0]].keys()
+        newlist = []
+        for ikey in allkey:
+            newlist.append({"sample":ikey})
+            for imetric in allmetrics:
+                newlist[-1][imetric] = dict1[ikey].get(imetric,None)
+        return Table(newlist)
+
     def upload(self,tracking_values):
         """
         tracking_values = [(tracking_value1, context1),
@@ -217,14 +238,14 @@ class UploadTracking:
         if not self.CheckEnv():
             return False
         
-        from dp.tracking import Run, Text
-        tracking_run = Run(repo='aim://tracking-api.dp.tech:443')
+        from dp.tracking import Run, Text, Table
+        tracking_run = Run(repo='aim://tracking-api.dp.tech:443',run_hash=self.run_hash)
         tracking_run.name = self.name
         tracking_run.experiment = self.experiment
         for tag in self.tags: tracking_run.add_tag(tag)
         
         def my_track(value,name,context):
-            if isinstance(value,(int,float)):
+            if isinstance(value,(int,float,Table)):
                 tracking_run.track(value,name=name,context=context)
             elif isinstance(value,str):
                 tracking_run.track(Text(value),name=name,context=context)  
@@ -439,14 +460,14 @@ class RunDFT(OP):
             #read metrics
             tracking_values = []
             for im,metrics in enumerate(allmetrics):
-                context = {"subset":"matric%d"%im}
+                context = {"subset":"metrics%d"%im}
                 if metrics != None:    
                     os.chdir(work_path)
                     savefile = allsavefile[im]
                     metrics_value = metrics.get_metrics(save_file=savefile)
                     if not metrics_value:continue
-                    examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
-                    new_dict["samples"] = examples
+                    #examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
+                    new_dict = {"metrics%d"%im : UploadTracking.Transfer2Table(metrics_value) }
                     tracking_values.append((new_dict,context))
 
             #calculate super_metrics
@@ -456,10 +477,15 @@ class RunDFT(OP):
                 if super_metrics_setting:
                     try:
                         super_metrics_dict = {}
-                        context = {"subset":"super_metric%d"%isuper}
+                        context = {"subset":"super_metrics%d"%isuper}
                         allparam_value,allmetric_value,report = Metrics.SuperMetricsResult(super_metrics_setting)
                         if allmetric_value:
                             super_metrics_dict = allmetric_value
+                            try:
+                                from dp.tracking import Table
+                                super_metrics_dict["super_metrics%d"%isuper] = Table([allmetric_value])
+                            except:
+                                traceback.print_exc()
                         super_metrics_dict["report"] = report
                         log += report
                         tracking_values.append((super_metrics_dict,context))
@@ -506,7 +532,7 @@ class RunDFT(OP):
         )
         return op_out
 
-def ProduceExecutor(param):
+def ProduceExecutor(param,group_name="abacustesting"):
     if "bohrium" in param and param["bohrium"]:
         bohrium_set = {}
         for key in param["bohrium"]:
@@ -520,7 +546,7 @@ def ProduceExecutor(param):
         if 'platform' not in bohrium_set:
             bohrium_set['platform'] = 'ali'
 
-        bohrium_set["bohr_job_group_id"] = create_job_group(globV.get_value("BOHRIUM_GROUP_ID"))
+        bohrium_set["bohr_job_group_id"] = create_job_group(group_name)
         
         if not globV.get_value("BOHRIUM_EXECUTOR"):    
             dispatcher_executor = DispatcherExecutor(
@@ -758,6 +784,11 @@ def ProduceArtifact(storage_client,uri,name):
         #sys.exit(1)
     return tmp_artifact,tmp_name
 
+def DownloadURI(uri,path="."):
+    artifact = S3Artifact(key=uri)
+    download_artifact(artifact,path=path)
+    return path
+    
 def FindDataHubExamples(example,uri,storage_client):
     examples,examples_name = [],[]
     if uri == None:
@@ -886,12 +917,13 @@ def ProduceOneSteps(stepname,param):
     rundft_step = []
     istep = 1
     comm.printinfo("\n%s\nPreparing run_dft" % stepname)
-    globV.set_value("BOHRIUM_GROUP_ID",param.get("bohrium_group_id","dflow-%s"%stepname))
+    
+    igroup = 0
     for rundft in rundft_set:
         if 'ifrun' in rundft and not rundft['ifrun']: continue
-        
+        igroup += 1
         sub_save_path = ParseSubSavePath(rundft.get("sub_save_path",""))
-        executor,bohrium_set = ProduceExecutor(rundft)                   
+        executor,bohrium_set = ProduceExecutor(rundft,group_name=stepname+"-rundft-group%d"%igroup)                   
         
         #get the example and collectdata script
         datahub,examples,examples_name,collectdata_script,collectdata_script_name = \
@@ -958,7 +990,7 @@ def ProduceOneSteps(stepname,param):
             comm.printinfo("image is '%s', will run this step on local" % str(param["post_dft"].get("image","")))
             post_dft_local_jobs = [save_path,param["post_dft"]]
     else:
-        executor,bohrium_set = ProduceExecutor(param["post_dft"])
+        executor,bohrium_set = ProduceExecutor(param["post_dft"],group_name=stepname + "-postdft")
         datahub,examples,examples_name,collectdata_script,collectdata_script_name = \
             GetExampleScript(param["post_dft"],"example_source","example","extra_files")
         image = globV.get_value("ABBREVIATION").get(param["post_dft"].get("image"),param["post_dft"].get("image"))
@@ -997,17 +1029,18 @@ def ProduceAllStep(alljobs):
     postdft_local_jobs = []
     test_name = []
     upload_datahub = []
-    for k in alljobs:
-        step,stepname,save_path,postdft_local_job = ProduceOneSteps(k,alljobs[k])
-        if step == None:
-            continue  
+
+    stepname = alljobs.get("bohrium_group_name","abacustesting")
+    step,stepnames,save_path,postdft_local_job = ProduceOneSteps(stepname,alljobs)
+    if step != None:  
+        
         allstep.append(step)
-        allstepname.append(stepname)
+        allstepname.append(stepnames)
         allsave_path.append(save_path) 
         postdft_local_jobs.append(postdft_local_job) 
-        comm.printinfo("\nComplete the preparing for %s.\n" % (k))
-        test_name.append(k)
-        upload_datahub.append(alljobs[k].get("upload_datahub",False))
+        comm.printinfo("\nComplete the preparing for %s.\n" % (stepname))
+        test_name.append(stepname)
+        upload_datahub.append(alljobs.get("upload_datahub",False))
         if upload_datahub[-1] and not (upload_datahub[-1].get("ifrun",True)):
             upload_datahub[-1] = False
 

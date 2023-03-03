@@ -11,40 +11,76 @@ import  os, shutil, glob
 from . import globV,dflowOP,comm
 
 def ParamParser(param):
-        
-    alljobs = {}
-    for k,v in param.get('if_run',{}).items():
-        if v : alljobs[k] = {}
-    for k in alljobs:
-        if k not in param['param']:
-            comm.printinfo("%s is not set in param,skip" % k)
-            continue
-        if "run_dft" not in param['param'][k]:
-            comm.printinfo("run_dft is not set for param/%s" % k)
-            sys.exit(1)
-        if "post_dft" not in param['param'][k]:
-            #comm.printinfo("post_dft is not set for param/%s" % k)
-            param['param'][k]["post_dft"] = {"ifrun":False}
+    """
+    {
+        "dataset_info":{
+            "type": "local"/"datahub",
+            "dataset_urn":,
+            "download":false
+        },
+        "running_setting" : RUNNING_SETTING_FILE,
 
-        alljobs[k]["run_dft"] = param['param'][k]["run_dft"]
-        alljobs[k]["post_dft"] = param['param'][k]["post_dft"]
-        alljobs[k]["save_path"] = param['param'][k].get("save_path",None)
-        alljobs[k]["upload_datahub"] = param['param'][k].get("upload_datahub",False)
+        "bohrium_goup_name": ,
+        "ABBREVIATION":{},
+        "save_path" : PATH_THE_FINAL_RESULT_WILL_BE_DOWNLOADED_TO,
+        "run_dft" : {},
+        "post_dft": {},
+        "upload_datahub": {},
+        "report":{}
+    }
+    """
     
+    alljobs = alljobs = {}
+   
+    dataset_info = param.get("dataset_info")
+    globV.set_value("dataset_info",dataset_info)
+    if dataset_info:
+        if dataset_info.get("type") == "datahub" and dataset_info.get("download"):
+            #download data
+            data_path = comm.GetBakFile("data")
+            urn = dataset_info.get("dataset_urn","")
+            uri,storage_client = dflowOP.GetURI(urn=urn)
+            dflowOP.DownloadURI(uri,path=data_path)
+            comm.printinfo("download datahub data to %s" % data_path)
+
+    #read the setting file if is setted
+    setting_file = param.get("running_setting")
+    if setting_file:
+        if dataset_info and dataset_info.get("type") == "datahub":
+            urn = dataset_info.get("dataset_urn","")
+            uri,storage_client = dflowOP.GetURI(urn=urn)
+            uri += "/" + setting_file
+            comm.printinfo("download  the setting file '%s' from datahub " % setting_file)
+            dflowOP.DownloadURI(uri)
+
+        if not os.path.isfile(setting_file):
+            comm.printinfo("Has specify the 'running_setting', but can not find file %s" % setting_file)
+            sys.exit(1)
+            
+        setting = json.load(open(setting_file))
+        alljobs["save_path"] = setting.get("save_path",None)
+        alljobs["run_dft"] = setting.get("run_dft")
+        alljobs["post_dft"] = setting.get("post_dft",{"ifrun":False})
+        alljobs["upload_datahub"] = setting.get("upload_datahub",None)
+        alljobs["report"] = setting.get("report",None)
+        alljobs["bohrium_goup_name"] = setting.get("bohrium_goup_name","abacustesting")
+        globV.set_value("ABBREVIATION",setting.get('ABBREVIATION',{}))
+
+    #if the param has defined in param, use it
+    if "save_path" in param:
+        alljobs["save_path"] = param["save_path"]
     if "run_dft" in param:
-        alljobs = {"testing":{}}
-        alljobs["testing"]["save_path"] = param.get("save_path",None)
-        alljobs["testing"]["run_dft"] = param.get("run_dft")
-        alljobs["testing"]["post_dft"] = param.get("post_dft",{"ifrun":False})
-        alljobs["testing"]["upload_datahub"] = param.get("upload_datahub",None)
-    
-    if "dataset_info" in param:
-        globV.set_value("dataset_info",param['dataset_info']) 
-    else:
-        globV.set_value("dataset_info",None)   
-        
-    globV.set_value("ABBREVIATION",param.get('ABBREVIATION',{}))
-        
+        alljobs["run_dft"] = param["run_dft"]
+    if "post_dft" in param:
+        alljobs["post_dft"] = param["post_dft"]
+    if "upload_datahub" in param:
+        alljobs["upload_datahub"] = param["upload_datahub"]
+    if "report" in param:
+        alljobs["report"] = param["report"]  
+    if "bohrium_goup_name" in param:
+        alljobs["bohrium_goup_name"] = param["bohrium_goup_name"]
+    if "ABBREVIATION" in param:  
+        globV.set_value("ABBREVIATION",param.get('ABBREVIATION',{}))
     return alljobs
 
 def SetSaveFolder(storefolder=None):
@@ -129,8 +165,6 @@ def set_env(param):
     
     from datetime import datetime
     globV.set_value("BEGIN", str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
-    
-
 
 def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name,upload_datahub):
     '''
