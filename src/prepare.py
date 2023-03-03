@@ -658,7 +658,7 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
     """
     param_setting is a dictionary like:
     {
-        "example_template":"example_path"
+        "example_template":["example_path"]
         "input_template":"INPUT",
         "kpt_template":"KPT",
         "stru_template":"STRU",
