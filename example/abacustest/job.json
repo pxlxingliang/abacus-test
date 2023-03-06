@@ -25,7 +25,7 @@
 			"metrics_name": [],
 			"save_file": "result.json",
 			"newmethods": []
-		},
+		 },
          "outputs":["log","result.json","OUT.*"]
         },
         {"ifrun": true,

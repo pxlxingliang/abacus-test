@@ -36,22 +36,27 @@ def ParamParser(param):
     globV.set_value("dataset_info",dataset_info)
     if dataset_info:
         if dataset_info.get("type") == "datahub" and dataset_info.get("download"):
-            #download data
-            data_path = comm.GetBakFile("data")
-            urn = dataset_info.get("dataset_urn","")
-            uri,storage_client = dflowOP.GetURI(urn=urn)
-            dflowOP.DownloadURI(uri,path=data_path)
-            comm.printinfo("download datahub data to %s" % data_path)
+            urn = dataset_info.get("dataset_urn","").strip().split()
+            for iurn in urn:
+                #download data
+                data_path = comm.GetBakFile("data")
+                uri,storage_client = dflowOP.GetURI(urn=iurn)
+                dflowOP.DownloadURI(uri,path=data_path)
+                comm.printinfo("download datahub data to %s" % data_path)
 
     #read the setting file if is setted
     setting_file = param.get("running_setting")
     if setting_file:
         if dataset_info and dataset_info.get("type") == "datahub":
-            urn = dataset_info.get("dataset_urn","")
-            uri,storage_client = dflowOP.GetURI(urn=urn)
+            urn = dataset_info.get("dataset_urn","").strip().split()
+            if len(urn) == 1:
+                iurn = urn[0]
+            elif len(urn) > 1:
+                iurn = urn[-1]
+            uri,storage_client = dflowOP.GetURI(urn=iurn)
             uri += "/" + setting_file
             comm.printinfo("download  the setting file '%s' from datahub " % setting_file)
-            dflowOP.DownloadURI(uri)
+            dflowOP.DownloadURI(uri)    
 
         if not os.path.isfile(setting_file):
             comm.printinfo("Has specify the 'running_setting', but can not find file %s" % setting_file)

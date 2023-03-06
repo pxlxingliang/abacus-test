@@ -323,12 +323,12 @@ class PrepareAbacus:
 
         pp_path : str, optional
             the path of your pseudopotential lib, by default None. 
-            The file name shuold be start with the element name and followed by "_".
+            The file name shuold be started with the element name and followed by "_".
             Such as: Ag_ONCV_PBE-1.0.upf.
 
         orb_path : str, optional
             the path of your orbital lib, by default None. 
-            The file name shuold be start with the element name and followed by "_".
+            The file name shuold be started with the element name and followed by "_".
             Such as: Ag_gga_7au_100Ry_4s2p2d1f.orb.
 
         dpks_descriptor : str, optional
@@ -469,6 +469,9 @@ class PrepareAbacus:
                         all_kpt.append(ikpt)
                     else:
                         print("mix_kpt should be a int or list of 3/6 element, but not ",ikpt)
+                elif isinstance(ikpt,str):
+                    for iikpt in glob.glob(ikpt):
+                        all_kpt.append(iikpt)
                 else:
                     print("element of mix_kpt should be int or list of 3/6 elements, but not ",ikpt)
         return all_kpt
@@ -494,12 +497,12 @@ class PrepareAbacus:
                 print("Please set the stru_template!")
             return all_stru
         else:
-            for istru in self.mix_stru:
-                if os.path.isfile(istru):
+            for stru in self.mix_stru:
+                allstrus = glob.glob(stru)
+                for istru in allstrus:
                     all_stru.append(os.path.abspath(istru))
-                else:
-                    print("Structure file '%s' is not exist" % istru)
-        print(all_stru)
+                if len(allstrus) == 0:
+                    print("Structure file '%s' is not exist" % stru)
         return all_stru
     
     def prepare(self):

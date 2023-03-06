@@ -883,7 +883,8 @@ def GetExampleScript(rundft,example_source_name,example_name,collectdata_script_
             
     if example_source == 'datahub':
         urn = urn if urn != None else rundft["urn"]
-        uri,storage_client = GetURI(urn)
+        iurn = urn.strip().split()[0]
+        uri,storage_client = GetURI(iurn)
         examples,examples_name = FindDataHubExamples(rundft.get(example_name,[]),uri,storage_client)
         collectdata_script_tmp,collectdata_script_name_tmp = FindDataHubExamples(rundft.get(collectdata_script_name,[]), uri,storage_client)
         datahub = True

@@ -80,6 +80,24 @@ def GetParamValue(result,param,examplename):
     #result is a dict, whose key is the name of some parameters, and value is the value of the parameter
     #param is the param name, or a formula containing the param name which is identified by '
     #such as: param = "total_energy" or "'total_energy'/'natom'"
+
+    def getvalue(iparam):
+        if iparam in result:
+            return result.get(iparam,None)
+        else:
+            if "/" in iparam:
+                param_list = iparam.split("/")
+                tmp_result = result
+                for iiparam in param_list[:-1]:
+                    if iiparam not in tmp_result:
+                        return None
+                    else:
+                        tmp_result = tmp_result[iiparam]
+                return tmp_result.get(param_list[-1],None)
+            else:
+                return None
+
+
     if "'" in param:
         formula = ""
         readparam = False
@@ -91,7 +109,7 @@ def GetParamValue(result,param,examplename):
                     readparam = True
                     paramname = ""
                 else:
-                    value = result.get(paramname,None)
+                    value = getvalue(paramname) 
                     if value == None:
                         #print(paramname,type(paramname),result)
                         print("%s: value of '%s' is None, set %s to be None" % (examplename,paramname,param))
@@ -119,20 +137,7 @@ def GetParamValue(result,param,examplename):
             traceback.print_exc()
             return None       
     else:
-        if param in result:
-            return result.get(param,None)
-        else:
-            if "/" in param:
-                param_list = param.split("/")
-                tmp_result = result
-                for iparam in param_list[:-1]:
-                    if iparam not in tmp_result:
-                        return None
-                    else:
-                        tmp_result = tmp_result[iparam]
-                return tmp_result.get(param_list[-1],None)
-            else:
-                return None
+        return getvalue(param)
 
 def ProduceExpandDic(allresult,example_idx):
     #construct the expand dict, the key is the key in "outparams_expand"
