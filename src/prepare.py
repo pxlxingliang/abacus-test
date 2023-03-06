@@ -267,6 +267,8 @@ class PrepareAbacus:
                  mix_stru: List[str]=[],
                  pp_dict: Dict[str,str]= {},
                  orb_dict: Dict[str,str]= {},
+                 pp_path:str = None,
+                 orb_path:str = None,
                  dpks_descriptor:str=None,
                  extra_files: List[str] = []):
         """To prepare the inputs of abacus
@@ -319,6 +321,16 @@ class PrepareAbacus:
         orb_dict : Dict, optional
             a dictionary specify the orbital files, by default {}
 
+        pp_path : str, optional
+            the path of your pseudopotential lib, by default None. 
+            The file name shuold be start with the element name and followed by "_".
+            Such as: Ag_ONCV_PBE-1.0.upf.
+
+        orb_path : str, optional
+            the path of your orbital lib, by default None. 
+            The file name shuold be start with the element name and followed by "_".
+            Such as: Ag_gga_7au_100Ry_4s2p2d1f.orb.
+
         dpks_descriptor : str, optional
             file name of deepks descriptor, by default None
 
@@ -338,10 +350,41 @@ class PrepareAbacus:
         self.mix_stru = mix_stru
         self.dpks_descriptor = dpks_descriptor
         
+        self.pp_path = None if not pp_path else pp_path.strip()
+        self.orb_path = None if not orb_path else orb_path.strip()
+        self.CollectPP()
+        self.CollectOrb()
+
         self.input_list,self.input_mix_param = self.Construct_input_list()
         self.kpt_list = self.Construct_kpt_list()
         self.stru_list = self.Construct_stru_list()
     
+    def CollectPP(self):
+        if not self.pp_path:
+            return
+        if os.path.isdir(self.pp_path):
+            allfiles = os.listdir(self.pp_path)
+            for ifile in allfiles:
+                if not os.path.isfile(os.path.join(self.pp_path,ifile)): continue
+                element_name = ifile.split("_")[0]
+                if element_name not in self.pp_dict:
+                    self.pp_dict[element_name] = os.path.join(self.pp_path,ifile)
+        else:
+            print("Not find pp dir: %s" % self.pp_path)
+
+    def CollectOrb(self):
+        if not self.orb_path:
+            return
+        if os.path.isdir(self.orb_path):
+            allfiles = os.listdir(self.orb_path)
+            for ifile in allfiles:
+                if not os.path.isfile(os.path.join(self.orb_path,ifile)): continue
+                element_name = ifile.split("_")[0]
+                if element_name not in self.orb_dict:
+                    self.orb_dict[element_name] = os.path.join(self.orb_path,ifile)
+        else:
+            print("Not find orb dir: %s" % self.orb_path)
+
     def Construct_input_list(self):
         all_inputs = []
         inputf = None
@@ -670,6 +713,8 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
         "mix_stru":[],
         "pp_dict":{},
         "orb_dict":{},
+        "pp_path": str,
+        "orb_path": str,
         "dpks_descriptor":"",
         "extra_files":[],
         "mix_input_comment":"Do mixing for several input parameters. The diffrent values of one parameter should put in a list.",
@@ -711,6 +756,8 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
                                   mix_stru=param_setting.get("mix_stru",[]),
                                   pp_dict=param_setting.get("pp_dict",{}),
                                   orb_dict=param_setting.get("orb_dict",{}),
+                                  pp_path=param_setting.get("pp_path",None),
+                                  orb_path=param_setting.get("orb_path",None),
                                   dpks_descriptor=param_setting.get("dpks_descriptor",None),
                                   extra_files=param_setting.get("extra_files",[])
                                   )
