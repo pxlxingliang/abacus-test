@@ -1,4 +1,4 @@
-import os,sys,glob,time,shutil,argparse,json,traceback
+import os,sys,glob,time,shutil,argparse,json,traceback,copy
 from . import globV,comm
 from dflow import (
     Workflow,
@@ -39,6 +39,7 @@ from dflow.plugins import bohrium
 from dflow.plugins.bohrium import TiefblueClient,create_job_group
 
 from abacustest.lib_collectdata.collectdata import RESULT
+from abacustest.collectdata import parse_value
 
 def SetBohrium(private_set,debug=False):  
     if debug:
@@ -104,12 +105,10 @@ class Metrics:
         print("os.listdir:",os.listdir("."))
         for ipath in self.path:
             for iipath in glob.glob(ipath):
-                allvalue[iipath] = {}
                 result = RESULT(fmt=self.dft_type,newmethods=self.newmethods,path=iipath,modules=self.modules)
                 if len(self.metrics_name) == 0:
                     self.metrics_name = result.AllMethod().keys()
-                for iparam in self.metrics_name:  
-                    allvalue[iipath][iparam] = result[iparam] 
+                allvalue[iipath] = parse_value(result,self.metrics_name) 
         if save_file != None:
             json.dump(allvalue,open(save_file,'w'),indent=4) 
         return allvalue
