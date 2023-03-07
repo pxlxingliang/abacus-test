@@ -319,11 +319,26 @@ class UploadDatahub:
             return False
         return tmp_path            
 
+    @staticmethod
+    def CollectFileName(paths):
+        allfiles = []
+        for ipath in glob.glob(os.path.join(paths,"*")):
+            if os.path.isfile(ipath):
+                allfiles.append(ipath)
+            elif os.path.isdir(ipath):
+                allfiles += UploadDatahub.CollectFileName(ipath)
+        return allfiles
+
     def Upload(self):
         if not self.CheckEnv():
             return False
         
         tmp_path = self.CollectData()
+        cwd = os.getcwd()
+        os.chdir(tmp_path)
+        allfilesname = UploadDatahub.CollectFileName(".")
+        os.chdir(cwd)
+
         if not tmp_path: return False
         
         gms_token = os.environ["datahub_gms_token"]
@@ -347,6 +362,7 @@ class UploadDatahub:
             dataset = Dataset(
                 urn=urn,
                 uri=uri,
+                description="\\\n".join(allfilesname),
                 tags=self.tags,
                 properties=self.properties
             )
