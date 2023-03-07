@@ -68,7 +68,7 @@ def ParamParser(param):
         alljobs["post_dft"] = setting.get("post_dft",{"ifrun":False})
         alljobs["upload_datahub"] = setting.get("upload_datahub",None)
         alljobs["report"] = setting.get("report",None)
-        alljobs["bohrium_goup_name"] = setting.get("bohrium_goup_name","abacustesting")
+        alljobs["bohrium_group_name"] = setting.get("bohrium_group_name","abacustesting")
         globV.set_value("ABBREVIATION",setting.get('ABBREVIATION',{}))
 
     #if the param has defined in param, use it
@@ -82,8 +82,8 @@ def ParamParser(param):
         alljobs["upload_datahub"] = param["upload_datahub"]
     if "report" in param:
         alljobs["report"] = param["report"]  
-    if "bohrium_goup_name" in param:
-        alljobs["bohrium_goup_name"] = param["bohrium_goup_name"]
+    if "bohrium_group_name" in param:
+        alljobs["bohrium_group_name"] = param["bohrium_group_name"]
     if "ABBREVIATION" in param:  
         globV.set_value("ABBREVIATION",param.get('ABBREVIATION',{}))
     return alljobs
