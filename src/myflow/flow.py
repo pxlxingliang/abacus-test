@@ -30,7 +30,17 @@ def ParamParser(param):
     }
     """
     
-    alljobs = alljobs = {}
+    alljobs = {}
+
+    alljobs["save_path"] = param.get("save_path",None)
+    alljobs["run_dft"] = param.get("run_dft")
+    alljobs["post_dft"] = param.get("post_dft",{"ifrun":False})
+    alljobs["upload_datahub"] = param.get("upload_datahub",None)  #used to upload local files to datahub
+    alljobs["upload_tracking"] = param.get("upload_tracking",None)  #used to upload tracking
+    alljobs["report"] = param.get("report",None)
+    alljobs["bohrium_group_name"] = param.get("bohrium_group_name","abacustesting")
+    alljobs["ABBREVIATION"] = param.get("ABBREVIATION",{})
+    
    
     dataset_info = param.get("dataset_info")
     globV.set_value("dataset_info",dataset_info)
@@ -59,33 +69,31 @@ def ParamParser(param):
             dflowOP.DownloadURI(uri)    
 
         if not os.path.isfile(setting_file):
-            comm.printinfo("Has specify the 'running_setting', but can not find file %s" % setting_file)
-            sys.exit(1)
-            
-        setting = json.load(open(setting_file))
-        alljobs["save_path"] = setting.get("save_path",None)
-        alljobs["run_dft"] = setting.get("run_dft")
-        alljobs["post_dft"] = setting.get("post_dft",{"ifrun":False})
-        alljobs["upload_datahub"] = setting.get("upload_datahub",None)
-        alljobs["report"] = setting.get("report",None)
-        alljobs["bohrium_group_name"] = setting.get("bohrium_group_name","abacustesting")
-        globV.set_value("ABBREVIATION",setting.get('ABBREVIATION',{}))
+            comm.printinfo("Has specify the 'running_setting', but can not find file %s, skip to read it!" % setting_file)
+        else:    
+            setting = json.load(open(setting_file))
+            if "save_path" in setting:
+                alljobs["save_path"] = setting["save_path"]
+            if "run_dft" in setting:
+                alljobs["run_dft"] = setting["run_dft"]
+            if "post_dft" in setting:
+                alljobs["post_dft"] = setting["post_dft"]
+            if "upload_datahub" in setting:
+                alljobs["upload_datahub"] = setting["upload_datahub"]
+            if "upload_tracking" in setting:
+                alljobs["upload_tracking"] = setting["upload_tracking"]
+            if "report" in setting:
+                alljobs["report"] = setting["report"]  
+            if "bohrium_group_name" in setting:
+                alljobs["bohrium_group_name"] = setting["bohrium_group_name"]
+            if "ABBREVIATION" in setting:  
+                alljobs["ABBREVIATION"] = setting["ABBREVIATION"]
 
-    #if the param has defined in param, use it
-    if "save_path" in param:
-        alljobs["save_path"] = param["save_path"]
-    if "run_dft" in param:
-        alljobs["run_dft"] = param["run_dft"]
-    if "post_dft" in param:
-        alljobs["post_dft"] = param["post_dft"]
-    if "upload_datahub" in param:
-        alljobs["upload_datahub"] = param["upload_datahub"]
-    if "report" in param:
-        alljobs["report"] = param["report"]  
-    if "bohrium_group_name" in param:
-        alljobs["bohrium_group_name"] = param["bohrium_group_name"]
-    if "ABBREVIATION" in param:  
-        globV.set_value("ABBREVIATION",param.get('ABBREVIATION',{}))
+    #if upload datahub or tracking is defined, then replace the definition in post_dft by current setting
+    alljobs["post_dft"]["upload_datahub"] = alljobs["upload_datahub"]
+    alljobs["post_dft"]["upload_tracking"] = alljobs["upload_tracking"]
+
+    globV.set_value("ABBREVIATION",alljobs.get('ABBREVIATION',{}))
     return alljobs
 
 def SetSaveFolder(storefolder=None):

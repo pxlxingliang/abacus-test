@@ -480,14 +480,17 @@ class RunDFT(OP):
                     os.chdir(work_path)
                     savefile = allsavefile[im]
                     metrics_value = metrics.get_metrics(save_file=savefile)
+                    'metrics_value = {path:{key:value}}'
                     if not metrics_value:continue
-                    #examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
-                    new_dict = {"metrics%d"%im : UploadTracking.Transfer2Table(metrics_value) }
+                    examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
+                    new_dict["sample_name"] = examples
+                    new_dict["metrics%d"%im] = UploadTracking.Transfer2Table(metrics_value) 
                     tracking_values.append((new_dict,context))
 
             #calculate super_metrics
             os.chdir(work_path)
-            poin_super_metrics = Metrics.TransferMetricsOPIO(op_in['super_metrics'])               
+            poin_super_metrics = Metrics.TransferMetricsOPIO(op_in['super_metrics'])
+            tracking_summary = []               
             for isuper,super_metrics_setting in enumerate(poin_super_metrics):
                 if super_metrics_setting:
                     try:
@@ -504,6 +507,7 @@ class RunDFT(OP):
                         super_metrics_dict["report"] = report
                         log += report
                         tracking_values.append((super_metrics_dict,context))
+                        tracking_summary.append((super_metrics_dict,context))
                     except:
                         traceback.print_exc()
 
@@ -512,6 +516,11 @@ class RunDFT(OP):
                 if tracking_values:
                     tracking = UploadTracking( op_in["upload_tracking"])
                     tracking.upload(tracking_values=tracking_values)
+                if tracking_summary:
+                    tracking_setting = op_in["upload_tracking"]
+                    tracking_setting["name"] = op_in["upload_tracking"].get("name","") + ".summary"
+                    tracking = UploadTracking( tracking_setting)
+                    tracking.upload(tracking_values=tracking_summary)                
 
             os.chdir(work_path)
             logfile_name = "STDOUTER"
@@ -808,7 +817,22 @@ def FindDataHubExamples(example,uri,storage_client):
     examples,examples_name = [],[]
     if uri == None:
         return examples,examples_name
-    for ie in example:
+
+    example_tmp = []
+    if len(example) == 1 and example[0] == "*":
+        res = storage_client.list(uri,recursive=True)
+        if len(res) == 0 : return examples,examples_name
+        uri_num = len(uri) + 1 if uri[-1] != "/" else len(uri)
+        for ires in res:
+            ires = ires[uri_num:]
+            if "/" in ires:
+                iexample_name = ires.split("/")[0]
+                if iexample_name not in example_tmp:
+                    example_tmp.append(iexample_name)
+    else:
+        example_tmp = example
+
+    for ie in example_tmp:
         if isinstance(ie,list):
             tmp_artifact = []
             tmp_name = []
@@ -903,7 +927,7 @@ def GetExampleScript(rundft,example_source_name,example_name,collectdata_script_
         examples,examples_name = FindDataHubExamples(rundft.get(example_name,[]),uri,storage_client)
         collectdata_script_tmp,collectdata_script_name_tmp = FindDataHubExamples(rundft.get(collectdata_script_name,[]), uri,storage_client)
         datahub = True
-        comm.printinfo("Example_source is 'datahub', use the example and collectdata_script in 'datahub'")
+        comm.printinfo("Example_source is 'datahub', use the example in 'datahub'")
     else:
         datahub = False
         examples,examples_name = FindLocalExamples(rundft.get(example_name,[]))
@@ -1056,9 +1080,13 @@ def ProduceAllStep(alljobs):
         postdft_local_jobs.append(postdft_local_job) 
         comm.printinfo("\nComplete the preparing for %s.\n" % (stepname))
         test_name.append(stepname)
+
+        upload_datahub.append(False) #do not upload to datahub local
+        '''
         upload_datahub.append(alljobs.get("upload_datahub",False))
         if upload_datahub[-1] and not (upload_datahub[-1].get("ifrun",True)):
             upload_datahub[-1] = False
+        '''
 
     return allstep,allstepname,allsave_path,postdft_local_jobs,test_name,upload_datahub
 
