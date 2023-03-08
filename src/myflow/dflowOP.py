@@ -649,9 +649,9 @@ def ProduceRunDFTStep(step_name,
         pt.inputs.artifacts["collectdata_script"].optional = True
     
     #
-    if upload_datahub != None and not upload_datahub.get("ifrun",False):
+    if upload_datahub != None and not upload_datahub.get("ifrun",True):
         upload_datahub = {}
-    if upload_tracking != None and not upload_tracking.get("ifrun",False):
+    if upload_tracking != None and not upload_tracking.get("ifrun",True):
         upload_tracking = {}
     
     #produce step

@@ -40,7 +40,6 @@ def ParamParser(param):
     alljobs["report"] = param.get("report",None)
     alljobs["bohrium_group_name"] = param.get("bohrium_group_name","abacustesting")
     alljobs["ABBREVIATION"] = param.get("ABBREVIATION",{})
-    
    
     dataset_info = param.get("dataset_info")
     globV.set_value("dataset_info",dataset_info)
@@ -57,7 +56,7 @@ def ParamParser(param):
     #read the setting file if is setted
     setting_file = param.get("running_setting")
     if setting_file:
-        if dataset_info and dataset_info.get("type") == "datahub":
+        if dataset_info and dataset_info.get("type") == "datahub" and not param.get("running_setting_from_local",False):
             urn = dataset_info.get("dataset_urn","").strip().split()
             if len(urn) == 1:
                 iurn = urn[0]
@@ -70,7 +69,8 @@ def ParamParser(param):
 
         if not os.path.isfile(setting_file):
             comm.printinfo("Has specify the 'running_setting', but can not find file %s, skip to read it!" % setting_file)
-        else:    
+        else:   
+            comm.printinfo("Read setting from %s" % setting_file) 
             setting = json.load(open(setting_file))
             if "save_path" in setting:
                 alljobs["save_path"] = setting["save_path"]
@@ -90,9 +90,20 @@ def ParamParser(param):
                 alljobs["ABBREVIATION"] = setting["ABBREVIATION"]
 
     #if upload datahub or tracking is defined, then replace the definition in post_dft by current setting
-    alljobs["post_dft"]["upload_datahub"] = alljobs["upload_datahub"]
-    alljobs["post_dft"]["upload_tracking"] = alljobs["upload_tracking"]
+    if alljobs["upload_datahub"] != None:
+        if "upload_datahub" not in alljobs["post_dft"]:
+            alljobs["post_dft"]["upload_datahub"] = {}
+        for k,v in alljobs["upload_datahub"].items():
+            alljobs["post_dft"]["upload_datahub"][k] = v
 
+    if alljobs["upload_tracking"] != None:
+        if "upload_tracking" not in alljobs["post_dft"]:
+            alljobs["post_dft"]["upload_tracking"] = {}
+        for k,v in alljobs["upload_tracking"].items():
+            alljobs["post_dft"]["upload_tracking"][k] = v
+
+    #print(alljobs)
+    #sys.exit(1)
     globV.set_value("ABBREVIATION",alljobs.get('ABBREVIATION',{}))
     return alljobs
 
