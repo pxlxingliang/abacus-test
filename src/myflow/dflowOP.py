@@ -306,7 +306,7 @@ class UploadDatahub:
             self.datalist = ["*"]
         for ipath in self.datalist:
             for i in glob.glob(ipath):
-                if i not in self.except_list:
+                if i not in self.except_list and i != tmp_path:
                     hasfile = True
                     dst = self.CreatePath(i,tmp_path)
                     if os.path.isfile(i):
