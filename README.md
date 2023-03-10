@@ -26,7 +26,9 @@ optional arguments:
   --outinfo OUTINFO     if output detail informations, 0: no, 1: yes
   --debug [DEBUG]       debug mode for dflow
 ```
-job.json (-p) is needed as input
+job.json (-p) is needed as input \
+The installation of pydflow and its related related dependencies (https://github.com/deepmodeling/dflow#2--quick-start) are required for `submit`.
+
 
 ### 1.1 job.json
 This file defines the detail of the jobs. \
