@@ -482,10 +482,14 @@ class RunDFT(OP):
                     metrics_value = metrics.get_metrics(save_file=savefile)
                     'metrics_value = {path:{key:value}}'
                     if not metrics_value:continue
-                    examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
-                    new_dict["sample_name"] = examples
-                    new_dict["metrics%d"%im] = UploadTracking.Transfer2Table(metrics_value) 
-                    tracking_values.append((new_dict,context))
+                    if op_in["upload_tracking"] and op_in["upload_tracking"].get("ifurn",True): 
+                        try:
+                            examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
+                            new_dict["sample_name"] = examples
+                            new_dict["metrics%d"%im] = UploadTracking.Transfer2Table(metrics_value) 
+                            tracking_values.append((new_dict,context))
+                        except:
+                            traceback.print_exc()
 
             #calculate super_metrics
             os.chdir(work_path)
@@ -493,17 +497,14 @@ class RunDFT(OP):
             tracking_summary = []               
             for isuper,super_metrics_setting in enumerate(poin_super_metrics):
                 if super_metrics_setting:
+                    allparam_value,allmetric_value,report = Metrics.SuperMetricsResult(super_metrics_setting)
                     try:
                         super_metrics_dict = {}
-                        context = {"subset":"super_metrics%d"%isuper}
-                        allparam_value,allmetric_value,report = Metrics.SuperMetricsResult(super_metrics_setting)
+                        context = {"subset":"super_metrics%d"%isuper}                        
                         if allmetric_value:
                             super_metrics_dict = allmetric_value
-                            try:
-                                from dp.tracking import Table
-                                super_metrics_dict["super_metrics%d"%isuper] = Table([allmetric_value])
-                            except:
-                                traceback.print_exc()
+                            from dp.tracking import Table
+                            super_metrics_dict["super_metrics%d"%isuper] = Table([allmetric_value])
                         super_metrics_dict["report"] = report
                         log += report
                         tracking_values.append((super_metrics_dict,context))
@@ -512,7 +513,7 @@ class RunDFT(OP):
                         traceback.print_exc()
 
             #upload tracking
-            if op_in["upload_tracking"]:
+            if op_in["upload_tracking"] and op_in["upload_tracking"].get("ifurn",True):
                 if tracking_values:
                     tracking = UploadTracking( op_in["upload_tracking"])
                     tracking.upload(tracking_values=tracking_values)
@@ -544,9 +545,12 @@ class RunDFT(OP):
             logfile.write_text(log)
 
             #upload_datahub
-            if len(op_in["upload_datahub"]) > 0:
-                datahub = UploadDatahub(op_in["upload_datahub"])
-                datahub.Upload()
+            if op_in["upload_datahub"] and op_in["upload_datahub"].get("ifurn",True):
+                try:
+                    datahub = UploadDatahub(op_in["upload_datahub"])
+                    datahub.Upload()
+                except:
+                    traceback.print_exc()
             
         print("outpath:",str(outpath))
         op_out = OPIO(

@@ -271,8 +271,8 @@ def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name,upload_datahu
         time.sleep(4)
 
 def ReportMetrics():
-    report_setting = globV.get_value("REPORT")
-    if not report_setting.get("ifrun",True):
+    report_setting = globV.get_value("report",{})
+    if not report_setting or not report_setting.get("ifrun",True):
         return
 
     from abacustest import outresult

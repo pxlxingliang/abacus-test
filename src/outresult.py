@@ -184,7 +184,7 @@ def OutParam(allresult,split_example="----"):
                         Such as: to calculate the enery difference between job type 0 and 1, and show in line of type0, you can write as {"energy": ["'0' - '1'",""]}
     
     '''
-    outtable = [['example']]
+    outtable = [['example',"jobType"]]
     param = allresult.get("outparams")
     for i in param:
         if i[-1] != None: outtable[0].append(i[0])
@@ -200,6 +200,7 @@ def OutParam(allresult,split_example="----"):
         expand_dic = ProduceExpandDic(allresult,i)
         for j in range(len(results)):  # j for job type
             iexample = [example_name[i]] if j==0 else [" "]   #add example name
+            iexample.append(allresult["type_name"][j])
             allparam_value[j].append({})
             for iparam in param:
                 if iparam[0] not in expand_dic:
@@ -219,8 +220,8 @@ def OutParam(allresult,split_example="----"):
     if split_example != None: outtable = outtable[:-1]
     
     
-    digit = [-1] + [i[2] for i in param]
-    left = [True]
+    digit = [-1,-1] + [i[2] for i in param]
+    left = [True,True]
     for i in param:
         if len(i) == 4:
             left.append(i[3])
@@ -535,7 +536,7 @@ def OutResultArgs(parser):
 
 def outresult(param):
     if param.result != None:
-        allresult_files = param.result if len(param.result) == 1 else param.result[1:]
+        allresult_files = param.result #if len(param.result) == 1 else param.result[1:]
         allresult = {}
         allfiles = []
         for ifile in allresult_files:
@@ -570,11 +571,13 @@ def outresult(param):
         output_value['metrics_value'] = allmetric_value
         if param.output != None:
             json.dump(output_value,open(param.output,'w'),indent=4)
-        print(cc_outmetrics,cc_outparam)
+        if allmetric_value:
+            print(cc_outmetrics)
+        print(cc_outparam)
 
 def main():
     parser = argparse.ArgumentParser()
-    param = OutResultArgs(parser)
+    param = OutResultArgs(parser).parse_args()
     outresult(param)
     
 if __name__ == "__main__":
