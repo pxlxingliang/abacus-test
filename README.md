@@ -3,11 +3,12 @@ Do the performance test of ABACUS \
 Install:
 `pip install .`
 And then, you can use command `abacustest`. \
-There are 4 sub_commands:
+The sub_commands:
 - `submit`
 - `collectdata`
 - `outresult`
 - `status`
+- `prepare`
 
 Please use `abacustest -h` to get the usages
 
@@ -28,7 +29,6 @@ optional arguments:
 ```
 job.json (-p) is needed as input \
 The installation of pydflow and its related related dependencies (https://github.com/deepmodeling/dflow#2--quick-start) are required for `submit`.
-
 
 ### 1.1 job.json
 This file defines the detail of the jobs. \
@@ -246,7 +246,43 @@ usage: abacustest status [-h] paramf job_id
 ```
 Not ready now.
 
+## 5. prepare
+```
+usage: abacustest prepare [-h] -p PARAM [-s SAVE]
 
-## 5. example
+This script is used to prepare the INPUTS OF ABACUS JOB
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PARAM, --param PARAM
+                        the parameter file, should be .json type
+  -s SAVE, --save SAVE  where to store the inputs, default is abacustest
+```
+A template of param.json is:
+```
+{
+  "prepare":{
+      "example_template":["example_path"],
+      "input_template":"INPUT",
+      "kpt_template":"KPT",
+      "stru_template":"STRU",
+      "mix_input":{
+          "ecutwfc":[50,60,70],
+          "kspacing":[0.1,0.12,0.13]
+      },
+      "mix_kpt":[],
+      "mix_stru":[],
+      "pp_dict":{},
+      "orb_dict":{},
+      "pp_path":,
+      "orb_path":,
+      "dpks_descriptor":,
+      "extra_files":[]
+  }
+}
+```
+Only key "prepare" is recongnized by `abacustest prepare`.          
+
+## 6. example
 some exmaples
 
