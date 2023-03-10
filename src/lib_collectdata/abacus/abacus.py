@@ -50,10 +50,15 @@ class Abacus(ResultAbacus):
                 return ii
 
         INPUTf = os.path.join(self.PATH,"OUT.%s/INPUT" % self.SUFFIX)
+        if os.path.isfile(INPUTf):
+            with open(INPUTf) as f1:
+                input_context = f1.readlines()
+        else:
+            input_context = self.INPUT
         
         readinput = False
         INPUT = {}
-        for i,iline in enumerate(self.INPUT):
+        for i,iline in enumerate(input_context):
             if iline.strip() == 'INPUT_PARAMETERS':
                 readinput = True
             elif iline.strip() == '' or iline.strip()[0] in ['#']:

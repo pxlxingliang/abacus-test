@@ -522,7 +522,9 @@ def pandas_out(allresult):
         list_result = ""
     else:
         list_result = "\n\n".join(list_result)
-        
+
+    pd.set_option('display.max_columns', 30)
+    pd.set_option('display.max_rows', None)    
     print("%s\n\n%s" % (normal_result,list_result))
            
     return normal_result,list_result

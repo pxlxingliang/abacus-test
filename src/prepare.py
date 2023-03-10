@@ -604,6 +604,7 @@ class PrepareAbacus:
                         dpks = None
                 else:
                     dpks = None
+                os.chdir(cwd)
             if dpks != stru_data.get_dpks():
                 linkstru = False
 
@@ -764,7 +765,6 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
             print("\n%s" % iexample)
         else:
             save_path = save_folder
-
         prepareabacus = PrepareAbacus(save_path=save_path,
                                   example_template=iexample,
                                   input_template=param_setting.get("input_template",None),

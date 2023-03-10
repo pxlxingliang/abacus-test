@@ -1,4 +1,4 @@
-import os,sys,glob,time,shutil,argparse,json,traceback,copy
+import os,sys,glob,time,shutil,argparse,json,traceback,copy,re
 from . import globV,comm
 from dflow import (
     Workflow,
@@ -926,7 +926,12 @@ def GetExampleScript(rundft,example_source_name,example_name,collectdata_script_
             
     if example_source == 'datahub':
         urn = urn if urn != None else rundft["urn"]
-        iurn = urn.strip().split()[0]
+        iurn = []
+        for iiurn in re.split("[ #]",urn.strip()):
+            if iiurn:
+                iurn.append(iiurn)
+
+        iurn = iurn[0]
         uri,storage_client = GetURI(iurn)
         examples,examples_name = FindDataHubExamples(rundft.get(example_name,[]),uri,storage_client)
         collectdata_script_tmp,collectdata_script_name_tmp = FindDataHubExamples(rundft.get(collectdata_script_name,[]), uri,storage_client)

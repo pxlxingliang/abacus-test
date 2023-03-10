@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os,sys,glob,time,shutil,argparse,json,traceback
+import os,sys,glob,time,shutil,argparse,json,traceback,re
 import numpy as np
 
 from dflow import (
@@ -57,7 +57,10 @@ def ParamParser(param):
     setting_file = param.get("running_setting")
     if setting_file:
         if dataset_info and dataset_info.get("type") == "datahub" and not param.get("running_setting_from_local",False):
-            urn = dataset_info.get("dataset_urn","").strip().split()
+            urn = []
+            for iurn in re.split("[ #]",dataset_info.get("dataset_urn","").strip()):
+                if iurn:
+                    urn.append(iurn)
             if len(urn) == 1:
                 iurn = urn[0]
             elif len(urn) > 1:
