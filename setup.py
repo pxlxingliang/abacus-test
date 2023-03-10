@@ -7,5 +7,5 @@ setuptools.setup(
     package_data = {"abacustest":["*.py","*/*.py","*/*/*.py"]},
     entry_points = {'console_scripts': ['abacustest = abacustest.main:main'],},
     python_requires='>=3.6',
-    install_requires=["pydflow>=1.6.42","numpy","pymatgen","pandas"]
+    install_requires=["pydflow>=1.6.42","numpy","pandas"]
 )

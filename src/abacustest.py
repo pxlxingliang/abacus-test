@@ -3,7 +3,7 @@ import os,sys,argparse
 sys.path.append(os.path.split(__file__)[0])
 from .myflow import flow,globV,comm
 from dflow.python import upload_packages
-import numpy,pandas,pymatgen
+#import numpy,pandas
 #upload_packages.append(numpy.__path__[0])
 #upload_packages.append(pandas.__path__[0])
 #upload_packages.append(pymatgen.__path__[0])
