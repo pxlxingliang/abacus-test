@@ -345,10 +345,10 @@ class PrepareAbacus:
         self.mix_input = mix_input
         self.pp_dict = pp_dict
         self.orb_dict = orb_dict
-        self.extra_files = extra_files
+        self.extra_files = extra_files if extra_files else []
         self.mix_kpt = mix_kpt
         self.mix_stru = mix_stru
-        self.dpks_descriptor = dpks_descriptor
+        self.dpks_descriptor = dpks_descriptor if dpks_descriptor else None
         
         self.pp_path = None if not pp_path else pp_path.strip()
         self.orb_path = None if not orb_path else orb_path.strip()
@@ -557,7 +557,7 @@ class PrepareAbacus:
                 else:
                     pp_list.append(os.path.split(self.pp_dict[ilabel])[1])  #only store the file name to pp_list
                     allfiles.append(self.pp_dict[ilabel]) #store the whole pp file to allfiles                    
-                if pp_list[-1] != stru_data.get_pp()[i]:
+                if not stru_data.get_pp() or pp_list[-1] != stru_data.get_pp()[i]:
                     linkstru = False
 
                 #check orbital file    
@@ -578,18 +578,34 @@ class PrepareAbacus:
                 else:
                     orb_list.append(os.path.split(self.orb_dict[ilabel])[1]) 
                     allfiles.append(self.orb_dict[ilabel])
-                    if orb_list[-1] != stru_data.get_orb()[i]:  
+                    if not stru_data.get_orb() or orb_list[-1] != stru_data.get_orb()[i]:  
                         linkstru = False
 
             if skipstru:
                 continue
             
-            if self.dpks_descriptor != None:
-                dpks = os.path.split(self.dpks_descriptor)[1]
-                
-                allfiles.append(self.dpks_descriptor)
-                if dpks != stru_data.get_dpks():
-                    linkstru = False
+            #check dpks 
+            if self.dpks_descriptor:
+                if os.path.isfile(self.dpks_descriptor):
+                    dpks = os.path.split(self.dpks_descriptor)[1]
+                    allfiles.append(self.dpks_descriptor)
+                else:
+                    print("Error: Can not find file %s, skip the prepare of dpks_descriptor" % self.dpks_descriptor)
+                    dpks = None
+            else:
+                os.chdir(stru_path)
+                dpks = stru_data.get_dpks()
+                if dpks:
+                    if os.path.isfile(dpks):
+                        allfiles.append(os.path.abspath(dpks))
+                        dpks = os.path.split(dpks)[1]
+                    else:
+                        print("Error: deepks descriptor is defined in %s/STRU, but can not find the file, skip the prepare" % stru_path)
+                        dpks = None
+                else:
+                    dpks = None
+            if dpks != stru_data.get_dpks():
+                linkstru = False
 
             #stru_data will be writen in new folder
             stru_data.set_pp(pp_list)
@@ -794,7 +810,7 @@ def PrepareArgs(parser):
 
 def main():
     parser = argparse.ArgumentParser()
-    param = PrepareArgs(parser)
+    param = PrepareArgs(parser).parse_args()
     PrepareInput(param)
     
 if __name__ == "__main__":
