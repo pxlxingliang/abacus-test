@@ -50,7 +50,7 @@ def ParamParser(param):
             runset_urn = dataset_info.get("runset_urn","")
 
             pathname = "datahub"
-            if not os.path.isdir("datahub"):
+            if os.path.isdir("datahub"):
                 pathname = comm.GetBakFile("datahub")
 
             for iurn in [dataset_urn,runset_urn]:
