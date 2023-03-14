@@ -713,7 +713,11 @@ class PrepareAbacus:
                    INPUTf: str = "INPUT"):
         out = "INPUT_PARAMETERS\n"
         for k,v in input_context.items():
-            out += "%s\t%s\n" % (str(k),str(v))
+            if v != None:
+                out += "%s\t%s\n" % (str(k),str(v))
+            else:
+                out += "#%s\t \n" % (str(k))
+
         with open(INPUTf,'w') as f1: f1.write(out)            
 
 
