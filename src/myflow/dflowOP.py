@@ -428,7 +428,10 @@ class RunDFT(OP):
         poin_metrics = Metrics.TransferMetricsOPIO(op_in['metrics']) 
         allmetrics,allsavefile = [],[]
         for imetric in poin_metrics:
-            allmetrics.append(Metrics.ParseMetricsOPIO(imetric))
+            if imetric.get("value_from_file",None):
+                allmetrics.append(imetric.get("value_from_file"))
+            else:
+                allmetrics.append(Metrics.ParseMetricsOPIO(imetric))
             allsavefile.append(imetric.get("save_file","result.json")) 
 
         root_path_0,hasdflow = GetPath("abacustest_example")
@@ -479,14 +482,25 @@ class RunDFT(OP):
                 if metrics != None:    
                     os.chdir(work_path)
                     savefile = allsavefile[im]
-                    metrics_value = metrics.get_metrics(save_file=savefile)
-                    'metrics_value = {path:{key:value}}'
+                    if isinstance(metrics,str):
+                        if os.path.isfile(metrics):
+                            metrics_value = json.load(open(metrics))
+                        else:
+                            print("Can not find file %s" % metrics)
+                            print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."))
+                            metrics_value = None
+                    else:
+                        metrics_value = metrics.get_metrics(save_file=savefile)
+                        'metrics_value = {path:{key:value}}'
                     if not metrics_value:continue
                     if op_in["upload_tracking"] and op_in["upload_tracking"].get("ifurn",True): 
                         try:
-                            examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
-                            new_dict["sample_name"] = examples
-                            new_dict["metrics%d"%im] = UploadTracking.Transfer2Table(metrics_value) 
+                            if os.path.isfile(metrics):
+                                new_dict = metrics_value
+                            else:
+                                examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
+                                new_dict["sample_name"] = examples
+                                new_dict["metrics%d"%im] = UploadTracking.Transfer2Table(metrics_value) 
                             tracking_values.append((new_dict,context))
                         except:
                             traceback.print_exc()
@@ -497,18 +511,31 @@ class RunDFT(OP):
             tracking_summary = []               
             for isuper,super_metrics_setting in enumerate(poin_super_metrics):
                 if super_metrics_setting:
-                    allparam_value,allmetric_value,report = Metrics.SuperMetricsResult(super_metrics_setting)
+                    if super_metrics_setting.get("value_from_file",None):
+                        if os.path.isfile(super_metrics_setting.get("value_from_file")):
+                            allmetric_value = json.load(open(super_metrics_setting.get("value_from_file")))
+                            report = str(allmetric_value)
+                        else:
+                            print("Can not find file %s" % super_metrics_setting.get("value_from_file"))
+                            print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."))
+                            allmetric_value = None
+                            report = None
+                    else:
+                        allparam_value,allmetric_value,report = Metrics.SuperMetricsResult(super_metrics_setting)
                     try:
                         super_metrics_dict = {}
-                        context = {"subset":"super_metrics%d"%isuper}                        
-                        if allmetric_value:
-                            super_metrics_dict = allmetric_value
-                            from dp.tracking import Table
-                            super_metrics_dict["super_metrics%d"%isuper] = Table([allmetric_value])
-                        super_metrics_dict["report"] = report
-                        log += report
-                        tracking_values.append((super_metrics_dict,context))
-                        tracking_summary.append((super_metrics_dict,context))
+                        context = {"subset":"super_metrics%d"%isuper}  
+                        if not allmetric_value and not report:
+                            pass
+                        else:                      
+                            if allmetric_value:
+                                super_metrics_dict = allmetric_value
+                                from dp.tracking import Table
+                                super_metrics_dict["super_metrics%d"%isuper] = Table([allmetric_value])
+                            super_metrics_dict["report"] = report
+                            log += report
+                            tracking_values.append((super_metrics_dict,context))
+                            tracking_summary.append((super_metrics_dict,context))
                     except:
                         traceback.print_exc()
 
