@@ -703,7 +703,7 @@ class PrepareAbacus:
             elif iline.strip() == '' or iline.strip()[0] in ['#']:
                 continue
             elif readinput:
-                sline = re.split('[ \t]',iline.split("#")[0],maxsplit=1)
+                sline = re.split('[ \t]',iline.split("#")[0].strip(),maxsplit=1)
                 if len(sline) == 2:
                     input_context[sline[0].lower().strip()] = str2intfloat(sline[1].strip())
         return input_context
