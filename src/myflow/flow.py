@@ -181,7 +181,7 @@ def set_env(param):
         comm.printinfo("ERROR: please set the config information by \"config\".")
         sys.exit(1)
     globV.set_value("PRIVATE_SET", user_context)
-    dflowOP.SetBohrium(user_context,debug=param.debug) 
+    dflowOP.SetConfig(user_context,debug=param.debug) 
 
     #set save folder    
     SetSaveFolder(param.save)
@@ -193,7 +193,7 @@ def set_env(param):
     from datetime import datetime
     globV.set_value("BEGIN", str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
 
-def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name,upload_datahub):
+def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name):
     '''
     stepnames = [[test1_stepname1,test1_stepname2,...],[test2_stepname1,test2_stepname2,...],...]
     allsave_path = [[[save_path,sub_save_path],[save_path,sub_save_path],...],[]...] similar to stepnames
@@ -260,17 +260,7 @@ def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name,upload_datahu
                 if part_save_path not in makedfolder:
                     WriteParamUserFile(storefolder=part_save_path)
                     makedfolder.append(part_save_path)
-                    
-            if False not in finishtest[i] and upload_datahub[i]:
-                steps = wf.query_step(key = test_name[i])
-                if len(steps) > 0:
-                    if steps[0].phase == "Succeeded":
-                        comm.printinfo("upload the outputs of '%s' to datahub" % test_name[i])
-                        dflowOP.Upload2Datahub(steps[0].outputs.artifacts['outputs'],upload_datahub[i])
-                    else:
-                        comm.printinfo("test '%s' is finished, but the phase is %s, will not upload to datahub" % (test_name[i],steps[0].phase))
-                else:
-                    comm.printinfo("WARNING: test '%s' is finished, but query_step can not find it, please check the dflow!" % test_name[i])               
+                                
         time.sleep(4)
 
 def ReportMetrics():
@@ -312,7 +302,7 @@ def ReportMetrics():
 def RunJobs(param):
     set_env(param)
     alljobs = ParamParser(json.load(open(param.param)))
-    allstep,stepname,allsave_path,postdft_local_jobs,test_name,upload_datahub = dflowOP.ProduceAllStep(alljobs)
+    allstep,stepname,allsave_path,postdft_local_jobs,test_name = dflowOP.ProduceAllStep(alljobs)
 
     if len(allstep) == 0:
         comm.printinfo("No step is produced, exit!!!")
@@ -329,7 +319,7 @@ def RunJobs(param):
         comm.printinfo("job ID: %s, UID: %s" % (wf.id,wf.uid))
         comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % globV.get_value("HOST"))
 
-        waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name,upload_datahub)
+        waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name)
     
     if globV.get_value("REPORT"):
         ReportMetrics()
@@ -345,7 +335,7 @@ def CheckStatus(param):
         print("config file is not found!\nUse the default setting!")
         private_set = {}
         
-    dflowOP.SetBohrium(private_set,debug=False) 
+    dflowOP.SetConfig(private_set,debug=False) 
     
     jobid = param.job_id
     

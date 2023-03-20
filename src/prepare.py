@@ -398,11 +398,9 @@ class PrepareAbacus:
                 print("WARNING: File %s is not found" % self.input_template)
 
         print("INPUT template file: %s" % str(inputf))
+        input_constant = {}
         if inputf != None:
             input_constant = PrepareAbacus.ReadInput(inputf)
-        else:
-            print("Please define the INPUT template!!!")
-            return None,None 
         
         list_param = {}
         for k,v in self.mix_input.items():
@@ -416,7 +414,8 @@ class PrepareAbacus:
             else:
                 print("WARNING: type of '%s' is" % str(v),type(v),"will not add to INPUT")
                 input_constant[k] = v
-        
+        print("Invariant INPUT setting:",str(input_constant))
+
         all_inputs.append(input_constant)
         for k,v in list_param.items():
             for i,iv in enumerate(v):
@@ -431,7 +430,7 @@ class PrepareAbacus:
                     for iinput in tmp_inputs:
                         iinput[k] = iv
                     all_inputs += copy.deepcopy(tmp_inputs)
-
+        
         return all_inputs,[i for i in list_param.keys()]
 
     def Construct_kpt_list(self):

@@ -1,5 +1,6 @@
 from . import globV
-import os,shutil
+import os,shutil,glob
+from pathlib import Path
 
 def printinfo(istr):
     LOGFILE = "abacustest.log"
@@ -64,4 +65,13 @@ def CopyFiles(path1,path2,move = False):
         else:
             #shutil.copytree(abspath1,abspath2,dirs_exist_ok=True)
             CopyFile(abspath1,abspath2)
-            
+
+def CollectFileName(paths):
+    #Recursively find all files under the paths
+    allfiles = []
+    for ipath in glob.glob(os.path.join(paths,"*")):
+        if os.path.isfile(ipath):
+            allfiles.append(ipath)
+        elif os.path.isdir(ipath):
+            allfiles += CollectFileName(ipath)
+    return allfiles            

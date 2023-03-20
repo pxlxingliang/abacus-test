@@ -21,6 +21,7 @@ import subprocess, os, shutil, glob
 from pathlib import Path
 from typing import List
 from dflow.plugins.dispatcher import DispatcherExecutor
+from dflow.python import upload_packages
 
 from dflow.plugins.bohrium import BohriumContext, BohriumExecutor
 from dflow.python import (
@@ -41,7 +42,7 @@ from dflow.plugins.bohrium import TiefblueClient,create_job_group
 from abacustest.lib_collectdata.collectdata import RESULT
 from abacustest.collectdata import parse_value
 
-def SetBohrium(private_set,debug=False):  
+def SetConfig(private_set,debug=False):  
     if debug:
         config["mode"] = "debug"
         host = "LOCAL"
@@ -86,17 +87,26 @@ def SetBohrium(private_set,debug=False):
                     extra={},
                     username=private_set.get('lbg_username',''),
                     password=private_set.get('lbg_password','')))
+
+        #register datahub setting    
+        if "datahub_gms_token" in private_set:
+            from dflow.plugins.metadata import MetadataClient
+            config["lineage"] = MetadataClient(
+                project=private_set.get("datahub_project"),
+                token=private_set["datahub_gms_token"],
+            )   
         
     globV.set_value("HOST", host)
     globV.set_value("storage_client", client)
 
 class Metrics:
-    def __init__(self,dft_type="abacus",metrics_name=[],newmethods=[],path=["."],modules=[]):
+    def __init__(self,dft_type="abacus",metrics_name=[],newmethods=[],path=["."],modules=[],group_name = None):
         self.dft_type = dft_type
         self.metrics_name = metrics_name
         self.newmethods = newmethods
         self.path = path
         self.modules = modules
+        self.group_name = group_name
         pass
     
     def get_metrics(self,save_file = None):
@@ -153,7 +163,8 @@ class Metrics:
                            path= metrics_io.get("path",["."]),
                        metrics_name= metrics_io.get("metrics_name",[]),
                        newmethods=metrics_io.get("newmethods",[]),
-                       modules = metrics_io.get("modules",[]))       
+                       modules = metrics_io.get("modules",[]),
+                       group_name=metrics_io.get("group_name",None))       
 
     @staticmethod
     def SuperMetricsResult(super_metrics_setting):
@@ -170,7 +181,18 @@ class Metrics:
             save_file = super_metrics_setting.get("save_file","superMetric.json")
             json.dump(allmetric_value,open(save_file,'w'),indent=4)
         report += cc_outparam
-        return allparam_value,allmetric_value,report
+
+        type_name = allresults["type_name"]
+        if allmetric_value and len(type_name) > 1:
+            #if there has more than 1 type, transfer allmetric_value to one type one value
+            allmetric_value_final = {}
+            for k,v in allmetric_value.items():
+                for i,itype in enumerate(type_name):
+                    allmetric_value_final[k+"_" +itype] = v[i]
+        else:
+            allmetric_value_final = allmetric_value     
+
+        return allparam_value,allmetric_value_final,report
         
 
 class UploadTracking:
@@ -319,16 +341,6 @@ class UploadDatahub:
             return False
         return tmp_path            
 
-    @staticmethod
-    def CollectFileName(paths):
-        allfiles = []
-        for ipath in glob.glob(os.path.join(paths,"*")):
-            if os.path.isfile(ipath):
-                allfiles.append(ipath)
-            elif os.path.isdir(ipath):
-                allfiles += UploadDatahub.CollectFileName(ipath)
-        return allfiles
-
     def Upload(self):
         if not self.CheckEnv():
             return False
@@ -336,7 +348,7 @@ class UploadDatahub:
         tmp_path = self.CollectData()
         cwd = os.getcwd()
         os.chdir(tmp_path)
-        allfilesname = UploadDatahub.CollectFileName(".")
+        allfilesname = comm.CollectFileName(".")
         os.chdir(cwd)
 
         if not tmp_path: return False
@@ -370,6 +382,7 @@ class UploadDatahub:
             
         shutil.rmtree(tmp_path)
         return True
+
 
 class RunDFT(OP):
     def __init__(self):
@@ -422,7 +435,7 @@ class RunDFT(OP):
             else:
                 return opinname
         
-        print("op_in:",op_in)
+        print("op_in:",op_in,file=sys.stderr)
         outpath = []
         
         poin_metrics = Metrics.TransferMetricsOPIO(op_in['metrics']) 
@@ -436,6 +449,7 @@ class RunDFT(OP):
 
         root_path_0,hasdflow = GetPath("abacustest_example")
         for iexample,example_name in enumerate(op_in["example_name"]):
+            outpath_tmp = []
             root_path = os.path.join(root_path_0,GetName("abacustest_example",hasdflow,iexample))
             os.chdir(root_path)
             
@@ -443,13 +457,13 @@ class RunDFT(OP):
             example_path = root_path
             if bool(op_in["sum_save_path_example_name"]):
                 sub_save_path = os.path.join(op_in['sub_save_path'],example_name)
-            print("sub_save_path:",sub_save_path)
+            print("sub_save_path:",sub_save_path,file=sys.stderr)
             if sub_save_path != "":
                 comm.CopyFiles(root_path,sub_save_path,move=True)
                 example_path = os.path.join(root_path,op_in['sub_save_path'])
             work_path = os.path.join(example_path,example_name)
                 
-            print("work path:",work_path)
+            print("work path:",work_path,file=sys.stderr)
 
             os.chdir(work_path)
             script_folder = work_path
@@ -478,24 +492,28 @@ class RunDFT(OP):
             #read metrics
             tracking_values = []
             for im,metrics in enumerate(allmetrics):
+                #metrics can be a str (file) or Metrics or None
                 context = {"subset":"metrics%d"%im}
                 if metrics != None:    
                     os.chdir(work_path)
                     savefile = allsavefile[im]
-                    if isinstance(metrics,str):
+                    if isinstance(metrics,Metrics):
+                        if metrics.group_name:
+                            context["group_name"] = metrics.group_name
+                        metrics_value = metrics.get_metrics(save_file=savefile)
+                        #metrics_value = {path:{key:value}}
+                    elif isinstance(metrics,str):
                         if os.path.isfile(metrics):
                             metrics_value = json.load(open(metrics))
                         else:
-                            print("Can not find file %s" % metrics)
-                            print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."))
+                            print("Can not find file %s" % metrics,file=sys.stderr)
+                            print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."),file=sys.stderr)
                             metrics_value = None
-                    else:
-                        metrics_value = metrics.get_metrics(save_file=savefile)
-                        'metrics_value = {path:{key:value}}'
+
                     if not metrics_value:continue
                     if op_in["upload_tracking"] and op_in["upload_tracking"].get("ifurn",True): 
                         try:
-                            if os.path.isfile(metrics):
+                            if isinstance(metrics,str):
                                 new_dict = metrics_value
                             else:
                                 examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
@@ -516,8 +534,8 @@ class RunDFT(OP):
                             allmetric_value = json.load(open(super_metrics_setting.get("value_from_file")))
                             report = str(allmetric_value)
                         else:
-                            print("Can not find file %s" % super_metrics_setting.get("value_from_file"))
-                            print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."))
+                            print("Can not find file %s" % super_metrics_setting.get("value_from_file"),file=sys.stderr)
+                            print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."),file=sys.stderr)
                             allmetric_value = None
                             report = None
                     else:
@@ -534,7 +552,7 @@ class RunDFT(OP):
                                 super_metrics_dict["super_metrics%d"%isuper] = Table([allmetric_value])
                             super_metrics_dict["report"] = report
                             log += report
-                            tracking_values.append((super_metrics_dict,context))
+                            #tracking_values.append((super_metrics_dict,context))
                             tracking_summary.append((super_metrics_dict,context))
                     except:
                         traceback.print_exc()
@@ -550,6 +568,7 @@ class RunDFT(OP):
                     tracking = UploadTracking( tracking_setting)
                     tracking.upload(tracking_values=tracking_summary)                
 
+            #collect outputs
             os.chdir(work_path)
             logfile_name = "STDOUTER"
             if os.path.isfile(logfile_name):
@@ -557,29 +576,54 @@ class RunDFT(OP):
             logfile = Path(logfile_name)
 
             if len(op_in["outputfiles"]) == 0:
-                outpath.append(Path(work_path))
+                outpath_tmp.append(Path(work_path))
             else:
                 for i in op_in["outputfiles"]:
                     for j in glob.glob(i):
                         if os.path.exists(j):
-                            outpath.append(Path.resolve(Path(os.path.join(os.getcwd(),j))))
+                            outpath_tmp.append(Path.resolve(Path(os.path.join(os.getcwd(),j))))
                         else:
                             log += "\n%s is not exist" % j
-                outpath.append(Path.resolve(logfile))
+                outpath_tmp.append(Path.resolve(logfile))
 
-            print("log:",log)
             print("log:",log,file=sys.stderr)
             logfile.write_text(log)
 
             #upload_datahub
             if op_in["upload_datahub"] and op_in["upload_datahub"].get("ifurn",True):
                 try:
+                    '''
+                    import datetime
+                    from time import strftime
+                    dataset_name = op_in["upload_datahub"].get("datasetname")+"." +datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+                    allfilesname = []
+                    len_work_path = len(work_path)
+                    for ipath in outpath_tmp:
+                        if os.path.isfile(Path.resolve(ipath)):
+                            allfilesname.append(str(ipath)[len_work_path:])
+                        else:
+                            for ifile in comm.CollectFileName(str(Path.resolve(ipath))):
+                                allfilesname.append(ifile[len_work_path:])
+                    allfilesname.sort()
+                    description="\\\n".join(allfilesname)
+
+                    self.register_output_artifact(
+                        "outputs",
+                        namespace="tiefblue",
+                        dataset_name=dataset_name,
+                        description=description,
+                        tags=op_in["upload_datahub"].get("tags"),
+                        properties=op_in["upload_datahub"].get("properties"),
+                    )
+                    print("upload outputs to datahub",file=sys.stderr)
+                    '''
                     datahub = UploadDatahub(op_in["upload_datahub"])
                     datahub.Upload()
                 except:
                     traceback.print_exc()
-            
-        print("outpath:",str(outpath))
+            outpath += outpath_tmp
+
+        print("outpath:",str(outpath),file=sys.stderr)
         op_out = OPIO(
             {
                 "outputs": outpath
@@ -660,6 +704,18 @@ def ProduceRunDFTStep(step_name,
             if not os.path.isdir(i):
                 comm.printinfo("ERROR: 'python_packages' error! Can not find path: %s" % i)
                 sys.exit(1)
+    #
+    if upload_datahub != None and not upload_datahub.get("ifrun",True):
+        upload_datahub = {}
+    if upload_tracking != None and not upload_tracking.get("ifrun",True):
+        upload_tracking = {}
+
+    pre_script = ""
+    if upload_datahub:
+        pre_script += "import os\nos.system('pip install --upgrade dp-metadata-sdk -i https://repo.mlops.dp.tech/repository/pypi-group/simple')\n"
+    if upload_tracking:
+        pre_script += "import os\nos.system('pip install dp-tracking-sdk==3.15.2.post23 -i https://repo.mlops.dp.tech/repository/pypi-group/simple')\n"
+
     if DoSlices:
         pt = PythonOPTemplate(RunDFT,image=image,envs=SetEnvs(),
                     slices=Slices(sub_path = True,
@@ -667,7 +723,7 @@ def ProduceRunDFTStep(step_name,
                                   output_artifact=["outputs"]))
         example_name = [""]
     else:
-        pt = PythonOPTemplate(RunDFT,image=image,python_packages=python_packages,envs=SetEnvs())
+        pt = PythonOPTemplate(RunDFT,image=image,python_packages=python_packages,envs=SetEnvs(),pre_script=pre_script)
         example_name = list(example_names)
 
     #define example artifacts
@@ -679,12 +735,6 @@ def ProduceRunDFTStep(step_name,
     else:
         pt.inputs.artifacts["collectdata_script"].optional = True
     
-    #
-    if upload_datahub != None and not upload_datahub.get("ifrun",True):
-        upload_datahub = {}
-    if upload_tracking != None and not upload_tracking.get("ifrun",True):
-        upload_tracking = {}
-    
     #produce step
     step = Step(name=step_name,template=pt,
             parameters = {"command": command, "example_name":example_name,
@@ -694,7 +744,7 @@ def ProduceRunDFTStep(step_name,
                           "outputfiles":outputs,"metrics":metrics,"super_metrics":super_metrics,
                           "upload_datahub":upload_datahub,
                           "upload_tracking":upload_tracking},
-            artifacts =  artifacts,continue_on_failed=True)
+            artifacts =  artifacts)
 
     if executor != None:
         step.executor = executor
@@ -774,31 +824,6 @@ def FindLocalExamples(example):
             comm.printinfo(i,"element of 'example' should be a list, or str")
             
     return examples,examples_name
-
-def Upload2Datahub(uri,urnseting,privateset=None):
-    if privateset == None:
-        privateset = globV.get_value("PRIVATE_SET")
-    project = privateset.get("datahub_project")
-    gms_url = privateset.get("datahub_gms_url")
-    gms_token = privateset.get("datahub_gms_token")
-    bohrium_username = privateset.get("lbg_username")
-    bohrium_password = privateset.get("lbg_password")
-    
-    datasetname = urnseting.get("datasetname")
-    tags = urnseting.get("tags")
-    properties = urnseting.get("properties")
-    comm.printinfo("project: %s, dataset: %s" % (project,datasetname))
-    comm.printinfo("tags: %s" % tags)
-    comm.printinfo("properties: %s" % str(properties))
-    
-    from dp.metadata import MetadataContext,Dataset
-    from dp.metadata.utils.storage import TiefblueStorageClient
-    metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password)
-    with MetadataContext(project=project,endpoint = gms_url,token = gms_token,storage_client=metadata_storage_client) as context:
-        client = context.client
-    urn = Dataset.gen_urn(context, "tiefblue", datasetname)
-    dataset = Dataset(urn=urn,uri=uri,tags=tags,properties=properties)
-    client.create_dataset(dataset)
 
 def GetURI(urn,privateset=None):
     if privateset == None:
@@ -1098,7 +1123,6 @@ def ProduceAllStep(alljobs):
     allsave_path = []
     postdft_local_jobs = []
     test_name = []
-    upload_datahub = []
 
     stepname = alljobs.get("bohrium_group_name","abacustesting")
     step,stepnames,save_path,postdft_local_job = ProduceOneSteps(stepname,alljobs)
@@ -1111,14 +1135,7 @@ def ProduceAllStep(alljobs):
         comm.printinfo("\nComplete the preparing for %s.\n" % (stepname))
         test_name.append(stepname)
 
-        upload_datahub.append(False) #do not upload to datahub local
-        '''
-        upload_datahub.append(alljobs.get("upload_datahub",False))
-        if upload_datahub[-1] and not (upload_datahub[-1].get("ifrun",True)):
-            upload_datahub[-1] = False
-        '''
-
-    return allstep,allstepname,allsave_path,postdft_local_jobs,test_name,upload_datahub
+    return allstep,allstepname,allsave_path,postdft_local_jobs,test_name
 
 
 
