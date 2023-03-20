@@ -89,7 +89,7 @@ def SetConfig(private_set,debug=False):
                     password=private_set.get('lbg_password','')))
 
         #register datahub setting    
-        if "datahub_gms_token" in private_set:
+        if private_set.get("datahub_gms_token",""):
             from dflow.plugins.metadata import MetadataClient
             config["lineage"] = MetadataClient(
                 project=private_set.get("datahub_project"),
