@@ -531,6 +531,7 @@ class PrepareAbacus:
             cwd = os.getcwd()
             stru_data = AbacusStru.ReadStru(istru)
             stru_path = os.path.split(istru)[0]
+            if stru_path == "": stru_path = os.getcwd()
             labels = stru_data.get_label()
             linkstru = True
             skipstru = False
