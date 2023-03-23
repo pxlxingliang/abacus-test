@@ -100,13 +100,12 @@ def SetConfig(private_set,debug=False):
     globV.set_value("storage_client", client)
 
 class Metrics:
-    def __init__(self,dft_type="abacus",metrics_name=[],newmethods=[],path=["."],modules=[],group_name = None):
+    def __init__(self,dft_type="abacus",metrics_name=[],newmethods=[],path=["."],modules=[]):
         self.dft_type = dft_type
         self.metrics_name = metrics_name
         self.newmethods = newmethods
         self.path = path
         self.modules = modules
-        self.group_name = group_name
         pass
     
     def get_metrics(self,save_file = None):
@@ -163,11 +162,12 @@ class Metrics:
                            path= metrics_io.get("path",["."]),
                        metrics_name= metrics_io.get("metrics_name",[]),
                        newmethods=metrics_io.get("newmethods",[]),
-                       modules = metrics_io.get("modules",[]),
-                       group_name=metrics_io.get("group_name",None))       
+                       modules = metrics_io.get("modules",[]))       
 
     @staticmethod
     def SuperMetricsResult(super_metrics_setting):
+        if not super_metrics_setting.get("result_file"):
+            return None,None,None
         from abacustest import outresult
         allresults = outresult.GetAllResults(super_metrics_setting)
         if not allresults:
@@ -193,7 +193,125 @@ class Metrics:
             allmetric_value_final = allmetric_value     
 
         return allparam_value,allmetric_value_final,report
-        
+
+def ReadMetrics(poin_metrics,do_upload_tracking):
+    """
+    poin_metrics is a list of dict
+    poin_metrics = [
+        {
+            "value_from_file": str,     #a json file that has the metrics and value, which will also be uploaded to tracking 
+            "group_name": str,  #self-defined group name, only used in context for tracking
+            "path": ["*"],      #the path of dft jobs
+            "dft_type": "abacus",   #dft type, can be abacus/qe/vasp
+            "metrics_name": [],     #the name of metrics that will collected from dft job
+            "newmethods": [str],    # self-defined methods used in abacustest collectdata
+            "modules": [str],       # the modules that abacustest collectdata will load
+            "save_file": "result.json",  #file to store the value of metrics
+        },
+        {"path": ["*"], ...}, ...
+    ]
+
+    return tracking_values
+    tracking_values = [(metrics_value,context),...]
+    metrics_value = {metric_name:value}
+    
+    """
+    tracking_values = []
+    for im,imetric in enumerate(poin_metrics):
+        metrics_value = {}
+
+        metric_form_calc = Metrics.ParseMetricsOPIO(imetric)
+        if metric_form_calc:
+            value = metric_form_calc.get_metrics(save_file=imetric.get("save_file","result.json"))
+        else:
+            value = None
+
+        if do_upload_tracking:
+            if value: 
+                try:
+                    examples,new_dict = UploadTracking.rotate_metrics(value)
+                    for k,v in new_dict.items():
+                        metrics_value[k] = v
+                    metrics_value["sample_name_%d" % im] = examples
+                    metrics_value["metrics_%d"%im] = UploadTracking.Transfer2Table(value) 
+                except:
+                    traceback.print_exc()
+
+            metric_from_file = imetric.get("value_from_file",None)
+            if metric_from_file: 
+                if os.path.isfile(metric_from_file):
+                    try:
+                        for k,v in json.load(open(metric_from_file)).items():
+                            metrics_value[k] = v
+                    except:
+                        traceback.print_exc()
+                else:
+                    print("Can not find file %s" % metric_from_file,file=sys.stderr)
+                    print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."),file=sys.stderr)
+
+            context = {"subset":"metrics%d"%im}
+            if "group_name" in imetric:
+                context["group_name"] = imetric.get("group_name")
+
+            if metrics_value:
+                tracking_values.append((metrics_value,context))
+
+    return tracking_values
+
+def ReadSuperMetrics(poin_super_metrics,do_upload_tracking):
+    """
+    poin_super_metrics = [{
+        "group_name": str,  # a json file that has the metrics and value, which will also be uploaded to tracking
+        "value_from_file": str, # self-defined group name, only used in context for tracking
+
+        "save_file": "superMetric.json",    #same as that defined in outresult report
+        "result_file": ["result.json"],
+        "example_name_idx":0,
+        "outparams":[
+            ["ScfSteps", ["scf_steps"], 0],...
+        ],
+        "metrics":[{}]
+    },...]
+
+    return tracking_summary
+    tracking_summary = [(metrics_value,context),...]
+    metrics_value = {metric_name:value}
+
+    """
+    tracking_summary = []  
+    log = ""             
+    for isuper,super_metrics_setting in enumerate(poin_super_metrics):
+        super_metric_value = {}
+        allparam_value,allmetric_value,report = Metrics.SuperMetricsResult(super_metrics_setting)
+
+        if do_upload_tracking:
+            if allmetric_value:
+                for k,v in allmetric_value.items():
+                    super_metric_value[k] = v
+                from dp.tracking import Table
+                super_metric_value["super_metrics_%d"%isuper] = Table([allmetric_value])
+            if report:
+                super_metric_value["report"] = report
+                log += report
+
+            super_metric_from_file = super_metrics_setting.get("value_from_file",None)
+            if super_metric_from_file:
+                if os.path.isfile(super_metric_from_file):
+                    try:
+                        for k,v in json.load(open(super_metric_from_file)).items():
+                            super_metric_value[k] = v
+                    except:
+                        traceback.print_exc()
+                else:
+                    print("Can not find file %s" % super_metrics_setting.get("value_from_file"),file=sys.stderr)
+                    print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."),file=sys.stderr)
+            if super_metric_value:
+                context = {"subset":"super_metrics%d"%isuper}
+                if "group_name" in super_metrics_setting:
+                    context["group_name"] = super_metrics_setting.get("group_name")
+                tracking_summary.append((super_metric_value,context))
+    
+    return tracking_summary,log
 
 class UploadTracking:
     def __init__(self,tracking_setting):
@@ -299,7 +417,6 @@ class UploadDatahub:
         from time import strftime
         today = datetime.datetime.now()
         return today.strftime("%Y%m%d")
-    
     
     def CheckEnv(self):
         hasconfig = True
@@ -437,15 +554,6 @@ class RunDFT(OP):
         
         print("op_in:",op_in,file=sys.stderr)
         outpath = []
-        
-        poin_metrics = Metrics.TransferMetricsOPIO(op_in['metrics']) 
-        allmetrics,allsavefile = [],[]
-        for imetric in poin_metrics:
-            if imetric.get("value_from_file",None):
-                allmetrics.append(imetric.get("value_from_file"))
-            else:
-                allmetrics.append(Metrics.ParseMetricsOPIO(imetric))
-            allsavefile.append(imetric.get("save_file","result.json")) 
 
         root_path_0,hasdflow = GetPath("abacustest_example")
         for iexample,example_name in enumerate(op_in["example_name"]):
@@ -489,84 +597,41 @@ class RunDFT(OP):
                 cmd += str(op_in["command"])
                 log += os.popen("(%s) 2>&1" % cmd).read()
             
-            #read metrics
-            tracking_values = []
-            for im,metrics in enumerate(allmetrics):
-                #metrics can be a str (file) or Metrics or None
-                context = {"subset":"metrics%d"%im}
-                if metrics != None:    
-                    os.chdir(work_path)
-                    savefile = allsavefile[im]
-                    if isinstance(metrics,Metrics):
-                        if metrics.group_name:
-                            context["group_name"] = metrics.group_name
-                        metrics_value = metrics.get_metrics(save_file=savefile)
-                        #metrics_value = {path:{key:value}}
-                    elif isinstance(metrics,str):
-                        if os.path.isfile(metrics):
-                            metrics_value = json.load(open(metrics))
-                        else:
-                            print("Can not find file %s" % metrics,file=sys.stderr)
-                            print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."),file=sys.stderr)
-                            metrics_value = None
+            #check if need to upload to tracking
+            do_upload_tracking = False
+            if op_in["upload_tracking"] and op_in["upload_tracking"].get("ifurn",True):
+                do_upload_tracking = True
 
-                    if not metrics_value:continue
-                    if op_in["upload_tracking"] and op_in["upload_tracking"].get("ifurn",True): 
-                        try:
-                            if isinstance(metrics,str):
-                                new_dict = metrics_value
-                            else:
-                                examples,new_dict = UploadTracking.rotate_metrics(metrics_value)
-                                new_dict["sample_name"] = examples
-                                new_dict["metrics%d"%im] = UploadTracking.Transfer2Table(metrics_value) 
-                            tracking_values.append((new_dict,context))
-                        except:
-                            traceback.print_exc()
+            #read metrics
+            try:
+                os.chdir(work_path)
+                tracking_values = ReadMetrics(Metrics.TransferMetricsOPIO(op_in['metrics']),do_upload_tracking)
+            except:
+                traceback.print_exc()
+                tracking_values = None
 
             #calculate super_metrics
-            os.chdir(work_path)
-            poin_super_metrics = Metrics.TransferMetricsOPIO(op_in['super_metrics'])
-            tracking_summary = []               
-            for isuper,super_metrics_setting in enumerate(poin_super_metrics):
-                if super_metrics_setting:
-                    if super_metrics_setting.get("value_from_file",None):
-                        if os.path.isfile(super_metrics_setting.get("value_from_file")):
-                            allmetric_value = json.load(open(super_metrics_setting.get("value_from_file")))
-                            report = str(allmetric_value)
-                        else:
-                            print("Can not find file %s" % super_metrics_setting.get("value_from_file"),file=sys.stderr)
-                            print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."),file=sys.stderr)
-                            allmetric_value = None
-                            report = None
-                    else:
-                        allparam_value,allmetric_value,report = Metrics.SuperMetricsResult(super_metrics_setting)
-                    try:
-                        super_metrics_dict = {}
-                        context = {"subset":"super_metrics%d"%isuper}  
-                        if not allmetric_value and not report:
-                            pass
-                        else:                      
-                            if allmetric_value:
-                                super_metrics_dict = allmetric_value
-                                from dp.tracking import Table
-                                super_metrics_dict["super_metrics%d"%isuper] = Table([allmetric_value])
-                            super_metrics_dict["report"] = report
-                            log += report
-                            #tracking_values.append((super_metrics_dict,context))
-                            tracking_summary.append((super_metrics_dict,context))
-                    except:
-                        traceback.print_exc()
+            try:
+                os.chdir(work_path)
+                tracking_summary,report = ReadSuperMetrics(Metrics.TransferMetricsOPIO(op_in['super_metrics']),do_upload_tracking)  
+                log += report 
+            except:
+                traceback.print_exc()
+                tracking_summary = None          
 
             #upload tracking
-            if op_in["upload_tracking"] and op_in["upload_tracking"].get("ifurn",True):
-                if tracking_values:
-                    tracking = UploadTracking( op_in["upload_tracking"])
-                    tracking.upload(tracking_values=tracking_values)
-                if tracking_summary:
-                    tracking_setting = op_in["upload_tracking"]
-                    tracking_setting["name"] = op_in["upload_tracking"].get("name","") + ".summary"
-                    tracking = UploadTracking( tracking_setting)
-                    tracking.upload(tracking_values=tracking_summary)                
+            if do_upload_tracking:
+                try:
+                    if tracking_values:
+                        tracking = UploadTracking( op_in["upload_tracking"])
+                        tracking.upload(tracking_values=tracking_values)
+                    if tracking_summary:
+                        tracking_setting = op_in["upload_tracking"]
+                        tracking_setting["name"] = op_in["upload_tracking"].get("name","") + ".summary"
+                        tracking = UploadTracking( tracking_setting)
+                        tracking.upload(tracking_values=tracking_summary) 
+                except:
+                    traceback.print_exc()               
 
             #collect outputs
             os.chdir(work_path)
@@ -654,7 +719,7 @@ def ProduceExecutor(param,group_name="abacustesting"):
                     "context_type": "Bohrium",
                     "remote_profile": {"input_data": bohrium_set},
                     },
-                image_pull_policy = "IfNotPresent"
+                image_pull_policy = "Always"
             )
             #comm.printinfo("set bohrium: %s"%str(bohrium_set))
             return dispatcher_executor,bohrium_set
