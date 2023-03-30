@@ -76,6 +76,86 @@ def TableOutput(datalist,maxlen=18,digitmax=3,digit=None,left=None,outframe=True
 
     return context
 
+def Table2FeishuInteractive(tablelist,webhook,title=None,comment=None,digitmax=3,digit=None,scintific=None):
+    """
+    translate a table to json used in feishu interactive
+    """
+    card = {}
+    if title:
+        #https://open.feishu.cn/document/ukTMukTMukTM/ukTNwUjL5UDM14SO1ATN
+        card["header"] = {
+            "title": {
+                "tag":"plain_text",
+                "content": title
+            },
+            "template":"blue"  #
+        }
+
+    #table
+    card["elements"] = []
+    
+    #context
+    #https://open.feishu.cn/document/ukTMukTMukTM/ucTNwUjL3UDM14yN1ATN/column-set
+    for i,itable in enumerate(tablelist):
+        context = []
+        for ii,ivalue in enumerate(itable):
+            if i > 0 and isinstance(ivalue,(int,float)):
+                if digit:
+                    idigit = digit[ii]
+                else:
+                    if isinstance(ivalue,float):
+                        idigit = digitmax
+                    else:
+                        idigit = 0
+                if idigit < 0: 
+                    idigit = 0
+                if scintific:
+                    fe = "e" if scintific[ii] else "f"
+                else:
+                    fe = "f"
+                format1 = "%%.%d%s" % (idigit,fe)
+                if isinstance(ivalue,bool):
+                    value = str(ivalue)
+                else:
+                    value = format1 % float(ivalue)
+            else:
+                value = str(ivalue)
+
+            context.append({
+                "tag": "column",
+                "width": "weighted",
+                "weight": 1,
+                "elements": [
+                {
+                  "tag": "markdown",
+                  "text_align": "center",
+                  "content": value
+                }]
+            })
+        card["elements"].append({
+        "tag": "column_set",
+        "flex_mode": "stretch",  #stretch, bisect, flow, trisect
+        "background_style": "grey" if i == 0 else "default",
+        "horizontal_spacing": "default",
+        "columns": context})
+
+    if comment:
+        card["elements"].append({
+        "tag": "markdown",
+        "content": comment
+        })
+
+    feishu = {
+        "msg_type": "interactive",
+        "card" :card
+    }
+
+    import requests
+    response = requests.post(webhook,
+        headers={'Content-Type': 'application/json'},
+        data=json.dumps(feishu))
+    print(response.url,response.status_code,response.text,response.headers)
+
 def GetParamValue(result,param,examplename):
     #result is a dict, whose key is the name of some parameters, and value is the value of the parameter
     #param is the param name, or a formula containing the param name which is identified by '
@@ -233,6 +313,8 @@ def OutParam(allresult,split_example="----"):
     if len(comment) > 0:
         cc += "\n".join(comment) + "\n"
     cc += TableOutput(outtable,maxlen=18,digit=digit,left=left)
+    if allresult.get("webhook"):
+        Table2FeishuInteractive(outtable,webhook=allresult.get("webhook"),title="abacustest",digit=digit)
     return cc,allparam_value
 
 class MetricsMethod:
@@ -366,6 +448,8 @@ def OutMetrics(allresults,allparam_value):
     
     cc = "\nSome key metrics\n"
     cc += TableOutput(outtable,maxlen=50,digit=digit,left=left,scintific=scintific)
+    if allresults.get("webhook"):
+        Table2FeishuInteractive(outtable[0:1] + outtable[2:],webhook=allresults.get("webhook"),title="abacustest",digit=digit)
     cc += "".join(comment)
     #cc += "Notice: the exmaples with value of None for some job type will be excluded.\n"
     return cc,allmetric_value    
@@ -379,7 +463,7 @@ def GetAllResults(result_setting):
     #result123 = [example1_result, example2_result, example3_result]
 
     resultf = result_setting["result_file"]
-    type_name = result_setting.get("type_name",["abacus"])
+    type_name = result_setting.get("type_name",["jobtype"])
     
     #deal with type_name
     if isinstance(type_name,str):
@@ -465,6 +549,7 @@ def GetAllResults(result_setting):
     outparams_expand = result_setting.get("outparams_expand",{})
     outparams_comment = result_setting.get("outparams_comment",{})
     plot = result_setting.get("plot",[])
+    webhook = result_setting.get("webhook",None)
     
     return {"example_name": example_name, 
             "type_name": type_name, 
@@ -474,7 +559,8 @@ def GetAllResults(result_setting):
             "outparams_expand":outparams_expand,
             "outparams_comment":outparams_comment,
             "metrics": metrics,
-            "plot":plot}
+            "plot":plot,
+            "webhook":webhook}
 
 def pandas_out(allresult):
     """
