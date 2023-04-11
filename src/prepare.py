@@ -162,30 +162,27 @@ class AbacusStru:
     @staticmethod
     def ReadStru(stru:str = "STRU"):
         "read the label, pp, orb, cell, coord, deepks-descriptor"
-        if not os.path.isfile(stru):
-            return None
-
-        with open(stru) as f1: lines = f1.readlines()
-        atomic_species = []
-        numerical_orbital = []
-        lattice_constant = 1.0
-        lattice_vector = []
-        atom_positions = []
-        
         def get_block(keyname):
             block = []
             for i,line in enumerate(lines):
                 if line.strip() == "": continue
                 elif line.split('#')[0].strip() == keyname:
                     for ij in range(i+1,len(lines)):
-                        if lines[ij].strip() == "": continue
+                        if lines[ij].strip() == "" or \
+                            lines[ij].strip()[0] in ["#"] or\
+                            ("//" in lines[ij] and lines[ij].strip()[:2] in ["//"]): continue
                         elif lines[ij].strip() in constant.ABACUS_STRU_KEY_WORD:
                             return block
                         else:
-                            block.append(lines[ij])
+                            block.append(lines[ij].split("#")[0].split("//")[0].strip())
                     return block
             return None
         
+        if not os.path.isfile(stru):
+            return None
+
+        with open(stru) as f1: lines = f1.readlines()  
+
         atomic_species = get_block("ATOMIC_SPECIES")
         numerical_orbital = get_block("NUMERICAL_ORBITAL")
         lattice_constant = get_block("LATTICE_CONSTANT")
@@ -469,7 +466,9 @@ class PrepareAbacus:
                     else:
                         print("mix_kpt should be a int or list of 3/6 element, but not ",ikpt)
                 elif isinstance(ikpt,str):
-                    for iikpt in glob.glob(ikpt):
+                    allkpt = glob.glob(ikpt)
+                    allkpt.sort()
+                    for iikpt in allkpt:
                         all_kpt.append(iikpt)
                 else:
                     print("element of mix_kpt should be int or list of 3/6 elements, but not ",ikpt)
@@ -498,6 +497,7 @@ class PrepareAbacus:
         else:
             for stru in self.mix_stru:
                 allstrus = glob.glob(stru)
+                allstrus.sort()
                 for istru in allstrus:
                     all_stru.append(os.path.abspath(istru))
                 if len(allstrus) == 0:
@@ -754,11 +754,14 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
     example_template = param_setting.get("example_template",None)
     if isinstance(example_template,str):
         example_template = glob.glob(example_template)
+        example_template.sort()
     elif isinstance(example_template,list):
         tmp = copy.deepcopy(example_template)
         example_template = []
         for i in tmp:
-            example_template += glob.glob(i)
+            alli = glob.glob(i)
+            alli.sort()
+            example_template += alli
     else:
         example_template = [example_template]
     
