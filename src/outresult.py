@@ -359,7 +359,7 @@ class MetricsMethod:
     def TrueRatio(self,valuelist):
         nTrue = 0
         for i in valuelist:
-            if bool(i) == True:
+            if i == True:
                 nTrue += 1
         
         return float(nTrue)/float(len(valuelist))
@@ -381,8 +381,8 @@ def OutMetrics(allresults,allparam_value):
         name = metric.get("name")
         paramname = metric.get("param_name") 
         method = metric.get("method")
-        condition = metric.get("condition","").strip() 
-        doclean = metric.get("doclean",True)
+        condition = metric.get("condition","").strip() #if condition is not meet, value will be set to None
+        doclean = metric.get("doclean",False)  #if remove the value of None
         normalization = metric.get("normalization",True)
         if "comment" in metric:
             icomment = metric["comment"].strip()
@@ -418,7 +418,7 @@ def OutMetrics(allresults,allparam_value):
                 for j,itmp in enumerate(tmp): 
                     if itmp!=None: tmp_result[j].append(itmp)
         if doclean and len(tmp_result[0]) == 0:
-            print("%s: All examples with values of None for some job type, skipt it!" % name)
+            print("%s: values of all examples are None for some job type, skipt it!" % name)
             continue
         
         nresult = [str(len(i)) for i in tmp_result]
@@ -427,13 +427,22 @@ def OutMetrics(allresults,allparam_value):
         outtable.append([name])
         metric_value = []
         for i in range(len(tmp_result)):
-            metric_value.append(method_list[method](tmp_result[i]))
-            if normalization:
-                outtable[-1].append(metric_value[i]/metric_value[0]) #do normalization by divide by the first value   
-            else:
-                outtable[-1].append(metric_value[i])
+            try:
+                metric_value.append(method_list[method](tmp_result[i]))
+            except:
+                traceback.print_exc()
+                metric_value.append(None)
 
-        if normalization:
+            if normalization:
+                try:
+                    outtable[-1].append(metric_value[i]/metric_value[0]) #do normalization by divide by the first value
+                except:
+                    traceback.print_exc()
+                    outtable[-1].append(None)
+            else:
+                outtable[-1].append(metric_value[i])        
+
+        if normalization and metric_value[0] != None:
             comment += "%-20s is normalized, value of %s is %.3e.\n" % (name,type_name[0],metric_value[0])
 
         outtable[-1] += [nexample]
