@@ -20,7 +20,7 @@ class Abacus(ResultAbacus):
                 self['ncore'] = int(line.split()[-1])
                 return
     
-    @ResultAbacus.register(normal_end="if the job is nromal ending")
+    @ResultAbacus.register(normal_end="if the job is normal ending")
     def GetNormalEnd(self):
         if len(self.LOG) == 0:
             self['normal_end'] = None
@@ -284,8 +284,8 @@ class Abacus(ResultAbacus):
     
     
     @ResultAbacus.register(lattice_constant="unit in angstrom",
-                           cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will out the last one",
-                           coordinate = "[[],..], two dimension list, is a cartessian type, unit in angstrom. If is relax or md, will out the last one",
+                           cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will output the last one",
+                           coordinate = "[[],..], two dimension list, is a cartessian type, unit in angstrom. If is relax or md, will output the last one",
                            element_list = "list[], a list of the element name of all atoms",
                            atomlabel_list = "list[], a list of atom label of all atoms")
     def GetCell(self):    
@@ -343,3 +343,54 @@ class Abacus(ResultAbacus):
         self['element_list'] = element_list
         self['atomlabel_list'] = atomlabel_list
             
+    @ResultAbacus.register(delta_energy="the difference between energy and the reference value. Unit in eV. Key in reference file is \"energy\"",
+                           delta_energyPerAtom="delta_energy/natom, unit in eV")
+    def GetDeltaEnergy(self): 
+        if self.resultREF.get("energy",None) != None:
+            if self["energy"] != None:
+                self["delta_energy"] = self["energy"] - self.resultREF.get("energy")
+                if self["natom"] != None:
+                    self["delta_energyPerAtom"] = (self["energy"] - self.resultREF.get("energy")) / self["natom"]
+                else:
+                    self["delta_energyPerAtom"] = None
+                return
+        self["delta_energy"] = None
+        self["delta_energyPerAtom"] = None
+
+
+class AbacusRelax(ResultAbacus):
+    
+    @ResultAbacus.register(relax_converge="if the relax is converged")
+    def GetRelaxConverge(self):
+        #need read self.LOG
+        if self.LOG:
+            for i in range(len(self.LOG)):
+                line = self.LOG[-i-1]
+                if "Relaxation is converged!" in line:
+                    self["relax_converge"] = True
+                    return
+                elif "Relaxation is not converged yet!" in line:
+                    self["relax_converge"] = False
+                    return
+                elif "Ion relaxation is not converged yet" in line or \
+                    "Lattice relaxation is not converged yet" in line:
+                    self["relax_converge"] = False
+                    return
+                elif "Lattice relaxation is converged!" in line or \
+                    "Ion relaxation is converged!" in line:
+                    self["relax_converge"] = True
+                    return
+        self["relax_converge"] = None
+    
+    @ResultAbacus.register(relax_steps= "the total ION steps")
+    def GetRelaxSteps(self):
+        #need read self.LOG
+        if self.LOG:
+            for i in range(len(self.LOG)):
+                line = self.LOG[-i-1]
+                if "ALGORITHM --------------- ION=" in line:
+                    index_ben = line.index("ION=") + 4
+                    index_end = line.index("ELEC")
+                    self["relax_steps"] = int(line[index_ben:index_end])
+                    return
+        self["relax_steps"] = None

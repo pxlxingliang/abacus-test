@@ -53,6 +53,7 @@ def CollectDataArgs(parser):
     parser.add_argument('-m', '--modules',help='add extra modules. Default only module \'job-type\' will be loaded, such as: \'abacus\' for abacus type. You can check all modules by --outparam', action="extend",nargs="*")
     parser.add_argument('--newmethods', help='the self-defined python modules, and shuold be format of import, such as "abc"(the file name is abc.py), "a.b.c" (teh file is a/b/c.py)', action="extend",nargs="*")
     parser.add_argument('--outparam', nargs='?',type=int, const=1, default=0,help='output the registed parameters, you can set the type by -t or --type to choose abacus/qe/vasp. 0: No, 1: yes')
+    parser.add_argument('--ref', type=str, nargs='?',default=None,const="resultREF.json",help='A json file includes the reference value of some keys. Generally, get values of keys start with \"delta_\" require this file. Default is resultREF.json')
     return parser
 
 def collectdata(param):    
@@ -89,7 +90,7 @@ def collectdata(param):
 
         print("Handle %s" % ipath)
     
-        result = RESULT(fmt=jobtype, path=ipath,newmethods=param.newmethods,modules=param.modules)
+        result = RESULT(fmt=jobtype, path=ipath,newmethods=param.newmethods,modules=param.modules,resultREF=param.ref)
         if len(allparams) == 0:
             allparams = list(result.AllMethod().keys())
         allresult[ipath] = parse_value(result,allparams)

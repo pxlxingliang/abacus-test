@@ -1,11 +1,11 @@
-import os,sys
+import os,sys,json
 from .result import Result
 from . import comm
 
 class ResultVasp(Result):
     _PARAM_DIC = {}
 
-    def __init__(self,path = "."):
+    def __init__(self,path = ".",resultREF="resultREF.json"):
         super().__init__()
         self.PATH = path   #the path of VASP job
 
@@ -22,5 +22,9 @@ class ResultVasp(Result):
         self.OUTCAR     = comm.ReadFile(self.OUTCARf,warn=True)
         self.OSZICAR    = comm.ReadFile(self.OSZICARf,warn=False)
         self.XMLROOT    = comm.ReadXmlFile(self.XMLf,warn=True)
+
+        self.resultREF = {}
+        if resultREF and os.path.isfile(resultREF):
+            self.resultREF = json.load(open(resultREF))
 
 

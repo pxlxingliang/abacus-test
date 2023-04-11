@@ -10,6 +10,8 @@ def printAllMethod(allmethod,fmt):
         funcname = v[0]
         out = filename.split("/")[-1][:-3] + ":" + funcname 
         print("%20s:\t%-30s\t%s"% (k,out,v[2]))
+    print("\nNOTICE1: keys start with \"delta_\" require a json file includes the reference values. You can specify the file by \"--ref\"")
+    print("NOTICE2: by default, only keys in module '%s' are available. You can use other modules by '--modules'" % fmt)
 
 def import_new_method(newmethods=[]):
     '''import the self-defined methods'''
@@ -27,7 +29,7 @@ def import_new_method(newmethods=[]):
 
 def import_modules(fmt,modules):
     '''
-    Can only import the modules in lib_collectdata.fmt
+    Can only import the modules in lib_collectdata.{fmt}
     '''
     if modules == None:
         return
