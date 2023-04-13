@@ -1,0 +1,25 @@
+
+from enum import Enum
+from dp.launching.cli import to_runner
+from dp.launching.typing.basic import BaseModel, Int, String, Float
+class Children(str, Enum):
+    child1 = "c1"
+    child2 = "c2"
+    child3 = "c3"
+class Test(BaseModel):
+    name: String = "test"
+    height: Float = 1.99
+    age: Int = 88
+    children: Children
+def example_runner(opts: Test) -> int:
+    print("这里的 opts 是: ", opts)
+    return 0
+def to_parser():
+    return to_runner(
+      Test,
+      example_runner,
+      version='0.1.0',
+    )
+if __name__ == '__main__':
+    import sys
+    to_parser()(sys.argv[1:])
