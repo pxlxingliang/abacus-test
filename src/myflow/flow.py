@@ -183,8 +183,12 @@ def set_env(param):
     globV.set_value("PRIVATE_SET", user_context)
     dflowOP.SetConfig(user_context,debug=param.debug) 
 
-    #set save folder    
-    SetSaveFolder(param.save)
+    #set save folder  
+    if param_context.get("save_path"):
+        save_path = param_context.get("save_path")
+    else:
+        save_path = param.save
+    SetSaveFolder(save_path)
     
     
     report = param_context.get("report",{})

@@ -571,13 +571,16 @@ def GetAllResults(result_setting):
             "plot":plot,
             "webhook":webhook}
 
-def pandas_out(allresult):
+def pandas_out(allresult,savefile = None):
     """
     allresult = {sample1: {key1:value,key2:value},
                  sample2: {key1:value,key2:value}}
     If value is a list, will print out separately.
     """
     import pandas as pd
+    pd.set_option('display.max_columns', 30)
+    pd.set_option('display.max_rows', None)
+
     normal_result = {}
     list_result = []
     allsamples = [i for i in allresult.keys()]
@@ -611,15 +614,16 @@ def pandas_out(allresult):
     if False not in allkeys_seperate:
         normal_result = ""
     else:
-        normal_result = str(pd.DataFrame.from_dict(normal_result,orient='index'))
+        pddata = pd.DataFrame.from_dict(normal_result,orient='index')
+        if savefile:
+            pddata.to_csv(savefile)
+        normal_result = str(pddata)
         
     if True not in allkeys_seperate:
         list_result = ""
     else:
         list_result = "\n\n".join(list_result)
-
-    pd.set_option('display.max_columns', 30)
-    pd.set_option('display.max_rows', None)    
+    
     print("%s\n\n%s" % (normal_result,list_result))
            
     return normal_result,list_result
