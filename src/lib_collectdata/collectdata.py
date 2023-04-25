@@ -5,6 +5,7 @@ import importlib
 def printAllMethod(allmethod,fmt):
     ipath = os.path.split(os.path.abspath(__file__))[0]
     print("Job type: %s, all modules: " % fmt,[os.path.split(i)[1][:-3] for i in glob.glob(os.path.join(ipath,"%s/*.py"%fmt))])
+    print("\nmetric_name,\tmodule:function,\tdescription")
     for k,v in allmethod.items():
         filename = v[1] 
         funcname = v[0]

@@ -89,7 +89,7 @@ def SetConfig(private_set,debug=False):
                     password=private_set.get('lbg_password','')))
 
         #register datahub setting    
-        if private_set.get("datahub_gms_token",""):
+        if private_set.get("datahub_project",""):
             from dflow.plugins.metadata import MetadataClient
             config["lineage"] = MetadataClient(
                 project=private_set.get("datahub_project"),
@@ -404,6 +404,7 @@ class UploadTracking:
         
         tracking_run.close()
 
+'''
 class UploadDatahub:
     def __init__(self, datahub_setting:dict) -> None:
         self.datalist = datahub_setting.get("datalist",[])
@@ -499,7 +500,7 @@ class UploadDatahub:
             
         shutil.rmtree(tmp_path)
         return True
-
+'''
 
 class RunDFT(OP):
     def __init__(self):
@@ -656,8 +657,7 @@ class RunDFT(OP):
 
             #upload_datahub
             if op_in["upload_datahub"] and op_in["upload_datahub"].get("ifurn",True):
-                try:
-                    '''
+                try:                    
                     import datetime
                     from time import strftime
                     dataset_name = op_in["upload_datahub"].get("datasetname")+"." +datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -684,6 +684,7 @@ class RunDFT(OP):
                     '''
                     datahub = UploadDatahub(op_in["upload_datahub"])
                     datahub.Upload()
+                    '''
                 except:
                     traceback.print_exc()
             outpath += outpath_tmp
@@ -777,7 +778,7 @@ def ProduceRunDFTStep(step_name,
 
     pre_script = ""
     if upload_datahub:
-        pre_script += "import os\nos.system('pip install --upgrade dp-metadata-sdk -i https://repo.mlops.dp.tech/repository/pypi-group/simple')\n"
+        pre_script += "import os\nos.system('pip install --upgrade dp-metadata-sdk==3.0.1 -i https://repo.mlops.dp.tech/repository/pypi-group/simple')\n"
     if upload_tracking:
         pre_script += "import os\nos.system('pip install dp-tracking-sdk==3.15.2.post23 -i https://repo.mlops.dp.tech/repository/pypi-group/simple')\n"
 
@@ -893,16 +894,14 @@ def FindLocalExamples(example):
 def GetURI(urn,privateset=None):
     if privateset == None:
         privateset = globV.get_value("PRIVATE_SET")
-    project = privateset.get("datahub_project")
-    gms_url = privateset.get("datahub_gms_url")
-    gms_token = privateset.get("datahub_gms_token")
     bohrium_username = privateset.get("lbg_username")
     bohrium_password = privateset.get("lbg_password")
+    bohrium_project = privateset.get("project_id")
     
     from dp.metadata import MetadataContext
     from dp.metadata.utils.storage import TiefblueStorageClient
-    metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password)
-    with MetadataContext(project=project,endpoint = gms_url,token = gms_token,storage_client=metadata_storage_client) as context:
+    metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password,bohrium_project)
+    with MetadataContext(storage_client=metadata_storage_client) as context:
         dataset = context.client.get_dataset(urn)
         if dataset == None:
             comm.printinfo("ERRO: can not catch the dataset for urn:'%s'. \nSkip it!!!\n" % urn)
@@ -1037,10 +1036,11 @@ def GetExampleScript(rundft,example_source_name,example_name,collectdata_script_
     #example_source_name,example_name,collectdata_script_name are the key name in rundft
     if globV.get_value("dataset_info") == None:
         example_source = rundft.get(example_source_name,"local").strip()
+        urn = None
     else:
         example_source = globV.get_value("dataset_info").get("type")
         urn = globV.get_value("dataset_info").get("dataset_urn",None)
-            
+      
     if example_source == 'datahub':
         urn = urn if urn != None else rundft["urn"]
         uri,storage_client = GetURI(urn)

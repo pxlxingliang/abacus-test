@@ -73,6 +73,8 @@ class Result:
 
     @classmethod
     def AllMethod(cls):
+        #return a dict, whose key is the parameter name, 
+        #and value is a tuple of functionname, filename, and the description
         paramdic = {}
         for key,value in cls._PARAM_DIC.items():
             filename = value[0].__code__.co_filename

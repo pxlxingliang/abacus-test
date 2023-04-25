@@ -317,7 +317,8 @@ def RunJobs(param):
         if param.command == 'mlops-submit':
             return
         comm.printinfo("job ID: %s, UID: %s" % (wf.id,wf.uid))
-        comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % globV.get_value("HOST"))
+        job_address = globV.get_value("HOST") + "/workflows/argo/%s?tab=workflow" % wf.id
+        comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % job_address)
 
         waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name)
     
