@@ -894,14 +894,17 @@ def FindLocalExamples(example):
 def GetURI(urn,privateset=None):
     if privateset == None:
         privateset = globV.get_value("PRIVATE_SET")
-    bohrium_username = privateset.get("lbg_username")
-    bohrium_password = privateset.get("lbg_password")
-    bohrium_project = privateset.get("project_id")
+    #bohrium_username = privateset.get("lbg_username")
+    #bohrium_password = privateset.get("lbg_password")
+    #bohrium_project = privateset.get("project_id")
+    endpoint =  privateset.get("https://datahub-gms.dp.tech")
+    datahub_token = privateset.get("datahub_gms_token")                            
     
     from dp.metadata import MetadataContext
-    from dp.metadata.utils.storage import TiefblueStorageClient
-    metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password,bohrium_project)
-    with MetadataContext(storage_client=metadata_storage_client) as context:
+    #from dp.metadata.utils.storage import TiefblueStorageClient
+    #metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password,bohrium_project)
+    #with MetadataContext(storage_client=metadata_storage_client) as context:
+    with MetadataContext(endpoint=endpoint, token=datahub_token) as context:
         dataset = context.client.get_dataset(urn)
         if dataset == None:
             comm.printinfo("ERRO: can not catch the dataset for urn:'%s'. \nSkip it!!!\n" % urn)
