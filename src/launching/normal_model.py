@@ -114,7 +114,7 @@ class RunSet(BaseModel):
     postdft_image_set: Union[PostdftImage,PostdftBohriumImage] = Field(discriminator="type",
                                                                       description = "set the image used in POST DFT step")
     
-    postdft_metrics: comm_class.AbacusMetricEnum
+    postdft_metrics: Set[comm_class.AbacusMetricEnum]
 
     postdft_super_metrics: List[SuperMetricsSet] = Field(default=[])
 
