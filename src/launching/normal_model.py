@@ -181,9 +181,9 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
                     "command": opts.rundft_command})
     if isinstance(opts.rundft_image_set, RundftBohriumImage):
         run_dft[-1]["bohrium"] = {
-            "scass_type": opts.rundft_image_set.Bohrium_Machine_Type,
-            "job_type": opts.rundft_image_set.Bohrium_Job_Type,
-            "platform": opts.rundft_image_set.Bohrium_Plat_form
+            "scass_type": opts.rundft_image_set.bohrium_machine_type,
+            "job_type": opts.rundft_image_set.bohrium_job_type,
+            "platform": opts.rundft_image_set.bohrium_plat_form
         }
 
     #read postdft image
@@ -191,9 +191,9 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
     post_dft = {"image":opts.postdft_image_set.image}
     if isinstance(opts.postdft_image_set, PostdftBohriumImage):
         post_dft["bohrium"] = {
-            "scass_type": opts.postdft_image_set.Bohrium_Machine_Type,
-            "job_type": opts.postdft_image_set.Bohrium_Job_Type,
-            "platform": opts.postdft_image_set.Bohrium_Plat_form
+            "scass_type": opts.postdft_image_set.bohrium_machine_type,
+            "job_type": opts.postdft_image_set.bohrium_job_type,
+            "platform": opts.postdft_image_set.bohrium_plat_form
         }
     
     #read metrics setting
