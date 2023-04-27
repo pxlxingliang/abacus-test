@@ -81,7 +81,7 @@ def produce_metrics_superMetrics_reports(allparams,work_path,output_path):
         reports.append(ReportSection(title="metrics",elements=[AutoReportElement(title='metrics', path="metrics.csv",description="")]))
         print("create reportsection")
     
-    super_metric_filename = allparams.get("post_dft",{}).get("super_metric",[{}])[0].get("save_file","superMetric.json")
+    super_metric_filename = allparams.get("post_dft",{}).get("super_metrics",[{}])[0].get("save_file","superMetrics.json")
     super_metric_file = os.path.join(work_path,allparams["save_path"],super_metric_filename)
     if os.path.isfile(super_metric_file):
         supermetrics = json.load(open(super_metric_file))
