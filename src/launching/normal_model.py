@@ -147,18 +147,19 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
         }
     }
     """
-    print("read setting")
+    print("read config setting ...")
     config = comm_func.read_config(opts)
 
     #parse rundft
     run_dft = [{}]
 
     #parse example
+    print("read example setting ...")
     example_datahub = opts.example_datahub_urn.strip()
     example_local = opts.IO_input_path
 
-    print("example_datahub_urn",example_datahub)
-    print("example_local",example_local)
+    print("\texample_datahub_urn:",example_datahub)
+    print("\texample_local:",example_local)
 
     if example_datahub == "" and example_local == None:
         print("Please upload the examplee locally or supply datahub urn")
@@ -177,16 +178,24 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
             shutil.move(os.path.join(download_path,ifile),os.path.join(work_path,ifile))
 
     #read rundft image and command
-    run_dft.append({"image": opts.rundft_image_set.image,
-                    "command": opts.rundft_command})
+    print("read run dft image command setting ...")
+    print("\timage:",opts.rundft_image_set.image)
+    print("\tcommand:",opts.rundft_command)
+
+
+    run_dft[-1]["image"] = opts.rundft_image_set.image
+    run_dft[-1]["command"] = opts.rundft_command
     if isinstance(opts.rundft_image_set, RundftBohriumImage):
         run_dft[-1]["bohrium"] = {
             "scass_type": opts.rundft_image_set.bohrium_machine_type,
             "job_type": opts.rundft_image_set.bohrium_job_type,
             "platform": opts.rundft_image_set.bohrium_plat_form
         }
+        print("\tbohrium:",run_dft[-1]["bohrium"])
 
     #read postdft image
+    print("read post dft image command setting ...")
+    print("\timage:",opts.postdft_image_set.image)
     need_post_dft = False
     post_dft = {"image":opts.postdft_image_set.image}
     if isinstance(opts.postdft_image_set, PostdftBohriumImage):
@@ -195,8 +204,11 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
             "job_type": opts.postdft_image_set.bohrium_job_type,
             "platform": opts.postdft_image_set.bohrium_plat_form
         }
+        print("\tbohrium:",post_dft["bohrium"])
+
     
     #read metrics setting
+    print("read metrics setting ...")
     allexamplepath = run_dft[-1]["example"]
     post_dft["metrics"] = {
         "path": allexamplepath,
@@ -206,6 +218,7 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
     }
     
     if len(opts.postdft_super_metrics) > 0:
+        print("read super metrics setting ...")
         post_dft["super_metrics"] = [{
             "save_file": "superMetrics.json",
             "result_file": ["metrics.json"],
@@ -226,6 +239,7 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
     #read tracking setting
     if need_post_dft:
         if isinstance(opts.tracking,UplaodTrackingSet):
+            print("read tracking setting ...")
             config["AIM_ACCESS_TOKEN"] = opts.tracking.AIM_ACCESS_TOKEN.strip()
             post_dft["upload_tracking"] = {
                 "tags": opts.tracking.tags,
@@ -238,7 +252,7 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
             "save_path": "results"}
     if need_post_dft:
         allparams["post_dft"] = post_dft
-
+    print("read setting over!\n")
     return allparams
 
 def NormalModelRunner(opts: NormalModel) -> int:

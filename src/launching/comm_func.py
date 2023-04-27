@@ -12,7 +12,6 @@ def create_path(output_path):
 
 def read_config(opts):
     #parse config
-    print("read config setting")
     CONFIG_KEYS=["lbg_username","lbg_password","project_id",
                  "config_host","s3_config_endpoint","config_k8s_api_server","config_token",
                  "datahub_project","datahub_gms_token","datahub_gms_url","AIM_ACCESS_TOKEN"]
@@ -57,6 +56,7 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
     cwd = os.getcwd()
     os.chdir(work_path)
 
+    print("Execute abacustest ...")
     return_code, stdout, stderr = run_command(command)
     if return_code != 0:
         print("Error Encountered!")
