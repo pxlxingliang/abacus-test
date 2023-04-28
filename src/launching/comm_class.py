@@ -38,7 +38,7 @@ class AbacusMetricEnum(String,Enum):
     AbacusMetric_metric1 = 'version'
     AbacusMetric_metric2 = 'ncore'
     AbacusMetric_metric3 = 'normal_end'
-#    AbacusMetric_metric4 = 'INPUT'
+    AbacusMetric_metric4 = 'INPUT:ks_solver'
 #    AbacusMetric_metric5 = 'kpt'
     AbacusMetric_metric6 = 'nbands'
     AbacusMetric_metric7 = 'converge'

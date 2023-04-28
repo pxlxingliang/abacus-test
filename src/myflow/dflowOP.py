@@ -720,7 +720,8 @@ def ProduceExecutor(param,group_name="abacustesting"):
                     "context_type": "Bohrium",
                     "remote_profile": {"input_data": bohrium_set},
                     },
-                image_pull_policy = "Always"
+                image_pull_policy = "Always",
+                retry_on_submission_error=3
             )
             #comm.printinfo("set bohrium: %s"%str(bohrium_set))
             return dispatcher_executor,bohrium_set

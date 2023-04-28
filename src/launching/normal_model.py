@@ -209,29 +209,43 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
     
     #read metrics setting
     print("read metrics setting ...")
+    has_super_metrics = False
     allexamplepath = run_dft[-1]["example"]
+    metrics = list(opts.postdft_metrics)
+    if len(opts.postdft_super_metrics) > 0:
+        print("read super metrics setting ...")
+        has_super_metrics = True
+        #complete metrics
+        for i in opts.postdft_super_metrics:
+            if i.param_name not in metrics:
+                metrics.append(i.param_name)
+
+    #convert some special metrics (such as: KEY1:KEY2,..)
+    metrics= comm_func.convert_metrics(metrics)
+
+    #set metrics
     post_dft["metrics"] = {
         "path": allexamplepath,
         "dft_type": "abacus",
-        "metrics_name": list(opts.postdft_metrics),
+        "metrics_name": metrics,
         "save_file": "metrics.json"
     }
     
-    if len(opts.postdft_super_metrics) > 0:
-        print("read super metrics setting ...")
+    if has_super_metrics:
         post_dft["super_metrics"] = [{
             "save_file": "superMetrics.json",
             "result_file": ["metrics.json"],
-            "metrics":[{"name": f"{i.method}({i.param_name})" ,
-                        "param_name": i.param_name,
-                        "method": i.method,
-                        "normalization": False}
-                       for i in opts.postdft_super_metrics]
-        }]
+            "metrics":[],
+            "outparams":[]
+        }]  
         for i in opts.postdft_super_metrics:
-            if i.param_name not in post_dft["metrics"]["metrics_name"]:
-                post_dft["metrics"]["metrics_name"].append(i.param_name)
-        post_dft["super_metrics"][-1]["outparams"] = [[j, [j], -1] for j in post_dft["metrics"]["metrics_name"]]
+            metric_name = comm_func.convert_supermetrics_metrics_name(i.param_name)
+            post_dft["super_metrics"][-1]["metrics"].append({
+                "name": f"{i.method}({metric_name})" ,
+                "param_name": metric_name,
+                "method": i.method,
+                "normalization": False})
+            post_dft["super_metrics"][-1]["outparams"].append([metric_name, [metric_name], -1])
 
     if len(post_dft["metrics"]["metrics_name"]) > 0:
         need_post_dft = True
