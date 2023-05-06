@@ -313,6 +313,51 @@ def ReadSuperMetrics(poin_super_metrics,do_upload_tracking):
     
     return tracking_summary,log
 
+def upload_to_tracking(tracking_values,name,experiment,tags=[],AIM_ACCESS_TOKEN=None):
+        """
+        tracking_values = [(tracking_value1, context1),
+                            (tracking_value2,context2),...]
+        tracking_value = {name:value}
+        """
+        if AIM_ACCESS_TOKEN:
+            os.environ["AIM_ACCESS_TOKEN"] = AIM_ACCESS_TOKEN
+        elif "AIM_ACCESS_TOKEN" not in os.environ:
+            print("Upload tracking error. Please set 'AIM_ACCESS_TOKEN' information.")
+            return None
+        
+        from dp.tracking import Run, Text, Table
+        tracking_run = Run(repo='aim://tracking-api.dp.tech:443')
+        run_hash = tracking_run.hash
+        tracking_run.name = name
+        tracking_run.experiment = experiment
+        for tag in tags: tracking_run.add_tag(tag)
+        
+        def my_track(value,name,context):
+            try:
+                if isinstance(value,(int,float,Table)):
+                    tracking_run.track(value,name=name,context=context)
+                elif isinstance(value,str):
+                    tracking_run.track(Text(value),name=name,context=context)  
+                else:
+                    print(type(value))  
+                    tracking_run.track(value,name=name,context=context)
+            except:
+                traceback.print_exc()
+                print("upload tracking failed, name:",name,"value:",value)
+        
+        for tracking_value,context in tracking_values:
+            for k,v in tracking_value.items():
+                k = k.replace("/",".")
+                print("upload to tracking: %s" % k)
+                if isinstance(v,list):
+                    for iv in v: 
+                        my_track(iv,k,context)
+                else:
+                    my_track(v,k,context)
+        
+        tracking_run.close()
+        return True
+
 class UploadTracking:
     def __init__(self,tracking_setting):
         self.tags = tracking_setting.get("tags")
@@ -322,18 +367,6 @@ class UploadTracking:
 
         if not self.run_hash:
             self.run_hash = None
-
-    def CheckEnv(self):
-        hasconfig = True
-        for i in ["AIM_ACCESS_TOKEN"]:
-            if i not in os.environ:
-                print("Upload tracking error. Please set '%s' information." % i)
-                hasconfig = False
-        
-        #if 'AIM_FORCE_PUBLIC_CERT' not in os.environ:
-        #    os.environ['AIM_FORCE_PUBLIC_CERT'] = str(True)
-        
-        return hasconfig
     
     @staticmethod
     def rotate_metrics(dict1):
@@ -369,40 +402,7 @@ class UploadTracking:
         return Table(newlist)
 
     def upload(self,tracking_values):
-        """
-        tracking_values = [(tracking_value1, context1),
-                            (tracking_value2,context2),...]
-        tracking_value = {name:value}
-        """
-        if not self.CheckEnv():
-            return False
-        
-        from dp.tracking import Run, Text, Table
-        tracking_run = Run(repo='aim://tracking-api.dp.tech:443',run_hash=self.run_hash)
-        tracking_run.name = self.name
-        tracking_run.experiment = self.experiment
-        for tag in self.tags: tracking_run.add_tag(tag)
-        
-        def my_track(value,name,context):
-            if isinstance(value,(int,float,Table)):
-                tracking_run.track(value,name=name,context=context)
-            elif isinstance(value,str):
-                tracking_run.track(Text(value),name=name,context=context)  
-            else:
-                print(type(value))  
-                tracking_run.track(value,name=name,context=context)
-        
-        for tracking_value,context in tracking_values:
-            for k,v in tracking_value.items():
-                k = k.replace("/",".")
-                print("upload to tracking: %s" % k)
-                if isinstance(v,list):
-                    for iv in v: 
-                        my_track(iv,k,context)
-                else:
-                    my_track(v,k,context)
-        
-        tracking_run.close()
+        upload_to_tracking(tracking_values,self.name,self.experiment,self.tags)
 
 '''
 class UploadDatahub:

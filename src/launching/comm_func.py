@@ -138,3 +138,23 @@ def produce_metrics_superMetrics_reports(allparams,work_path,output_path):
     if chart_section:
         reports.append(ReportSection(title="metrics chart",elements=chart_section,ncols=2))
     return reports
+
+def produce_html_table(table):
+    content = "<table border=\"2px\">"
+    for i,it in enumerate(table):
+        if i == 0:
+            content += "<thead>"
+        else:
+            content += "<tbody>"
+
+        content += "<tr>"
+        for j in it:
+            content += "<td>" + str(j) + "</td>"
+        content += "</tr>"
+
+        if i == 0:
+            content += "</thead>"
+        else:
+            content += "</tbody>"
+    content += "</table>"
+    return content
