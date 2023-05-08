@@ -1,4 +1,3 @@
-from sqlalchemy import over
 from dp.launching.typing.basic import BaseModel, Int, String, Float,List,Optional,Union,Dict
 from dp.launching.typing import InputFilePath, OutputDirectory
 from dp.launching.typing import (
@@ -107,6 +106,7 @@ def upload(download_path, bohrium_username, bohrium_password, bohrium_project, d
         dataset = client.get_dataset(urn1)
         if dataset == None:
             logs.iprint("\nUpload to datahub failed!\nPlease contact developer to deal with it.")
+            return False
         else:
             website = f"https://datahub.mlops.dp.tech/dataset/{urn1}/Documentation?is_lineage_mode=false"
             logs.iprint(f"\nUpload dataset to datahub successfully.")
@@ -114,6 +114,7 @@ def upload(download_path, bohrium_username, bohrium_password, bohrium_project, d
             logs.iprint(f"\turn : {dataset.urn}")
             logs.iprint(f"\ttags: {dataset.tags}")
             logs.iprint(f"\twebsite: {website}")
+            return True
 
 def UplaodDatasetModelRunner(opts:UplaodDatasetModel):
     download_path = "download_data"
@@ -132,7 +133,7 @@ def UplaodDatasetModelRunner(opts:UplaodDatasetModel):
     properties = {"bohrium_project":opts.Config_project_id}
 
     logs = myLog()
-    upload(download_path,
+    doupload = upload(download_path,
            opts.Config_lbg_username, 
            opts.Config_lbg_password, 
            opts.Config_project_id, 
@@ -152,6 +153,10 @@ def UplaodDatasetModelRunner(opts:UplaodDatasetModel):
                               elements=[AutoReportElement(title='', path=logfname, description="")])],
                     description="")
     report.save(str(opts.IO_output_path))
+    if doupload:
+        return 0
+    else:
+        return 1
 
 
 
