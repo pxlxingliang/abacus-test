@@ -1,3 +1,4 @@
+import traceback
 from typing import Literal
 
 from dp.launching.cli import to_runner,SubParser,run_sp_and_exit
@@ -212,16 +213,19 @@ def prepare_files(logs,needed_files,urn,io_input_path,
     if needed_files == None or len(needed_files) == 0:
         return None,None
     if urn != None and urn.strip() != "":
-        dataset = comm_func.get_datahub_dataset(lbg_username, 
+        try:
+            dataset = comm_func.get_datahub_dataset(lbg_username, 
                                          lbg_password, 
                                          lbg_project_id, 
                                          urn,download_path)
-        if dataset == None:
-            logs.iprint(f"ERROR: The datahub urn ({urn}) is not valid!")
-            logs.iprint(f"\tPlease check the datahub urn, and ensure that your Bohrium project ID has permission to access this data!")
-            return None,None
-        else:
-            logs.iprint(f"download the dataset to local ...")
+            if dataset == None:
+                logs.iprint(f"ERROR: The datahub urn ({urn}) is not valid!")
+                logs.iprint(f"\tPlease check the datahub urn, and ensure that your Bohrium project ID has permission to access this data!")
+                return None,None
+            else:
+                logs.iprint(f"download the dataset to local ...")
+        except:
+            traceback.print_exc()
     elif io_input_path != None:
         logs.iprint(f"unpack the uploaded dataset ...")
         try:
@@ -434,31 +438,35 @@ def ReadSetting(logs:comm_class.myLog,opts:AdvancedModel,work_path,download_path
     return allparams
 
 def AdvancedModelRunner(opts: AdvancedModel) -> int:
-    logs = comm_class.myLog()
+    try:
+        logs = comm_class.myLog()
 
-    paths = comm_func.create_path(str(opts.IO_output_path))
-    output_path = paths["output_path"]
-    work_path = paths["work_path"]
-    download_path = paths["download_path"]
+        paths = comm_func.create_path(str(opts.IO_output_path))
+        output_path = paths["output_path"]
+        work_path = paths["work_path"]
+        download_path = paths["download_path"]
 
-    allparams = ReadSetting(logs,opts,work_path,download_path)
-    if allparams == None:
+        allparams = ReadSetting(logs,opts,work_path,download_path)
+        if allparams == None:
+            return 1
+
+        stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
+        logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
+        reports = comm_func.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
+
+        logfname = "output.log"
+        logs.write(os.path.join(str(opts.IO_output_path),logfname))
+        log_section = ReportSection(title="",
+                                  elements=[AutoReportElement(title='', path=logfname, description="")])
+        reports.append(log_section)
+
+        if reports:
+            report = Report(title="abacus test report",
+                            sections=reports,
+                            description="a report of abacustest")
+            report.save(output_path)
+    except:
+        traceback.print_exc()
         return 1
-
-    stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
-    logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
-    reports = comm_func.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
-
-    logfname = "output.log"
-    logs.write(os.path.join(str(opts.IO_output_path),logfname))
-    log_section = ReportSection(title="",
-                              elements=[AutoReportElement(title='', path=logfname, description="")])
-    reports.append(log_section)
-
-    if reports:
-        report = Report(title="abacus test report",
-                        sections=reports,
-                        description="a report of abacustest")
-        report.save(output_path)
 
     return 0

@@ -4,6 +4,9 @@ import traceback
 from . import comm_echarts
 from dp.metadata import MetadataContext
 from dp.metadata.utils.storage import TiefblueStorageClient
+from dflow import download_artifact,S3Artifact,config,s3_config
+from dflow.plugins import bohrium
+from dflow.plugins.bohrium import TiefblueClient
 
 def create_path(output_path):
     work_path = os.path.join(output_path,"abacustest")
@@ -14,17 +17,31 @@ def create_path(output_path):
             "work_path": os.path.abspath(work_path),
             "download_path": os.path.abspath(download_path)}
 
+def register_dflow(private_set):
+    config["host"] = private_set.get("config_host","").strip()  
+    s3_config["endpoint"] =  private_set.get("s3_config_endpoint","").strip()
+    config["k8s_api_server"] = private_set.get("config_k8s_api_server","").strip()
+    config["token"] = private_set.get("config_token","").strip()
+    bohrium.config["username"] = private_set.get('lbg_username','')
+    bohrium.config["password"] = private_set.get('lbg_password','')
+    bohrium.config["project_id"] = private_set.get('project_id','')
+    s3_config["repo_key"] = "oss-bohrium"
+    s3_config["storage_client"] = TiefblueClient()
+
 def read_config(opts):
     #parse config
     CONFIG_KEYS=["lbg_username","lbg_password","project_id",
                  "config_host","s3_config_endpoint","config_k8s_api_server","config_token",
                  "datahub_project","datahub_gms_token","datahub_gms_url","AIM_ACCESS_TOKEN"]
-    config = {}
+    my_config = {}
+    origin_config = {}
     for ikey in CONFIG_KEYS:
         config_key = "Config_" + ikey
         if hasattr(opts,config_key) and getattr(opts,config_key).strip():
-                config[ikey] = getattr(opts,config_key).strip()
-    return config
+            my_config[ikey] = getattr(opts,config_key).strip()
+            origin_config[ikey] = getattr(opts,config_key).strip()
+    register_dflow(origin_config)
+    return my_config
 
 def run_command(
         cmd,
@@ -204,10 +221,12 @@ def get_datahub_dataset(bohrium_username,bohrium_password,bohrium_project,urn,do
     metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password,bohrium_project)
     with MetadataContext(storage_client=metadata_storage_client) as context:
         dataset = context.client.get_dataset(urn)
+        #print(dataset,dataset.uri)
         if dataset != None and download_path != None:
-            context.client.download_dataset(dataset,download_path)
+            #context.client.download_dataset(dataset,download_path)
+            artifact = S3Artifact(key=dataset.uri)
+            download_artifact(artifact,path=download_path)
         return dataset
-
 
 def unpack(filepath, output_path, filetype = None, get_support_filetype = False):
     if get_support_filetype:

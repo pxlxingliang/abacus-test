@@ -249,7 +249,7 @@ def ReadMetrics(poin_metrics,do_upload_tracking):
                     print("Can not find file %s" % metric_from_file,file=sys.stderr)
                     print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."),file=sys.stderr)
 
-            context = {"subset":"metrics%d"%im}
+            context = {"subset":"metrics%d"%im,"datatype":"metrics"}
             if "group_name" in imetric:
                 context["group_name"] = imetric.get("group_name")
 
@@ -306,7 +306,7 @@ def ReadSuperMetrics(poin_super_metrics,do_upload_tracking):
                     print("Can not find file %s" % super_metrics_setting.get("value_from_file"),file=sys.stderr)
                     print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."),file=sys.stderr)
             if super_metric_value:
-                context = {"subset":"super_metrics%d"%isuper}
+                context = {"subset":"super_metrics%d"%isuper,"datatype":"super_metrics"}
                 if "group_name" in super_metrics_setting:
                     context["group_name"] = super_metrics_setting.get("group_name")
                 tracking_summary.append((super_metric_value,context))
@@ -314,49 +314,49 @@ def ReadSuperMetrics(poin_super_metrics,do_upload_tracking):
     return tracking_summary,log
 
 def upload_to_tracking(tracking_values,name,experiment,tags=[],AIM_ACCESS_TOKEN=None):
-        """
-        tracking_values = [(tracking_value1, context1),
-                            (tracking_value2,context2),...]
-        tracking_value = {name:value}
-        """
-        if AIM_ACCESS_TOKEN:
-            os.environ["AIM_ACCESS_TOKEN"] = AIM_ACCESS_TOKEN
-        elif "AIM_ACCESS_TOKEN" not in os.environ:
-            print("Upload tracking error. Please set 'AIM_ACCESS_TOKEN' information.")
-            return None
-        
-        from dp.tracking import Run, Text, Table
-        tracking_run = Run(repo='aim://tracking-api.dp.tech:443')
-        run_hash = tracking_run.hash
-        tracking_run.name = name
-        tracking_run.experiment = experiment
-        for tag in tags: tracking_run.add_tag(tag)
-        
-        def my_track(value,name,context):
-            try:
-                if isinstance(value,(int,float,Table)):
-                    tracking_run.track(value,name=name,context=context)
-                elif isinstance(value,str):
-                    tracking_run.track(Text(value),name=name,context=context)  
-                else:
-                    print(type(value))  
-                    tracking_run.track(value,name=name,context=context)
-            except:
-                traceback.print_exc()
-                print("upload tracking failed, name:",name,"value:",value)
-        
-        for tracking_value,context in tracking_values:
-            for k,v in tracking_value.items():
-                k = k.replace("/",".")
-                print("upload to tracking: %s" % k)
-                if isinstance(v,list):
-                    for iv in v: 
-                        my_track(iv,k,context)
-                else:
-                    my_track(v,k,context)
-        
-        tracking_run.close()
-        return True
+    """
+    tracking_values = [(tracking_value1, context1),
+                        (tracking_value2,context2),...]
+    tracking_value = {name:value}
+    """
+    if AIM_ACCESS_TOKEN:
+        os.environ["AIM_ACCESS_TOKEN"] = AIM_ACCESS_TOKEN
+    elif "AIM_ACCESS_TOKEN" not in os.environ:
+        print("Upload tracking error. Please set 'AIM_ACCESS_TOKEN' information.")
+        return None
+    
+    from dp.tracking import Run, Text, Table
+    tracking_run = Run(repo='aim://tracking-api.dp.tech:443')
+    run_hash = tracking_run.hash
+    tracking_run.name = name
+    tracking_run.experiment = experiment
+    for tag in tags: tracking_run.add_tag(tag)
+    
+    def my_track(value,name,context):
+        try:
+            if isinstance(value,(int,float,Table)):
+                tracking_run.track(value,name=name,context=context)
+            elif isinstance(value,str):
+                tracking_run.track(Text(value),name=name,context=context)  
+            else:
+                print(type(value))  
+                tracking_run.track(value,name=name,context=context)
+        except:
+            traceback.print_exc()
+            print("upload tracking failed, name:",name,"value:",value)
+    
+    for tracking_value,context in tracking_values:
+        for k,v in tracking_value.items():
+            k = k.replace("/",".")
+            print("upload to tracking: %s" % k)
+            if isinstance(v,list):
+                for iv in v: 
+                    my_track(iv,k,context)
+            else:
+                my_track(v,k,context)
+    
+    tracking_run.close()
+    return True
 
 class UploadTracking:
     def __init__(self,tracking_setting):
@@ -623,14 +623,16 @@ class RunDFT(OP):
             #upload tracking
             if do_upload_tracking:
                 try:
+                    all_tracking_values = []
                     if tracking_values:
-                        tracking = UploadTracking( op_in["upload_tracking"])
-                        tracking.upload(tracking_values=tracking_values)
+                        all_tracking_values += tracking_values
                     if tracking_summary:
+                        all_tracking_values += tracking_summary
+                    if all_tracking_values:
                         tracking_setting = op_in["upload_tracking"]
                         tracking_setting["name"] = op_in["upload_tracking"].get("name","") + ".summary"
                         tracking = UploadTracking( tracking_setting)
-                        tracking.upload(tracking_values=tracking_summary) 
+                        tracking.upload(tracking_values=all_tracking_values) 
                 except:
                     traceback.print_exc()               
 
