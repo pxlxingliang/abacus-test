@@ -96,7 +96,7 @@ class UplaodTrackingSet(BaseModel):
     AIM_ACCESS_TOKEN: String = Field(description="Token to access tracking")
     test_name: String
     experiment_name: String
-    tags: List[String] =  Field(default=[],description="")
+    tags: String =  Field(default=None,description="Please separate each tag with a comma(,)")
 
 example_datahub_urn_description = """
 """
@@ -423,8 +423,12 @@ def ReadSetting(logs:comm_class.myLog,opts:AdvancedModel,work_path,download_path
         if isinstance(opts.tracking,UplaodTrackingSet):
             print("read tracking setting ...")
             config["AIM_ACCESS_TOKEN"] = opts.tracking.AIM_ACCESS_TOKEN.strip()
+            if opts.tracking.tags != None and opts.tracking.tags.strip() != "":
+                tags = opts.tracking.tags.strip().split(",")
+            else:
+                tags = []
             post_dft["upload_tracking"] = {
-                "tags": opts.tracking.tags,
+                "tags": tags,
                 "name": opts.tracking.test_name,
                 "experiment": opts.tracking.experiment_name
             }
