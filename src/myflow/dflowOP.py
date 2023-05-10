@@ -1175,6 +1175,8 @@ def ProduceOneSteps(stepname,param):
         #step3 = ProducePostDFTStep(param["post_dft"],model_output_artifact)
         comm.printinfo("image: %s" % image) 
         comm.printinfo("set bohrium: %s"%str(bohrium_set))   
+        comm.printinfo("command: %s"%str(param["post_dft"].get("command"))) 
+
         steps.add(step3)
         allstepname = [stepname]
         all_save_path = [[save_path,""]]
