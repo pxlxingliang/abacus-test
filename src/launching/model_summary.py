@@ -248,6 +248,8 @@ def echart_report(allvalues):
                     "dataZoom": {
                         "yAxisIndex": 'none'
                     },
+                    "dataView": {"readOnly": False},
+                    "magicType": {"type": ['line', 'bar']},
                     "restore": {},
                     "saveAsImage": {}
                 }

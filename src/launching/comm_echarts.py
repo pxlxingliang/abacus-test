@@ -9,6 +9,18 @@ def get_bar_option(title,x,y):
                 "fontWeight": 'bold'
             }
         },
+        "toolbox": {
+            "show": True,
+            "feature": {
+                "dataZoom": {
+                    "yAxisIndex": 'none'
+                },
+                "dataView": {"readOnly": False},
+                "magicType": {"type": ['line', 'bar']},
+                "restore": {},
+                "saveAsImage": {}
+            }
+        },
         "tooltip": {
             "trigger": 'axis',
             "axisPointer": {
