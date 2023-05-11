@@ -109,6 +109,8 @@ Please note that if you fill in this field, the previously uploaded examples wil
     example: String = Field(default="*",description = "You can choose to run only partial examples, and separate each example with space. \
 Tips: you can use regex to select examples. For example: example_00[1-5]* example_[6,7,8]*. If you want to run all examples, please type '*'.")
     
+    ngroup: Int = Field(default=None,description="Number of groups to run in parallel. If not set, all examples will be run in parallel.",gt=0)
+
     rundft_extrafiles_urn: String = Field(default=None,
                           title = "Rundft extra file URN",
                           description = "If you want to use the local files uploaded in Extra files, please not fill in anything here",)
@@ -300,6 +302,9 @@ def ReadSetting(logs:comm_class.myLog,opts:AdvancedModel,work_path,download_path
     run_dft[-1]["example"] = examples_name
     logs.iprint("\texample:",examples_name)
 
+    if opts.ngroup != None and opts.ngroup > 0:
+        run_dft[-1]["ngroup"] = opts.ngroup
+        
     #get rundft extra files
     rundft_extrafiles_needed = None
     if opts.rundft_extrafiles != None and opts.rundft_extrafiles.strip() != "":

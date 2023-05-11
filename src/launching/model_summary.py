@@ -245,9 +245,7 @@ def echart_report(allvalues):
             },
             "toolbox": {
                 "feature": {
-                    "dataZoom": {
-                        "yAxisIndex": 'none'
-                    },
+                    "dataZoom": {},
                     "dataView": {"readOnly": False},
                     "magicType": {"type": ['line', 'bar']},
                     "restore": {},

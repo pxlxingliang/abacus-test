@@ -12,9 +12,7 @@ def get_bar_option(title,x,y):
         "toolbox": {
             "show": True,
             "feature": {
-                "dataZoom": {
-                    "yAxisIndex": 'none'
-                },
+                "dataZoom": {},
                 "dataView": {"readOnly": False},
                 "magicType": {"type": ['line', 'bar']},
                 "restore": {},
