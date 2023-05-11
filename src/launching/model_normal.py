@@ -103,7 +103,7 @@ class RunSet(BaseModel):
                                         title = "Datahub URN of examples",
                                         description = example_datahub_urn_description)
     
-    ngroup: Int = Field(default=None,description="Number of groups to run in parallel. If not set, all examples will be run in parallel.",gt=0)
+    ngroup: Int = Field(default=0,description="Number of groups to run in parallel. If set to 0, all examples will be run in parallel.",ge=0)
     
     rundft_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus > log",
                           title = "Command to run each example. Please note that the program will first enter each folder before executing this command",
@@ -209,7 +209,7 @@ def ReadSetting(logs:comm_class.myLog,opts:NormalModel,work_path,download_path):
         }
         logs.iprint("\tbohrium:",run_dft[-1]["bohrium"])
 
-    if opts.ngroup != None:
+    if opts.ngroup > 0:
         run_dft[-1]["ngroup"] = opts.ngroup
 
     #read postdft image
