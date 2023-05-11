@@ -42,7 +42,8 @@ def get_bar_option(title,x,y):
         ],
         "yAxis": [
             {
-                "type": 'value'
+                "type": 'value',
+                "scale": True
             }
         ],
         "series": [
