@@ -101,11 +101,6 @@ class RunSet(BaseModel):
                                         title = "Datahub URN of examples",
                                         description = example_datahub_urn_description)
     
-    rundft_extrafiles: String = Field(default="",
-                          title = "Before executing the rundft_command, these files will be copied to each example directory. \
-                            Please ensure that these files are in the same level as the example directory, and separate each file with a comma(,).",
-                          description = "",)
-    
     rundft_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus > log",
                           title = "Command to run each example. Please note that the program will first enter each folder before executing this command",
                           description = "",)
@@ -113,15 +108,6 @@ class RunSet(BaseModel):
     rundft_image_set: Union[RundftBohriumImage,RundftImage] = Field(discriminator="type",
                                                                     description = "set the image used in RUN DFT step")
     
-
-    postdft_extrafiles: String = Field(default="",
-                          title = "Before executing the rundft_command, these files will be copied to each example directory. \
-                            Please ensure that these files are in the same level as the example directory, and separate each file with a comma(,).",
-                          description = "",)
-    
-    postdft_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus > log",
-                          title = "Command to run each example. Please note that the program will first enter each folder before executing this command",
-                          description = "",)
     
     postdft_image_set: Union[PostdftImage,PostdftBohriumImage] = Field(discriminator="type",
                                                                       description = "set the image used in POST DFT step")
