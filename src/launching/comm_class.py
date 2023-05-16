@@ -18,9 +18,13 @@ from dp.launching.typing import (
     BohriumJobType,
     BohriumUsername,
     BohriumPassword,
-    BohriumProjectId
+    BohriumProjectId,
+    BenchmarkLabels,
+    BenchmarkTags
 )
 from enum import Enum
+from typing import Literal
+import re
 
 class ConfigSet(BaseModel):
     #Bohrium config
@@ -33,6 +37,8 @@ class ConfigSet(BaseModel):
     Config_s3_config_endpoint: DflowStorageEndpoint
     Config_config_k8s_api_server: DflowK8sAPIServer
     Config_config_token: DflowAccessToken 
+
+    Config_dflow_labels: BenchmarkLabels
 
 class AbacusMetricEnum(String,Enum):
     AbacusMetric_metric1 = 'version'
@@ -92,6 +98,31 @@ class RunSetUpload(BaseModel):
     uploadtracking_experiment_name: String =  Field(default="",description="Please set the name of experiment. If not set, will not upload metrics to tracking")
     uploadtracking_tags: List[String] =  Field(default=[],description="")
 '''
+
+class TrackingSet(BaseModel):
+    Tracking_metrics: Boolean = Field(default=False,description="If tracking, will display historical metrics values based on test and experience")
+    Tracking_token: String = Field(default=None,description="If want to track metrics, please enter your token to access AIM")
+    Tracking_tags: BenchmarkTags
+    #tags = [f"benchmark-application-{application.name}", f"benchmark-version-{job.version}", f"benchmark-schedule-{job.properties.get('source_name', 'none')}",
+    #        f"benchmark-job-{job.name}"]
+
+    @classmethod
+    def parse_obj(cls,opts):
+        if opts.tracking_metrics and opts.tracking_token != None and opts.tracking_token.strip() != "":
+            default_tags = opts.default_tags 
+            schedule = "_".join(re.split("-",default_tags[2],2)[-1].strip().split())
+            application_name = re.split("-",default_tags[0],2)[-1]
+            job_name = re.split("-",default_tags[3],2)[-1]
+                
+            return {
+                "name": schedule + "." + job_name,
+                "experiment": application_name + "/benchmark",
+                "tags": default_tags,
+                "token": opts.tracking.AIM_ACCESS_TOKEN
+            }
+        else:
+            return None
+    
 
 class myLog:
     def __init__(self):
