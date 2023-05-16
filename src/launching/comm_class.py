@@ -92,3 +92,15 @@ class RunSetUpload(BaseModel):
     uploadtracking_experiment_name: String =  Field(default="",description="Please set the name of experiment. If not set, will not upload metrics to tracking")
     uploadtracking_tags: List[String] =  Field(default=[],description="")
 '''
+
+class myLog:
+    def __init__(self):
+        self.logs = ""
+    
+    def iprint(self,mess,*args):
+        allmess = " ".join([str(mess)]+[str(i) for i in args])
+        print(allmess)
+        self.logs += allmess + "\n"
+    
+    def write(self,filename):
+        with open(filename,'w') as f1: f1.write(self.logs)

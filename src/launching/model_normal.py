@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Literal
 
+from sqlalchemy import desc
+
 from dp.launching.cli import to_runner,SubParser,run_sp_and_exit
 from dp.launching.typing.basic import BaseModel, Int, String, Float,List,Optional,Union,Dict
 from dp.launching.cli import to_runner, default_minimal_exception_handler
@@ -31,7 +33,7 @@ from dp.launching.report import Report,AutoReportElement,ReportSection,ChartRepo
 from . import comm_class,comm_func
 
 
-io_input_path_description = """A zip file contains all example folders. For each folder is one example, and containing all the required files. 
+io_input_path_description = """A compressed file contains all example folders. For each folder is one example, and containing all the required files. 
 
 If you want to use the examples from datahub, please refer to the later 'Example Datahub Urn' section and there is no need to upload files here.
 """
@@ -39,7 +41,7 @@ If you want to use the examples from datahub, please refer to the later 'Example
 class IOSet(BaseModel):
     IO_input_path:InputFilePath = Field(default = None,
                                         title="Upload examples locally",
-                                        st_kwargs_type = ["zip"], 
+                                        st_kwargs_type = comm_func.unpack(None,None,get_support_filetype=True), 
                                         description=io_input_path_description,
                                         description_type="markdown")
     IO_output_path: OutputDirectory = Field(default="./output")
@@ -90,7 +92,7 @@ class UplaodTrackingSet(BaseModel):
     AIM_ACCESS_TOKEN: String = Field(description="Token to access tracking")
     test_name: String
     experiment_name: String
-    tags: List[String] =  Field(default=[],description="")
+    tags: String =  Field(default=None,description="Please separate each tag with a comma(,)")
 
 example_datahub_urn_description = """If you want to use a datahub example, please enter the urn of the example. 
 Please note that if you fill in this field, the previously uploaded examples will be ignored.
@@ -101,17 +103,19 @@ class RunSet(BaseModel):
                                         title = "Datahub URN of examples",
                                         description = example_datahub_urn_description)
     
+    ngroup: Int = Field(default=0,description="Number of groups to run in parallel. If set to 0, all examples will be run in parallel.",ge=0)
+    
     rundft_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus > log",
-                          title = "Command to run each example",
+                          title = "Command to run each example. Please note that the program will first enter each folder before executing this command",
                           description = "",)
 
     rundft_image_set: Union[RundftBohriumImage,RundftImage] = Field(discriminator="type",
                                                                     description = "set the image used in RUN DFT step")
     
     
-
     postdft_image_set: Union[PostdftImage,PostdftBohriumImage] = Field(discriminator="type",
                                                                       description = "set the image used in POST DFT step")
+    
     
     postdft_metrics: Set[comm_class.AbacusMetricEnum]
 
@@ -124,7 +128,7 @@ class RunSet(BaseModel):
 class NormalModel(IOSet,comm_class.ConfigSet,RunSet,BaseModel):
     ...  
 
-def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
+def ReadSetting(logs:comm_class.myLog,opts:NormalModel,work_path,download_path):
     """
     {
         "config":{},
@@ -146,40 +150,53 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
         }
     }
     """
-    print("read config setting ...")
+    logs.iprint("read config setting ...")
     config = comm_func.read_config(opts)
 
     #parse rundft
     run_dft = [{}]
 
     #parse example
-    print("read example setting ...")
+    logs.iprint("read example setting ...")
     example_datahub = opts.example_datahub_urn.strip()
     example_local = opts.IO_input_path
 
-    print("\texample_datahub_urn:",example_datahub)
-    print("\texample_local:",example_local)
+    logs.iprint("\texample_datahub_urn:",example_datahub)
+    logs.iprint("\texample_local:",example_local)
 
     if example_datahub == "" and example_local == None:
-        print("Please upload the examplee locally or supply datahub urn")
+        logs.iprint("Please upload the examples locally or supply datahub urn")
         return None
     elif example_datahub != "":
         run_dft[-1]["example_source"] = "datahub"
         run_dft[-1]["urn"] = example_datahub
         run_dft[-1]["example"] = ["*"]
+        if comm_func.get_datahub_dataset(opts.Config_lbg_username, 
+                                         opts.Config_lbg_password, 
+                                         opts.Config_project_id, 
+                                         example_datahub) == None:
+            logs.iprint(f"ERROR: The datahub urn ({example_datahub}) is not valid!")
+            logs.iprint(f"\tPlease check the datahub urn, and ensure that your Bohrium project ID has permission to access this data!")
+            return None
+
     else:
         run_dft[-1]["example"] = []
-        with zipfile.ZipFile(example_local.get_path(), "r") as zip_ref:
-            zip_ref.extractall(download_path)
+        try: 
+            comm_func.unpack(example_local.get_path(),download_path)
+        except:
+            logs.iprint(f"ERROR: The example file ({example_local.get_path()}) is not valid!")
+            logs.iprint(f"\tPlease check the example file!")
+            return None
+
         for ifile in os.listdir(download_path):
             if os.path.isdir(os.path.join(download_path,ifile)):
                 run_dft[-1]["example"].append(ifile)
             shutil.move(os.path.join(download_path,ifile),os.path.join(work_path,ifile))
 
     #read rundft image and command
-    print("read run dft image command setting ...")
-    print("\timage:",opts.rundft_image_set.image)
-    print("\tcommand:",opts.rundft_command)
+    logs.iprint("read run dft image command setting ...")
+    logs.iprint("\timage:",opts.rundft_image_set.image)
+    logs.iprint("\tcommand:",opts.rundft_command)
 
 
     run_dft[-1]["image"] = opts.rundft_image_set.image
@@ -190,11 +207,14 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
             "job_type": opts.rundft_image_set.bohrium_job_type,
             "platform": opts.rundft_image_set.bohrium_plat_form
         }
-        print("\tbohrium:",run_dft[-1]["bohrium"])
+        logs.iprint("\tbohrium:",run_dft[-1]["bohrium"])
+
+    if opts.ngroup > 0:
+        run_dft[-1]["ngroup"] = opts.ngroup
 
     #read postdft image
-    print("read post dft image command setting ...")
-    print("\timage:",opts.postdft_image_set.image)
+    logs.iprint("read post dft image command setting ...")
+    logs.iprint("\timage:",opts.postdft_image_set.image)
     need_post_dft = False
     post_dft = {"image":opts.postdft_image_set.image}
     if isinstance(opts.postdft_image_set, PostdftBohriumImage):
@@ -203,16 +223,16 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
             "job_type": opts.postdft_image_set.bohrium_job_type,
             "platform": opts.postdft_image_set.bohrium_plat_form
         }
-        print("\tbohrium:",post_dft["bohrium"])
+        logs.iprint("\tbohrium:",post_dft["bohrium"])
 
     
     #read metrics setting
-    print("read metrics setting ...")
+    logs.iprint("read metrics setting ...")
     has_super_metrics = False
     allexamplepath = run_dft[-1]["example"]
     metrics = list(opts.postdft_metrics)
     if len(opts.postdft_super_metrics) > 0:
-        print("read super metrics setting ...")
+        logs.iprint("read super metrics setting ...")
         has_super_metrics = True
         #complete metrics
         for i in opts.postdft_super_metrics:
@@ -252,10 +272,14 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
     #read tracking setting
     if need_post_dft:
         if isinstance(opts.tracking,UplaodTrackingSet):
-            print("read tracking setting ...")
+            logs.iprint("read tracking setting ...")
             config["AIM_ACCESS_TOKEN"] = opts.tracking.AIM_ACCESS_TOKEN.strip()
+            if opts.tracking.tags != None and opts.tracking.tags.strip() != "":
+                tags = opts.tracking.tags.strip().split(",")
+            else:
+                tags = []
             post_dft["upload_tracking"] = {
-                "tags": opts.tracking.tags,
+                "tags": tags,
                 "name": opts.tracking.test_name,
                 "experiment": opts.tracking.experiment_name
             }
@@ -265,21 +289,30 @@ def ReadSetting(opts:NormalModel,work_path,download_path,hasdatahub=False):
             "save_path": "results"}
     if need_post_dft:
         allparams["post_dft"] = post_dft
-    print("read setting over!\n")
+    logs.iprint("read setting over!\n")
     return allparams
 
 def NormalModelRunner(opts: NormalModel) -> int:
+    logs = comm_class.myLog()
+
     paths = comm_func.create_path(str(opts.IO_output_path))
     output_path = paths["output_path"]
     work_path = paths["work_path"]
     download_path = paths["download_path"]
 
-    allparams = ReadSetting(opts,work_path,download_path,hasdatahub=False)
+    allparams = ReadSetting(logs,opts,work_path,download_path)
     if allparams == None:
         return 1
 
-    comm_func.exec_abacustest(allparams,work_path)
+    stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
+    logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
     reports = comm_func.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
+
+    logfname = "output.log"
+    logs.write(os.path.join(str(opts.IO_output_path),logfname))
+    log_section = ReportSection(title="",
+                              elements=[AutoReportElement(title='', path=logfname, description="")])
+    reports.append(log_section)
 
     if reports:
         report = Report(title="abacus test report",

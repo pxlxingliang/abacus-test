@@ -13,21 +13,9 @@ from dp.metadata.utils.storage import TiefblueStorageClient
 from abacustest.myflow.comm import CollectFileName
 from dp.launching.report import ChartReportElement,ReportSection,AutoReportElement
 
-class myLog:
-    def __init__(self):
-        self.logs = ""
-    
-    def iprint(self,mess):
-        print(mess)
-        self.logs += mess + "\n"
-    
-    def write(self,filename):
-        with open(filename,'w') as f1: f1.write(self.logs)
-
-
 datahub_project = "abacustest_dataset"
 
-io_input_path_description = f"""A zip file contains all example folders. 
+io_input_path_description = f"""A compressed file contains all example folders. 
 
 For each folder is one example, and containing all the required files.
 
@@ -36,11 +24,11 @@ The dataset will be uploaded to https://datahub.mlops.dp.tech/browse/dataset/cor
 
 class UplaodDatasetModel(comm_class.ConfigSet,BaseModel):
     IO_input_path:InputFilePath = Field(title="Upload dataset",
-                                        st_kwargs_type = ["zip"], 
+                                        st_kwargs_type = comm_func.unpack(None,None,get_support_filetype=True), 
                                         description=io_input_path_description,
                                         description_type="markdown")
     IO_output_path: OutputDirectory = Field(default="./output")
-    name: String = Field(title="Dataset Name",regex="^\\s*[a-zA-Z0-9_]+\\s*$",description_type="Can only contains letters, numbers and _. (regex is: [a-zA-Z0-9_])")
+    name: String = Field(title="Dataset Name",regex="^\\s*[a-zA-Z0-9_-]+\\s*$",description="Can only contains letters, numbers, _ and -. (regex is: [a-zA-Z0-9_-])")
     overwrite: Boolean = Field(description="If overwrite when the dataset already exists? Only owner can overwrite it.")
     description: String = Field(default="")
 
@@ -132,7 +120,7 @@ def UplaodDatasetModelRunner(opts:UplaodDatasetModel):
     tags = [opts.Config_lbg_username,opts.Config_project_id,today.split("-")[0],today]
     properties = {"bohrium_project":opts.Config_project_id}
 
-    logs = myLog()
+    logs = comm_class.myLog()
     doupload = upload(download_path,
            opts.Config_lbg_username, 
            opts.Config_lbg_password, 
@@ -145,7 +133,7 @@ def UplaodDatasetModelRunner(opts:UplaodDatasetModel):
            overwrite, 
            logs)
 
-    logfname = "out.log"
+    logfname = "output.log"
     logs.write(os.path.join(str(opts.IO_output_path),logfname))
 
     report = Report(title="",
