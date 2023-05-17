@@ -6,13 +6,25 @@ class Abacus(ResultAbacus):
     @ResultAbacus.register(version="the version of ABACUS")
     def GetVersion(self):
         if len(self.LOG) > 0:
-            for line in self.LOG:
+            for line_idx,line in enumerate(self.LOG):
                 if "WELCOME TO ABACUS" in line:
                     version = line.split()[-1]
                     if version[0].lower() != 'v':
                         print("Unknow version of '%s'" % version)
                     self['version'] = version
-                    
+                    return
+                elif line[30:36] == "ABACUS":
+                    version = line[36:].strip()
+                    commit = "unknown"
+                    for ii in range(30):
+                        if line_idx + ii >= len(self.LOG):
+                            break
+                        if "Commit:" in self.LOG[line_idx + ii]:
+                            commit = re.split(":",self.LOG[line_idx + ii].strip(),maxsplit=1)[-1].strip()
+                            break
+                    self['version'] = version + "(" + commit + ")"
+                    return
+                                              
     @ResultAbacus.register(ncore="the mpi cores")
     def GetNcore(self):
         for line in self.LOG:
