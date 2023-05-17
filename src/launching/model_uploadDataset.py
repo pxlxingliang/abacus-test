@@ -28,7 +28,7 @@ class UplaodDatasetModel(comm_class.ConfigSet,BaseModel):
                                         description=io_input_path_description,
                                         description_type="markdown")
     IO_output_path: OutputDirectory = Field(default="./output")
-    name: String = Field(title="Dataset Name",regex="^\\s*[a-zA-Z0-9_-]+\\s*$",description="Can only contains letters, numbers, _ and -. (regex is: [a-zA-Z0-9_-])")
+    name: String = Field(title="Dataset Name",regex="^\\s*[a-zA-Z0-9_-.]+\\s*$",description="Can only contains letters, numbers, dot(.), _ and -. (regex is: [a-zA-Z0-9_-.])")
     overwrite: Boolean = Field(description="If overwrite when the dataset already exists? Only owner can overwrite it.")
     description: String = Field(default="")
 

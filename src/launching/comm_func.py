@@ -37,8 +37,11 @@ def read_config(opts):
     my_config = {}
     for ikey in CONFIG_KEYS:
         config_key = "Config_" + ikey
-        if hasattr(opts,config_key) and getattr(opts,config_key).strip():
-            my_config[ikey] = getattr(opts,config_key).strip()
+        if hasattr(opts,config_key):
+            if ikey == "dfow_labels":
+                my_config[ikey] = getattr(opts,config_key)
+            elif getattr(opts,config_key).strip():
+                my_config[ikey] = getattr(opts,config_key).strip()
     register_dflow(my_config)
     return my_config
 
