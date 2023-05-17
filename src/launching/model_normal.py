@@ -111,7 +111,7 @@ class RunSet(BaseModel):
 
     postdft_super_metrics: List[SuperMetricsSet] = Field(default=[])
 
-class NormalModel(IOSet,comm_class.ConfigSet,RunSet,comm_class.TrackingSet,BaseModel):
+class NormalModel(IOSet,comm_class.ConfigSet,comm_class.TrackingSet,RunSet,BaseModel):
     ...  
 
 def ReadSetting(logs:comm_class.myLog,opts:NormalModel,work_path,download_path):
