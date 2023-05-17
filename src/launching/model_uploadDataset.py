@@ -22,7 +22,7 @@ For each folder is one example, and containing all the required files.
 The dataset will be uploaded to https://datahub.mlops.dp.tech/browse/dataset/corp/tiefblue/{datahub_project}
 """
 
-class UplaodDatasetModel(comm_class.ConfigSet,BaseModel):
+class UplaodDataset(BaseModel):
     IO_input_path:InputFilePath = Field(title="Upload dataset",
                                         st_kwargs_type = comm_func.unpack(None,None,get_support_filetype=True), 
                                         description=io_input_path_description,
@@ -32,6 +32,8 @@ class UplaodDatasetModel(comm_class.ConfigSet,BaseModel):
     overwrite: Boolean = Field(description="If overwrite when the dataset already exists? Only owner can overwrite it.")
     description: String = Field(default="")
 
+class UplaodDatasetModel(UplaodDataset,comm_class.ConfigSet,BaseModel):
+    ...
 
 def upload(download_path, bohrium_username, bohrium_password, bohrium_project, dataset_name, new_dataset_name_tail, tags, properties, description, overwrite, logs):
     '''

@@ -8,7 +8,7 @@ from dp.launching.report import Report
 from . import comm_class,comm_func
 import json,traceback
 
-class SelfDefineModel(comm_class.ConfigSet,BaseModel):
+class SelfDefine(BaseModel):
     IO_input_path:InputFilePath = Field(default = None,
                                         title="Upload setting file",
                                         st_kwargs_type = ["json"], 
@@ -17,6 +17,10 @@ class SelfDefineModel(comm_class.ConfigSet,BaseModel):
     IO_output_path: OutputDirectory = Field(default="./output")
     setting: String = Field(default = "",
                             description="Please enter the setting information in json format. If you fill in this field, the previous file will be ignored!")
+    
+
+class SelfDefineModel(SelfDefine,comm_class.ConfigSet,BaseModel):
+    ...
     
 def SelfDefineModelRunner(opts:SelfDefineModel):
     paths = comm_func.create_path(str(opts.IO_output_path))
