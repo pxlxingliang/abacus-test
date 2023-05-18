@@ -954,7 +954,6 @@ def FindDataHubExamples(example,uri,storage_client):
                     example_tmp.append(iexample_name)
     else:
         example_tmp = example
-
     for ie in example_tmp:
         if isinstance(ie,list):
             tmp_artifact = []
@@ -971,7 +970,6 @@ def FindDataHubExamples(example,uri,storage_client):
             tmp_artifact,tmp_name = ProduceArtifact(storage_client,uri_tmp,ie)
         else:
             comm.printinfo(ie,"element of 'example' should be a list, or str")
-        
         if len(tmp_artifact) > 0:
             examples.append(tmp_artifact)    
             examples_name.append(tmp_name)
@@ -1047,9 +1045,22 @@ def GetExampleScript(rundft,example_source_name,example_name,collectdata_script_
     if example_source == 'datahub':
         urn = urn if urn != None else rundft["urn"]
         uri,storage_client = GetURI(urn)
-        examples,examples_name = FindDataHubExamples(rundft.get(example_name,[]),uri,storage_client)
-        collectdata_script_tmp,collectdata_script_name_tmp = FindDataHubExamples(rundft.get(collectdata_script_name,[]), uri,storage_client)
-        datahub = True
+        if True:
+            cwd = os.getcwd()
+            tmp = comm.GetBakFile("tmp")
+            os.makedirs(tmp)
+            DownloadURI(uri,tmp)
+            os.chdir(tmp) 
+            examples,examples_name = FindLocalExamples(rundft.get(example_name,[]))
+            collectdata_script_tmp,collectdata_script_name_tmp = FindLocalExamples(rundft.get(collectdata_script_name,[]))
+            os.chdir(cwd)
+            datahub = False
+            comm.printinfo("examples_name",examples_name)
+            comm.printinfo("collectdata_script_name_tmp",collectdata_script_name_tmp)  
+        else:
+            examples,examples_name = FindDataHubExamples(rundft.get(example_name,[]),uri,storage_client)
+            collectdata_script_tmp,collectdata_script_name_tmp = FindDataHubExamples(rundft.get(collectdata_script_name,[]), uri,storage_client)
+            datahub = True
         comm.printinfo("Example_source is 'datahub', use the example in 'datahub'")
     else:
         datahub = False
@@ -1091,7 +1102,7 @@ def ProduceOneSteps(stepname,param):
         #get the example and collectdata script
         datahub,examples,examples_name,collectdata_script,collectdata_script_name = \
             GetExampleScript(rundft,"example_source","example","extra_files")  
-        
+#        comm.printinfo(datahub,examples,examples_name,collectdata_script,collectdata_script_name)
         #split the examples to ngroup and produce ngroup step      
         if len(examples) > 0:
             image = globV.get_value("ABBREVIATION").get(rundft.get("image"),rundft.get("image"))

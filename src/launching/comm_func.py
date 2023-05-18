@@ -32,15 +32,17 @@ def read_config(opts):
     #parse config
     CONFIG_KEYS=["lbg_username","lbg_password","project_id",
                  "config_host","s3_config_endpoint","config_k8s_api_server","config_token",
-                 "datahub_project","datahub_gms_token","datahub_gms_url","AIM_ACCESS_TOKEN"]
+                 "datahub_project","datahub_gms_token","datahub_gms_url","AIM_ACCESS_TOKEN",
+                 "dflow_labels"]
     my_config = {}
-    origin_config = {}
     for ikey in CONFIG_KEYS:
         config_key = "Config_" + ikey
-        if hasattr(opts,config_key) and getattr(opts,config_key).strip():
-            my_config[ikey] = getattr(opts,config_key).strip()
-            origin_config[ikey] = getattr(opts,config_key).strip()
-    register_dflow(origin_config)
+        if hasattr(opts,config_key):
+            if ikey == "dfow_labels":
+                my_config[ikey] = getattr(opts,config_key)
+            elif getattr(opts,config_key).strip():
+                my_config[ikey] = getattr(opts,config_key).strip()
+    register_dflow(my_config)
     return my_config
 
 def run_command(

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from cProfile import label
 import os,sys,glob,time,shutil,argparse,json,traceback,re
 import numpy as np
 
@@ -311,10 +312,11 @@ def RunJobs(param):
     if len(allstep) == 0:
         comm.printinfo("No step is produced, exit!!!")
     else:
+        dflow_labels = globV.get_value("PRIVATE_SET",{}).get("dflow_labels",None)
         if globV.get_value("BOHRIUM_EXECUTOR"):
-            wf = Workflow(name="abacustest",context=globV.get_value("BRM_CONTEXT"))
+            wf = Workflow(name="abacustest",context=globV.get_value("BRM_CONTEXT"),labels=dflow_labels)
         else:
-            wf = Workflow(name="abacustest")
+            wf = Workflow(name="abacustest",labels=dflow_labels)
 
         wf.add(allstep)
         wf.submit()

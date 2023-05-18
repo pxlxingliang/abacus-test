@@ -2,12 +2,13 @@ from . import globV
 import os,shutil,glob
 from pathlib import Path
 
-def printinfo(istr):
+def printinfo(istr,*args):
     LOGFILE = "abacustest.log"
+    output = " ".join([str(istr)]+[str(i) for i in args])
     with open(LOGFILE,'a+') as f1:
-        f1.write(str(istr) + "\n")
+        f1.write(output + "\n")
     if globV.get_value("OUTINFO"):
-        print(istr,flush=True)
+        print(output,flush=True)
         
 def GetBakFile(sfile):
     while sfile[-1] == '/':

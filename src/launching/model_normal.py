@@ -84,16 +84,6 @@ class PostdftImage(BaseModel):
                           title = "",
                           description = "",)
 
-class NoneSet(BaseModel):
-    type: Literal["no extra setting"]
-
-class UplaodTrackingSet(BaseModel):
-    type: Literal["upload the metrics to tracking"]
-    AIM_ACCESS_TOKEN: String = Field(description="Token to access tracking")
-    test_name: String
-    experiment_name: String
-    tags: String =  Field(default=None,description="Please separate each tag with a comma(,)")
-
 example_datahub_urn_description = """If you want to use a datahub example, please enter the urn of the example. 
 Please note that if you fill in this field, the previously uploaded examples will be ignored.
 """
@@ -121,11 +111,7 @@ class RunSet(BaseModel):
 
     postdft_super_metrics: List[SuperMetricsSet] = Field(default=[])
 
-    tracking: Union[NoneSet,UplaodTrackingSet] = Field(discriminator="type",
-                                                       title = "Upload metrics to TRACKING?",
-                                                       description = "")
-
-class NormalModel(IOSet,comm_class.ConfigSet,RunSet,BaseModel):
+class NormalModel(IOSet,comm_class.ConfigSet,comm_class.TrackingSet,RunSet,BaseModel):
     ...  
 
 def ReadSetting(logs:comm_class.myLog,opts:NormalModel,work_path,download_path):
@@ -271,17 +257,13 @@ def ReadSetting(logs:comm_class.myLog,opts:NormalModel,work_path,download_path):
 
     #read tracking setting
     if need_post_dft:
-        if isinstance(opts.tracking,UplaodTrackingSet):
-            logs.iprint("read tracking setting ...")
-            config["AIM_ACCESS_TOKEN"] = opts.tracking.AIM_ACCESS_TOKEN.strip()
-            if opts.tracking.tags != None and opts.tracking.tags.strip() != "":
-                tags = opts.tracking.tags.strip().split(",")
-            else:
-                tags = []
+        tracking_set = comm_class.TrackingSet.parse_obj(opts)
+        if tracking_set:
+            config["AIM_ACCESS_TOKEN"] = tracking_set.get("token")
             post_dft["upload_tracking"] = {
-                "tags": tags,
-                "name": opts.tracking.test_name,
-                "experiment": opts.tracking.experiment_name
+                "tags": tracking_set.get("tags"),
+                "name": tracking_set.get("name"),
+                "experiment": tracking_set.get("experiment")
             }
 
     allparams = {"config": config,
