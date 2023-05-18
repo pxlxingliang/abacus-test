@@ -14,7 +14,7 @@ upload_packages.append(os.path.split(__file__)[0])
 def AbacusTestArgs(parser):
     parser.description = "This script is used to run a testing"
     parser.add_argument('-p', '--param', type=str, default="job.json",help='the job setting file, default is job.json')
-    parser.add_argument('-s', '--save', type=str, default=None,help='the folder where the results will be put in, default: result/date_of_today (e.g. result/20230101)')
+    parser.add_argument('-s', '--save', type=str, default=None,help='the folder where the results will be put in, default: result')
     parser.add_argument('--override', type=int, default=1,help="when the save folder exists, if override it. 0: no, 1: yes. ")
     parser.add_argument('--outinfo', type=int, default=1,help='if output detail informations, 0: no, 1: yes')
     parser.add_argument('--debug',nargs='?',type=int, const=1, default=0,help="debug mode for dflow")
