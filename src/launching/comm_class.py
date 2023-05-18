@@ -1,5 +1,5 @@
-from dp.launching.cli import to_runner,SubParser,run_sp_and_exit
-from dp.launching.typing.basic import BaseModel, Int, String, Float,List,Optional,Union,Dict
+from dp.launching.cli import to_runner, SubParser, run_sp_and_exit
+from dp.launching.typing.basic import BaseModel, Int, String, Float, List, Optional, Union, Dict
 from dp.launching.cli import to_runner, default_minimal_exception_handler
 from dp.launching.typing import InputFilePath, OutputDirectory
 from dp.launching.typing import (
@@ -25,6 +25,7 @@ from dp.launching.typing import (
 from enum import Enum
 from typing import Literal
 import re
+from . import comm_func
 
 class ConfigSet(BaseModel):
     #Bohrium config
@@ -36,11 +37,12 @@ class ConfigSet(BaseModel):
     Config_config_host: DflowArgoAPIServer
     Config_s3_config_endpoint: DflowStorageEndpoint
     Config_config_k8s_api_server: DflowK8sAPIServer
-    Config_config_token: DflowAccessToken 
+    Config_config_token: DflowAccessToken
 
     Config_dflow_labels: BenchmarkLabels
 
-class AbacusMetricEnum(String,Enum):
+
+class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric1 = 'version'
     AbacusMetric_metric2 = 'ncore'
     AbacusMetric_metric3 = 'normal_end'
@@ -82,38 +84,31 @@ class AbacusMetricEnum(String,Enum):
     AbacusMetric_metric39 = 'relax_steps'
 
 
-class SuperMetricMethodEnum(String,Enum):
+class SuperMetricMethodEnum(String, Enum):
     SuperMetricMethod_method1 = "iGM"
     SuperMetricMethod_method2 = "GM"
     SuperMetricMethod_method3 = "TrueRatio"
     SuperMetricMethod_method4 = "MEAN"
 
-'''
-class RunSetUpload(BaseModel):
-    uploaddatahub_project: String =  Field(default="",description="Please set the project where dataset will be uploaded to. If not set, will not upload")
-    uploaddatahub_datasetname: String =  Field(default="",description="Please set the path in project where dataset will be uploaded to. If not set, will not upload")
-    uploaddatahub_properties: Dict[String,String] =  Field(default={},description="")
-    uploaddatahub_tags: List[String] =  Field(default=[],description="")
-    uploadtracking_test_name: String =  Field(default="",description="Please set the name of test. If not set, will not upload metrics to tracking")
-    uploadtracking_experiment_name: String =  Field(default="",description="Please set the name of experiment. If not set, will not upload metrics to tracking")
-    uploadtracking_tags: List[String] =  Field(default=[],description="")
-'''
 
 class TrackingSet(BaseModel):
-    Tracking_metrics: Boolean = Field(default=False,description="If tracking, will display historical metrics values based on test and experience")
-    Tracking_token: String = Field(default=None,description="If want to track metrics, please enter your token to access AIM")
+    Tracking_metrics: Boolean = Field(
+        default=False, description="If tracking, will display historical metrics values based on test and experience")
+    Tracking_token: String = Field(
+        default=None, description="If want to track metrics, please enter your token to access AIM")
     Tracking_tags: BenchmarkTags
     #tags = [f"benchmark-application-{application.name}", f"benchmark-version-{job.version}", f"benchmark-schedule-{job.properties.get('source_name', 'none')}",
     #        f"benchmark-job-{job.name}"]
 
     @classmethod
-    def parse_obj(cls,opts):
+    def parse_obj(cls, opts):
         if opts.tracking_metrics and opts.tracking_token != None and opts.tracking_token.strip() != "":
-            default_tags = opts.default_tags 
-            schedule = "_".join(re.split("-",default_tags[2],2)[-1].strip().split())
-            application_name = re.split("-",default_tags[0],2)[-1]
-            job_name = re.split("-",default_tags[3],2)[-1]
-                
+            default_tags = opts.default_tags
+            schedule = "_".join(
+                re.split("-", default_tags[2], 2)[-1].strip().split())
+            application_name = re.split("-", default_tags[0], 2)[-1]
+            job_name = re.split("-", default_tags[3], 2)[-1]
+
             return {
                 "name": schedule + "." + job_name,
                 "experiment": application_name + "/benchmark",
@@ -122,16 +117,17 @@ class TrackingSet(BaseModel):
             }
         else:
             return None
-    
+
 
 class myLog:
     def __init__(self):
         self.logs = ""
-    
-    def iprint(self,mess,*args):
+
+    def iprint(self, mess, *args):
         allmess = " ".join([str(mess)]+[str(i) for i in args])
         print(allmess)
         self.logs += allmess + "\n"
-    
-    def write(self,filename):
-        with open(filename,'w') as f1: f1.write(self.logs)
+
+    def write(self, filename):
+        with open(filename, 'w') as f1:
+            f1.write(self.logs)

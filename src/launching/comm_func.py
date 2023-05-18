@@ -91,32 +91,6 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
     os.chdir(cwd)
     return stdout,stderr
 
-def convert_metrics(metrics_list):
-    #the metrics in launching may have the format of KEY1:KEY2
-    #this should be transfer to KEY1:{[KEY2]} in abacustest metrics
-    #and transfer to KEY1/KEY2 in abacustest supermetrics
-    new_metrics = []
-    dict_tmp = {}
-    for imetric in metrics_list:
-        if ":" in imetric:
-            allkeys = imetric.split(":")
-            if allkeys[0] not in dict_tmp:
-                dict_tmp[allkeys[0]] = []
-            dict_tmp[allkeys[0]].append(allkeys[1])
-        else:
-            new_metrics.append(imetric)
-    if dict_tmp:
-        new_metrics.append(copy.deepcopy(dict_tmp))
-    return new_metrics
-
-def convert_supermetrics_metrics_name(imetric):
-    if ":" in imetric:
-        allkeys = imetric.split(":")
-        return "%s/%s" % (allkeys[0].strip(),allkeys[1].strip())
-    else:
-        return imetric.strip()
-
-
 def produce_metrics_superMetrics_reports(allparams,work_path,output_path):
     from abacustest import outresult
     import pandas as pd
@@ -267,3 +241,19 @@ def unpack(filepath, output_path, filetype = None, get_support_filetype = False)
     
     print("Unpack %s to %s" % (filepath,output_path))
     return output_path
+
+def download_url(url, output_path="./"):
+    import requests
+    response = requests.get(url, stream=True)
+    if response.status_code == 200:
+        if not os.path.isdir(output_path):
+            os.makedirs(output_path,exist_ok=True)
+        filename = os.path.join(output_path,url.split("/")[-1])
+        with open(filename, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+        return filename
+    else:
+        print(f"dwonload ({url}) failed, status code:", response.status_code)
+        return None
