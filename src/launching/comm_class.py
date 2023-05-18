@@ -102,8 +102,8 @@ class TrackingSet(BaseModel):
 
     @classmethod
     def parse_obj(cls, opts):
-        if opts.tracking_metrics and opts.tracking_token != None and opts.tracking_token.strip() != "":
-            default_tags = opts.default_tags
+        if opts.Tracking_metrics and opts.Tracking_token != None and opts.Tracking_token.strip() != "":
+            default_tags = opts.Tracking_tags
             schedule = "_".join(
                 re.split("-", default_tags[2], 2)[-1].strip().split())
             application_name = re.split("-", default_tags[0], 2)[-1]
@@ -113,7 +113,7 @@ class TrackingSet(BaseModel):
                 "name": schedule + "." + job_name,
                 "experiment": application_name + "/benchmark",
                 "tags": default_tags,
-                "token": opts.tracking.AIM_ACCESS_TOKEN
+                "token": opts.Tracking_token
             }
         else:
             return None

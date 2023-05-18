@@ -62,7 +62,7 @@ def SelfDefineModelRunner(opts:SelfDefineModel):
         if k == "config":
             for ik,iv in v.items():
                 allparams["config"][ik] = iv
-        elif k in ["ABBREVIATION","save_path","run_dft","post_dft","report","dataset_info","upload_datahub","upload_tracking","dflow_labels"]:
+        elif k in ["ABBREVIATION","save_path","run_dft","post_dft","report","dataset_info","upload_datahub","upload_tracking"]:
             allparams[k] = v
             
     tracking_set = comm_class.TrackingSet.parse_obj(opts)
