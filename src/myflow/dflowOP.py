@@ -1055,6 +1055,8 @@ def GetExampleScript(rundft,example_source_name,example_name,collectdata_script_
             collectdata_script_tmp,collectdata_script_name_tmp = FindLocalExamples(rundft.get(collectdata_script_name,[]))
             os.chdir(cwd)
             datahub = False
+            comm.printinfo("examples_name",examples_name)
+            comm.printinfo("collectdata_script_name_tmp",collectdata_script_name_tmp)  
         else:
             examples,examples_name = FindDataHubExamples(rundft.get(example_name,[]),uri,storage_client)
             collectdata_script_tmp,collectdata_script_name_tmp = FindDataHubExamples(rundft.get(collectdata_script_name,[]), uri,storage_client)
