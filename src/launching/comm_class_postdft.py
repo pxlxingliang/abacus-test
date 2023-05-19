@@ -37,10 +37,14 @@ class ImageBohrium(BaseModel):
     image: String = Field(default=BohriumMachineType("registry.dp.tech/dptech/abacustest:latest"),
                           title="Bohrium Image Address",
                           description="",)
-    bohrium_machine_type: BohriumMachineType = Field(
-        default=BohriumMachineType("c2_m4_cpu"))
-    bohrium_job_type: BohriumJobType = Field(default=BohriumJobType.CONTAINER)
-    bohrium_plat_form: BohriumPlatform = Field(default=BohriumPlatform.ALI)
+    #bohrium_machine_type: BohriumMachineType = Field(
+    #    default=BohriumMachineType("c2_m4_cpu"))
+    #bohrium_job_type: BohriumJobType = Field(default=BohriumJobType.CONTAINER)
+    #bohrium_plat_form: BohriumPlatform = Field(default=BohriumPlatform.ALI)
+    
+    bohrium_machine_type: String = Field(default="c2_m4_cpu")
+    bohrium_job_type: String = Field(default="container")
+    bohrium_plat_form: String = Field(default="ali")
 
 
 class PostdftImageSet(BaseModel):

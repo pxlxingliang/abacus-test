@@ -221,7 +221,7 @@ def read_source(opts,work_path,download_path,logs=None):
 
     #read rundft extra files
     if hasattr(opts,"RundftExtraFile_needed_files"):
-        tmp = parse_rundft_extrafile_source(opts,download_path,opts,logs.iprint)
+        tmp = parse_rundft_extrafile_source(opts,download_path,opts,logs)
         if tmp == None:
             return None
         if tmp:
@@ -232,7 +232,7 @@ def read_source(opts,work_path,download_path,logs=None):
     
     #read postdft extra files
     if hasattr(opts,"PostdftExtraFile_needed_files"):
-        tmp = parse_postdft_extrafile_source(opts,download_path,opts,logs.iprint)
+        tmp = parse_postdft_extrafile_source(opts,download_path,opts,logs)
         if tmp == None:
             return None
         if tmp:
