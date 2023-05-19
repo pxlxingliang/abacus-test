@@ -5,6 +5,7 @@ from typing import Iterator
 from tqdm  import tqdm
 from loguru import logger
 from aim.storage.treeutils import decode_tree
+
 def decode_encoded_tree_stream(stream: Iterator[bytes], concat_chunks=False) -> bytes:
     prev_chunk_tail = b''
     if concat_chunks:
