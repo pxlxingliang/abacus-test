@@ -892,8 +892,8 @@ def FindLocalExamples(example):
                 examples_name.append([ii])
         else:
             comm.printinfo(i,"element of 'example' should be a list, or str")
-            
-    examples_name,examples = zip(*(sorted(zip(examples_name,examples))))        
+    if len(examples) > 0:      
+        examples_name,examples = zip(*(sorted(zip(examples_name,examples))))        
     return examples,examples_name
 
 def GetURI(urn,privateset=None):

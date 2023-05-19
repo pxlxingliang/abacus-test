@@ -27,18 +27,18 @@ class SelfDefineModel(comm_class.TrackingSet,
     ...
     
 def SelfDefineModelRunner(opts:SelfDefineModel):
-    logs = comm_class.myLog()
+    logs = comm_class.myLog()  
     paths = comm_func.create_path(str(opts.IO_output_path))
     output_path = paths["output_path"]
     work_path = paths["work_path"]
     download_path = paths["download_path"]
 
-    if comm_class_exampleSource.parse_example_source(example_source_set=opts,
-                                                     download_path=work_path,
-                                                     configs=opts,
-                                                     logs=logs.iprint) == None:
-        return None
-    
+    logs.iprint("read source setting ...")
+    datas = comm_class_exampleSource.read_source(opts,work_path,download_path,logs.iprint)
+    if datas == None or not datas.get("example"):
+        logs.iprint("Error: download examples or rundft_extrafiles or postdft_extrafiles failed!")
+        return 1
+
     #parse inputs
     if opts.setting.strip() != "":
         try:

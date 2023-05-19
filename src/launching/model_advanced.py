@@ -1,5 +1,5 @@
 import traceback
-from dp.launching.typing.basic import BaseModel, 
+from dp.launching.typing.basic import BaseModel
 import os
 
 from dp.launching.report import Report,AutoReportElement,ReportSection,ChartReportElement
