@@ -48,7 +48,7 @@ class RundftImageSet(BaseModel):
                      Image] = Field(discriminator="type",
                                     description="IMAGE and MACHINE used in RUN DFT")
 
-def parse_image_set(image_set: RundftImageSet):
+def parse_image_set(image_set):
     if isinstance(image_set, ImageBohrium):
         return {
             "image": image_set.image,

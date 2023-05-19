@@ -27,6 +27,9 @@ from typing import Literal
 import re
 from . import comm_func
 
+class OutputSet(BaseModel):
+    IO_output_path: OutputDirectory = Field(default="./output")
+
 class ConfigSet(BaseModel):
     #Bohrium config
     Config_lbg_username:   BohriumUsername
@@ -42,53 +45,22 @@ class ConfigSet(BaseModel):
     Config_dflow_labels: BenchmarkLabels
 
 
-class AbacusMetricEnum(String, Enum):
-    AbacusMetric_metric1 = 'version'
-    AbacusMetric_metric2 = 'ncore'
-    AbacusMetric_metric3 = 'normal_end'
-    AbacusMetric_metric4 = 'INPUT:ks_solver'
-#    AbacusMetric_metric5 = 'kpt'
-    AbacusMetric_metric6 = 'nbands'
-    AbacusMetric_metric7 = 'converge'
-    AbacusMetric_metric8 = 'total_mag'
-    AbacusMetric_metric9 = 'absolute_mag'
-    AbacusMetric_metric10 = 'nkstot'
-    AbacusMetric_metric11 = 'ibzk'
-    AbacusMetric_metric12 = 'natom'
-    AbacusMetric_metric13 = 'nelec'
-    AbacusMetric_metric14 = 'energy'
-    AbacusMetric_metric15 = 'volume'
-#    AbacusMetric_metric16 = 'fft_grid'
-    AbacusMetric_metric17 = 'efermi'
-    AbacusMetric_metric18 = 'energy_per_atom'
-#    AbacusMetric_metric19 = 'stress'
-#    AbacusMetric_metric20 = 'force'
-    AbacusMetric_metric21 = 'band_gap'
-    AbacusMetric_metric22 = 'total_time'
-    AbacusMetric_metric23 = 'stress_time'
-    AbacusMetric_metric24 = 'force_time'
-    AbacusMetric_metric25 = 'scf_time'
-    AbacusMetric_metric26 = 'scf_time_each_step'
-    AbacusMetric_metric27 = 'step1_time'
-    AbacusMetric_metric28 = 'scf_steps'
-    AbacusMetric_metric29 = 'atom_mag'
-#    AbacusMetric_metric30 = 'drho'
-    AbacusMetric_metric31 = 'lattice_constant'
-    AbacusMetric_metric32 = 'cell'
-#    AbacusMetric_metric33 = 'coordinate'
-    AbacusMetric_metric34 = 'element_list'
-    AbacusMetric_metric35 = 'atomlabel_list'
-#    AbacusMetric_metric36 = 'delta_energy'
-#    AbacusMetric_metric37 = 'delta_energyPerAtom'
-    AbacusMetric_metric38 = 'relax_converge'
-    AbacusMetric_metric39 = 'relax_steps'
+class NgroupSet(BaseModel):
+    ngroup: Int = Field(
+        default=0, description="Number of groups to run in parallel. If not set, all examples will be run in parallel.", ge=0)
 
 
-class SuperMetricMethodEnum(String, Enum):
-    SuperMetricMethod_method1 = "iGM"
-    SuperMetricMethod_method2 = "GM"
-    SuperMetricMethod_method3 = "TrueRatio"
-    SuperMetricMethod_method4 = "MEAN"
+class RundftCommandSet(BaseModel):
+    rundft_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus > log",
+                                   description="Command to run each example. Please note that the program will first enter each folder before executing this command. \
+During runtime, there will be no interaction between different examples",)
+
+
+class PostdftCommandSet(BaseModel):
+    postdft_command: String = Field(default="",
+                                    description="If you need to execute some custom scripts or commands, please enter the bash command here. \
+Usually used to generate some custom metrics. At this step, the program will first collect the results of all examples in rundft, and then execute the command. \
+The working directory is the same level directory as the outer layer of all examples.",)
 
 
 class TrackingSet(BaseModel):

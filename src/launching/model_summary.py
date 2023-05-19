@@ -198,18 +198,14 @@ def produce_html_table(outtable,comment):
 
     return html
 
-
-
-
 class Summary(BaseModel):
     feishu_webhook:  String = Field(default = None,
                                     title="FeiShu Webhook")
     AIM_TOKEN: String = Field(title="AIM tracking token")
     #experiment: String = Field(title="abacustest/benchmark")
     #experiment_id: String = Field(title="7ab4e46a-43fb-440a-828d-4fbdef5b4709")
-    IO_output_path: OutputDirectory = Field(default="./output")
 
-class SummaryModel(Summary,BaseModel):
+class SummaryModel(Summary,comm_class.OutputSet,BaseModel):
     ...
 
 def echart_report(allvalues):

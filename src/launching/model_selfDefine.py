@@ -14,7 +14,6 @@ class SelfDefine(BaseModel):
                                         st_kwargs_type = ["json"], 
                                         description="Please upload the setting file or enter the setting information in latter 'setting' section.",
                                         description_type="markdown")
-    IO_output_path: OutputDirectory = Field(default="./output")
     setting: String = Field(default = "",
                             description="Please enter the setting information in json format. If you fill in this field, the previous file will be ignored!")
     
@@ -23,6 +22,7 @@ class SelfDefineModel(comm_class.TrackingSet,
                       SelfDefine,
                       comm_class_exampleSource.ExampleSourceSet,
                       comm_class.ConfigSet,
+                      comm_class.OutputSet,
                       BaseModel):
     ...
     
@@ -62,7 +62,8 @@ def SelfDefineModelRunner(opts:SelfDefineModel):
         if k == "config":
             for ik,iv in v.items():
                 allparams["config"][ik] = iv
-        elif k in ["ABBREVIATION","save_path","run_dft","post_dft","report","dataset_info","upload_datahub","upload_tracking"]:
+        #elif k in ["ABBREVIATION","save_path","run_dft","post_dft","report","dataset_info","upload_datahub","upload_tracking"]:
+        else:
             allparams[k] = v
             
     tracking_set = comm_class.TrackingSet.parse_obj(opts)

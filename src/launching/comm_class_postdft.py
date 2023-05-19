@@ -48,7 +48,7 @@ class PostdftImageSet(BaseModel):
                      ImageBohrium] = Field(discriminator="type",
                                            description="IMAGE and MACHINE used in POST DFT")
 
-def parse_image_set(image_set: PostdftImageSet):
+def parse_image_set(image_set):
     if isinstance(image_set, ImageBohrium):
         return {
             "image": image_set.image,

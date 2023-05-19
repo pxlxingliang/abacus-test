@@ -62,7 +62,10 @@ def collect_from_runinfo(run):
         for imetric in run["traces"]["metric"]:
             if imetric["name"].startswith("__"):
                 continue
-            metric[imetric["name"]] = [imetric["last_value"]["last"]]
+            #only collect super_metrics
+            if imetric["context"].get("subset",None) == "super_metrics0" or \
+               imetric["context"].get("datatype",None) == "super_metrics":
+                metric[imetric["name"]] = [imetric["last_value"]["last"]]
         return {
             "run_name": run["props"]["name"],
             "experiment_name": run["props"]["experiment"]["name"],

@@ -1,5 +1,4 @@
-import json,os,sys,subprocess
-import copy
+import json,os,sys,subprocess,glob,shutil
 import traceback
 from . import comm_echarts
 from dp.metadata import MetadataContext
@@ -7,6 +6,7 @@ from dp.metadata.utils.storage import TiefblueStorageClient
 from dflow import download_artifact,S3Artifact,config,s3_config
 from dflow.plugins import bohrium
 from dflow.plugins.bohrium import TiefblueClient
+
 
 def create_path(output_path):
     work_path = os.path.join(output_path,"abacustest")
@@ -96,6 +96,8 @@ def produce_metrics_superMetrics_reports(allparams,work_path,output_path):
     import pandas as pd
     from dp.launching.report import Report,AutoReportElement,ReportSection,ChartReportElement
 
+    if "save_path" not in allparams:
+        allparams["save_path"] = "result"
     reports = []
     chart_section = []
     metric_filename = allparams.get("post_dft",{}).get("metrics",{}).get("save_file","metrics.json")
@@ -257,3 +259,11 @@ def download_url(url, output_path="./"):
     else:
         print(f"dwonload ({url}) failed, status code:", response.status_code)
         return None
+
+def clean_dictorys(ipath):
+    for ifile in glob.glob(os.path.join(ipath,"*")):
+        if os.path.isdir(ifile):
+            shutil.rmtree(ifile)
+        else:
+            os.remove(ifile)
+
