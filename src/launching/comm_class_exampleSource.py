@@ -42,7 +42,7 @@ class FromDatasets(BaseModel):
     dataset: DataSetsEnum = Field(title="datasets",
                                   description="Please choose the datasets.")
     dataset_unrecorded: String = Field(default=None,
-                                       description="If the dataset you want is not in the above list, please enter the names of the dataset and package here, and split them with space. Such as: dataset1-pw dataset1-pw-v1.0")
+                                       description="If the dataset you want is not in the above list, please enter download link of your datasets.")
 
 
 class ExampleSourceSet(BaseModel):
@@ -132,20 +132,14 @@ def parse_source(example_source,upload_path,download_path,configs: comm_class.Co
             return None
     elif isinstance(example_source, FromDatasets):
         if example_source.dataset_unrecorded != None and example_source.dataset_unrecorded.strip() != "":
-            datasets = example_source.dataset_unrecorded.strip()
-            datapack = datasets.split()
-            if len(datapack) == 1:
-                url = DataSetsEnum.GetAddress(datapack[0])
-            else:
-                url = DataSetsEnum.GetAddress(datapack[1],datapack[0])
+            url = example_source.dataset_unrecorded.strip()
         else:
-            datasets = example_source.dataset
             url = DataSetsEnum.GetAddress(example_source.dataset)
         
         try:
             package = comm_func.download_url(url, download_path)
             if package == None:
-                logs(f"ERROR: download dataset ({datasets}) failed!")
+                logs(f"ERROR: download dataset failed!\n\turl:{url}")
                 logs(f"\tPlease check the dataset!")
                 return None
             else:
