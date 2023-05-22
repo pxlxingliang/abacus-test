@@ -47,7 +47,7 @@ class NgroupSet(BaseModel):
 
 
 class RundftCommandSet(BaseModel):
-    rundft_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus > log",
+    rundft_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
                                    description="Command to run each example. Please note that the program will first enter each folder before executing this command. \
 During runtime, there will be no interaction between different examples",)
 
