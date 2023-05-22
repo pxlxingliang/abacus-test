@@ -37,12 +37,12 @@ class ImageBohrium(BaseModel):
     image: String = Field(default=BohriumMachineType("registry.dp.tech/deepmodeling/abacus-intel:latest"),
                           title="Bohrium Image Address",
                           description="",)
-    #bohrium_machine_type: BohriumMachineType = Field(default=BohriumMachineType("c32_m64_cpu"))
-    #bohrium_job_type: BohriumJobType = Field(default=BohriumJobType.CONTAINER)
-    #bohrium_plat_form: BohriumPlatform = Field(default=BohriumPlatform.ALI)
-    bohrium_machine_type: String = Field(default="c32_m64_cpu")
-    bohrium_job_type: String = Field(default="container")
-    bohrium_plat_form: String = Field(default="ali")
+    bohrium_machine_type: BohriumMachineType = Field(default=BohriumMachineType("c32_m64_cpu"))
+    bohrium_job_type: BohriumJobType = Field(default=BohriumJobType.CONTAINER)
+    bohrium_plat_form: BohriumPlatform = Field(default=BohriumPlatform.ALI)
+    #bohrium_machine_type: String = Field(default="c32_m64_cpu")
+    #bohrium_job_type: String = Field(default="container")
+    #bohrium_plat_form: String = Field(default="ali")
 
 
 class RundftImageSet(BaseModel):

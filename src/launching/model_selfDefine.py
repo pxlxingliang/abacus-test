@@ -3,10 +3,10 @@ from dp.launching.typing import InputFilePath, OutputDirectory
 from dp.launching.typing import (
     Field
 )
-from dp.launching.report import Report
+from dp.launching.report import Report,AutoReportElement,ReportSection
 
 from . import comm_class,comm_func,comm_class_exampleSource
-import json,traceback
+import json,traceback,os
 
 class SelfDefine(BaseModel):
     IO_input_path:InputFilePath = Field(default = None,
@@ -82,8 +82,15 @@ def SelfDefineModelRunner(opts:SelfDefineModel):
             allparams["post_dft"]["upload_tracking"]["tags"] = tracking_set.get("tags")
             
     #execut
-    comm_func.exec_abacustest(allparams,work_path)
+    stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
+    logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
     reports = comm_func.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
+    
+    logfname = "output.log"
+    logs.write(os.path.join(str(opts.IO_output_path),logfname))
+    log_section = ReportSection(title="",
+                              elements=[AutoReportElement(title='', path=logfname, description="")])
+    reports.append(log_section)
 
     if reports:
         report = Report(title="abacus test report",
