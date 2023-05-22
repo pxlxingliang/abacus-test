@@ -14,13 +14,15 @@ import os,shutil,glob
 class DataSetsEnum(String, Enum):
     dataset1 = "dataset1-pw-v1.0"
     dataset2 = "dataset2-lcao-v1.0"
+    dataset3 = "dataset3-exx-v1.0"
 
     @classmethod
-    def GetAddress(cls, dataset):
+    def GetAddress(cls, package,dataset=None):
         # find index of last -, and the string before it is the dataset name
         # the string after it is the version
-        dataset_name = "-".join(dataset.split("-")[:-1])
-        return f"https://launching.mlops.dp.tech/artifacts/datasets/{dataset_name}.abacustest/packages/{dataset}.tar.gz"
+        if dataset == None:
+            dataset = "-".join(package.split("-")[:-1])
+        return f"https://launching.mlops.dp.tech/artifacts/datasets/{dataset}.abacustest/packages/{package}.tar.gz"
 
 class NotRquired(BaseModel):
     type: Literal["not required"]
@@ -39,6 +41,8 @@ class FromDatasets(BaseModel):
     type: Literal["from datasets"]
     dataset: DataSetsEnum = Field(title="datasets",
                                   description="Please choose the datasets.")
+    dataset_unrecorded: String = Field(default=None,
+                                       description="If the dataset you want is not in the above list, please enter the names of the dataset and package here, and split them with space. Such as: dataset1-pw dataset1-pw-v1.0")
 
 
 class ExampleSourceSet(BaseModel):
@@ -127,11 +131,21 @@ def parse_source(example_source,upload_path,download_path,configs: comm_class.Co
             traceback.print_exc()
             return None
     elif isinstance(example_source, FromDatasets):
-        url = DataSetsEnum.GetAddress(example_source.dataset)
+        if example_source.dataset_unrecorded != None and example_source.dataset_unrecorded.strip() != "":
+            datasets = example_source.dataset_unrecorded.strip()
+            datapack = datasets.split()
+            if len(datapack) == 1:
+                url = DataSetsEnum.GetAddress(datapack[0])
+            else:
+                url = DataSetsEnum.GetAddress(datapack[1],datapack[0])
+        else:
+            datasets = example_source.dataset
+            url = DataSetsEnum.GetAddress(example_source.dataset)
+        
         try:
             package = comm_func.download_url(url, download_path)
             if package == None:
-                logs(f"ERROR: download dataset ({example_source.dataset}) failed!")
+                logs(f"ERROR: download dataset ({datasets}) failed!")
                 logs(f"\tPlease check the dataset!")
                 return None
             else:
