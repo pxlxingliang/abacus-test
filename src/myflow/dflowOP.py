@@ -17,7 +17,7 @@ from dflow import (
     ShellOPTemplate,
     S3Artifact
 )
-import subprocess, os, shutil, glob
+
 from pathlib import Path
 from typing import List
 from dflow.plugins.dispatcher import DispatcherExecutor

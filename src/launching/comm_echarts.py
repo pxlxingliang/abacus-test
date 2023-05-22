@@ -49,7 +49,7 @@ def get_bar_option(title,x,y):
         "series": [
             {
                 "name": 'Direct',
-                "type": 'bar',
+                "type": 'line',
                 "barWidth": '60%',
                 "data": y
             }

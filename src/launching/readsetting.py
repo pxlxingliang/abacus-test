@@ -107,8 +107,8 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
         post_dft["metrics"] = metrics_set["metrics"]
         post_dft["metrics"]["path"] = run_dft[-1]["example"]
         need_post_dft = True
-    if "super_metric" in metrics_set:
-        post_dft["super_metric"] = metrics_set["super_metric"]
+    if "super_metrics" in metrics_set:
+        post_dft["super_metrics"] = metrics_set["super_metrics"]
         need_post_dft = True
 
     #read tracking setting
