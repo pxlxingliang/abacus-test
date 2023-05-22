@@ -5,6 +5,7 @@ from typing import Iterator
 from tqdm  import tqdm
 from loguru import logger
 from aim.storage.treeutils import decode_tree
+
 def decode_encoded_tree_stream(stream: Iterator[bytes], concat_chunks=False) -> bytes:
     prev_chunk_tail = b''
     if concat_chunks:
@@ -62,7 +63,10 @@ def collect_from_runinfo(run):
         for imetric in run["traces"]["metric"]:
             if imetric["name"].startswith("__"):
                 continue
-            metric[imetric["name"]] = [imetric["last_value"]["last"]]
+            #only collect super_metrics
+            if imetric["context"].get("subset",None) == "super_metrics0" or \
+               imetric["context"].get("datatype",None) == "super_metrics":
+                metric[imetric["name"]] = [imetric["last_value"]["last"]]
         return {
             "run_name": run["props"]["name"],
             "experiment_name": run["props"]["experiment"]["name"],

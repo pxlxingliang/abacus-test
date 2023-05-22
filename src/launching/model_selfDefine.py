@@ -5,7 +5,7 @@ from dp.launching.typing import (
 )
 from dp.launching.report import Report
 
-from . import comm_class,comm_func
+from . import comm_class,comm_func,comm_class_exampleSource
 import json,traceback
 
 class SelfDefine(BaseModel):
@@ -14,19 +14,30 @@ class SelfDefine(BaseModel):
                                         st_kwargs_type = ["json"], 
                                         description="Please upload the setting file or enter the setting information in latter 'setting' section.",
                                         description_type="markdown")
-    IO_output_path: OutputDirectory = Field(default="./output")
     setting: String = Field(default = "",
                             description="Please enter the setting information in json format. If you fill in this field, the previous file will be ignored!")
     
 
-class SelfDefineModel(SelfDefine,comm_class.ConfigSet,BaseModel):
+class SelfDefineModel(comm_class.TrackingSet,
+                      SelfDefine,
+                      comm_class_exampleSource.ExampleSourceSet,
+                      comm_class.ConfigSet,
+                      comm_class.OutputSet,
+                      BaseModel):
     ...
     
 def SelfDefineModelRunner(opts:SelfDefineModel):
+    logs = comm_class.myLog()  
     paths = comm_func.create_path(str(opts.IO_output_path))
     output_path = paths["output_path"]
     work_path = paths["work_path"]
     download_path = paths["download_path"]
+
+    logs.iprint("read source setting ...")
+    datas = comm_class_exampleSource.read_source(opts,work_path,download_path,logs.iprint)
+    if datas == None or not datas.get("example"):
+        logs.iprint("Error: download examples or rundft_extrafiles or postdft_extrafiles failed!")
+        return 1
 
     #parse inputs
     if opts.setting.strip() != "":
@@ -51,9 +62,24 @@ def SelfDefineModelRunner(opts:SelfDefineModel):
         if k == "config":
             for ik,iv in v.items():
                 allparams["config"][ik] = iv
-        elif k in ["ABBREVIATION","save_path","run_dft","post_dft","report","dataset_info","upload_datahub","upload_tracking"]:
+        #elif k in ["ABBREVIATION","save_path","run_dft","post_dft","report","dataset_info","upload_datahub","upload_tracking"]:
+        else:
             allparams[k] = v
-
+            
+    tracking_set = comm_class.TrackingSet.parse_obj(opts)
+    if tracking_set:
+        allparams["config"]["AIM_ACCESS_TOKEN"] = tracking_set.get("token")
+        if "post_dft" not in allparams:
+            allparams["post_dft"] = {}
+        if "upload_tracking" not in allparams["post_dft"]:
+            allparams["post_dft"]["upload_tracking"] = {}
+        if "name" not in allparams["post_dft"]["upload_tracking"]:
+            allparams["post_dft"]["upload_tracking"]["name"] = tracking_set.get("name")
+        if "experiment" not in allparams["post_dft"]["upload_tracking"]:
+            allparams["post_dft"]["upload_tracking"]["experiment"] = tracking_set.get("experiment")
+        if "tags" not in allparams["post_dft"]["upload_tracking"]:
+            allparams["post_dft"]["upload_tracking"]["tags"] = tracking_set.get("tags")
+            
     #execut
     comm_func.exec_abacustest(allparams,work_path)
     reports = comm_func.produce_metrics_superMetrics_reports(allparams,work_path,output_path)

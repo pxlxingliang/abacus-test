@@ -113,11 +113,12 @@ def ParamParser(param):
 
 def SetSaveFolder(storefolder=None):
     if storefolder == None:
-        import datetime
-        from time import strftime
-        today = datetime.datetime.now()
-        today = today.strftime("%Y%m%d")
-        storefolder = os.path.join("result",today)
+        #import datetime
+        #from time import strftime
+        #today = datetime.datetime.now()
+        #today = today.strftime("%Y%m%d")
+        #storefolder = os.path.join("result",today)
+        storefolder = "result"
     globV.set_value("RESULT",storefolder)
     comm.printinfo("set save floder: %s" % storefolder)
 

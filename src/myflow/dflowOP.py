@@ -883,6 +883,7 @@ def FindLocalExamples(example):
             for j in i:
                 example_tmp += glob.glob(j)
             if len(example_tmp) > 0:
+                example_tmp.sort()
                 examples.append([upload_artifact(i,archive=None) for i in example_tmp])
                 examples_name.append(example_tmp)
         elif isinstance(i,str):
@@ -891,7 +892,8 @@ def FindLocalExamples(example):
                 examples_name.append([ii])
         else:
             comm.printinfo(i,"element of 'example' should be a list, or str")
-            
+    if len(examples) > 0:      
+        examples_name,examples = zip(*(sorted(zip(examples_name,examples))))        
     return examples,examples_name
 
 def GetURI(urn,privateset=None):
