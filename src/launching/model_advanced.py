@@ -57,6 +57,9 @@ def AdvancedModelRunner(opts: AdvancedModel) -> int:
                             sections=reports,
                             description="a report of abacustest")
             report.save(output_path)
+            
+        #move results to output_path
+        comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
     except:
         traceback.print_exc()
         return 1

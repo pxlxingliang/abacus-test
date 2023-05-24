@@ -151,8 +151,13 @@ def WriteParamUserFile(storefolder=None,override=False):
             
         paraf = getfname(paraf)
 
-
-    with open(paraf,'w') as f1: f1.write(globV.get_value("PARAM_CONTEXT")) 
+    save_cotext = {}
+    for k,v in globV.get_value("PARAM_CONTEXT").items():
+        if k in ["config"]:
+            continue
+        save_cotext[k] = v
+    json.dump(save_cotext,open(paraf,'w'),indent=4)
+    #with open(paraf,'w') as f1: f1.write(globV.get_value("PARAM_CONTEXT")) 
     
 def set_env(param):
     globV.set_value("OUTINFO", param.outinfo)
@@ -165,9 +170,8 @@ def set_env(param):
         comm.printinfo("ERROR: Can not find the test setting file '%s' " % param.param)
         sys.exit(1)
     comm.printinfo("Read parameter setting from %s" % param.param)
-    globV.set_value("PARAM_FNAME", os.path.split(param.param)[1])
-    with open(param.param) as f1: 
-        globV.set_value("PARAM_CONTEXT", f1.read())       
+    globV.set_value("PARAM_FNAME", os.path.split(param.param)[1]) 
+    globV.set_value("PARAM_CONTEXT", json.load(open(param.param)))       
     param_context = json.load(open(param.param))
     globV.set_value("PARAM", param_context)
     

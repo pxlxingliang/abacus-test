@@ -9,8 +9,8 @@ from dflow.plugins.bohrium import TiefblueClient
 
 
 def create_path(output_path):
-    work_path = os.path.join(output_path,"abacustest")
-    download_path = os.path.join(output_path,"abacustest_download")
+    work_path = "abacustest" #os.path.join(output_path,"abacustest")
+    download_path = "abacustest_download" #os.path.join(output_path,"abacustest_download")
     for ipath in [output_path,work_path,download_path]:
         os.makedirs(ipath,exist_ok=True)
     return {"output_path": os.path.abspath(output_path),
@@ -267,3 +267,10 @@ def clean_dictorys(ipath):
         else:
             os.remove(ifile)
 
+def move_results_to_output(work_path,output_path,result_folder):
+    target_result_folder = os.path.join(output_path,result_folder)
+    n = 1
+    while os.path.isdir(target_result_folder):
+        target_result_folder = os.path.join(output_path,result_folder + "_" + str(n))
+        n += 1
+    shutil.move(os.path.join(work_path,result_folder),target_result_folder)

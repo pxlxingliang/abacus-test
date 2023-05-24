@@ -1,3 +1,4 @@
+import traceback
 import requests,json
 import struct
 from pprint import pprint
@@ -35,6 +36,32 @@ def decode_encoded_tree_stream(stream: Iterator[bytes], concat_chunks=False) -> 
                     break
                 yield key, value
         assert prev_chunk_tail == b''
+ 
+def get_version(run_hash,token):
+    params = {
+        "record_density": 50,
+        "index_density": 5,
+    }
+    response = requests.post(f'https://tracking.mlops.dp.tech/api/runs/{run_hash}/texts/get-batch',
+                        params=params,
+                        json=[{'name': "version", 'context': {'datatype': "metrics",'subset': "metrics0"}}],
+                        headers={
+                            "Content-Type": "application/json",
+                            "Authorization": f"Bearer {token}",
+                        })
+    if response.status_code != 200:
+        return None
+    try:
+        response.raise_for_status()
+        decoded_response = decode_tree(decode_encoded_tree_stream(response.iter_content(chunk_size=512*1024), concat_chunks=True))
+        version = [i[0]["data"] for i in decoded_response["values"]]
+        index = decoded_response["iters"]
+        return [x[0] for x in sorted(zip(version,index),key=lambda x:x[1])]
+    except:
+        #print("hash:",run_hash)
+        #traceback.print_exc()
+        return None
+        
 def get_experiment_info(experiment_id, token):
     response = requests.get(f'https://tracking.mlops.dp.tech/api/experiments/{experiment_id}/',
                         headers={
@@ -58,16 +85,21 @@ def get_run_info_batch(experiment, token, offset=None, batch_size=10):
     decoded_response = decode_tree(decode_encoded_tree_stream(response.iter_content(chunk_size=512*1024), concat_chunks=True))
     return list(sorted(decoded_response.items(), key=lambda i: i[1]['props']['creation_time'], reverse=True))
 
-def collect_from_runinfo(run):
+def collect_from_runinfo(run,token,hash,GetVersion=False):
         metric = {}
         for imetric in run["traces"]["metric"]:
             if imetric["name"].startswith("__"):
                 continue
             #only collect super_metrics
-            if imetric["context"].get("subset",None) == "super_metrics0" or \
-               imetric["context"].get("datatype",None) == "super_metrics":
-                metric[imetric["name"]] = [imetric["last_value"]["last"]]
+            #if imetric["context"].get("subset",None) == "super_metrics0" or \
+            #   imetric["context"].get("datatype",None) == "super_metrics":
+            metric[imetric["name"]] = [imetric["last_value"]["last"]]
+        if GetVersion:
+            version = get_version(hash,token)
+            if version:
+                metric["version"] = version
         return {
+            "run_hash": hash,
             "run_name": run["props"]["name"],
             "experiment_name": run["props"]["experiment"]["name"],
             "tags": [i["name"] for i in run["props"]["tags"]],
@@ -76,12 +108,20 @@ def collect_from_runinfo(run):
             "metric": metric
             }
 
-def do_collect_info(all_run,all_run_infos, run_infos):
+def do_collect_info(all_run,all_run_infos, run_infos,token,needed_tags=None,GetVersion=False):
     for hash, run in run_infos:
-        all_run_infos.append(collect_from_runinfo(run)) #collect selected infos
+        if needed_tags:
+            tags_in_run = set([i["name"] for i in  run["props"]["tags"]] )
+            if not needed_tags.intersection(tags_in_run):
+                continue
+        all_run_infos.append(collect_from_runinfo(run,token,hash,GetVersion)) #collect selected infos
         all_run.append(run)  #store all infos
 
-def do_collect_metrics(all_run,all_run_infos, run_info, token):
+def do_collect_metrics(all_run,all_run_infos, run_info, token,needed_tags=None,GetVersion=False):
+    if needed_tags:
+        tags_in_run = set([i["name"] for i in  run_info[1]["props"]["tags"]] )
+        if not needed_tags.intersection(tags_in_run):
+            return
     resp = requests.post(f'https://tracking.mlops.dp.tech/api/runs/{run_info[0]}/metric/get-batch',
         data=json.dumps(run_info[1]['traces']['metric']), 
         headers={
@@ -92,14 +132,14 @@ def do_collect_metrics(all_run,all_run_infos, run_info, token):
     run_info_tmp["metric"] = resp.json()
     all_run.append(run_info_tmp)  #store extra metric values
 
-    selected_run_info = collect_from_runinfo(run_info[1])
+    selected_run_info = collect_from_runinfo(run_info[1],token,run_info[0],GetVersion)
     for imetric in run_info_tmp["metric"]:
         if imetric["name"].startswith("__"):
             continue
         selected_run_info["metric"][imetric["name"]] = imetric["values"]
     all_run_infos.append(selected_run_info)
 
-def get_runs(token,experiment,experiment_id,collect_metrics=False):
+def get_runs(token,experiment,experiment_id,needed_tags=None,collect_metrics=False,GetVersion=False):
     import time
     start = time.time()
     batch_size = 45
@@ -109,17 +149,18 @@ def get_runs(token,experiment,experiment_id,collect_metrics=False):
     experiment_info = get_experiment_info(experiment_id, token)
     logger.info(experiment_info)
     total = experiment_info['run_count']
+    needed_tags = set(needed_tags) if needed_tags else None
     with tqdm(total=total) as pbar:
         pbar.set_description(f"fetch next batch offset={offset}, batch_size={batch_size}")
         run_infos = get_run_info_batch(experiment, token, batch_size=batch_size)
         while run_infos:
             if collect_metrics:
                 for run_info in run_infos:
-                    do_collect_metrics(all_run,all_run_infos, run_info, token)
+                    do_collect_metrics(all_run,all_run_infos, run_info, token,needed_tags,GetVersion)
                     pbar.update(1)
             else:
-                do_collect_info(all_run,all_run_infos, run_infos)
-                pbar.update(1)
+                do_collect_info(all_run,all_run_infos, run_infos, token,needed_tags,GetVersion)
+                pbar.update(batch_size)
             try:
                 if len(run_infos) < batch_size:
                     break
