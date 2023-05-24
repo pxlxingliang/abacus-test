@@ -1,4 +1,3 @@
-from sympy import intersection
 from dp.launching.typing.basic import BaseModel, Int, String
 from dp.launching.typing import (
     Set,
