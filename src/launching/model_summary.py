@@ -428,12 +428,13 @@ def SummaryModelRunner(opts:SummaryModel):
     metrics_coef = setting.get("metrics_coef",{})
     digit = setting.get("digit",{})
     comment = setting.get("comment","")
+    
+    json.dump(setting,open(os.path.join(output_path,"setting.json"),'w'),indent=4)
 
     if 1:
         alltags = []
         for i in profile:
             alltags += aim_tag.get(i,[i])
-        print(alltags)
         allruns,allruninfos = get_aim_data.get_runs(token,experiment,experiment_id,alltags,collect_metrics=False,GetVersion=False)
         pickle.dump((allruns,allruninfos),open("tracking.pkl",'wb'))
     else:
