@@ -119,7 +119,7 @@ class Metrics:
                     self.metrics_name = result.AllMethod().keys()
                 allvalue[iipath] = parse_value(result,self.metrics_name) 
         if save_file != None:
-            json.dump(allvalue,open(save_file,'w'),indent=4) 
+            json.dump(allvalue,open(save_file,'w'),sort_keys=True,indent=4) 
         return allvalue
     
     @staticmethod
