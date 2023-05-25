@@ -814,7 +814,7 @@ def ProduceRunDFTStep(step_name,
     artifacts = {"abacustest_example": example_artifact} 
     
     #collectdata_script
-    if len(collectdata_script) > 0:
+    if collectdata_script != None and len(collectdata_script) > 0:
         artifacts["collectdata_script"] = collectdata_script
     else:
         pt.inputs.artifacts["collectdata_script"].optional = True
@@ -1279,7 +1279,7 @@ def transfer_source_to_artifact(example,source=None,source_type="local",only_fol
     if isinstance(example,str):
         example = [example]
     
-    examples,examples_name = None,None   
+    examples,examples_name = [],[]   
      
     if source_type == "local":
         examples,examples_name = FindLocalExamples_new(example,only_folder=only_folder,oneartifact=oneartifact)
