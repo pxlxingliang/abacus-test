@@ -318,6 +318,67 @@ def echart_report(allvalues):
 
     return ReportSection(title="metrics chart",elements=chart_section,ncols=1)
 
+def echart_html(allvalues):
+    import pyecharts
+    from pyecharts import options as opts
+    from pyecharts.charts import Line,Grid
+    
+    for iprofile,profile_value in allvalues.items():
+        metric_name = []
+        metric_value = []
+        for imetric,imetric_value in profile_value.items():
+            ivalue = []
+            for ii in imetric_value:
+                ivalue.append([ii[0].strftime('%Y/%m/%d\n%H:%M'),ii[1]])
+                #ivalue.append([ii[0],ii[1][0]*coef])
+            metric_name.append(imetric)
+            metric_value.append(ivalue)
+
+        nmetrics = len(metric_name)
+        inter = 2
+        height = (0.85 - inter/100.0 * (nmetrics-1))/nmetrics*100
+        interv = height + inter
+        
+        grid = Grid(init_opts=opts.InitOpts(width="600px", height=f"{nmetrics*80}px"))
+        
+        for i in range(nmetrics):
+            if i ==0:
+                title = opts.TitleOpts(title=metric_name[i])
+                showx = True
+                zoom = opts.DataZoomOpts(type_="slider",
+                                        range_start=80, 
+                                        range_end=100,
+                                        xaxis_index=list(range(nmetrics)),
+                                        is_show=True)
+                legend = opts.LegendOpts(pos_left="10%", orient="vertical",pos_right="2%", pos_top="20%")
+            else:
+                showx = False
+                zoom = opts.DataZoomOpts(is_show=False)
+                legend = opts.LegendOpts(is_show = False)
+            line = Line()
+            line.add_xaxis([ii[0] for ii in metric_value[i]])
+            line.add_yaxis(metric_name[i],[ii[1] for ii in metric_value[i]],label_opts=opts.LabelOpts(is_show=False))
+            if i == 0:
+                line.set_global_opts(
+                    title_opts=opts.TitleOpts(title=iprofile),
+                    xaxis_opts=opts.AxisOpts(type_="category",is_show=True,is_xaxislabel_align=True),
+                    yaxis_opts=opts.AxisOpts(type_="value",is_scale=True),
+                    datazoom_opts= [zoom,opts.DataZoomOpts(type_="inside",is_show=True)],
+                    legend_opts=opts.LegendOpts(pos_left="10%", orient="vertical",pos_right="2%", pos_bottom=f"{10+interv*i+5}%"),
+                )
+            else:
+                line.set_global_opts(
+                    #title_opts=opts.TitleOpts(title=metric_name[i]),
+                    xaxis_opts=opts.AxisOpts(is_show=showx),
+                    yaxis_opts=opts.AxisOpts(type_="value",is_scale=True),
+                    datazoom_opts= [opts.DataZoomOpts(type_="inside",is_show=True)],
+                    legend_opts=opts.LegendOpts(pos_left="10%", orient="vertical",pos_right="2%", pos_bottom=f"{10+interv*i+5}%"),
+                )
+                
+            grid.add(line,grid_opts=opts.GridOpts(pos_top=f"{5+interv*(nmetrics-i-1)}%",pos_bottom=f"{10+interv*i}%",pos_right="5%",pos_left="10%"))
+        grid.render(f"{iprofile}.html")
+    
+
 def SummaryModelRunner(opts:SummaryModel):
     comment = """
 说明：
@@ -456,6 +517,7 @@ def SummaryModelRunner(opts:SummaryModel):
     html_section = ReportSection(title="metrics chart",
                              elements=[AutoReportElement(title='metrics', path=html_file_name, description="")])
     chart_section = echart_report(allvalues)
+    #echart_html(allvalues)
 
     report = Report(title="abacus test report",
                         sections=[html_section,chart_section],

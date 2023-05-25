@@ -37,7 +37,7 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     logs.iprint("read config setting ...")
     config = comm_func.read_config(opts)
 
-    #download examples/rundft_extrafiles/postdft_extrafiles
+    #download examples/postdft_examples/rundft_extrafiles/postdft_extrafiles
     logs.iprint("read source setting ...")
     datas = comm_class_exampleSource.read_source(opts,work_path,download_path,logs.iprint)
     if datas == None or not datas.get("example"):
@@ -45,6 +45,7 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
         return None  
     
     #read rundft
+    need_rundft = False
     logs.iprint("read run dft setting ...")
     run_dft = [{}]
     
@@ -60,6 +61,7 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
         
     #read rundft command
     if hasattr(opts,"rundft_command"):
+        need_rundft = True
         logs.iprint("\tcommand:",opts.rundft_command)
         run_dft[-1]["command"] = opts.rundft_command
     
@@ -78,9 +80,14 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
 
     #read postdft
     logs.iprint("read post dft setting ...")
-    need_post_dft = False
+    need_postdft = False
     post_dft = {}
     
+    #read postdft example
+    if datas.get("postdft_example"):
+        post_dft["example"] = datas.get("postdft_example")    
+        logs.iprint("\tpostdft example:",post_dft["example"])
+        
     #read postdft image
     if hasattr(opts,"postdft_image_set"):
         logs.iprint("\timage:",opts.postdft_image_set.image)
@@ -92,7 +99,7 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     if hasattr(opts,"postdft_command"): 
         if opts.postdft_command != None and opts.postdft_command.strip() != "":
             post_dft["command"] = opts.postdft_command.strip()
-            need_post_dft = True
+            need_postdft = True
             logs.iprint("\tcommand:",post_dft["command"])
         
     #read postdft extra files
@@ -106,13 +113,13 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     if "metrics" in metrics_set:
         post_dft["metrics"] = metrics_set["metrics"]
         post_dft["metrics"]["path"] = run_dft[-1]["example"]
-        need_post_dft = True
+        need_postdft = True
     if "super_metrics" in metrics_set:
         post_dft["super_metrics"] = metrics_set["super_metrics"]
-        need_post_dft = True
+        need_postdft = True
 
     #read tracking setting
-    if need_post_dft and hasattr(opts,"Tracking_metrics"):
+    if need_postdft and hasattr(opts,"Tracking_metrics"):
         tracking_set = comm_class.TrackingSet.parse_obj(opts)
         if tracking_set:
             config["AIM_ACCESS_TOKEN"] = tracking_set.get("token")
@@ -123,9 +130,10 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
             }
 
     allparams = {"config": config,
-            "run_dft": run_dft,
             "save_path": "results"}
-    if need_post_dft:
+    if need_rundft:
+        allparams["run_dft"] = run_dft
+    if need_postdft:
         allparams["post_dft"] = post_dft
     logs.iprint("read setting over!\n")
     return allparams

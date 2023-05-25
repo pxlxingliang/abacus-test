@@ -58,8 +58,25 @@ If you want to use the examples from datahub or datasets, please refer to the la
                          FromDatasets] = Field(title="Example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
-    Example: String = Field(default="*",title="Examples",description = "You can choose to run only partial examples, and separate each example with space. \
+    Example: String = Field(default="*",title="Examples",description = "You can choose to run only partial examples of ExampleSource, and separate each example with space. \
 Tips: you can use regex to select examples. For example: example_00[1-5]* example_[6,7,8]*. If you want to run all examples, please type '*'.")                    
+
+
+class PostdftExampleSourceSet(BaseModel):
+    PostdftExampleSource_local: InputFilePath = Field(default=None,
+                                         title="Upload postdft examples locally",
+                                         st_kwargs_type=comm_func.unpack(
+                                             None, None, get_support_filetype=True),
+                                         description="""A compressed file contains all required files in post dft. \
+If you want to use the examples from datahub or datasets, please refer to the later 'PostdftExampleSource' section.""",
+                                         description_type="markdown")
+    PostdftExampleSource: Union[FromPreUpload,
+                         FromDatahub,
+                         FromDatasets] = Field(title="Postdft example source",
+                                                      discriminator="type",
+                                                      description="Please choose the example source.")
+    PostdftExample: String = Field(default="*",title="Postdft examples",description = "You can choose to use only partial files of PostdftExampleSource, and separate each file or folder with space. \
+Tips: you can use regex to select files. For example: example_00[1-5]* example_[6,7,8]*. If you want to use all files, please type '*'.")                    
 
 
 class RundftExtraFileSet(BaseModel):
@@ -161,6 +178,11 @@ def parse_example_source(example_source_set:ExampleSourceSet, download_path, con
     upload_path = example_source_set.ExampleSource_local
     return parse_source(example_source,upload_path,download_path,configs,logs)
 
+def parse_postdft_example_source(example_source_set:PostdftExampleSourceSet, download_path, configs: comm_class.ConfigSet, logs=None):
+    example_source = example_source_set.PostdftExampleSource
+    upload_path = example_source_set.PostdftExampleSource_local
+    return parse_source(example_source,upload_path,download_path,configs,logs)
+
 def parse_rundft_extrafile_source(extrafile_source_set:RundftExtraFileSet, download_path, configs: comm_class.ConfigSet, logs=None):
     example_source = extrafile_source_set.RundftExtraFile
     upload_path = extrafile_source_set.RundftExtraFile_local
@@ -226,6 +248,17 @@ def read_source(opts,work_path,download_path,logs=None):
                 download_path, work_path, opts.Example)
             outdict["example"] = all_directories
         comm_func.clean_dictorys(download_path)    
+    
+    #read postdft example source
+    if hasattr(opts,"PostdftExampleSource"):
+        tmp = parse_postdft_example_source(opts,download_path,opts,logs)
+        if tmp == None:
+            return None
+        else:
+            all_directories, all_files = copy_download_to_work(
+                download_path, work_path, opts.Example)
+            outdict["postdft_example"] = all_directories
+        comm_func.clean_dictorys(download_path)  
 
     #read rundft extra files
     if hasattr(opts,"RundftExtraFile_needed_files"):

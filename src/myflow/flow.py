@@ -203,22 +203,16 @@ def set_env(param):
     from datetime import datetime
     globV.set_value("BEGIN", str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
 
-def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name):
+def waitrun(wf,stepnames,allsave_path):
     '''
     stepnames = [[test1_stepname1,test1_stepname2,...],[test2_stepname1,test2_stepname2,...],...]
     allsave_path = [[[save_path,sub_save_path],[save_path,sub_save_path],...],[]...] similar to stepnames
     postdft_local_jobs = [[],[save_path,param["post_dft"]],[],..], null list means no postdft_local,
     '''
-    tmp_local_path = len(stepnames) * [False]
     finishtest = []
     makedfolder = []
     for i,istep in enumerate(stepnames):
         finishtest.append(len(istep)*[False])
-        if len(postdft_local_jobs[i]) == 0:
-            tmp_local_path.append(False)
-        else:
-            tmp_local_path.append(dflowOP.ProduceRadomPath(".tmp"))
-            os.makedirs(tmp_local_path[-1])
     finishtest = np.array(finishtest)  
           
     wfid = wf.id
@@ -235,41 +229,22 @@ def waitrun(wf,stepnames,allsave_path,postdft_local_jobs,test_name):
                         continue
                     finishtest[i][j] = True
 
-                    if len(postdft_local_jobs[i]) > 0:
-                        #do postdft on local 
-                        #mkdir the tmp work path
-                        if not tmp_local_path[i]:
-                            tmp_local_path[i] = dflowOP.ProduceRadomPath(".")
-                            os.makedirs(tmp_local_path[i])
-                        save_path = tmp_local_path[i]
-                    else:
-                        save_path = allsave_path[i][j][0]
-                        part_save_path = os.path.join(allsave_path[i][j][0],allsave_path[i][j][1])                      
-                            
-                        if part_save_path not in makedfolder:
-                            MakeSaveFolder(part_save_path)
-                            WriteParamUserFile(storefolder=part_save_path)
-                            makedfolder.append(part_save_path)
-                        comm.printinfo("%s is finished (remaining %d jobs for this test), download the results to %s!" % 
-                                       (step.name,len(finishtest[i]) - np.sum(finishtest[i]),part_save_path))
+                    save_path = allsave_path[i][j][0]
+                    part_save_path = os.path.join(allsave_path[i][j][0],allsave_path[i][j][1])                      
+                        
+                    if part_save_path not in makedfolder:
+                        MakeSaveFolder(part_save_path)
+                        WriteParamUserFile(storefolder=part_save_path)
+                        makedfolder.append(part_save_path)
+                    comm.printinfo("%s is finished (remaining %d jobs for this test), download the results to %s!" % 
+                                   (step.name,len(finishtest[i]) - np.sum(finishtest[i]),part_save_path))
                     if step.phase != 'Succeeded':
                         comm.printinfo("    This job is not Succeeded, please check on: %s, workflow ID is: %s" %
-                              (globV.get_value("HOST"),wfid))
-                        
+                              (globV.get_value("HOST"),wfid))  
                     try:
                         download_artifact(step.outputs.artifacts["outputs"],path=save_path)
                     except:
                         traceback.print_exc()
-                        
-                        
-            if False not in finishtest[i] and len(postdft_local_jobs[i]) > 0:
-                comm.printinfo("Test '%s' has finished the run_dft, do post_dft on local %s\n..." % (test_name[i], tmp_local_path[i]))
-                dflowOP.RunPostDFTLocal(tmp_local_path[i],postdft_local_jobs[i][0],postdft_local_jobs[i][1])
-                comm.printinfo("Test '%s' has finished the post_dft, move the outputs to %s" % (test_name[i],postdft_local_jobs[i][0]))
-                part_save_path = postdft_local_jobs[i][0]
-                if part_save_path not in makedfolder:
-                    WriteParamUserFile(storefolder=part_save_path)
-                    makedfolder.append(part_save_path)
                                 
         time.sleep(4)
 
@@ -312,7 +287,7 @@ def ReportMetrics():
 def RunJobs(param):
     set_env(param)
     alljobs = ParamParser(json.load(open(param.param)))
-    allstep,stepname,allsave_path,postdft_local_jobs,test_name = dflowOP.ProduceAllStep(alljobs)
+    allstep,stepname,allsave_path = dflowOP.ProduceAllStep(alljobs)
 
     if len(allstep) == 0:
         comm.printinfo("No step is produced, exit!!!")
@@ -331,7 +306,7 @@ def RunJobs(param):
         job_address = globV.get_value("HOST") + "/workflows/argo/%s?tab=workflow" % wf.id
         comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % job_address)
 
-        waitrun(wf,stepname,allsave_path,postdft_local_jobs,test_name)
+        waitrun(wf,stepname,allsave_path)
     
     if globV.get_value("REPORT"):
         ReportMetrics()
