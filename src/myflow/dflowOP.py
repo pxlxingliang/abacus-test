@@ -199,7 +199,7 @@ def ReadMetrics(poin_metrics,do_upload_tracking):
     poin_metrics is a list of dict
     poin_metrics = [
         {
-            "value_from_file": str,     #a json file that has the metrics and value, which will also be uploaded to tracking 
+            "value_from_file": str,     #a json file that has the metrics and value, which will also be uploaded to tracking, should be {"example":{"key":value,...},...} 
             "group_name": str,  #self-defined group name, only used in context for tracking
             "path": ["*"],      #the path of dft jobs
             "dft_type": "abacus",   #dft type, can be abacus/qe/vasp
@@ -224,9 +224,24 @@ def ReadMetrics(poin_metrics,do_upload_tracking):
         if metric_form_calc:
             value = metric_form_calc.get_metrics(save_file=imetric.get("save_file","result.json"))
         else:
-            value = None
+            value = {}
 
         if do_upload_tracking:
+            metric_from_file = imetric.get("value_from_file",None)
+            if metric_from_file: 
+                if os.path.isfile(metric_from_file):
+                    try:
+                        for k,v in json.load(open(metric_from_file)).items():
+                            if k not in value:
+                                value[k] = {}
+                            for ik,iv in v.items():
+                                value[k][ik] = iv
+                    except:
+                        traceback.print_exc()
+                else:
+                    print("Can not find file %s" % metric_from_file,file=sys.stderr)
+                    print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."),file=sys.stderr)
+                    
             if value: 
                 try:
                     examples,new_dict = UploadTracking.rotate_metrics(value)
@@ -236,19 +251,7 @@ def ReadMetrics(poin_metrics,do_upload_tracking):
                     metrics_value["metrics_%d"%im] = UploadTracking.Transfer2Table(value) 
                 except:
                     traceback.print_exc()
-
-            metric_from_file = imetric.get("value_from_file",None)
-            if metric_from_file: 
-                if os.path.isfile(metric_from_file):
-                    try:
-                        for k,v in json.load(open(metric_from_file)).items():
-                            metrics_value[k] = v
-                    except:
-                        traceback.print_exc()
-                else:
-                    print("Can not find file %s" % metric_from_file,file=sys.stderr)
-                    print("Current path: %s, listdir:" % os.path.abspath("."),os.path.listdir("."),file=sys.stderr)
-
+                    
             context = {"subset":"metrics%d"%im,"datatype":"metrics"}
             if "group_name" in imetric:
                 context["group_name"] = imetric.get("group_name")
@@ -262,8 +265,8 @@ def ReadSuperMetrics(poin_super_metrics,do_upload_tracking):
     """
     poin_super_metrics = [{
         "group_name": str,  # a json file that has the metrics and value, which will also be uploaded to tracking
-        "value_from_file": str, # self-defined group name, only used in context for tracking
-
+        "value_from_file": str, # self-defined super metrics, can also define some files
+                                # {key:{"type":"image","file":"file.png"}}
         "save_file": "superMetric.json",    #same as that defined in outresult report
         "result_file": ["result.json"],
         "example_name_idx":0,
@@ -325,7 +328,7 @@ def upload_to_tracking(tracking_values,name,experiment,tags=[],AIM_ACCESS_TOKEN=
         print("Upload tracking error. Please set 'AIM_ACCESS_TOKEN' information.")
         return None
     
-    from dp.tracking import Run, Text, Table
+    from dp.tracking import Run, Text, Table, Image, HTML
     tracking_run = Run(repo='aim://tracking-api.dp.tech:443')
     run_hash = tracking_run.hash
     tracking_run.name = name
@@ -338,6 +341,18 @@ def upload_to_tracking(tracking_values,name,experiment,tags=[],AIM_ACCESS_TOKEN=
                 tracking_run.track(value,name=name,context=context)
             elif isinstance(value,str):
                 tracking_run.track(Text(value),name=name,context=context)  
+            elif isinstance(value,dict):
+                # upload a file
+                file_type = value.get("type")
+                file_name = value.get("file")
+                if file_type and file_name and os.path.isfile(file_name):
+                    if file_type == "image":
+                        tracking_run.track(Image(file_name,format="jpeg",optimize=True,quality=50),
+                                           name=name,
+                                           context=context)
+                    elif file_type == "html":
+                        with open(file_name) as f: lines = f.read()
+                        tracking_run.track(HTML(lines),name=name,context=context)
             else:
                 print(type(value))  
                 tracking_run.track(value,name=name,context=context)

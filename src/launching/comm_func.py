@@ -100,6 +100,7 @@ def produce_metrics_superMetrics_reports(allparams,work_path,output_path):
         allparams["save_path"] = "result"
     reports = []
     chart_section = []
+    special_section = []
     metric_filename = allparams.get("post_dft",{}).get("metrics",{}).get("save_file","metrics.json")
     metric_file = os.path.join(work_path,allparams["save_path"],metric_filename)
     print(metric_file)
@@ -133,11 +134,24 @@ def produce_metrics_superMetrics_reports(allparams,work_path,output_path):
         if os.path.isfile(customized_metrics_file):
             try:
                 customized_metrics = json.load(open(customized_metrics_file))
-                pddata = pd.DataFrame(customized_metrics,index=[0])
-                print(pddata)
                 csv_filename = os.path.splitext(customized_metrics_filename)[0] + ".csv"
-                pddata.to_csv(os.path.join(output_path,csv_filename),index=False)
+                outresult.pandas_out(customized_metrics,os.path.join(output_path,csv_filename))
                 reports.append(ReportSection(title="customized_metrics",elements=[AutoReportElement(title='customized_metrics', path=csv_filename,description="")]))
+
+                #produce the Echarts option for each metric
+                pddata = pd.DataFrame.from_dict(customized_metrics)
+                example_name = pddata.columns.to_list() #get the column name
+                metric_name = pddata.index.to_list()  #get the row/index name
+                type_set = (int,float,type(None),bool)
+                for imetric in metric_name:
+                    ivalue = pddata.loc[imetric,:].to_list()
+                    if False not in [isinstance(i,type_set) for i in ivalue]:
+                        options = comm_echarts.get_bar_option(imetric,example_name,ivalue)
+                        options["xAxis"][0]["axisLabel"] = {
+                            "rotate": 15,
+                            "interval": int(len(example_name)/15)
+                        }
+                        chart_section.append(ChartReportElement(options=options,title=imetric))
             except:
                 traceback.print_exc()
 
@@ -163,16 +177,38 @@ def produce_metrics_superMetrics_reports(allparams,work_path,output_path):
         if os.path.isfile(customized_super_metrics_file):
             try:
                 customized_super_metrics = json.load(open(customized_super_metrics_file))
-                pddata = pd.DataFrame(customized_super_metrics,index=[0])
-                print(pddata)
-                csv_filename = os.path.splitext(customized_super_metrics_filename)[0] + ".csv"
-                pddata.to_csv(os.path.join(output_path,csv_filename),index=False)
-                reports.append(ReportSection(title="customized_super_metrics",elements=[AutoReportElement(title='customized_super_metrics', path=csv_filename,description="")]))
+                normal_metrics = {}
+                special_metrics = {}
+                for ikey,ivalue in customized_super_metrics.items():
+                    if isinstance(ivalue,dict):
+                        special_metrics[ikey] = ivalue
+                    else:
+                        normal_metrics[ikey] = ivalue
+                if normal_metrics:
+                    pddata = pd.DataFrame(normal_metrics,index=[0])
+                    print(pddata)
+                    csv_filename = os.path.splitext(customized_super_metrics_filename)[0] + ".csv"
+                    pddata.to_csv(os.path.join(output_path,csv_filename),index=False)
+                    reports.append(ReportSection(title="customized_super_metrics",elements=[AutoReportElement(title='customized_super_metrics', path=csv_filename,description="")]))
+                    
+                if special_metrics:
+                    for ikey,ivalue in special_metrics.items():
+                        file_name = ivalue.get("file",None)
+                        if file_name:
+                            ifile_name = os.path.join(work_path,allparams["save_path"],file_name)
+                            if os.path.isfile(ifile_name):
+                                special_section.append(ReportSection(title="customized_super_metrics",
+                                                                     elements=[AutoReportElement(title=ikey, 
+                                                                                                 path=os.path.join(allparams["save_path"],file_name),
+                                                                                                 description="")]))
             except:
                 traceback.print_exc()
 
     if chart_section:
         reports.append(ReportSection(title="metrics chart",elements=chart_section,ncols=2))
+    if special_section:
+        for i in special_section:
+            reports.append(i)
     return reports
 
 def produce_html_table(table):
