@@ -40,7 +40,7 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     #download examples/postdft_examples/rundft_extrafiles/postdft_extrafiles
     logs.iprint("read source setting ...")
     datas = comm_class_exampleSource.read_source(opts,work_path,download_path,logs.iprint)
-    if datas == None or not datas.get("example"):
+    if datas == None:
         logs.iprint("Error: download examples or rundft_extrafiles or postdft_extrafiles failed!")
         return None  
     
@@ -91,7 +91,8 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     #read postdft image
     if hasattr(opts,"postdft_image_set"):
         logs.iprint("\timage:",opts.postdft_image_set.image)
-        post_dft = comm_class_postdft.parse_image_set(opts.postdft_image_set)
+        for k,v in comm_class_postdft.parse_image_set(opts.postdft_image_set).items():
+            post_dft[k] = v
         if "bohrium" in post_dft:
             logs.iprint("\tbohrium:",post_dft["bohrium"])
     
@@ -112,7 +113,12 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     metrics_set = comm_class_metrics.parse_metrics_set(opts)
     if "metrics" in metrics_set:
         post_dft["metrics"] = metrics_set["metrics"]
-        post_dft["metrics"]["path"] = run_dft[-1]["example"]
+        if run_dft[-1].get("example"):
+            post_dft["metrics"]["path"] = run_dft[-1]["example"]
+        elif post_dft["example"]:
+            post_dft["metrics"]["path"] = post_dft["example"]
+        else:
+            post_dft["metrics"]["path"] = ["*"]
         need_postdft = True
     if "super_metrics" in metrics_set:
         post_dft["super_metrics"] = metrics_set["super_metrics"]
