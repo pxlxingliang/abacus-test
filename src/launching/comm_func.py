@@ -255,7 +255,10 @@ def unpack(filepath, output_path, filetype = None, get_support_filetype = False)
         os.makedirs(output_path,exist_ok=True)
 
     if filetype == None:
-        filetype = os.path.splitext(filepath)[1][1:]
+        if filepath.endswith(".tar.gz"):
+            filetype = "tgz"
+        else:
+            filetype = os.path.splitext(filepath)[1][1:]
 
     if filetype == "zip":
         with zipfile.ZipFile(filepath, 'r') as zip_ref:
