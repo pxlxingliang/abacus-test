@@ -55,9 +55,9 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
         logs.iprint("\texample:",run_dft[-1]["example"])
     
     #read rundft extra files
-    if datas.get("rundft_extrafiles"):
-        run_dft[-1]["extra_files"] = datas.get("rundft_extrafiles")
-        logs.iprint("\trundft_extrafiles:",run_dft[-1]["extra_files"])
+    if datas.get("rundft_extrafile"):
+        run_dft[-1]["extra_files"] = datas.get("rundft_extrafile")
+        logs.iprint("\rundft_extrafile:",run_dft[-1]["extra_files"])
         
     #read rundft command
     if hasattr(opts,"rundft_command"):
@@ -89,9 +89,9 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
         logs.iprint("\tpostdft example:",post_dft["example"])
 
     #read rundft extra files
-    if datas.get("postdft_extrafiles"):
-        post_dft["extra_files"] = datas.get("postdft_extrafiles")
-        logs.iprint("\tpostdft_extrafiles:",post_dft["extra_files"])
+    if datas.get("postdft_extrafile"):
+        post_dft["extra_files"] = datas.get("postdft_extrafile")
+        logs.iprint("\tpostdft_extrafile:",post_dft["extra_files"])
         
     #read postdft image
     if hasattr(opts,"postdft_image_set"):

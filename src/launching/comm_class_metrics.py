@@ -148,8 +148,8 @@ def parse_metrics_set(metrics_set:MetricsSet):
                 out_dict["metrics"] = {}
             out_dict["metrics"]["value_from_file"] = metrics_set.metrics_savefile.strip()
         if metrics_set.super_metrics_savefile != None and metrics_set.super_metrics_savefile.strip() != "":
-            if "super_metric" not in out_dict:
-                out_dict["super_metric"] = {}
-            out_dict["super_metric"]["value_from_file"] = metrics_set.super_metrics_savefile.strip()
+            if "super_metrics" not in out_dict:
+                out_dict["super_metrics"] = [{}]
+            out_dict["super_metrics"][-1]["value_from_file"] = metrics_set.super_metrics_savefile.strip()
     
     return out_dict
