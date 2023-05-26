@@ -64,7 +64,7 @@ class SuperMetrics(BaseModel):
 
 class MetricsSet(BaseModel):
     metrics: Set[AbacusMetricEnum] = Field(default=("version",'INPUT:ks_solver',"normal_end",'converge','energy','total_time','scf_steps'))
-    super_metrics: List[SuperMetrics] = Field(default=[])
+    super_metrics: List[SuperMetrics] = Field(default=None)
 
 class metricsSaveFileSet(BaseModel):    
     metrics_savefile: String = Field(default=None,
