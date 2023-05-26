@@ -88,7 +88,8 @@ class RundftExtraFileSet(BaseModel):
     RundftExtraFile: Union[
         NotRquired,
         FromPreUpload,
-        FromDatahub] = Field(title="Rundft Extra File Source",
+        FromDatahub,
+        FromDatasets] = Field(title="Rundft Extra File Source",
                              discriminator="type",
                              description="Please choose the extra file source.")
     RundftExtraFile_needed_files: String = Field(default=None,
@@ -107,7 +108,8 @@ class PostdftExtraFileSet(BaseModel):
     PostdftExtraFile: Union[
         NotRquired,
         FromPreUpload,
-        FromDatahub] = Field(title="Postdft Extra File Source",
+        FromDatahub,
+        FromDatasets] = Field(title="Postdft Extra File Source",
                              discriminator="type",
                              description="Please choose the extra file source.")
         

@@ -87,6 +87,11 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     if datas.get("postdft_example"):
         post_dft["example"] = datas.get("postdft_example")    
         logs.iprint("\tpostdft example:",post_dft["example"])
+
+    #read rundft extra files
+    if datas.get("postdft_extrafiles"):
+        post_dft["extra_files"] = datas.get("postdft_extrafiles")
+        logs.iprint("\tpostdft_extrafiles:",post_dft["extra_files"])
         
     #read postdft image
     if hasattr(opts,"postdft_image_set"):
