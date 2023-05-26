@@ -256,7 +256,7 @@ def read_source(opts,work_path,download_path,logs=None):
             return None
         else:
             all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.Example)
+                download_path, work_path, opts.PostdftExample)
             outdict["postdft_example"] = all_directories
         comm_func.clean_dictorys(download_path)  
 
