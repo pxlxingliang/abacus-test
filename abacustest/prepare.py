@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Union
 import copy
 from pathlib import Path
 from abacustest import constant
+from abacustest.myflow import comm
 
 class AbacusStru:
     def __init__(self,
@@ -212,8 +213,12 @@ class AbacusStru:
 
         #read cell
         cell = []
-        for line in lattice_vector:
-            cell.append([float(i) for i in line.split()[:3]])
+        try:
+            for line in lattice_vector:
+                cell.append([float(i) for i in line.split()[:3]])
+        except:
+            traceback.print_exc()
+            print("WARNING: LATTICE_VECTORS is not correct !!!!!!")
 
         #read coordinate and coordinate type and atom number of each type
         atom_number = []
@@ -342,7 +347,7 @@ class PrepareAbacus:
         self.mix_input = mix_input
         self.pp_dict = pp_dict
         self.orb_dict = orb_dict
-        self.extra_files = extra_files if extra_files else []
+        self.extra_files = self.CheckExtrafile(extra_files)
         self.mix_kpt = mix_kpt
         self.mix_stru = mix_stru
         self.dpks_descriptor = dpks_descriptor if dpks_descriptor else None
@@ -356,6 +361,31 @@ class PrepareAbacus:
         self.kpt_list = self.Construct_kpt_list()
         self.stru_list = self.Construct_stru_list()
     
+    def GetElementNameFromFileName(self,filename):
+        #the filename should be started with the element name and followed by character non-alpha
+        if len(filename) < 2:
+            return None
+        element_name = filename[:2]
+        if not element_name[-1].isalpha():
+            element_name = element_name[:-1]
+        if element_name.isalpha():
+            element_name = element_name.capitalize()
+        if element_name not in constant.MASS_DICT:
+            return None
+        return element_name
+    
+    def CheckExtrafile(self,extrafiles):
+        if not extrafiles:
+            return []
+        filelist = []
+        for ifile in extrafiles:
+            if os.path.isfile(ifile):
+                filelist.append(ifile)
+            else:
+                print(f"ERROR: Can not find {ifile}!")
+        return filelist
+
+
     def CollectPP(self):
         if not self.pp_path:
             return
@@ -363,11 +393,11 @@ class PrepareAbacus:
             allfiles = os.listdir(self.pp_path)
             for ifile in allfiles:
                 if not os.path.isfile(os.path.join(self.pp_path,ifile)): continue
-                element_name = ifile.split("_")[0]
-                if element_name not in self.pp_dict:
+                element_name = self.GetElementNameFromFileName(ifile)
+                if element_name and element_name not in self.pp_dict:
                     self.pp_dict[element_name] = os.path.join(self.pp_path,ifile)
         else:
-            print("Not find pp dir: %s" % self.pp_path)
+            print(f"Not find pp dir: \'{self.pp_path}\'\n\tcurrent path: {os.getcwd()}")
 
     def CollectOrb(self):
         if not self.orb_path:
@@ -376,8 +406,8 @@ class PrepareAbacus:
             allfiles = os.listdir(self.orb_path)
             for ifile in allfiles:
                 if not os.path.isfile(os.path.join(self.orb_path,ifile)): continue
-                element_name = ifile.split("_")[0]
-                if element_name not in self.orb_dict:
+                element_name = self.GetElementNameFromFileName(ifile)
+                if element_name and element_name not in self.orb_dict:
                     self.orb_dict[element_name] = os.path.join(self.orb_path,ifile)
         else:
             print("Not find orb dir: %s" % self.orb_path)
@@ -394,20 +424,24 @@ class PrepareAbacus:
             else:
                 print("WARNING: File %s is not found" % self.input_template)
 
-        print("INPUT template file: %s" % str(inputf))
+        print("INPUT: %s" % str(inputf))
         input_constant = {}
         if inputf != None:
             input_constant = PrepareAbacus.ReadInput(inputf)
         
         list_param = {}
+        input_constant_common = {}
         for k,v in self.mix_input.items():
             #if value is list type, then we need prepare INPUT for each value
             #input_constant stores the parameters whose value is constant
             #list_param stores the parameters that has several values.
             if isinstance(v,(int,float,str)):
                 input_constant[k] = v
+                input_constant_common[k] = v
             elif isinstance(v,list):
                 list_param[k] = v
+                if k in input_constant:
+                    del input_constant[k]
             else:
                 print("WARNING: type of '%s' is" % str(v),type(v),"will not add to INPUT")
                 input_constant[k] = v
@@ -448,12 +482,10 @@ class PrepareAbacus:
             else:
                 print("WARNING: File %s is not found" % self.kpt_template)
 
-        print("KPT template file: %s" % str(kptf))
-
         if len(self.mix_kpt) == 0:
             if kptf != None:
                 all_kpt.append(kptf)
-            return all_kpt
+            template_file = kptf
         else:
             for ikpt in self.mix_kpt:
                 if isinstance(ikpt,int):
@@ -464,14 +496,16 @@ class PrepareAbacus:
                     elif len(ikpt) == 6:
                         all_kpt.append(ikpt)
                     else:
-                        print("mix_kpt should be a int or list of 3/6 element, but not ",ikpt)
+                        print("mix_kpt should be a int or list of 3/6 elements, but not ",ikpt)
                 elif isinstance(ikpt,str):
                     allkpt = glob.glob(ikpt)
                     allkpt.sort()
                     for iikpt in allkpt:
                         all_kpt.append(iikpt)
                 else:
-                    print("element of mix_kpt should be int or list of 3/6 elements, but not ",ikpt)
+                    print("mix_kpt should be int or list of 3/6 elements, but not ",ikpt)
+            template_file = self.mix_kpt
+        print(f"KPT: {template_file}")
         return all_kpt
     
     def Construct_stru_list(self):
@@ -486,14 +520,12 @@ class PrepareAbacus:
             else:
                 print("WARNING: File %s is not found" % self.stru_template)
 
-        print("STRU template file: %s" % str(struf))
-
         if len(self.mix_stru) == 0:
             if struf != None:
                 all_stru.append(struf)
             else:
                 print("Please set the stru_template!")
-            return all_stru
+            template_file = struf
         else:
             for stru in self.mix_stru:
                 allstrus = glob.glob(stru)
@@ -502,6 +534,9 @@ class PrepareAbacus:
                     all_stru.append(os.path.abspath(istru))
                 if len(allstrus) == 0:
                     print("Structure file '%s' is not exist" % stru)
+            template_file = self.mix_stru
+        
+        print(f"STRU: {template_file}")
         return all_stru
     
     def prepare(self):
@@ -526,16 +561,15 @@ class PrepareAbacus:
                    
         ipath = -1
         param_setting = {}
-        has_create_savepath = False
+        cwd = os.getcwd()
         for istru in self.stru_list:  #iteration of STRU
-            cwd = os.getcwd()
             stru_data = AbacusStru.ReadStru(istru)
             stru_path = os.path.split(istru)[0]
             if stru_path == "": stru_path = os.getcwd()
             labels = stru_data.get_label()
             linkstru = True
             skipstru = False
-            allfiles = []  #files that will be linked
+            allfiles = self.extra_files  #files that will be linked
             pp_list = []   #pp file name
             orb_list = []  #orb file name
             dpks = None    #dpks file name
@@ -552,6 +586,7 @@ class PrepareAbacus:
                     else:
                         print("label '%s': the pseudopotential file '%s' defined in %s is not found, skip this structure" % (ilabel,pp_in_stru,istru))
                         skipstru = True
+                        os.chdir(cwd)
                         break
                     os.chdir(cwd)
                 else:
@@ -617,16 +652,19 @@ class PrepareAbacus:
                 for iinput in input_list: #iteration of INPUT
                     ipath += 1
                     #create folder
-                    if not has_create_savepath:
-                        if os.path.isdir(self.save_path):
-                            from myflow.comm import GetBakFile
-                            bk = GetBakFile(self.save_path)
-                            shutil.move(self.save_path,bk)
-                        has_create_savepath = True
+                    #if not has_create_savepath:
+                    #    if os.path.isdir(self.save_path):
+                    #        bk = comm.GetBakFile(self.save_path)
+                    #        shutil.move(self.save_path,bk)
+                    #    has_create_savepath = True
                     save_path = os.path.join(self.save_path,str(ipath).zfill(5))
+                    if os.path.isdir(save_path):
+                        bk = comm.GetBakFile(save_path)
+                        shutil.move(save_path,bk)
+                    
 
                     #store the param setting and path
-                    param_setting[save_path] = [istru,ikpt,{}]
+                    param_setting[save_path] = [os.path.relpath(istru, cwd),ikpt,{}]
                     for input_param in self.input_mix_param:
                         param_setting[save_path][-1][input_param] = iinput.get(input_param)
 
@@ -720,6 +758,96 @@ class PrepareAbacus:
 
         with open(INPUTf,'w') as f1: f1.write(out)            
 
+def CheckExample(example_path,description:str=""):
+    print(f"Check ABACUS inputs: {example_path} {description}")
+    if not os.path.isdir(example_path):
+        print("Can not find example path %s" % example_path)
+        return False
+    if not os.path.isfile(os.path.join(example_path,"INPUT")):
+        print("Can not find INPUT file in %s" % example_path)
+        return False
+    if not os.path.isfile(os.path.join(example_path,"STRU")):
+        print("Can not find STRU file in %s" % example_path)
+        return False
+    iinput = PrepareAbacus.ReadInput(os.path.join(example_path,"INPUT"))
+    pp_path = iinput.get("pseudo_dir","")
+    orb_path = iinput.get("orbital_dir","")
+    istru = AbacusStru.ReadStru(os.path.join(example_path,"STRU"))
+    if not istru:
+        print("Read STRU file failed in %s" % example_path)
+        return False
+    
+    cwd = os.getcwd()
+    allpass = True
+    os.chdir(example_path)
+    #check pp
+    ppfiles = istru.get_pp()
+    if not ppfiles:
+        print("Can not find PP in %s" % example_path)
+        allpass = False
+    else:
+        for ppfile in ppfiles:
+            real_ppfile = os.path.join(pp_path,ppfile)
+            if not os.path.isfile(real_ppfile):
+                print("Can not find PP file %s in %s" % (real_ppfile,example_path))
+                allpass = False
+    
+    #check orb
+    basis = iinput.get("basis_type","pw").lower()
+    if basis != "pw" and basis.startswith("lcao"):
+        orbfiles = istru.get_orb()
+        if not orbfiles:
+            print("Can not find ORB in %s/STRU" % example_path)
+            allpass = False
+        else:
+            for orbfile in orbfiles:
+                real_orbfile = os.path.join(orb_path,orbfile)
+                if not os.path.isfile(real_orbfile):
+                    print("Can not find ORB file %s in %s" % (real_orbfile,example_path))
+                    allpass = False
+    
+    #check dpks
+    deepks_scf = iinput.get("deepks_scf",False)
+    if deepks_scf:
+        dpks_model = iinput.get("deepks_model",None)
+        if not dpks_model:
+            print("deepks_model is not defined in %s/INPUT" % example_path)
+            allpass = False
+        else:
+            if not os.path.isfile(dpks_model):
+                print("Can not find dpks model file %s in %s" % (dpks_model,example_path))
+                allpass = False
+    deepks_out_labels = iinput.get("deepks_out_labels",None)
+    if deepks_scf or deepks_out_labels:
+        dpks_descriptor = istru.get_dpks()
+        if not dpks_descriptor:
+            print("Read dpks descriptor failed in %s/STRU" % example_path)
+            allpass = False
+        elif not os.path.isfile(dpks_descriptor):
+            print("Can not find dpks descriptor file %s in %s" % (dpks_descriptor,example_path))
+            allpass = False
+    
+    # check KPT
+    # only basis is lcao and use gamma_only, or has define kspacing, KPT file is not needed
+    gamma_only = iinput.get("gamma_only",False)
+    kspacing = iinput.get("kspacing",None)
+    if not ((basis.startswith("lcao") and gamma_only) or kspacing): 
+        if not os.path.isfile(os.path.join(example_path,"KPT")):
+            print("Can not find KPT file in %s" % example_path)
+            allpass = False 
+    os.chdir(cwd)
+    return allpass 
+
+def CommPath(pathlist):
+    "return (commpath pathlist_without_commpath)"
+    if len(pathlist) == 0:
+        return None,pathlist
+    commpath = os.path.commonpath(pathlist)
+    if commpath != "":
+        length = len(commpath) + 1
+    else:
+        length = 0
+    return commpath,[i[length:] for i in pathlist]
 
 def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str, dict]]:  
     """
@@ -766,9 +894,11 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
         example_template = [example_template]
     
     all_path_setting = []
-    for iexample in example_template:
+    commpath,example_template_nocomm = CommPath(example_template)
+    print(commpath,example_template_nocomm)
+    for idx,iexample in enumerate(example_template):
         if len(example_template) > 1:
-            save_path = os.path.join(save_folder,iexample)
+            save_path = os.path.join(save_folder,example_template_nocomm[idx])
             print("\n%s" % iexample)
         else:
             save_path = save_folder
@@ -794,7 +924,6 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
 def PrepareInput(param):
     param_setting_file = param.param
     save_folder = param.save
-    
     if not os.path.isfile(param_setting_file):
         print("Can not find file %s!!!" % param_setting_file)
         sys.exit(1)

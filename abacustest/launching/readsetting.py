@@ -120,8 +120,8 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
         post_dft["metrics"] = metrics_set["metrics"]
         if run_dft[-1].get("example"):
             post_dft["metrics"]["path"] = run_dft[-1]["example"]
-        elif post_dft["example"]:
-            post_dft["metrics"]["path"] = post_dft["example"]
+        elif post_dft.get("example"):
+            post_dft["metrics"]["path"] = post_dft.get("example")
         else:
             post_dft["metrics"]["path"] = ["*"]
         need_postdft = True

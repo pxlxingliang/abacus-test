@@ -25,6 +25,7 @@ def ParamParser(param):
         "bohrium_goup_name": ,
         "ABBREVIATION":{},
         "save_path" : PATH_THE_FINAL_RESULT_WILL_BE_DOWNLOADED_TO,
+        "pre_dft":{},
         "run_dft" : {},
         "post_dft": {},
         "upload_datahub": {},
@@ -35,7 +36,8 @@ def ParamParser(param):
     alljobs = {}
 
     alljobs["save_path"] = param.get("save_path",None)
-    alljobs["run_dft"] = param.get("run_dft")
+    alljobs["pre_dft"] = param.get("pre_dft",{"ifrun":False})
+    alljobs["run_dft"] = param.get("run_dft",{"ifrun":False})
     alljobs["post_dft"] = param.get("post_dft",{"ifrun":False})
     alljobs["upload_datahub"] = param.get("upload_datahub",None)  #used to upload local files to datahub
     alljobs["upload_tracking"] = param.get("upload_tracking",None)  #used to upload tracking
@@ -78,6 +80,8 @@ def ParamParser(param):
             setting = json.load(open(setting_file))
             if "save_path" in setting:
                 alljobs["save_path"] = setting["save_path"]
+            if "pre_dft" in setting:
+                alljobs["pre_dft"] = setting["run_dft"]
             if "run_dft" in setting:
                 alljobs["run_dft"] = setting["run_dft"]
             if "post_dft" in setting:
@@ -124,6 +128,7 @@ def SetSaveFolder(storefolder=None):
 
 def MakeSaveFolder(storefolder=None):
     storefolder = globV.get_value("RESULT") if storefolder == None else storefolder
+    storefolder = storefolder.strip().strip("/")
     if not os.path.isdir(storefolder):
         os.makedirs(storefolder)
     elif not globV.get_value("OVERRIDE"):
@@ -184,8 +189,8 @@ def set_env(param):
     if "config" in param_context:
         user_context = param_context.get("config")
     else:
-        comm.printinfo("ERROR: please set the config information by \"config\".")
-        sys.exit(1)
+        comm.printinfo(f"WARNING: \"config\" is not detected in \"{param.param}\", try to read config information from os.env.")
+        user_context = {}
     globV.set_value("PRIVATE_SET", user_context)
     dflowOP.SetConfig(user_context,debug=param.debug) 
 
@@ -242,9 +247,16 @@ def waitrun(wf,stepnames,allsave_path):
                         comm.printinfo("    This job is not Succeeded, please check on: %s, workflow ID is: %s" %
                               (globV.get_value("HOST"),wfid))  
                     try:
+                        #print(step.outputs.artifacts["outputs"])
+                        #print(step.outputs)
                         download_artifact(step.outputs.artifacts["outputs"],path=save_path)
                     except:
                         traceback.print_exc()
+            if wf.query_status().strip() == "Failed":
+                job_address = globV.get_value("HOST") + "/workflows/argo/%s?tab=workflow" % wf.id
+                comm.printinfo(f"The workflow is failed, please check on: {job_address}")  
+                return
+                    
                                 
         time.sleep(4)
 
