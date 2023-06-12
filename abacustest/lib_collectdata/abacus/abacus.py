@@ -90,36 +90,17 @@ class Abacus(ResultAbacus):
 
 
     @ResultAbacus.register(nbands="number of bands",
-                           converge="if the SCF is converged",
-                           total_mag="total magnetism (Bohr mag/cell)",
-                           absolute_mag="absolute magnetism (Bohr mag/cell)",
                            nkstot = "total K point number",
                            ibzk = "irreducible K point number",
                            natom ="total atom number",
                            nelec = "total electron number",
-                           energy = "the total energy (eV)",
-                           volume = "the volume of cell, in A^3",
-                           fft_grid = "fft grid for charge/potential",
-                           efermi = "the fermi energy (eV)",
-                           energy_per_atom="the total energy divided by natom, (eV)")
+                           fft_grid = "fft grid for charge/potential",)
     def GetLogParam(self):       
         natom = 0
         nelec = 0
-        total_mag = None
-        absolute_mag = None
-        efermi = None
         for i,line in enumerate(self.LOG):
             if "NBANDS =" in line:
                 self['nbands'] = int(line.split()[2])
-            elif 'charge density convergence is achieved' in line:
-                self['converge'] = True
-            elif 'convergence has NOT been achieved!' in line or\
-                'convergence has not been achieved' in line:
-                self['converge'] = False
-            elif 'total magnetism (Bohr mag/cell)' in line:
-                total_mag = float(line.split()[-1])
-            elif 'absolute magnetism' in line:
-                absolute_mag = float(line.split()[-1])
             elif 'nkstot =' in line:
                 self['nkstot'] = int(line.split()[-1])
             elif 'nkstot_ibz =' in line:
@@ -128,12 +109,42 @@ class Abacus(ResultAbacus):
                 natom += int(line.split()[-1])
             elif 'total electron number of element' in line:
                 nelec += float(line.split()[-1])
-            elif "!FINAL_ETOT_IS" in line:
-                self['energy'] = float(line.split()[1])
-            elif "Volume (A^3) =" in line:
-                self['volume'] = float(line.split()[-1])
             elif "[fft grid for charge/potential] =" in line:
                 self['fft_grid'] = [float(i.strip()) for i in line.split('=')[1].split(',')]
+
+        if natom > 0:
+            self["natom"] = natom 
+        if nelec > 0:
+            self["nelec"] = nelec 
+
+    @ResultAbacus.register(converge="if the SCF is converged",
+                           total_mag="total magnetism (Bohr mag/cell)",
+                           absolute_mag="absolute magnetism (Bohr mag/cell)",
+                           energy = "the total energy (eV)",
+                           volume = "the volume of cell, in A^3",
+                           efermi = "the fermi energy (eV)",
+                           energy_per_atom="the total energy divided by natom, (eV)")
+    def GetLogResult(self):       
+        total_mag = None
+        absolute_mag = None
+        efermi = None
+        converge = None
+        energy = None
+        volume = None
+        for i,line in enumerate(self.LOG):
+            if 'charge density convergence is achieved' in line:
+                converge = True
+            elif 'convergence has NOT been achieved!' in line or\
+                'convergence has not been achieved' in line:
+                converge = False
+            elif 'total magnetism (Bohr mag/cell)' in line:
+                total_mag = float(line.split()[-1])
+            elif 'absolute magnetism' in line:
+                absolute_mag = float(line.split()[-1])
+            elif "!FINAL_ETOT_IS" in line:
+                energy = float(line.split()[1])
+            elif "Volume (A^3) =" in line:
+                volume = float(line.split()[-1])
             elif 'E_Fermi' in line:
                 if 'E_Fermi_dw' in line:
                     if efermi == None:
@@ -144,11 +155,10 @@ class Abacus(ResultAbacus):
                 else:
                     efermi = float(line.split()[-1])
 
-        if natom > 0:
-            self["natom"] = natom 
-        if nelec > 0:
-            self["nelec"] = nelec 
-
+        self["energy"] = energy
+        self["converge"] = converge
+        self["volume"] = volume
+        
         if total_mag != None:
             self['total_mag'] = total_mag
         if absolute_mag != None:
@@ -158,7 +168,7 @@ class Abacus(ResultAbacus):
 
         if self["natom"] != None and self['energy'] != None:
             self["energy_per_atom"] = self['energy']/self["natom"]
-
+    
     @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one",
                            force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one")
     def GetForceStessFromLog(self):
