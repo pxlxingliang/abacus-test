@@ -128,7 +128,7 @@ class TestPredft(unittest.TestCase):
                 "command": "mkdir -p d1 d2; echo d1 > workdirs;echo d2 >> workdirs; echo predft > d1/log; cp *.txt d1;cp *.inp d2",
                 "image": "python:3.8",
                 "extra_files": self.exatrafiles,
-                "work_dictories_filename": "workdirs"
+                "work_directories_filename": "workdirs"
             } ,
             "run_dft": {
                 "command": "echo run > run.log",

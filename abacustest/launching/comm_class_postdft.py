@@ -52,6 +52,13 @@ class PostdftImageSet(BaseModel):
                      ImageBohrium] = Field(discriminator="type",
                                            description="IMAGE and MACHINE used in POST DFT")
 
+class PostdftCommandSet(BaseModel):
+    postdft_command: String = Field(default="",
+                                    description="If you need to execute some custom scripts or commands, please enter the bash command here. \
+Usually used to generate some custom metrics. At this step, the program will first collect the results of all examples in rundft, and then execute the command. \
+The working directory is the same level directory as the outer layer of all examples.",)
+
+
 def parse_image_set(image_set):
     if isinstance(image_set, ImageBohrium):
         return {
@@ -68,3 +75,42 @@ def parse_image_set(image_set):
         }
     else:
         raise ValueError(f"Unknown image set type: {type(image_set)}")
+
+def construct_input(datas,opts,logs):
+    # datas is a dict of examples, created by comm_class_exampleSource.read_source
+    #read postdft
+    logs.iprint("read post dft setting ...")
+    need_postdft = False
+    post_dft = {}
+    
+    #read postdft example
+    if datas.get("postdft_example"):
+        post_dft["example"] = datas.get("postdft_example")    
+        logs.iprint("\tpostdft example:",post_dft["example"])
+
+    #read rundft extra files
+    if datas.get("postdft_extrafile"):
+        post_dft["extra_files"] = datas.get("postdft_extrafile")
+        logs.iprint("\tpostdft_extrafile:",post_dft["extra_files"])
+        
+    #read postdft image
+    if hasattr(opts,"postdft_image_set"):
+        logs.iprint("\timage:",opts.postdft_image_set.image)
+        for k,v in comm_class_postdft.parse_image_set(opts.postdft_image_set).items():
+            post_dft[k] = v
+        if "bohrium" in post_dft:
+            logs.iprint("\tbohrium:",post_dft["bohrium"])
+    
+    #read postdft command
+    if hasattr(opts,"postdft_command"): 
+        if opts.postdft_command != None and opts.postdft_command.strip() != "":
+            post_dft["command"] = opts.postdft_command.strip()
+            need_postdft = True
+            logs.iprint("\tcommand:",post_dft["command"])
+        
+    #read postdft extra files
+    if datas.get("postdft_extrafiles"):
+        post_dft["extra_files"] = datas.get("postdft_extrafiles")
+        logs.iprint("\tpostdft_extrafiles:",post_dft["extra_files"])
+    
+    return need_postdft, post_dft  

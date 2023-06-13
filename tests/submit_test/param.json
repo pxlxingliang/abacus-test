@@ -13,7 +13,7 @@
             "b.txt",
             "c.txt"
         ],
-        "work_dictories_filename": "workdirs"
+        "work_directories_filename": "workdirs"
     },
     "run_dft": {
         "command": "echo run > run.log",

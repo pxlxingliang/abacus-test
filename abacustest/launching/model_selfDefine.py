@@ -35,7 +35,7 @@ def SelfDefineModelRunner(opts:SelfDefineModel):
 
     logs.iprint("read source setting ...")
     datas = comm_class_exampleSource.read_source(opts,work_path,download_path,logs.iprint)
-    if datas == None or not datas.get("example"):
+    if datas == None or not datas.get("all_files"):
         logs.iprint("Error: download examples or rundft_extrafiles or postdft_extrafiles failed!")
         return 1
 

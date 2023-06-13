@@ -390,12 +390,21 @@ class PrepareAbacus:
         if not self.pp_path:
             return
         if os.path.isdir(self.pp_path):
-            allfiles = os.listdir(self.pp_path)
-            for ifile in allfiles:
-                if not os.path.isfile(os.path.join(self.pp_path,ifile)): continue
-                element_name = self.GetElementNameFromFileName(ifile)
-                if element_name and element_name not in self.pp_dict:
-                    self.pp_dict[element_name] = os.path.join(self.pp_path,ifile)
+            if os.path.isfile(os.path.join(self.pp_path,"element.json")):
+                try:
+                    for key,value in json.load(open(os.path.join(self.pp_path,"element.json"))).items():
+                        if key not in self.pp_dict:
+                            if os.path.isfile(os.path.join(self.pp_path,value)):
+                                self.pp_dict[key] = os.path.join(self.pp_path,value)
+                except:
+                    traceback.print_exc()
+            else:
+                allfiles = os.listdir(self.pp_path)
+                for ifile in allfiles:
+                    if not os.path.isfile(os.path.join(self.pp_path,ifile)): continue
+                    element_name = self.GetElementNameFromFileName(ifile)
+                    if element_name and element_name not in self.pp_dict:
+                        self.pp_dict[element_name] = os.path.join(self.pp_path,ifile)
         else:
             print(f"Not find pp dir: \'{self.pp_path}\'\n\tcurrent path: {os.getcwd()}")
 
@@ -403,12 +412,21 @@ class PrepareAbacus:
         if not self.orb_path:
             return
         if os.path.isdir(self.orb_path):
-            allfiles = os.listdir(self.orb_path)
-            for ifile in allfiles:
-                if not os.path.isfile(os.path.join(self.orb_path,ifile)): continue
-                element_name = self.GetElementNameFromFileName(ifile)
-                if element_name and element_name not in self.orb_dict:
-                    self.orb_dict[element_name] = os.path.join(self.orb_path,ifile)
+            if os.path.isfile(os.path.join(self.orb_path,"element.json")):
+                try:
+                    for key,value in json.load(open(os.path.join(self.orb_path,"element.json"))).items():
+                        if key not in self.orb_dict:
+                            if os.path.isfile(os.path.join(self.orb_path,value)):
+                                self.orb_dict[key] = os.path.join(self.orb_path,value)
+                except:
+                    traceback.print_exc()
+            else:
+                allfiles = os.listdir(self.orb_path)
+                for ifile in allfiles:
+                    if not os.path.isfile(os.path.join(self.orb_path,ifile)): continue
+                    element_name = self.GetElementNameFromFileName(ifile)
+                    if element_name and element_name not in self.orb_dict:
+                        self.orb_dict[element_name] = os.path.join(self.orb_path,ifile)
         else:
             print("Not find orb dir: %s" % self.orb_path)
 
@@ -870,7 +888,7 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
         "dpks_descriptor":"",
         "extra_files":[],
         "mix_input_comment":"Do mixing for several input parameters. The diffrent values of one parameter should put in a list.",
-        "mix_kpt_comment":"If need the mixing of several kpt setting. The element should be an int (like 2 means [2,2,2,0,0,0]), or a list of 3 or 6 elements (like [2,2,2] or [2,2,2,0,0,0]).",
+        "mix_kpt_comment":"If need the mixing of several kpt setting. The element should be an int (eg 2 means [2,2,2,0,0,0]), or a list of 3 or 6 elements (eg [2,2,2] or [2,2,2,0,0,0]).",
         "mix_stru_commnet":"If need the mixing of several stru files. Like: ["a/stru","b/stru"],
     },
 

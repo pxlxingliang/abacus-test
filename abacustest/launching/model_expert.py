@@ -8,24 +8,43 @@ from dp.launching.report import Report,AutoReportElement,ReportSection,ChartRepo
 from . import (comm_class,
                comm_func,
                comm_class_exampleSource,
+               comm_class_prepare,
+               comm_class_predft,
                comm_class_rundft,
                comm_class_postdft,
                comm_class_metrics,
                readsetting)
 
-class PostdftModel(comm_class.TrackingSet,
-                    comm_class_metrics.metricsSaveFileSet,
-                    comm_class_metrics.MetricsSet,
-                    comm_class_postdft.PostdftImageSet,
-                    comm_class_postdft.PostdftCommandSet,
-                    comm_class_exampleSource.PostdftExtraFileSet,
-                    comm_class_exampleSource.PostdftExampleSourceSet,
-                    comm_class.OutputSet,
-                    comm_class.ConfigSet,
-                    BaseModel):
+
+class ExpertModel(
+    comm_class.TrackingSet,
+    comm_class_metrics.metricsSaveFileSet,
+    comm_class_metrics.MetricsSet,
+    comm_class_postdft.PostdftImageSet,
+    comm_class_postdft.PostdftCommandSet,
+    comm_class_exampleSource.PostdftExtraFileSet,
+    comm_class_rundft.RundftImageSet,
+    comm_class_rundft.RundftCommandSet,
+    comm_class_rundft.RundftGroupSizeSet,
+    comm_class_exampleSource.RundftExtraFileSet,
+    comm_class_predft.PredftImageSet,
+    comm_class_predft.PredftCommandSet,
+    comm_class_exampleSource.PredftExtraFileSet,
+    comm_class_prepare.PrepareSet,
+    comm_class_prepare.PrepareOrbLibSet,
+    comm_class_prepare.PreparePPLibSet,
+    comm_class_prepare.PrepareDPKSDescriptorSet,
+    comm_class_prepare.PrepareKptTemplateSet,
+    comm_class_prepare.PrepareStruTemplateSet,
+    comm_class_prepare.PrepareInputTemplateSet,
+    comm_class_exampleSource.PrepareExtraFileSet,
+    comm_class_exampleSource.PrepareExampleSourceSet,
+    comm_class.OutputSet,
+    comm_class.ConfigSet,
+        BaseModel):
     ...  
 
-def PostdftModelRunner(opts: PostdftModel) -> int:
+def ExpertModelRunner(opts: ExpertModel) -> int:
     try:
         logs = comm_class.myLog()
 
@@ -56,6 +75,7 @@ def PostdftModelRunner(opts: PostdftModel) -> int:
             
         #move results to output_path
         comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
+        
     except:
         traceback.print_exc()
         return 1

@@ -225,6 +225,13 @@ def ProduceOneSteps(stepname,param):
         if example_path == []:
             comm.printinfo("WARNING: defined prepare, but no examples matched, skip it!")
             example_path = None 
+        elif (not pre_dft) and (not run_dft) and (not post_dft):
+            # copy the example to save_path
+            for iexample in example_path:
+                relative_path = os.path.relpath(iexample,os.getcwd())
+                if os.path.isdir(os.path.join(save_path,relative_path)):
+                    shutil.rmtree(os.path.join(save_path,relative_path))
+                shutil.copytree(iexample,os.path.join(save_path,relative_path))
     else:
         example_path = None  
     

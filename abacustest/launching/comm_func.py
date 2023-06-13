@@ -273,6 +273,7 @@ def get_datahub_dataset(bohrium_username,bohrium_password,bohrium_project,urn,do
         return dataset
 
 def unpack(filepath, output_path, filetype = None, get_support_filetype = False):
+    # if file type is not supportted, just copy the file to output_path
     if get_support_filetype:
         return ["zip","tar","gz","bz2","tgz"]
     
@@ -289,7 +290,7 @@ def unpack(filepath, output_path, filetype = None, get_support_filetype = False)
             filetype = "tgz"
         else:
             filetype = os.path.splitext(filepath)[1][1:]
-
+ 
     if filetype == "zip":
         with zipfile.ZipFile(filepath, 'r') as zip_ref:
             zip_ref.extractall(output_path)
@@ -308,10 +309,46 @@ def unpack(filepath, output_path, filetype = None, get_support_filetype = False)
         with tarfile.open(filepath, "r:gz") as tar_ref:
             tar_ref.extractall(output_path)
     else:
-        raise Exception("File type %s not supported!" % filetype)
+        print("File type \'%s\' is not supported!" % filetype)
+        filename = os.path.split(filepath)[-1]
+        if os.path.isfile(os.path.join(output_path,filename)):
+            os.remove(os.path.join(output_path,filename))
+        shutil.copyfile(filepath,os.path.join(output_path,filename))
     
     print("Unpack %s to %s" % (filepath,output_path))
     return output_path
+
+def pack(packfile_list,packfile_name,pack_type="zip"):
+    if pack_type == "zip":
+        import zipfile
+        with zipfile.ZipFile(packfile_name, 'w') as zip_ref:
+            for ifile in packfile_list:
+                zip_ref.write(ifile)
+    elif pack_type == "tar":
+        import tarfile
+        with tarfile.open(packfile_name, "w") as tar_ref:
+            for ifile in packfile_list:
+                tar_ref.add(ifile)
+    elif pack_type == "gz":
+        import gzip
+        with open(packfile_name, 'wb') as out_ref:
+            with gzip.open(packfile_name, 'wb') as gz_ref:
+                gz_ref.write(out_ref.read())
+    elif pack_type == "bz2":
+        import bz2
+        with open(packfile_name, 'wb') as out_ref:
+            with bz2.open(packfile_name, 'wb') as bz2_ref:
+                bz2_ref.write(out_ref.read())
+    elif pack_type == "tgz":
+        import tarfile
+        with tarfile.open(packfile_name, "w:gz") as tar_ref:
+            for ifile in packfile_list:
+                tar_ref.add(ifile)
+    else:
+        print("Pack type \'%s\' is not supported!" % pack_type)
+        return None
+    return packfile_name
+
 
 def download_url(url, output_path="./"):
     import requests

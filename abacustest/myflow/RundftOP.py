@@ -266,7 +266,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
             step = Step(name=rundft_stepname, template=pt,
                         parameters=parameters,
                         artifacts=artifacts,
-                        with_sequence=argo_sequence(argo_len(predft_step.outputs.parameters['work_dictories'] ), format='%03d'),
+                        with_sequence=argo_sequence(argo_len(predft_step.outputs.parameters['work_directories'] ), format='%03d'),
                         key=rundft_stepname+"-{{item}}"
                         )
             if executor != None:

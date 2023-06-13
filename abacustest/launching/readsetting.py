@@ -2,19 +2,30 @@
 
 from . import (comm_class,
                comm_class_exampleSource,
+               comm_class_predft,
                comm_class_rundft,
                comm_class_postdft,
                comm_class_metrics,
+               comm_class_prepare,
                comm_func)
 
 def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     """
     {
         "config":{},
+        "pre_dft":{
+            "image":
+            "bohrium":{"scass_type","job_type","platform"},
+            "example":[],
+            "extra_files":[],
+            "command":
+            "work_directories_filename":
+        }
         "run_dft":[{
             "image":
             "bohrium":{"scass_type","job_type","platform"},
             "example":[],
+            "group_size":,
             "extra_files":[],
             "command":
         }],
@@ -37,82 +48,26 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     logs.iprint("read config setting ...")
     config = comm_func.read_config(opts)
 
-    #download examples/postdft_examples/rundft_extrafiles/postdft_extrafiles
+    # download examples/predft_examples/rundft_examples/postdft_examples/
+    # predft_extrafiles/rundft_extrafiles/postdft_extrafiles
     logs.iprint("read source setting ...")
     datas = comm_class_exampleSource.read_source(opts,work_path,download_path,logs.iprint)
     if datas == None:
         logs.iprint("Error: download examples or rundft_extrafiles or postdft_extrafiles failed!")
         return None  
     
-    #read rundft
-    need_rundft = False
-    logs.iprint("read run dft setting ...")
-    run_dft = [{}]
+    need_prepare, prepare = comm_class_prepare.construct_input(datas,opts,work_path,download_path,logs)
+    #prepare is a dict
     
-    #read rundft example
-    if datas.get("example"):
-        run_dft[-1]["example"] = datas.get("example")    
-        logs.iprint("\texample:",run_dft[-1]["example"])
-    
-    #read rundft extra files
-    if datas.get("rundft_extrafile"):
-        run_dft[-1]["extra_files"] = datas.get("rundft_extrafile")
-        logs.iprint("\rundft_extrafile:",run_dft[-1]["extra_files"])
-        
-    #read rundft command
-    if hasattr(opts,"rundft_command"):
-        need_rundft = True
-        logs.iprint("\tcommand:",opts.rundft_command)
-        run_dft[-1]["command"] = opts.rundft_command
-    
-    #read rundft ngroup        
-    if hasattr(opts,"ngroup") and opts.ngroup > 0:
-        logs.iprint("\tngroup:",opts.ngroup)
-        run_dft[-1]["ngroup"] = opts.ngroup
-    
-    #read rundft image
-    if hasattr(opts,"rundft_image_set"):
-        logs.iprint("\timage:",opts.rundft_image_set.image)
-        for k,v in comm_class_rundft.parse_image_set(opts.rundft_image_set).items():
-            run_dft[-1][k] = v
-        if "bohrium" in run_dft[-1]:   
-            logs.iprint("\tbohrium:",run_dft[-1]["bohrium"])
+    need_predft, pre_dft = comm_class_predft.construct_input(datas,opts,logs)
+    #pre_dft is a dict
 
-    #read postdft
-    logs.iprint("read post dft setting ...")
-    need_postdft = False
-    post_dft = {}
-    
-    #read postdft example
-    if datas.get("postdft_example"):
-        post_dft["example"] = datas.get("postdft_example")    
-        logs.iprint("\tpostdft example:",post_dft["example"])
+    need_rundft, run_dft = comm_class_rundft.construct_input(datas,opts,logs)
+    #run_dft is a list of dict
 
-    #read rundft extra files
-    if datas.get("postdft_extrafile"):
-        post_dft["extra_files"] = datas.get("postdft_extrafile")
-        logs.iprint("\tpostdft_extrafile:",post_dft["extra_files"])
-        
-    #read postdft image
-    if hasattr(opts,"postdft_image_set"):
-        logs.iprint("\timage:",opts.postdft_image_set.image)
-        for k,v in comm_class_postdft.parse_image_set(opts.postdft_image_set).items():
-            post_dft[k] = v
-        if "bohrium" in post_dft:
-            logs.iprint("\tbohrium:",post_dft["bohrium"])
+    need_postdft, post_dft = comm_class_postdft.construct_input(datas,opts,logs)
+    #post_dft is a dict
     
-    #read postdft command
-    if hasattr(opts,"postdft_command"): 
-        if opts.postdft_command != None and opts.postdft_command.strip() != "":
-            post_dft["command"] = opts.postdft_command.strip()
-            need_postdft = True
-            logs.iprint("\tcommand:",post_dft["command"])
-        
-    #read postdft extra files
-    if datas.get("postdft_extrafiles"):
-        post_dft["extra_files"] = datas.get("postdft_extrafiles")
-        logs.iprint("\tpostdft_extrafiles:",post_dft["extra_files"])
-        
     #read metrics setting
     logs.iprint("read metrics setting ...")
     metrics_set = comm_class_metrics.parse_metrics_set(opts)
@@ -142,6 +97,10 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
 
     allparams = {"config": config,
             "save_path": "results"}
+    if need_prepare:
+        allparams["prepare"] = prepare
+    if need_predft:
+        allparams["pre_dft"] = pre_dft
     if need_rundft:
         allparams["run_dft"] = run_dft
     if need_postdft:

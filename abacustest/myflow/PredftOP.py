@@ -56,7 +56,7 @@ class PreDFT(OP):
         return OPIOSign(
             {
                 "outputs": Artifact(List[Path]),
-                "work_dictories": [List[str]]  #a list of a list of work directories in rundft
+                "work_directories": [List[str]]  #a list of a list of work directories in rundft
             }
         )
 
@@ -84,8 +84,8 @@ class PreDFT(OP):
                 log += os.popen("(%s) 2>&1" % cmd).read()
 
             #work_directories_filename = "WORKPATH"
-            if op_in["predft_setting"].get("work_dictories_filename"):
-                work_directories_filename = op_in["predft_setting"].get("work_dictories_filename")
+            if op_in["predft_setting"].get("work_directories_filename"):
+                work_directories_filename = op_in["predft_setting"].get("work_directories_filename")
                 if os.path.isfile(work_directories_filename):
                     with open(work_directories_filename) as f:
                         lines = f.readlines()
@@ -112,7 +112,7 @@ class PreDFT(OP):
         print(work_directories)
         return OPIO({
             "outputs": outputs,
-            "work_dictories": work_directories
+            "work_directories": work_directories
         })
 
 
@@ -158,6 +158,8 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
     #if ngroup != None and ngroup < 1:
     #    ngroup = len(examples)
     group_size = predft_set.get("group_size",len(examples_name))
+    if group_size != None and group_size < 1:
+        group_size = len(examples_name)
     
     igroup = 0
     istep = 0
@@ -178,7 +180,7 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
         step = Step(name=stepname_tmp, template=pt,
                     parameters={
                         "command": predft_set.get("command",""),
-                        "predft_setting" : {"work_dictories_filename":predft_set.get("work_dictories_filename")}
+                        "predft_setting" : {"work_directories_filename":predft_set.get("work_directories_filename")}
                     },
                     artifacts=artifacts)
         if executor != None:

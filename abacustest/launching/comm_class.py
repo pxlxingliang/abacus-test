@@ -45,20 +45,6 @@ class NgroupSet(BaseModel):
     ngroup: Int = Field(
         default=0, description="Number of groups to run in parallel. If not set, all examples will be run in parallel.", ge=0)
 
-
-class RundftCommandSet(BaseModel):
-    rundft_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
-                                   description="Command to run each example. Please note that the program will first enter each folder before executing this command. \
-During runtime, there will be no interaction between different examples",)
-
-
-class PostdftCommandSet(BaseModel):
-    postdft_command: String = Field(default="",
-                                    description="If you need to execute some custom scripts or commands, please enter the bash command here. \
-Usually used to generate some custom metrics. At this step, the program will first collect the results of all examples in rundft, and then execute the command. \
-The working directory is the same level directory as the outer layer of all examples.",)
-
-
 class TrackingSet(BaseModel):
     Tracking_metrics: Boolean = Field(
         default=False, description="If tracking, will display historical metrics values based on test and experience")
