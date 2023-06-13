@@ -12,8 +12,6 @@ from typing import Literal
 import re,os,shutil
 from . import comm_class_exampleSource,comm_func
 
-prepare_group = ui.Group("Prepare", "Detail setting for prepare step")
-
 
 class PPLibEnum(String, Enum):
     dataset1 = "SG15-ONCV-v1_0"
