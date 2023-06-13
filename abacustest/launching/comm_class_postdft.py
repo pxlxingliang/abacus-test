@@ -96,7 +96,7 @@ def construct_input(datas,opts,logs):
     #read postdft image
     if hasattr(opts,"postdft_image_set"):
         logs.iprint("\timage:",opts.postdft_image_set.image)
-        for k,v in comm_class_postdft.parse_image_set(opts.postdft_image_set).items():
+        for k,v in parse_image_set(opts.postdft_image_set).items():
             post_dft[k] = v
         if "bohrium" in post_dft:
             logs.iprint("\tbohrium:",post_dft["bohrium"])

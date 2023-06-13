@@ -107,7 +107,7 @@ def construct_input(datas,opts,logs):
     #read rundft image
     if hasattr(opts,"rundft_image_set"):
         logs.iprint("\timage:",opts.rundft_image_set.image)
-        for k,v in comm_class_rundft.parse_image_set(opts.rundft_image_set).items():
+        for k,v in parse_image_set(opts.rundft_image_set).items():
             run_dft[-1][k] = v
         if "bohrium" in run_dft[-1]:   
             logs.iprint("\tbohrium:",run_dft[-1]["bohrium"])

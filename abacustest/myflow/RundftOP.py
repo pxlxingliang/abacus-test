@@ -84,6 +84,7 @@ class RunDFT(OP):
                 work_path = os.path.join(str(op_in["sub_save_path"]),example_path)
             os.makedirs(work_path,exist_ok=True)
             comm.CopyFiles(str(iexample),work_path,move=False)
+            work_path_name = work_path
             work_path = os.path.abspath(work_path)
             print("work path:",work_path,file=sys.stderr)
 
@@ -138,12 +139,14 @@ class RunDFT(OP):
             while os.path.isfile(logfile_name):
                 logfile_name = "STDOUTER_%d.log" % i
                 i += 1
-            logfile = Path(logfile_name)
+            
+            os.chdir(cwd)
+            logfile = Path(os.path.join(work_path_name,logfile_name))
             if len(op_in["outputfiles"]) == 0:
-                outpath.append(Path(work_path))
+                outpath.append(Path(work_path_name))
             else:
                 for i in op_in["outputfiles"]:
-                    for j in glob.glob(i):
+                    for j in glob.glob(os.path.join(work_path_name,i)):
                         if os.path.exists(j):
                             outpath.append(Path(j))
                         else:
@@ -151,7 +154,7 @@ class RunDFT(OP):
                 outpath.append(logfile)
             print("log:",log,file=sys.stderr)
             logfile.write_text(log)
-            os.chdir(cwd)
+            #os.chdir(cwd)
 
         print("outpath:",str(outpath),file=sys.stderr)
         
@@ -280,7 +283,6 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
             all_save_path.append(sub_savepath)
             allsteps.append(step)
         
-        comm.printinfo(f"rundft group{rundft_idx}")
         comm.printinfo("image: %s" % image)
         comm.printinfo("set bohrium: %s" % str(bohrium_set))
         comm.printinfo("command: %s" % str(rundft_set.get("command")))   
