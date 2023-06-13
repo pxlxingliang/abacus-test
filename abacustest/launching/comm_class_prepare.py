@@ -238,7 +238,7 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
                 if prepare_set.PreparePPLib.dataset_unrecorded != None and prepare_set.PreparePPLib.dataset_unrecorded.strip() != "":
                     url = prepare_set.PreparePPLib.dataset_unrecorded.strip()
                 else:
-                    url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PreparePPLib.dataset)
+                    url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PreparePPLib.dataset,dataset="pporb")
                 package = comm_func.download_url(url, download_path)
                 if package == None:
                     logs(f"ERROR: download dataset failed!\n\turl:{url}")
@@ -270,7 +270,7 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
                 if prepare_set.PrepareOrbLib.dataset_unrecorded != None and prepare_set.PrepareOrbLib.dataset_unrecorded.strip() != "":
                     url = prepare_set.PrepareOrbLib.dataset_unrecorded.strip()
                 else:
-                    url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PrepareOrbLib.dataset)
+                    url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PrepareOrbLib.dataset,dataset="pporb")
                 package = comm_func.download_url(url, download_path)
                 if package == None:
                     logs(f"ERROR: download dataset failed!\n\turl:{url}")
@@ -310,7 +310,7 @@ def construct_input(datas,opts,work_path,download_path,logs):
     
     if datas.get("prepare_example"):
         prepare["example_template"] = datas.get("prepare_example")    
-        logs.iprint("\texample:",prepare["example"])
+        logs.iprint("\texample:",prepare["example_template"])
         need_prepare = True
     
     if datas.get("prepare_extrafile"):

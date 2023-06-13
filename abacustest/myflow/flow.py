@@ -36,6 +36,7 @@ def ParamParser(param):
     alljobs = {}
 
     alljobs["save_path"] = param.get("save_path",None)
+    alljobs["prepare"] = param.get("prepare",{"ifrun":False})
     alljobs["pre_dft"] = param.get("pre_dft",{"ifrun":False})
     alljobs["run_dft"] = param.get("run_dft",{"ifrun":False})
     alljobs["post_dft"] = param.get("post_dft",{"ifrun":False})
@@ -80,8 +81,10 @@ def ParamParser(param):
             setting = json.load(open(setting_file))
             if "save_path" in setting:
                 alljobs["save_path"] = setting["save_path"]
+            if "prepare" in setting:
+                alljobs["prepare"] = setting["prepare"]
             if "pre_dft" in setting:
-                alljobs["pre_dft"] = setting["run_dft"]
+                alljobs["pre_dft"] = setting["pre_dft"]
             if "run_dft" in setting:
                 alljobs["run_dft"] = setting["run_dft"]
             if "post_dft" in setting:

@@ -212,6 +212,7 @@ def ProduceOneSteps(stepname,param):
     final_step = None
     
     comm.printinfo(f"\n{stepname}")
+    comm.printinfo(f"prepare, pre_dft, run_dft, post_dft: {bool(prepare_example)}, {bool(pre_dft)}, {bool(run_dft)}, {bool(post_dft)}")
     
     # if define prepare, then will prepare example firstly
     if prepare_example:
@@ -232,6 +233,11 @@ def ProduceOneSteps(stepname,param):
                 if os.path.isdir(os.path.join(save_path,relative_path)):
                     shutil.rmtree(os.path.join(save_path,relative_path))
                 shutil.copytree(iexample,os.path.join(save_path,relative_path))
+        elif post_dft:
+            # check the path of metrics, if no path, then use example_path as input
+            if "metrics" in post_dft:
+                if "path" not in post_dft["metrics"]:
+                    post_dft["metrics"]["path"] = example_path
     else:
         example_path = None  
     

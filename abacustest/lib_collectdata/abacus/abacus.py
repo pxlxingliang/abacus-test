@@ -307,7 +307,7 @@ class Abacus(ResultAbacus):
     
     @ResultAbacus.register(lattice_constant="unit in angstrom",
                            cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will output the last one",
-                           coordinate = "[[],..], two dimension list, is a cartessian type, unit in angstrom. If is relax or md, will output the last one",
+                           coordinate = "[[],..], two dimension list, is a cartesian type, unit in angstrom. If is relax or md, will output the last one",
                            element_list = "list[], a list of the element name of all atoms",
                            atomlabel_list = "list[], a list of atom label of all atoms")
     def GetCell(self):    

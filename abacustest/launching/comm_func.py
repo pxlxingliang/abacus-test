@@ -323,7 +323,9 @@ def pack(packfile_list,packfile_name,pack_type="zip"):
         import zipfile
         with zipfile.ZipFile(packfile_name, 'w') as zip_ref:
             for ifile in packfile_list:
-                zip_ref.write(ifile)
+                for root,__,ifile in os.walk(ifile):
+                    for i in ifile:
+                        zip_ref.write(os.path.join(root,i))
     elif pack_type == "tar":
         import tarfile
         with tarfile.open(packfile_name, "w") as tar_ref:

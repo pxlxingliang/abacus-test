@@ -19,7 +19,7 @@ class AbacusStru:
                  lattice_constant:float = 1,
                  magmom: List[float] = None,
                  dpks:str = None,
-                 cartessian: bool = False):    
+                 cartesian: bool = False):    
         """ABACUS STRU class, the unit is Bohr
 
         Parameters
@@ -46,8 +46,8 @@ class AbacusStru:
             magmom setting of each type, by default None
         dpks : str, optional
             the deepks descriptor file name, by default None
-        cartessian : bool, optional
-            if the coordinate is cartessian type, default is direct type, by default False
+        cartesian : bool, optional
+            if the coordinate is cartesian type, default is direct type, by default False
         """        
         #check if label number is equal to pp number and orb number
         assert(len(label) == len(pp))
@@ -64,7 +64,7 @@ class AbacusStru:
         self._orb = orb if orb else []
         self._lattice_constant = lattice_constant
         self._dpks = dpks if dpks else None
-        self._cartessian = cartessian
+        self._cartesian = cartesian
         self._magmom = magmom if magmom else []
         
         if element != None:
@@ -142,8 +142,8 @@ class AbacusStru:
         
         #write ATOMIC_POSITIONS
         cc += "\nATOMIC_POSITIONS\n"
-        if self._cartessian:
-            cc += "Cartessian\n"
+        if self._cartesian:
+            cc += "Cartesian\n"
         else:
             cc += "Direct\n"
         icoord = 0
@@ -225,10 +225,10 @@ class AbacusStru:
         coords = []
         magmom = []
         coord_type = atom_positions[0].split("#")[0].strip().lower()
-        if coord_type == "direct":
-            cartessian = False
-        elif coord_type == "cartesian":
-            cartessian = True
+        if coord_type.startswith("dire"):
+            cartesian = False
+        elif coord_type.startswith("cart"):
+            cartesian = True
         else:
             print("Not support coordinate type %s now." % atom_positions[0].strip())
             sys.exit(1)
@@ -254,7 +254,7 @@ class AbacusStru:
                           lattice_constant=lattice_constant,
                           magmom=magmom,
                           dpks=dpks,
-                          cartessian=cartessian)
+                          cartesian=cartesian)
     
         
 class PrepareAbacus:
@@ -850,7 +850,7 @@ def CheckExample(example_path,description:str=""):
     gamma_only = iinput.get("gamma_only",False)
     kspacing = iinput.get("kspacing",None)
     if not ((basis.startswith("lcao") and gamma_only) or kspacing): 
-        if not os.path.isfile(os.path.join(example_path,"KPT")):
+        if not os.path.isfile("KPT"):
             print("Can not find KPT file in %s" % example_path)
             allpass = False 
     os.chdir(cwd)

@@ -100,7 +100,7 @@ def construct_input(datas,opts,logs):
         logs.iprint("\rundft_extrafile:",pre_dft["extra_files"])
         
     #read rundft command
-    if hasattr(opts,"predft_command"):
+    if hasattr(opts,"predft_command") and opts.predft_command.strip() != "":
         need_predft = True
         logs.iprint("\tcommand:",opts.predft_command)
         pre_dft["command"] = opts.predft_command
@@ -112,11 +112,11 @@ def construct_input(datas,opts,logs):
     #    pre_dft["group_size"] = opts.predft_group_size
     
     #read predft image
-    if hasattr(opts,"predft_image_set"):
+    if need_predft and hasattr(opts,"predft_image_set"):
         logs.iprint("\timage:",opts.predft_image_set.image)
         for k,v in parse_image_set(opts.predft_image_set).items():
             pre_dft[k] = v
-        if "bohrium" in pre_dft[-1]:   
+        if "bohrium" in pre_dft:   
             logs.iprint("\tbohrium:",pre_dft[-1]["bohrium"])
             
     return need_predft,pre_dft

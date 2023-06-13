@@ -73,12 +73,24 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     metrics_set = comm_class_metrics.parse_metrics_set(opts)
     if "metrics" in metrics_set:
         post_dft["metrics"] = metrics_set["metrics"]
-        if run_dft[-1].get("example"):
+        if need_prepare:
+            # read INPUT parameters setted in prepare, and set it to metrics
+            if "mix_input" in prepare and len(prepare["mix_input"]) > 0:
+                if "metrics_name" not in post_dft["metrics"]:
+                    post_dft["metrics"]["metrics_name"] = []
+                post_dft["metrics"]["metrics_name"].append({"INPUT":[]})
+                for ikey in prepare["mix_input"]:
+                    post_dft["metrics"]["metrics_name"][-1]["INPUT"].append(ikey)
+            # do not set path for metrics 
+        elif run_dft[-1].get("example"):
             post_dft["metrics"]["path"] = run_dft[-1]["example"]
         elif post_dft.get("example"):
             post_dft["metrics"]["path"] = post_dft.get("example")
         else:
             post_dft["metrics"]["path"] = ["*"]
+        
+        
+ 
         need_postdft = True
     if "super_metrics" in metrics_set:
         post_dft["super_metrics"] = metrics_set["super_metrics"]

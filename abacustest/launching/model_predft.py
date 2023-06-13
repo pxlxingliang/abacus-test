@@ -51,8 +51,8 @@ def PredftModelRunner(opts: PredftModel) -> int:
         #move results to output_path
         comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
         cwd = os.getcwd()
-        os.chdir(output_path)
-        allfiles = os.listdir()
+        os.chdir(os.path.join(output_path,allparams.get("save_path","results")))
+        allfiles = os.listdir(".")
         alldirs = []
         for f in allfiles:
             if os.path.isdir(f):
