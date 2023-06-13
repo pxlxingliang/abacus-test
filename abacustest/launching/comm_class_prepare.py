@@ -10,7 +10,6 @@ from dp.launching.typing import (
 from enum import Enum
 from typing import Literal
 import re,os,shutil
-import dp.launching.typing.addon.ui as ui
 from . import comm_class_exampleSource,comm_func
 
 prepare_group = ui.Group("Prepare", "Detail setting for prepare step")
@@ -40,7 +39,6 @@ If you want to use other pplib dataset, please enter download link here.")
 
 
 #prepare INPUT template
-@prepare_group
 class PrepareInputTemplateSet(BaseModel):
     PrepareInputTemplate_local: InputFilePath = Field(default=None,
                                                   title="Upload INPUT template locally",
@@ -54,7 +52,6 @@ class PrepareInputTemplateSet(BaseModel):
                               description="Please choose the INPUT template source.")
 
 #prepare STRU template
-@prepare_group
 class PrepareStruTemplateSet(BaseModel):
     PrepareStruTemplate_local: InputFilePath = Field(default=None,
                                                   title="Upload STRU template locally",
@@ -68,7 +65,6 @@ class PrepareStruTemplateSet(BaseModel):
                               description="Please choose the STRU template source.")
         
 #prepare KPT template
-@prepare_group
 class PrepareKptTemplateSet(BaseModel):
     PrepareKptTemplate_local: InputFilePath = Field(default=None,
                                                   title="Upload KPT template locally",
@@ -82,7 +78,6 @@ class PrepareKptTemplateSet(BaseModel):
                               description="Please choose the KPT template source.")
 
 #prepare dpks descriptor file
-@prepare_group
 class PrepareDPKSDescriptorSet(BaseModel):
     PrepareDPKSDescriptor_local: InputFilePath = Field(default=None,
                                                   title="Upload DeeP-KS Descriptor locally",
@@ -96,7 +91,6 @@ class PrepareDPKSDescriptorSet(BaseModel):
                               description="Please choose the DeeP-KS Descriptor source.") 
 
 #prepare pp lib
-@prepare_group
 class PreparePPLibSet(BaseModel):
     PreparePPLib_local: InputFilePath = Field(default=None,
                                                   title="Upload pseudopotential library locally",
@@ -110,7 +104,6 @@ class PreparePPLibSet(BaseModel):
                               description="Please choose the PP Lib source.")   
 
 #prepare ORB lib
-@prepare_group
 class PrepareOrbLibSet(BaseModel):
     PrepareOrbLib_local: InputFilePath = Field(default=None,
                                                   title="Upload Orbital library locally",
@@ -123,7 +116,6 @@ class PrepareOrbLibSet(BaseModel):
                               discriminator="type",
                               description="Please choose the Orb Lib source.")    
 
-@prepare_group
 class PrepareSet(BaseModel):
     prepare_mix_input: Dict[String,String] = Field(default={},title="Additional INPUT settings",description="You can set additional INPUT parameters for each examples. \
 You can set multiple values (separated by comma) for each parameter, which will generate a set of ABACUS inputs for each value. Commonly used parameters: \
