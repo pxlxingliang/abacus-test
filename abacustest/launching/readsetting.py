@@ -82,12 +82,12 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
                 for ikey in prepare["mix_input"]:
                     post_dft["metrics"]["metrics_name"][-1]["INPUT"].append(ikey)
             # do not set path for metrics 
-        elif run_dft[-1].get("example"):
-            post_dft["metrics"]["path"] = run_dft[-1]["example"]
-        elif post_dft.get("example"):
-            post_dft["metrics"]["path"] = post_dft.get("example")
-        else:
-            post_dft["metrics"]["path"] = ["*"]
+        #elif run_dft[-1].get("example"):
+        #    post_dft["metrics"]["path"] = run_dft[-1]["example"]
+        #elif post_dft.get("example"):
+        #    post_dft["metrics"]["path"] = post_dft.get("example")
+        #else:
+        #    post_dft["metrics"]["path"] = ["*"]
         
         
  

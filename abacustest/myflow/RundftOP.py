@@ -112,7 +112,7 @@ class RunDFT(OP):
             #read metrics
             try:
                 os.chdir(work_path)
-                tracking_values = metrics.ReadMetrics(metrics.Metrics.TransferMetricsOPIO(metrics_setting),do_upload_tracking)
+                tracking_values = metrics.ReadMetrics(metrics.Metrics.TransferMetricsOPIO(metrics_setting),do_upload_tracking,["."])
             except:
                 traceback.print_exc()
                 tracking_values = None
@@ -269,7 +269,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
             step = Step(name=rundft_stepname, template=pt,
                         parameters=parameters,
                         artifacts=artifacts,
-                        with_sequence=argo_sequence(argo_len(predft_step.outputs.parameters['work_directories'] ), format='%03d'),
+                        with_sequence=argo_sequence(argo_len(predft_step.outputs.parameters['work_directories']), format='%03d'),
                         key=rundft_stepname+"-{{item}}"
                         )
             if executor != None:
@@ -289,7 +289,6 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
     if gather_result:
         output_artifact = model_output_artifact
     return allsteps, allstepname, all_save_path, output_artifact
-
 
 def produce_step(setting,
                  flowname,

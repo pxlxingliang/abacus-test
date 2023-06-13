@@ -40,7 +40,7 @@ class Metrics:
         return poin_metrics 
 
     @staticmethod
-    def ParseMetricsOPIO(metrics_io):
+    def ParseMetricsOPIO(metrics_io,example_path):
         all_dfttype = {0:"abacus",1:"qw",2:"vasp"}
         dft_type = metrics_io.get("dft_type",None)
         dftt = None
@@ -63,12 +63,17 @@ class Metrics:
         else:
             print("Unknow dft type '",dft_type,"'. Supportted:",str(all_dfttype))
 
+        if "path" not in metrics_io:
+            epath = example_path
+        else:
+            epath = metrics_io["path"]
+            
         if dftt == None:
             return None
         else:
             print(metrics_io)
             return Metrics(dft_type=dftt,
-                           path= metrics_io.get("path",["."]),
+                           path= epath,
                        metrics_name= metrics_io.get("metrics_name",[]),
                        newmethods=metrics_io.get("newmethods",[]),
                        modules = metrics_io.get("modules",[]))       
@@ -138,7 +143,7 @@ class Metrics:
         return Table(newlist)
     
     
-def ReadMetrics(poin_metrics,do_upload_tracking):
+def ReadMetrics(poin_metrics,do_upload_tracking,example_path):
     """
     poin_metrics is a list of dict
     poin_metrics = [
@@ -164,7 +169,7 @@ def ReadMetrics(poin_metrics,do_upload_tracking):
     for im,imetric in enumerate(poin_metrics):
         metrics_value = {}
 
-        metric_form_calc = Metrics.ParseMetricsOPIO(imetric)
+        metric_form_calc = Metrics.ParseMetricsOPIO(imetric,example_path)
         if metric_form_calc:
             value = metric_form_calc.get_metrics(save_file=imetric.get("save_file","result.json"))
         else:

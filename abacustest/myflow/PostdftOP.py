@@ -75,6 +75,10 @@ class PostDFT(OP):
         # if define sub_save_path, create sub_save_path in root and copy examples to sub_save_path
         example_path = str(op_in["examples"][0]).split("/inputs/artifacts/examples/")[0] + "/inputs/artifacts/examples/"
         work_path = example_path
+        
+        allexample_path = []
+        for i in op_in["examples"]:
+            allexample_path.append(str(i).split("/inputs/artifacts/examples/")[1])
 
         print("work path:",work_path,file=sys.stderr)
         
@@ -102,7 +106,7 @@ class PostDFT(OP):
         #read metrics
         try:
             os.chdir(work_path)
-            tracking_values = metrics.ReadMetrics(metrics.Metrics.TransferMetricsOPIO(metrics_setting),do_upload_tracking)
+            tracking_values = metrics.ReadMetrics(metrics.Metrics.TransferMetricsOPIO(metrics_setting),do_upload_tracking,allexample_path)
         except:
             traceback.print_exc()
             tracking_values = None
@@ -192,8 +196,10 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
             return None,None,None
         space = "\n" + (len(postdft_stepname)+2)*" "
         comm.printinfo("%s: %s" % (postdft_stepname,space.join(examples_name[0])))
+        example_path_list = examples_name[0]
     else:
-        artifact_example = prestep_output         
+        artifact_example = prestep_output
+        example_path_list = example_path     
         
     executor, bohrium_set = comm.ProduceExecutor(setting, group_name=postdft_stepname)
     image = globV.get_value("ABBREVIATION").get(setting.get("image"), setting.get("image"))
@@ -202,7 +208,7 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
         "outputfiles": setting.get("outputs", []),
         "metrics": setting.get("metrics", []),
         "super_metrics": setting.get("super_metrics", {}),
-        "upload_tracking": setting.get("upload_tracking", {}),
+        "upload_tracking": setting.get("upload_tracking", {})
     }
     
     pt = PythonOPTemplate(PostDFT,image=image)

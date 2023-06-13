@@ -1,34 +1,5 @@
 
 import os,traceback
-
-
-def upload_tracking(tracking_setting,
-                    metrics_setting,
-                    super_metrics_setting,
-                    work_path):
-    do_upload_tracking = False
-    if tracking_setting and tracking_setting.get("ifurn",True):
-        do_upload_tracking = True
-    #read metrics
-    try:
-        os.chdir(work_path)
-        tracking_values = ReadMetrics(Metrics.TransferMetricsOPIO(metrics_setting),do_upload_tracking)
-    except:
-        traceback.print_exc()
-        tracking_values = None
-    #calculate super_metrics
-    try:
-        os.chdir(work_path)
-        tracking_summary,report = ReadSuperMetrics(Metrics.TransferMetricsOPIO(super_metrics_setting),do_upload_tracking)  
-    except:
-        traceback.print_exc()
-        tracking_summary = None          
-    #upload tracking
-    if do_upload_tracking:
-        try:
-            upload_to_tracking(tracking_setting,tracking_values,tracking_summary,AIM_ACCESS_TOKEN=None)
-        except:
-            traceback.print_exc()  
             
 def upload_to_tracking(tracking_setting,tracking_values,tracking_summary,AIM_ACCESS_TOKEN=None):
     """
