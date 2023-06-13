@@ -79,8 +79,8 @@ def SetConfig(private_set,debug=False):
         else:
             bohrium.config["project_id"] = os.environ.get("BOHRIUM_PROJECT_ID","")
             
-        comm.printinfo("set bohrium.config['username']/['password']/['project_id']: %s/.../%s" 
-                       % (bohrium.config["username"],bohrium.config["project_id"]))
+        #comm.printinfo("set bohrium.config['username']/['password']/['project_id']: %s/.../%s" 
+        #               % (bohrium.config["username"],bohrium.config["project_id"]))
         s3_config["repo_key"] = "oss-bohrium"
         s3_config["storage_client"] = TiefblueClient()
         client = s3_config["storage_client"]
