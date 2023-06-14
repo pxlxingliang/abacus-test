@@ -457,9 +457,13 @@ class PrepareAbacus:
                 input_constant[k] = v
                 input_constant_common[k] = v
             elif isinstance(v,list):
-                list_param[k] = v
-                if k in input_constant:
-                    del input_constant[k]
+                if len(v) == 1:
+                    input_constant[k] = v[0]
+                    input_constant_common[k] = v[0]
+                else:    
+                    list_param[k] = v
+                    if k in input_constant:
+                        del input_constant[k]
             else:
                 print("WARNING: type of '%s' is" % str(v),type(v),"will not add to INPUT")
                 input_constant[k] = v
