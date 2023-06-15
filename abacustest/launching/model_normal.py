@@ -24,7 +24,20 @@ class NormalModel(comm_class.TrackingSet,
                   BaseModel):
     ...  
 
-def NormalModelRunner(opts: NormalModel) -> int:
+class NormalDatasetsModel(comm_class.TrackingSet,
+                  comm_class_metrics.MetricsSet,
+                  comm_class_postdft.PostdftImageSet,
+                  comm_class_rundft.RundftImageSet,
+                  comm_class_rundft.RundftCommandSet,
+                  comm_class_rundft.RundftGroupSizeSet,
+                  comm_class_exampleSource.RundftExampleSet,
+                  comm_class_exampleSource.DatasetSet,
+                  comm_class.OutputSet,
+                  comm_class.ConfigSet,
+                  BaseModel):
+    ...  
+
+def NormalModelRunner(opts) -> int:
     logs = comm_class.myLog()
 
     paths = comm_func.create_path(str(opts.IO_output_path))

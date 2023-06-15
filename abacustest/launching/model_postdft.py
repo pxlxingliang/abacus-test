@@ -27,7 +27,20 @@ class PostdftModel(comm_class.TrackingSet,
                     BaseModel):
     ...  
 
-def PostdftModelRunner(opts: PostdftModel) -> int:
+class PostdftDatasetsModel(comm_class.TrackingSet,
+                    comm_class_metrics.metricsSaveFileSet,
+                    comm_class_metrics.MetricsSet,
+                    comm_class_postdft.PostdftImageSet,
+                    comm_class_postdft.PostdftCommandSet,
+                    comm_class_exampleSource.PostdftExtraFileNeededSet,
+                    comm_class_exampleSource.PostdftExampleSet,
+                    comm_class_exampleSource.DatasetSet,
+                    comm_class.OutputSet,
+                    comm_class.ConfigSet,
+                    BaseModel):
+    ... 
+
+def PostdftModelRunner(opts) -> int:
     try:
         logs = comm_class.myLog()
 

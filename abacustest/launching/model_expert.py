@@ -49,7 +49,37 @@ class ExpertModel(
         BaseModel):
     ...  
 
-def ExpertModelRunner(opts: ExpertModel) -> int:
+class ExpertDatasetsModel(
+    comm_class.TrackingSet,
+    comm_class_metrics.metricsSaveFileSet,
+    comm_class_metrics.MetricsSet,
+    comm_class_postdft.PostdftImageSet,
+    comm_class_postdft.PostdftCommandSet,
+    comm_class_exampleSource.PostdftExtraFileNeededSet,
+    comm_class_rundft.RundftImageSet,
+    comm_class_rundft.RundftCommandSet,
+    comm_class_rundft.RundftGroupSizeSet,
+    comm_class_exampleSource.RundftExtraFileNeededSet,
+    comm_class_predft.PredftImageSet,
+    comm_class_predft.PredftCommandSet,
+    comm_class_exampleSource.PredftExtraFileNeededSet,
+    comm_class_prepare.PrepareSet,
+    comm_class_prepare.PrepareOrbLibPathSet,
+    comm_class_prepare.PreparePPLibPathSet,
+    comm_class_prepare.PrepareDPKSDescriptorPathSet,
+    comm_class_prepare.PrepareKptTemplatePathSet,
+    comm_class_prepare.PrepareStruTemplatePathSet,
+    comm_class_prepare.PrepareInputTemplatePathSet,
+    comm_class_exampleSource.PrepareExtraFileNeededSet,
+    comm_class_exampleSource.PrepareExampleSet,
+    comm_class_exampleSource.DatasetSet,
+    comm_class.OutputSet,
+    comm_class.ConfigSet,
+        BaseModel):
+    ...  
+
+
+def ExpertModelRunner(opts) -> int:
     try:
         logs = comm_class.myLog()
 

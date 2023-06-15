@@ -32,7 +32,24 @@ class AdvancedModel(comm_class.TrackingSet,
                     BaseModel):
     ...  
 
-def AdvancedModelRunner(opts: AdvancedModel) -> int:
+class AdvancedDatasetsModel(comm_class.TrackingSet,
+                    comm_class_metrics.metricsSaveFileSet,
+                    comm_class_metrics.MetricsSet,
+                    comm_class_postdft.PostdftImageSet,
+                    comm_class_postdft.PostdftCommandSet,
+                    comm_class_exampleSource.PostdftExtraFileNeededSet,
+                    comm_class_rundft.RundftImageSet,
+                    comm_class_rundft.RundftCommandSet,
+                    comm_class_rundft.RundftGroupSizeSet,
+                    comm_class_exampleSource.RundftExtraFileNeededSet,
+                    comm_class_exampleSource.RundftExampleSet,
+                    comm_class_exampleSource.DatasetSet,
+                    comm_class.OutputSet,
+                    comm_class.ConfigSet,
+                    BaseModel):
+    ...  
+
+def AdvancedModelRunner(opts) -> int:
     try:
         logs = comm_class.myLog()
 

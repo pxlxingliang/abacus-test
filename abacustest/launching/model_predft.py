@@ -35,7 +35,27 @@ class PredftModel(
         BaseModel):
     ...  
 
-def PredftModelRunner(opts: PredftModel) -> int:
+class PredftDatasetsModel(
+    comm_class_predft.PredftImageSet,
+    comm_class_predft.PredftCommandSet,
+    comm_class_exampleSource.PredftExtraFileNeededSet,
+    #comm_class_predft.PredftGroupSizeSet,
+    comm_class_prepare.PrepareSet,
+    comm_class_prepare.PrepareOrbLibPathSet,
+    comm_class_prepare.PreparePPLibPathSet,
+    comm_class_prepare.PrepareDPKSDescriptorPathSet,
+    comm_class_prepare.PrepareKptTemplatePathSet,
+    comm_class_prepare.PrepareStruTemplatePathSet,
+    comm_class_prepare.PrepareInputTemplatePathSet,
+    comm_class_exampleSource.PrepareExtraFileNeededSet,
+    comm_class_exampleSource.PrepareExampleSet,
+    comm_class_exampleSource.DatasetSet,
+    comm_class.OutputSet,
+    comm_class.ConfigSet,
+        BaseModel):
+    ...  
+
+def PredftModelRunner(opts) -> int:
     try:
         logs = comm_class.myLog()
 

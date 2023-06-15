@@ -27,7 +27,16 @@ class SelfDefineModel(comm_class.TrackingSet,
                       BaseModel):
     ...
     
-def SelfDefineModelRunner(opts:SelfDefineModel):
+class SelfDefineDatasetsModel(comm_class.TrackingSet,
+                      SelfDefine,
+                      comm_class_exampleSource.ExampleSet,
+                      comm_class_exampleSource.DatasetSet,
+                      comm_class.ConfigSet,
+                      comm_class.OutputSet,
+                      BaseModel):
+    ...
+    
+def SelfDefineModelRunner(opts):
     logs = comm_class.myLog()  
     paths = comm_func.create_path(str(opts.IO_output_path))
     output_path = paths["output_path"]
