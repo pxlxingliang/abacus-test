@@ -350,11 +350,11 @@ def download_source(opts,
     if hasattr(opts,example_name):
         if has_source:
             all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.Example)
+                download_path, work_path, opts.example_name)
             comm_func.clean_dictorys(download_path)
         elif dataset_work_path != None:
             all_directories, all_files = copy_download_to_work(
-                dataset_work_path, work_path, opts.Example)
+                dataset_work_path, work_path, opts.example_name)
 
     return all_directories,all_files
 
