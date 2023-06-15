@@ -11,6 +11,13 @@ from typing import Literal
 from . import comm_func,comm_class
 import os,shutil,glob
 
+class DatasetSet(BaseModel):
+    dataset: DataSet = Field(title=None,
+                            description="Please enter your dataset in launching.")
+    dataset_work_path: String = Field(default="",
+                                       description="Please enter the work path in dataset")
+
+
 def GetDatasetAddress(package,dataset=None):
     # find index of last -, and the string before it is the dataset name
     # the string after it is the version
@@ -62,6 +69,7 @@ If you want to use the examples from datahub or datasets, please refer to the la
                          FromDatasets] = Field(title="Example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
+class ExampleSet(BaseModel):
     Example: String = Field(default="*",title="Examples",description = "You can choose to use only partial files, and seperate each example with space. \
 Tips: you can use regex to select files. For example: example_00[1-5]* example_[6,7,8]*. If you want to use all files, please type '*'.")  
 
@@ -79,6 +87,8 @@ If you want to use the examples from datahub or datasets, please refer to the la
                          FromDatasets] = Field(title="Prepare Example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
+
+class PrepareExampleSet(BaseModel):                         
     PrepareExample: String = Field(default="*",title="Prepare Examples",description = "You can choose to run only partial examples of PrepareExampleSource, and separate each example with space. \
 Tips: you can use regex to select examples. For example: example_00[1-5]* example_[6,7,8]*. If you want to run all examples, please type '*'.")     
 
@@ -95,6 +105,8 @@ If you want to use the examples from datahub or datasets, please refer to the la
                          FromDatasets] = Field(title="Predft Example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
+                         
+class PredftExampleSet(BaseModel):                         
     PredftExample: String = Field(default="*",title="Predft Examples",description = "You can choose to run only partial examples of PredftExampleSource, and separate each example with space. \
 Tips: you can use regex to select examples. For example: example_00[1-5]* example_[6,7,8]*. If you want to run all examples, please type '*'.")                    
 
@@ -112,6 +124,8 @@ If you want to use the examples from datahub or datasets, please refer to the la
                          FromDatasets] = Field(title="Rundft Example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
+                         
+class RundftExampleSet(BaseModel):                         
     RundftExample: String = Field(default="*",title="Rundft Examples",description = "You can choose to run only partial examples of RundftExampleSource, and separate each example with space. \
 Tips: you can use regex to select examples. For example: example_00[1-5]* example_[6,7,8]*. If you want to run all examples, please type '*'.")                    
 
@@ -129,6 +143,8 @@ If you want to use the examples from datahub or datasets, please refer to the la
                          FromDatasets] = Field(title="Postdft example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
+
+class PostdftExampleSet(BaseModel):                         
     PostdftExample: String = Field(default="*",title="Postdft examples",description = "You can choose to use only partial files of PostdftExampleSource, and separate each file or folder with space. \
 Tips: you can use regex to select files. For example: example_00[1-5]* example_[6,7,8]*. If you want to use all files, please type '*'.")                    
 
@@ -146,6 +162,8 @@ class PrepareExtraFileSet(BaseModel):
         FromDatasets] = Field(title="Prepare Extra File Source",
                               discriminator="type",
                               description="Please choose the extra file source.")
+        
+class PrepareExtraFileNeededSet(BaseModel):        
     PrepareExtraFile_needed_files: String = Field(default=None,
                                                   title="Prepare extra files",
                                                   description="These files will be copied to each example directory. \
@@ -165,6 +183,8 @@ class PredftExtraFileSet(BaseModel):
         FromDatasets] = Field(title="Predft Extra File Source",
                              discriminator="type",
                              description="Please choose the extra file source.")
+
+class PredftExtraFileNeededSet(BaseModel):        
     PredftExtraFile_needed_files: String = Field(default=None,
                                                  title="Predft extra files",
                                                  description="Before executing the predft_command, these files will be copied to each example directory. \
@@ -185,6 +205,8 @@ class RundftExtraFileSet(BaseModel):
         FromDatasets] = Field(title="Rundft Extra File Source",
                              discriminator="type",
                              description="Please choose the extra file source.")
+        
+class RundftExtraFileNeededSet(BaseModel):        
     RundftExtraFile_needed_files: String = Field(default=None,
                                                  title="Rundft extra files",
                                                  description="Before executing the rundft_command, these files will be copied to each example directory. \
@@ -205,7 +227,8 @@ class PostdftExtraFileSet(BaseModel):
         FromDatasets] = Field(title="Postdft Extra File Source",
                              discriminator="type",
                              description="Please choose the extra file source.")
-        
+
+class PostdftExtraFileNeededSet(BaseModel):        
     PostdftExtraFile_needed_files: String = Field(default=None,
                                                   title="Postdft extra files",
                                                   description="Before executing the postdft_command, these files will be copied to the work directory. \
@@ -305,6 +328,36 @@ def copy_download_to_work(download_path,work_path,needed_files):
         allfiles.sort()
     return alldirectories,allfiles
 
+def download_source(opts,
+                    example_source_name, 
+                    example_source_local_name,
+                    example_name,
+                    work_path,
+                    download_path,
+                    dataset_work_path,
+                    logs,):
+    # if opts has example_source_name, download the example_source to download_path, and copy the example_source to work_path
+    # else if has dataset_work_path, copy the dataset_work_path to work_path
+    all_files = all_directories = None
+    has_source = False
+    if hasattr(opts,example_source_name):
+        has_source = parse_source(
+            getattr(opts,example_source_name),
+            getattr(opts,example_source_local_name),download_path,opts,logs)
+        if has_source == None:
+            return None,None
+        
+    if hasattr(opts,example_name):
+        if has_source:
+            all_directories, all_files = copy_download_to_work(
+                download_path, work_path, opts.Example)
+            comm_func.clean_dictorys(download_path)
+        elif dataset_work_path != None:
+            all_directories, all_files = copy_download_to_work(
+                dataset_work_path, work_path, opts.Example)
+
+    return all_directories,all_files
+
 def read_source(opts,work_path,download_path,logs=None):
     # read setting in opts, and dowload example/rundft_extrafile/postdft_extrafile to downlaod path
     # and copy selected files to work path
@@ -314,102 +367,114 @@ def read_source(opts,work_path,download_path,logs=None):
     if logs == None:
         logs = print
     
-    if hasattr(opts,"ExampleSource"):
-        tmp = parse_source(opts.ExampleSource,opts.ExampleSource_local,download_path,opts,logs)
-        if tmp == None:
-            return None
-        else:
-            all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.Example)
-            outdict["all_files"] = all_files
-        comm_func.clean_dictorys(download_path)
-        
-    if hasattr(opts,"PrepareExampleSource"):
-        tmp = parse_source(opts.PrepareExampleSource,opts.PrepareExampleSource_local,download_path,opts,logs)
-        if tmp == None:
-            return None
-        else:
-            #put all examples to example_template
-            all_directories, all_files = copy_download_to_work(
-                download_path, os.path.join(work_path,"example_template"), opts.PrepareExample)
-            if all_directories:
-                outdict["prepare_example"] = [os.path.join("example_template",i) for i in all_directories]
-            else:
-                outdict["prepare_example"] = None
-        comm_func.clean_dictorys(download_path) 
-        
-    if hasattr(opts,"PredftExampleSource"):
-        tmp = parse_source(opts.PredftExampleSource,opts.PredftExampleSource_local,download_path,opts,logs)
-        if tmp == None:
-            return None
-        else:
-            all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.PredftExample)
-            outdict["predft_example"] = all_directories
-        comm_func.clean_dictorys(download_path)  
+    dataset_work_path = None
+    if hasattr(opts,"dataset") and hasattr(opts,"dataset_work_path"):
+        try:
+            dataset_path = opts.dataset.get_full_path()
+            if dataset_path:
+                dataset_work_path = os.path.join(dataset_path,opts.dataset_work_path.strip())
+        except:
+            traceback.print_exc()
     
-    if hasattr(opts,"RundftExampleSource"):
-        tmp = parse_source(opts.RundftExampleSource,opts.RundftExampleSource_local,download_path,opts,logs)
-        if tmp == None:
-            return None
-        else:
-            all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.RundftExample)
-            outdict["rundft_example"] = all_directories
-        comm_func.clean_dictorys(download_path)    
+    #read example source
+    all_directories, all_files = download_source(opts,
+                                                 "ExampleSource",
+                                                 "ExampleSource_local",
+                                                 "Example",
+                                                 work_path,
+                                                 download_path,
+                                                 dataset_work_path,
+                                                 logs)
+    outdict["all_files"] = all_files
     
+    #read prepare example source
+    all_directories, all_files = download_source(opts,
+                                                 "PrepareExampleSource",
+                                                 "PrepareExampleSource_local",
+                                                 "PrepareExample",
+                                                 os.path.join(work_path,"example_template"),
+                                                 download_path,
+                                                 dataset_work_path,
+                                                 logs)    
+    if all_directories:
+        outdict["prepare_example"] = [os.path.join("example_template",i) for i in all_directories]
+    else:
+        outdict["prepare_example"] = None
+            
+    #read predft example source
+    all_directories, all_files = download_source(opts,
+                                                 "PredftExampleSource",
+                                                 "PredftExampleSource_local",
+                                                 "PredftExample",
+                                                 work_path,
+                                                 download_path,
+                                                 dataset_work_path,
+                                                 logs) 
+    outdict["predft_example"] = all_directories
+           
+    #read rundft example source
+    all_directories, all_files = download_source(opts,
+                                                 "RundftExampleSource",
+                                                 "RundftExampleSource_local",
+                                                 "RundftExample",
+                                                 work_path,
+                                                 download_path,
+                                                 dataset_work_path,
+                                                 logs) 
+    outdict["rundft_example"] = all_directories
+   
     #read postdft example source
-    if hasattr(opts,"PostdftExampleSource"):
-        tmp = parse_source(opts.PostdftExampleSource,opts.PostdftExampleSource_local,download_path,opts,logs)
-        if tmp == None:
-            return None
-        else:
-            all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.PostdftExample)
-            outdict["postdft_example"] = all_directories
-        comm_func.clean_dictorys(download_path)  
+    all_directories, all_files = download_source(opts,
+                                                 "PostdftExampleSource",
+                                                 "PostdftExampleSource_local",
+                                                 "PostdftExample",
+                                                 work_path,
+                                                 download_path,
+                                                 dataset_work_path,
+                                                 logs) 
+    outdict["postdft_example"] = all_directories
 
     #read prepare extra files
-    if hasattr(opts,"PrepareExtraFile_needed_files"):
-        tmp = parse_source(opts.PrepareExtraFile,opts.PrepareExtraFile_local,download_path,opts,logs)
-        if tmp == None:
-            return None
-        if tmp:
-            all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.PrepareExtraFile_needed_files)
-            outdict["prepare_extrafile"] = all_files
-        comm_func.clean_dictorys(download_path)
+    all_directories, all_files = download_source(opts,
+                                                 "PrepareExtraFile",
+                                                 "PrepareExtraFile_local",
+                                                 "PrepareExtraFile_needed_files",
+                                                 work_path,
+                                                 download_path,
+                                                 dataset_work_path,
+                                                 logs) 
+    outdict["prepare_extrafile"] = all_files
         
     #read predft extra files
-    if hasattr(opts,"PredftExtraFile_needed_files"):
-        tmp = parse_source(opts.PredftExtraFile,opts.PredftExtraFile_local,download_path,opts,logs)
-        if tmp == None:
-            return None
-        if tmp:
-            all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.PredftExtraFile_needed_files)
-            outdict["predft_extrafile"] = all_files
-        comm_func.clean_dictorys(download_path)
+    all_directories, all_files = download_source(opts,
+                                                 "PredftExtraFile",
+                                                 "PredftExtraFile_local",
+                                                 "PredftExtraFile_needed_files",
+                                                 work_path,
+                                                 download_path,
+                                                 dataset_work_path,
+                                                 logs) 
+    outdict["predft_extrafile"] = all_files
         
     #read rundft extra files
-    if hasattr(opts,"RundftExtraFile_needed_files"):
-        tmp = parse_source(opts.RundftExtraFile,opts.RundftExtraFile_local,download_path,opts,logs)
-        if tmp == None:
-            return None
-        if tmp:
-            all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.RundftExtraFile_needed_files)
-            outdict["rundft_extrafile"] = all_files
-        comm_func.clean_dictorys(download_path)
+    all_directories, all_files = download_source(opts,
+                                                 "RundftExtraFile",
+                                                 "RundftExtraFile_local",
+                                                 "RundftExtraFile_needed_files",
+                                                 work_path,
+                                                 download_path,
+                                                 dataset_work_path,
+                                                 logs) 
+    outdict["rundft_extrafile"] = all_files
     
     #read postdft extra files
-    if hasattr(opts,"PostdftExtraFile_needed_files"):
-        tmp = parse_source(opts.PostdftExtraFile,opts.PostdftExtraFile_local,download_path,opts,logs)
-        if tmp == None:
-            return None
-        if tmp:
-            all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.PostdftExtraFile_needed_files)
-            outdict["postdft_extrafile"] = all_files
-        comm_func.clean_dictorys(download_path)
+    all_directories, all_files = download_source(opts,
+                                                 "PostdftExtraFile",
+                                                 "PostdftExtraFile_local",
+                                                 "PostdftExtraFile_needed_files",
+                                                 work_path,
+                                                 download_path,
+                                                 dataset_work_path,
+                                                 logs) 
+    outdict["postdft_extrafile"] = all_files
     return outdict

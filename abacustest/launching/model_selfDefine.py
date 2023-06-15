@@ -20,6 +20,7 @@ class SelfDefine(BaseModel):
 
 class SelfDefineModel(comm_class.TrackingSet,
                       SelfDefine,
+                      comm_class_exampleSource.ExampleSet,
                       comm_class_exampleSource.ExampleSourceSet,
                       comm_class.ConfigSet,
                       comm_class.OutputSet,

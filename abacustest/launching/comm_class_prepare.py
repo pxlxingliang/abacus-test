@@ -49,6 +49,10 @@ class PrepareInputTemplateSet(BaseModel):
                               discriminator="type",
                               description="Please choose the INPUT template source.")
 
+# prepare INPUT template path, for dataset case
+class PrepareInputTemplatePathSet(BaseModel):
+    PrepareInputTemplatePath: String = Field(default=None,title="INPUT template",description = "If you want to use an INPUT template for all examples, please enter the path of INPUT template here.")             
+
 #prepare STRU template
 class PrepareStruTemplateSet(BaseModel):
     PrepareStruTemplate_local: InputFilePath = Field(default=None,
@@ -61,7 +65,11 @@ class PrepareStruTemplateSet(BaseModel):
         comm_class_exampleSource.FromDatasets] = Field(title="Prepare STRU template source",
                               discriminator="type",
                               description="Please choose the STRU template source.")
-        
+
+#prepare STRU template path, for dataset case
+class PrepareStruTemplatePathSet(BaseModel):
+    PrepareStruTemplatePath: String = Field(default=None,title="STRU template",description = "If you want to use an STRU template for all examples, please enter the path of STRU template here.")
+            
 #prepare KPT template
 class PrepareKptTemplateSet(BaseModel):
     PrepareKptTemplate_local: InputFilePath = Field(default=None,
@@ -74,6 +82,10 @@ class PrepareKptTemplateSet(BaseModel):
         comm_class_exampleSource.FromDatasets] = Field(title="Prepare KPT template source",
                               discriminator="type",
                               description="Please choose the KPT template source.")
+
+#prepare KPT template path, for dataset case
+class PrepareKptTemplatePathSet(BaseModel):
+    PrepareKptTemplatePath: String = Field(default=None,title="KPT template",description = "If you want to use an KPT template for all examples, please enter the path of KPT template here.")
 
 #prepare dpks descriptor file
 class PrepareDPKSDescriptorSet(BaseModel):
@@ -88,6 +100,10 @@ class PrepareDPKSDescriptorSet(BaseModel):
                               discriminator="type",
                               description="Please choose the DeeP-KS Descriptor source.") 
 
+# prepare dpks descriptor path, for dataset case
+class PrepareDPKSDescriptorPathSet(BaseModel):
+    PrepareDPKSDescriptorPath: String = Field(default=None,title="DeeP-KS Descriptor",description = "If you want to use an DeeP-KS Descriptor for all examples, please enter the path of DeeP-KS Descriptor here.")
+    
 #prepare pp lib
 class PreparePPLibSet(BaseModel):
     PreparePPLib_local: InputFilePath = Field(default=None,
@@ -101,6 +117,10 @@ class PreparePPLibSet(BaseModel):
                               discriminator="type",
                               description="Please choose the PP Lib source.")   
 
+# prepare pp lib path, for dataset case
+class PreparePPLibPathSet(BaseModel):
+    PreparePPLibPath: String = Field(default=None,title="PP Lib",description = "If you want to use pseudopotential library, please enter the path of PP Lib here.")
+    
 #prepare ORB lib
 class PrepareOrbLibSet(BaseModel):
     PrepareOrbLib_local: InputFilePath = Field(default=None,
@@ -113,6 +133,10 @@ class PrepareOrbLibSet(BaseModel):
         OrbFromDatasets] = Field(title="Prepare Orb Lib source",
                               discriminator="type",
                               description="Please choose the Orb Lib source.")    
+
+# prepare orb lib path, for dataset case
+class PrepareOrbLibPathSet(BaseModel):
+    PrepareOrbLibPath: String = Field(default=None,title="Orb Lib",description = "If you want to use Orbital library, please enter the path of Orb Lib here.")
 
 class PrepareSet(BaseModel):
     prepare_mix_input: Dict[String,String] = Field(default={},title="Additional INPUT settings",description="You can set additional INPUT parameters for each examples. \
@@ -150,6 +174,15 @@ def parse_prepare_input_stru_kpt_template(templatesource,template_local,work_pat
 def parse_prepare(prepare_set,work_path,download_path,logs):
     prepare = {}
     
+    dataset_work_path = None
+    if hasattr(prepare_set,"dataset") and hasattr(prepare_set,"dataset_work_path"):
+        try:
+            dataset_path = prepare_set.dataset.get_full_path()
+            if dataset_path:
+                dataset_work_path = os.path.join(dataset_path,prepare_set.dataset_work_path.strip())
+        except:
+            traceback.print_exc()
+            
     # parse INPUT template
     if hasattr(prepare_set,"PrepareInputTemplateSource"):
         input_template = parse_prepare_input_stru_kpt_template(prepare_set.PrepareInputTemplateSource,
@@ -160,6 +193,10 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
                                                                "INPUT")
         if input_template:
             prepare["input_template"] = input_template
+    elif dataset_work_path and hasattr(prepare_set,"PrepareInputTemplatePath") and getattr(prepare_set,"PrepareInputTemplatePath") and \
+        os.path.isfile(os.path.join(dataset_work_path,prepare_set.PrepareInputTemplatePath)):
+            prepare["input_template"] = os.path.join(dataset_work_path,prepare_set.PrepareInputTemplatePath)
+        
     
     # parse STRU template
     if hasattr(prepare_set,"PrepareStruTemplateSource"):
@@ -171,6 +208,9 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
                                                                "STRU")
         if stru_template:
             prepare["stru_template"] = stru_template
+    elif dataset_work_path and hasattr(prepare_set,"PrepareStruTemplatePath") and getattr(prepare_set,"PrepareStruTemplatePath") and \
+        os.path.isfile(os.path.join(dataset_work_path,prepare_set.PrepareStruTemplatePath)):
+            prepare["stru_template"] = os.path.join(dataset_work_path,prepare_set.PrepareStruTemplatePath)
     
     # parse KPT template
     if hasattr(prepare_set,"PrepareKptTemplateSource"):
@@ -182,7 +222,9 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
                                                                "KPT")
         if kpt_template:
             prepare["kpt_template"] = kpt_template
-
+    elif dataset_work_path and hasattr(prepare_set,"PrepareKptTemplatePath") and getattr(prepare_set,"PrepareKptTemplatePath") and \
+        os.path.isfile(os.path.join(dataset_work_path,prepare_set.PrepareKptTemplatePath)):
+            prepare["kpt_template"] = os.path.join(dataset_work_path,prepare_set.PrepareKptTemplatePath)
     
     # parse DPKS descriptor
     if hasattr(prepare_set,"PrepareDPKSDescriptor"):
@@ -192,7 +234,10 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
                                                               prepare_set, logs, "jle.orb")
         if dpks_template:
             prepare["dpks_descriptor"] = dpks_template
-    
+    elif dataset_work_path and hasattr(prepare_set,"PrepareDPKSDescriptorPath") and getattr(prepare_set,"PrepareDPKSDescriptorPath") and \
+        os.path.isfile(os.path.join(dataset_work_path,prepare_set.PrepareDPKSDescriptorPath)):
+            prepare["dpks_descriptor"] = os.path.join(dataset_work_path,prepare_set.PrepareDPKSDescriptorPath)
+            
     # parse mix input
     if hasattr(prepare_set,"prepare_mix_input") and prepare_set.prepare_mix_input:
         prepare["mix_input"] = {}
@@ -261,6 +306,9 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
                 shutil.move(os.path.join(download_path,ifile),os.path.join(pp_path,ifile))
             prepare["pp_path"] = "pplib"
         comm_func.clean_dictorys(download_path)
+    elif dataset_work_path and hasattr(prepare_set,"PreparePPLibPath") and getattr(prepare_set,"PreparePPLibPath") and \
+        os.path.isdir(os.path.join(dataset_work_path,prepare_set.PreparePPLibPath)):
+            prepare["pp_path"] = os.path.join(dataset_work_path,prepare_set.PreparePPLibPath)
     
     #prepare orb lib
     if hasattr(prepare_set,"PreparePPLib"):
@@ -293,6 +341,9 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
                 shutil.move(os.path.join(download_path,ifile),os.path.join(orb_path,ifile))
             prepare["orb_path"] = "orblib"
         comm_func.clean_dictorys(download_path)
+    elif dataset_work_path and hasattr(prepare_set,"PrepareOrbLibPath") and getattr(prepare_set,"PrepareOrbLibPath") and \
+        os.path.isdir(os.path.join(dataset_work_path,prepare_set.PrepareOrbLibPath)):
+            prepare["orb_path"] = os.path.join(dataset_work_path,prepare_set.PrepareOrbLibPath)
                                                           
     return prepare    
     
