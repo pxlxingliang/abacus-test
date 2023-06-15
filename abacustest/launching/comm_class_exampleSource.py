@@ -389,6 +389,7 @@ def read_source(opts,work_path,download_path,logs=None):
     
     dataset_work_path = get_dataset_work_path(opts)
     logs("dataset_work_path:",dataset_work_path)
+    logs("\t",os.listdir(dataset_work_path))
     
     #read example source
     all_directories, all_files = download_source(opts,
