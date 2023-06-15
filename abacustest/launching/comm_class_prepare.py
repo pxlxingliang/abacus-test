@@ -139,7 +139,7 @@ class PrepareOrbLibPathSet(BaseModel):
     PrepareOrbLibPath: String = Field(default=None,title="Orb Lib",description = "If you want to use Orbital library, please enter the path of Orb Lib here.")
 
 class PrepareSet(BaseModel):
-    prepare_mix_input: Dict[String,String] = Field(default={},title="Additional INPUT settings",description="You can set additional INPUT parameters for each examples. \
+    prepare_mix_input: Optional[Dict[String,String]] = Field(default=None,title="Additional INPUT settings",description="You can set additional INPUT parameters for each examples. \
 You can set multiple values (separated by comma) for each parameter, which will generate a set of ABACUS inputs for each value. Commonly used parameters: \
 \"calculation\", \"ecutwfc\", \"scf_thr\", \"scf_nmax\", \"basis_type\", \"smearing_method\", \"smearing_sigma\", \"mixing_type\", \"mixing_beta\",\"ks_solver\"")
     prepare_mix_kpt: String = Field(default=None,title="Additional KPT settings",description="You can set additional KPT SETTING for each examples. \
