@@ -350,14 +350,28 @@ def download_source(opts,
     if hasattr(opts,example_name):
         if has_source:
             all_directories, all_files = copy_download_to_work(
-                download_path, work_path, opts.example_name)
+                download_path, work_path,getattr(opts,example_name))
             comm_func.clean_dictorys(download_path)
         elif dataset_work_path != None:
             all_directories, all_files = copy_download_to_work(
-                dataset_work_path, work_path, opts.example_name)
+                dataset_work_path, work_path, getattr(opts,example_name))
 
     return all_directories,all_files
 
+def get_dataset_work_path(opts):
+    dataset_work_path = None
+    if hasattr(opts,"dataset") and hasattr(opts,"dataset_work_path"):
+        try:
+            dataset_path = opts.dataset.get_full_path()
+            if dataset_path:
+                if opts.dataset_work_path:
+                    dataset_work_path = os.path.join(dataset_path,opts.dataset_work_path.strip())
+                else:
+                    dataset_work_path = dataset_path
+        except:
+            traceback.print_exc()
+    return dataset_work_path
+    
 def read_source(opts,work_path,download_path,logs=None):
     # read setting in opts, and dowload example/rundft_extrafile/postdft_extrafile to downlaod path
     # and copy selected files to work path
@@ -367,14 +381,7 @@ def read_source(opts,work_path,download_path,logs=None):
     if logs == None:
         logs = print
     
-    dataset_work_path = None
-    if hasattr(opts,"dataset") and hasattr(opts,"dataset_work_path"):
-        try:
-            dataset_path = opts.dataset.get_full_path()
-            if dataset_path:
-                dataset_work_path = os.path.join(dataset_path,opts.dataset_work_path.strip())
-        except:
-            traceback.print_exc()
+    dataset_work_path = get_dataset_work_path(opts)
     
     #read example source
     all_directories, all_files = download_source(opts,

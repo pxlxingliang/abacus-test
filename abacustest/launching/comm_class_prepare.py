@@ -174,14 +174,7 @@ def parse_prepare_input_stru_kpt_template(templatesource,template_local,work_pat
 def parse_prepare(prepare_set,work_path,download_path,logs):
     prepare = {}
     
-    dataset_work_path = None
-    if hasattr(prepare_set,"dataset") and hasattr(prepare_set,"dataset_work_path"):
-        try:
-            dataset_path = prepare_set.dataset.get_full_path()
-            if dataset_path:
-                dataset_work_path = os.path.join(dataset_path,prepare_set.dataset_work_path.strip())
-        except:
-            traceback.print_exc()
+    dataset_work_path = comm_class_exampleSource.get_dataset_work_path(prepare_set)
             
     # parse INPUT template
     if hasattr(prepare_set,"PrepareInputTemplateSource"):
