@@ -340,7 +340,11 @@ def download_source(opts,
     # else if has dataset_work_path, copy the dataset_work_path to work_path
     all_files = all_directories = None
     has_source = False
+    logs(f"read {example_source_name} setting ...")
     if hasattr(opts,example_source_name):
+        logs(f"\t{example_source_name}:",getattr(opts,example_source_name))
+        logs(f"\t{example_source_local_name}:",getattr(opts,example_source_local_name))
+        
         has_source = parse_source(
             getattr(opts,example_source_name),
             getattr(opts,example_source_local_name),download_path,opts,logs)
@@ -348,13 +352,15 @@ def download_source(opts,
             return None,None
         
     if hasattr(opts,example_name):
-        if has_source:
-            all_directories, all_files = copy_download_to_work(
-                download_path, work_path,getattr(opts,example_name))
-            comm_func.clean_dictorys(download_path)
-        elif dataset_work_path != None:
-            all_directories, all_files = copy_download_to_work(
-                dataset_work_path, work_path, getattr(opts,example_name))
+        if getattr(opts,example_name):
+            logs(f"\t{example_name}:",getattr(opts,example_name))
+            if has_source:
+                all_directories, all_files = copy_download_to_work(
+                    download_path, work_path,getattr(opts,example_name))
+                comm_func.clean_dictorys(download_path)
+            elif dataset_work_path != None:
+                all_directories, all_files = copy_download_to_work(
+                    dataset_work_path, work_path, getattr(opts,example_name))
 
     return all_directories,all_files
 
@@ -382,6 +388,7 @@ def read_source(opts,work_path,download_path,logs=None):
         logs = print
     
     dataset_work_path = get_dataset_work_path(opts)
+    logs("dataset_work_path:",dataset_work_path)
     
     #read example source
     all_directories, all_files = download_source(opts,
