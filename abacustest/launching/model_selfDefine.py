@@ -16,6 +16,8 @@ class SelfDefine(BaseModel):
                                         description_type="markdown")
     setting: String = Field(default = "",
                             description="Please enter the setting information in json format. If you fill in this field, the previous file will be ignored!")
+    setting_file: String = Field(default = "",
+                            description="Please enter the file name of setting json file in dataset set work path. This is valid only when preupload setting fiel and setting value is empty!")     
     
 
 class SelfDefineModel(comm_class.TrackingSet,
@@ -59,6 +61,14 @@ def SelfDefineModelRunner(opts):
     elif opts.IO_input_path != None:
         try:
             setting = json.load(open(opts.IO_input_path.get_path()))
+        except:
+            traceback.print_exc()
+            return 1
+    elif opts.setting_file and hasattr(opts,"dataset") and getattr(opts,"dataset"):
+        try:
+            dataset_work_path = comm_class_exampleSource.get_dataset_work_path(opts)
+            if dataset_work_path:
+                setting = json.load(open(os.path.join(dataset_work_path,opts.setting_file)))
         except:
             traceback.print_exc()
             return 1
