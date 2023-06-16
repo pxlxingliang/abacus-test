@@ -584,6 +584,7 @@ class PrepareAbacus:
         ipath = -1
         param_setting = {}
         cwd = os.getcwd()
+        stru_num = len(self.stru_list) * len(kpt_list) * len(input_list)
         for istru in self.stru_list:  #iteration of STRU
             stru_data = AbacusStru.ReadStru(istru)
             stru_path = os.path.split(istru)[0]
@@ -679,7 +680,12 @@ class PrepareAbacus:
                     #        bk = comm.GetBakFile(self.save_path)
                     #        shutil.move(self.save_path,bk)
                     #    has_create_savepath = True
-                    save_path = os.path.join(self.save_path,str(ipath).zfill(5))
+                    
+                    # if only one stru, then do not create subfolder
+                    if stru_num > 1:
+                        save_path = os.path.join(self.save_path,str(ipath).zfill(5))
+                    else:
+                        save_path = self.save_path
                     if os.path.isdir(save_path):
                         bk = comm.GetBakFile(save_path)
                         shutil.move(save_path,bk)
