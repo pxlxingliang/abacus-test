@@ -21,7 +21,7 @@ from dp.launching.typing import (
     BenchmarkTags
 )
 
-import re
+import re,os
 
 class OutputSet(BaseModel):
     IO_output_path: OutputDirectory = Field(default="./output")
@@ -56,18 +56,22 @@ class TrackingSet(BaseModel):
 
     @classmethod
     def parse_obj(cls, opts):
-        if opts.Tracking_metrics and opts.Tracking_token != None and opts.Tracking_token.strip() != "":
+        if opts.Tracking_metrics:
             default_tags = opts.Tracking_tags
             schedule = "_".join(
                 re.split("-", default_tags[2], 2)[-1].strip().split())
             application_name = re.split("-", default_tags[0], 2)[-1]
             job_name = re.split("-", default_tags[3], 2)[-1]
+            if opts.Tracking_token != None and opts.Tracking_token.strip() != "":
+                token = opts.Tracking_token
+            else:
+                token = os.environ.get("AIM_ACCESS_TOKEN")
 
             return {
                 "name": schedule + "." + job_name,
                 "experiment": application_name + "/benchmark",
                 "tags": default_tags,
-                "token": opts.Tracking_token
+                "token": token
             }
         else:
             return None
