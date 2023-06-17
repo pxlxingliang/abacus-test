@@ -59,7 +59,7 @@ def upload_to_tracking(tracking_setting,tracking_values,tracking_summary,AIM_ACC
                 traceback.print_exc()
                 print("upload tracking failed, name:",name,"value:",value)
 
-        for tracking_value,context in tracking_values:
+        for tracking_value,context in all_tracking_values:
             for k,v in tracking_value.items():
                 k = k.replace("/",".")
                 print("upload to tracking: %s" % k)

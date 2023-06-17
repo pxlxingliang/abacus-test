@@ -153,6 +153,15 @@ class PostDFT(OP):
             }
         )
         return op_out
+
+def SetEnvs():
+    if globV.get_value("PRIVATE_SET").get("config_host","").strip() in ["https://workflows.deepmodeling.com",""]:
+        return None
+    from dflow import Secret
+    envs = {}
+    for k,v in globV.get_value("PRIVATE_SET").items():
+        envs[k] = Secret(str(v))
+    return envs
     
 def produce_postdft(setting,prestep_output,flowname,example_path):
     # if rundft_output is not None, then the input of postdft is the output of rundft,
@@ -173,6 +182,12 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
         only_folder=False,
         oneartifact=True)
     
+    pre_script = ""
+    if setting.get("upload_datahub", None):
+        pre_script += "import os\nos.system('pip install --upgrade dp-metadata-sdk==3.0.1 -i https://repo.mlops.dp.tech/repository/pypi-group/simple')\n"
+    if setting.get("upload_tracking", None):
+        pre_script += "import os\nos.system('pip install dp-tracking-sdk==3.15.2.post23 -i https://repo.mlops.dp.tech/repository/pypi-group/simple')\n"
+        
     if not prestep_output:
         assert example_path or setting.get("example") != None, "example is not defined in postdft"
         if "example" not in setting:
@@ -211,7 +226,7 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
         "upload_tracking": setting.get("upload_tracking", {})
     }
     
-    pt = PythonOPTemplate(PostDFT,image=image)
+    pt = PythonOPTemplate(PostDFT,image=image,envs=SetEnvs())
     artifacts={"examples": artifact_example }
     if extrafiles:
         artifacts["extra_files"]=extrafiles[0][0]
