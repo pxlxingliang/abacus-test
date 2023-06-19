@@ -220,9 +220,10 @@ def ProduceOneSteps(stepname,param):
         # each element of the dict is a sub example
         example_path = []
         for ii in prepare.DoPrepare(prepare_example,""):
-            for jj in ii:
-               if prepare.CheckExample(jj,str(ii[jj])):
-                   example_path.append(jj)  
+            if ii != None:
+                for jj in ii:
+                   if prepare.CheckExample(jj,str(ii[jj])):
+                       example_path.append(jj)  
         if example_path == []:
             comm.printinfo("WARNING: defined prepare, but no examples matched, skip it!")
             example_path = None 

@@ -272,7 +272,8 @@ class PrepareAbacus:
                  pp_path:str = None,
                  orb_path:str = None,
                  dpks_descriptor:str=None,
-                 extra_files: List[str] = []):
+                 extra_files: List[str] = [],
+                 bak_file = True):
         """To prepare the inputs of abacus
 
         Parameters
@@ -338,6 +339,9 @@ class PrepareAbacus:
 
         extra_files : List, optional
             a list of somes extra files that will be putted in each input, by default []   
+            
+        bak_file: bool, optional
+            when save path is exist, if bak_file is True, then bak the old files,
         """        
         self.save_path = save_path
         self.example_template = example_template
@@ -356,10 +360,33 @@ class PrepareAbacus:
         self.orb_path = None if not orb_path else orb_path.strip()
         self.CollectPP()
         self.CollectOrb()
-
+        
         self.input_list,self.input_mix_param = self.Construct_input_list()
         self.kpt_list = self.Construct_kpt_list()
         self.stru_list = self.Construct_stru_list()
+        
+        self.bak_file = bak_file
+        
+        # when read the template file, will check if the template file folder is same with save_path
+        # if same and final structures only one, then will not bak the template folder
+        self.template_is_save_path = self.CheckIfTemplateIsSavePath()
+        
+    def CheckIfTemplateIsSavePath(self):
+        if not os.path.exists(self.save_path):
+            return False
+        CheckedPath = []
+        if self.input_template:
+            CheckedPath.append(Path(os.path.split(self.input_template)[0]))
+        if self.kpt_template:
+            CheckedPath.append(Path(os.path.split(self.kpt_template)[0]))
+        if self.stru_template:
+            CheckedPath.append(Path(os.path.split(self.stru_template)[0]))
+        if self.example_template:
+            CheckedPath.append(Path(self.example_template))
+        for ipath in CheckedPath:
+            if Path(self.save_path).samefile(ipath):
+                return True
+        return False
     
     def GetElementNameFromFileName(self,filename):
         #the filename should be started with the element name and followed by character non-alpha
@@ -568,7 +595,7 @@ class PrepareAbacus:
 
         if not self.stru_list:
             print("No stru files, skip!!!")
-            return False
+            return None
         
         if not self.kpt_list:
             print("WARNING: not set KPT")
@@ -686,18 +713,21 @@ class PrepareAbacus:
                         save_path = os.path.join(self.save_path,str(ipath).zfill(5))
                     else:
                         save_path = self.save_path
-                    if os.path.isdir(save_path):
-                        bk = comm.GetBakFile(save_path)
-                        shutil.move(save_path,bk)
                     
+                    if os.path.isdir(save_path) and \
+                        (not Path(save_path).samefile(cwd)) and \
+                        (self.bak_file) and \
+                        (not self.template_is_save_path):
+                            bk = comm.GetBakFile(save_path)
+                            shutil.move(save_path,bk)
+                            
+                    if not os.path.isdir(save_path):
+                        os.makedirs(save_path)   
 
                     #store the param setting and path
                     param_setting[save_path] = [os.path.relpath(istru, cwd),ikpt,{}]
                     for input_param in self.input_mix_param:
                         param_setting[save_path][-1][input_param] = iinput.get(input_param)
-
-                    if not os.path.isdir(save_path):
-                        os.makedirs(save_path)
                     
                     #create INPUT   
                     if iinput != None: 
@@ -707,18 +737,22 @@ class PrepareAbacus:
                     if ikpt != None:
                         kptf = os.path.join(save_path,"KPT")
                         if isinstance(ikpt,str):
-                            if os.path.isfile(kptf):
+                            if os.path.isfile(kptf) and (not Path(ikpt).samefile(Path(kptf))):
                                 os.unlink(kptf)
-                            os.symlink(os.path.abspath(ikpt),kptf)
+                            
+                            if not os.path.isfile(kptf):
+                                os.symlink(os.path.abspath(ikpt),kptf)
                         elif isinstance(ikpt,list):
                             PrepareAbacus.WriteKpt(ikpt,kptf)
                     
                     #create STRU
                     struf = os.path.join(os.path.join(save_path,"STRU"))
-                    if os.path.isfile(struf):
-                        os.unlink(struf)
                     if linkstru:
-                        os.symlink(os.path.abspath(istru),struf)
+                        if os.path.isfile(struf) and (not Path(istru).samefile(Path(struf))):
+                            os.unlink(struf)
+                                
+                        if not os.path.isfile(struf):
+                            os.symlink(os.path.abspath(istru),struf)
                     else:
                         stru_data.write(struf)
                     
@@ -727,9 +761,10 @@ class PrepareAbacus:
                         ifile = os.path.abspath(ifile)
                         filename = os.path.split(ifile)[1]
                         target_file = os.path.join(save_path,filename)
-                        if os.path.isfile(target_file):
+                        if os.path.isfile(target_file) and not Path(ifile).samefile(Path(target_file)):
                             os.unlink(target_file)
-                        os.symlink(ifile,target_file)         
+                        if not os.path.isfile(target_file):
+                            os.symlink(ifile,target_file)         
         
         return param_setting
 
@@ -929,7 +964,10 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
             save_path = os.path.join(save_folder,example_template_nocomm[idx])
             print("\n%s" % iexample)
         else:
-            save_path = save_folder
+            if Path(save_folder) == Path("."):
+                save_path = commpath
+            else:
+                save_path = save_folder
         prepareabacus = PrepareAbacus(save_path=save_path,
                                   example_template=iexample,
                                   input_template=param_setting.get("input_template",None),
@@ -943,7 +981,8 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
                                   pp_path=param_setting.get("pp_path",None),
                                   orb_path=param_setting.get("orb_path",None),
                                   dpks_descriptor=param_setting.get("dpks_descriptor",None),
-                                  extra_files=param_setting.get("extra_files",[])
+                                  extra_files=param_setting.get("extra_files",[]),
+                                  bak_file = param_setting.get("bak_file",True)
                                   )
         all_path_setting.append(prepareabacus.prepare())
 

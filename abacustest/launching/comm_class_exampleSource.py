@@ -414,14 +414,11 @@ def read_source(opts,work_path,download_path,logs=None):
                                                  "PrepareExampleSource",
                                                  "PrepareExampleSource_local",
                                                  "PrepareExample",
-                                                 os.path.join(work_path,"example_template"),
+                                                 work_path,
                                                  download_path,
                                                  dataset_work_path,
                                                  logs)    
-    if all_directories:
-        outdict["prepare_example"] = [os.path.join("example_template",i) for i in all_directories]
-    else:
-        outdict["prepare_example"] = None
+    outdict["prepare_example"] = all_files
             
     #read predft example source
     all_directories, all_files = download_source(opts,

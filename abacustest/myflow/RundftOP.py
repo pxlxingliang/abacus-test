@@ -89,7 +89,7 @@ class RunDFT(OP):
             print("work path:",work_path,file=sys.stderr)
 
             #copy extra_files to work path
-            print("sub_save_path:",op_in["extra_files"],file=sys.stderr) 
+            print("sub_save_path:",op_in["sub_save_path"],file=sys.stderr) 
             if op_in["extra_files"] != None:
                 extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
                 comm.CopyFiles(extra_file_path,work_path,move=False)
