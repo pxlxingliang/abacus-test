@@ -99,8 +99,11 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
     metric_filename = os.path.split(metric_file)[-1]
     allresults = json.load(open(metric_file))
     csv_filename = os.path.splitext(metric_filename)[0] + ".csv"
-    outresult.pandas_out(allresults,os.path.join(output_path,csv_filename))
-    report_element = AutoReportElement(title=report_titile, path=csv_filename,description="")
+    _, _, savefile_names = outresult.pandas_out(allresults,os.path.join(output_path,csv_filename))
+    report_elements = []
+    for ifilename in savefile_names:
+        ifilename = os.path.split(ifilename)[-1]
+        report_elements.append(AutoReportElement(title=os.path.splitext(ifilename)[0], path=ifilename,description=""))
     
     chart_elements = []
     #produce the Echarts option for each metric
@@ -118,7 +121,7 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
             }
             chart_elements.append(ChartReportElement(options=options,title=imetric))
     
-    return report_element,chart_elements
+    return report_elements,chart_elements
 
 def produce_supermetrics(supermetric_file,output_path,work_path, save_path,report_titile="supermetrics"):
     import pandas as pd
@@ -183,9 +186,9 @@ def produce_metrics_superMetrics_reports(allparams,work_path,output_path):
     for metric_file in list(set(allmetrics_files)): 
         try:
             metric_filename = os.path.split(metric_file)[-1]
-            tmp_report_element,tmp_chart_elements = produce_metrics(metric_file,output_path,report_titile=metric_filename)
-            if tmp_report_element:
-                metrics_report.append(tmp_report_element)
+            tmp_report_elements,tmp_chart_elements = produce_metrics(metric_file,output_path,report_titile=metric_filename)
+            if tmp_report_elements:
+                metrics_report += tmp_report_elements
             if tmp_chart_elements:
                 metrics_chart_elements += tmp_chart_elements
         except:
@@ -224,11 +227,11 @@ def produce_metrics_superMetrics_reports(allparams,work_path,output_path):
     #produce the report
     # 1. metrics report
     if metrics_report:
-        reports.append(ReportSection(title="metrics",elements=metrics_report,ncols=2))
+        reports.append(ReportSection(title="metrics",elements=metrics_report,ncols=1))
     
     # 2. supermetrics report
     if supermetrics_report:
-        reports.append(ReportSection(title="supermetrics",elements=supermetrics_report,ncols=2))
+        reports.append(ReportSection(title="supermetrics",elements=supermetrics_report,ncols=1))
         
     # 3. metrics chart
     if metrics_chart_elements:

@@ -586,6 +586,8 @@ def pandas_out(allresult,savefile = None):
     allsamples = [i for i in allresult.keys()]
     allkeys = [i for i in allresult[allsamples[0]].keys()]
     allkeys_seperate = []
+    savefile_prefix = None if not savefile else os.path.splitext(savefile)[0]
+    savefile_names = []
     for ikey in allkeys:
         allkeys_seperate.append(False)
         for i in allsamples:
@@ -604,10 +606,23 @@ def pandas_out(allresult,savefile = None):
                 if isinstance(allresult[isample][ikey],(list,dict)):
                     try:
                         list_result.append("%s\t%s:\n" % (isample,ikey) + str(pd.DataFrame.from_dict(allresult[isample][ikey])))
+                        if savefile:
+                            pd.DataFrame.from_dict(allresult[isample][ikey]).to_csv(savefile_prefix+"_"+isample+"_"+ikey+".csv")
+                            savefile_names.append(savefile_prefix+"_"+isample+"_"+ikey+".csv")
+                            
                     except:
                         list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample][ikey]))
+                        if savefile:
+                            with open(savefile_prefix+"_"+isample+"_"+ikey+".txt",'w') as f:
+                                f.write(str(allresult[isample][ikey]))
+                                savefile_names.append(savefile_prefix+"_"+isample+"_"+ikey+".txt")
+                            
                 else:
                     list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample][ikey]))
+                    if savefile:
+                        with open(savefile_prefix+"_"+isample+"_"+ikey+".txt",'w') as f:
+                            f.write(str(allresult[isample][ikey]))
+                            savefile_names.append(savefile_prefix+"_"+isample+"_"+ikey+".txt")
             else:
                 normal_result[isample][ikey] = allresult[isample][ikey]
                 
@@ -617,6 +632,7 @@ def pandas_out(allresult,savefile = None):
         pddata = pd.DataFrame.from_dict(normal_result,orient='index')
         if savefile:
             pddata.to_csv(savefile)
+            savefile_names.insert(0,savefile)
         normal_result = str(pddata)
         
     if True not in allkeys_seperate:
@@ -626,7 +642,7 @@ def pandas_out(allresult,savefile = None):
     
     print("%s\n\n%s" % (normal_result,list_result))
            
-    return normal_result,list_result
+    return normal_result,list_result,savefile_names
 
 def OutResultArgs(parser):  
     parser.description = "This script is used to output the summary of results"
