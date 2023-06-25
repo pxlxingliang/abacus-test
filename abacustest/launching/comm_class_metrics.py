@@ -49,6 +49,8 @@ class AbacusMetricEnum(String, Enum):
 #    AbacusMetric_metric37 = 'delta_energyPerAtom'
     AbacusMetric_metric38 = 'relax_converge'
     AbacusMetric_metric39 = 'relax_steps'
+    AbacusMetric_metric40 = 'bda_mag_moment'
+    AbacusMetric_metric41 = 'bda_bond_length'
 
 class SuperMetricMethodEnum(String, Enum):
     SuperMetricMethod_method1 = "iGM"
@@ -123,7 +125,8 @@ def parse_metrics_set(metrics_set:MetricsSet):
             out_dict["metrics"] = {
                 "dft_type": "abacus",
                 "metrics_name": metrics,
-                "save_file": "metrics.json"
+                "save_file": "metrics.json",
+                "modules":["bda"]
             }
 
             if has_super_metrics:

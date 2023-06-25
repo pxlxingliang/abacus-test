@@ -1,2 +1,3 @@
-lib/*/__pycache__
-lib/*/*/__pycache__
+abacustest/*/__pycache__
+abacustest/*/*/__pycache__
+abacustest/__pycache__

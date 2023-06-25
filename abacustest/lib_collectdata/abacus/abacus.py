@@ -288,8 +288,10 @@ class Abacus(ResultAbacus):
         atom_mag = []
         with open(mullikenf) as f1: lines = f1.readlines()
         for line in lines:
-            if "Total Magnetism on atom" in line:
-                atom_mag.append(float(line.split()[-1]))
+            if lines[:5] == "STEP:":
+                atom_mag.append([])
+            elif "Total Magnetism on atom" in line:
+                atom_mag[-1].append(float(line.split()[-1]))
         self['atom_mag'] = None if len(atom_mag) == 0 else atom_mag
     
     @ResultAbacus.register(drho="[], drho of each scf step")
