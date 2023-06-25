@@ -12,7 +12,7 @@ class BdaAbacus(ResultAbacus):
                               species=self['element_list'],
                               coords=self["coordinate"],
                               coords_are_cartesian=True)
-        mag = tuple([{"tot":i} for i in self['atom_mag']])
+        mag = tuple([{"tot":i} for i in self['atom_mag'][-1]])
         from ..comm_funcs.bda import BasicProperty
         output = BasicProperty(mag,None,None,Poscar(structure))
         self["bda_mag_moment"] = output.magnetic_moment('TM')

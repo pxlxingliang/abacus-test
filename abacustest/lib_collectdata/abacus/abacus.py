@@ -288,7 +288,7 @@ class Abacus(ResultAbacus):
         atom_mag = []
         with open(mullikenf) as f1: lines = f1.readlines()
         for line in lines:
-            if lines[:5] == "STEP:":
+            if line[:5] == "STEP:":
                 atom_mag.append([])
             elif "Total Magnetism on atom" in line:
                 atom_mag[-1].append(float(line.split()[-1]))
