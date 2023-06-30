@@ -3,7 +3,8 @@ from dp.launching.typing import (
     Set,
     Boolean,
     Field,
-    BenchmarkLabels
+    BenchmarkLabels,
+    InputFilePath
 )
 from dp.launching.report import Report
 
@@ -11,7 +12,8 @@ from . import comm_class,comm_func,get_aim_data
 import json,traceback,datetime,os,re,pickle
 from abacustest.outresult import Table2FeishuInteractive
 from dp.launching.report import ChartReportElement,ReportSection,AutoReportElement
-
+import dp.launching.typing.addon.ui as ui
+from dp.launching.typing.addon.sysmbol import Equal
 
 def transfer_tag(old_tag):
     """
@@ -81,21 +83,34 @@ def get_profile_value(allruninfos,profile,aim_tag,metrics,metrics_coef,metrics_n
             url = "https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
         else:
             url = "https://benchmark.mlops.dp.tech/?request=GET%3A%2Fprojects%2Fabacustest%2Fruns%2F" + runname
-        tags = run["tags"]
+        tags = run["tags"] # tags in AIM
         create_time = datetime.datetime.utcfromtimestamp(run["creation_time"]+8*3600)
 
+        # loop AIM tags, and if the tag is in new_tag, then this run is needed
         for itag in tags:
-            if itag in new_tag and new_tag[itag] in allvalues:
+            if itag in new_tag and new_tag[itag] in allvalues: # check if the this run is needed
                 iprofile = new_tag[itag]
-                for imetric in metrics:
-                    for metric_in_aim in metrics_name.get(imetric,[imetric]):
-                        if metric_in_aim in run["metric"]:
+                needed_run = False
+                metric_value_number_max = 1
+                for imetric in metrics: # loop needed metrics
+                    for metric_in_aim in metrics_name.get(imetric,[imetric]):  # metric_in_aim is the name of needed metrics in AIM 
+                        if metric_in_aim in run["metric"]:  #check if this run has the needed metrics
+                            needed_run = True
                             if imetric not in allvalues[iprofile]:
                                 allvalues[iprofile][imetric] = []
                             allvalues[iprofile][imetric].append([create_time,
                                                                  run["metric"][metric_in_aim][0] * new_metrics_coef[(iprofile,imetric)],
                                                                  url, run["run_hash"]]) #the last one should be version, store hash now
+                            metric_value_number_max = len(allvalues[iprofile][imetric])
                             break
+                
+                #consider the case that this run has partial of needed metrics, we need to add None for the missing metrics
+                if needed_run:
+                    for imetric in metrics:
+                        if imetric not in allvalues[iprofile]:
+                            allvalues[iprofile][imetric] = []
+                        while len(allvalues[iprofile][imetric]) < metric_value_number_max:
+                            allvalues[iprofile][imetric].append([create_time,None,url,run["run_hash"]])
                 break
     versions = {}
     for k,v in allvalues.items():
@@ -141,19 +156,22 @@ def produce_outtable(allvalues,profile,metrics,digit):
                     not_set_date = False
 
                 value0 = ivalue[-1][1]
-                value_abs = ("%." + "%df"%digit.get(ik,0)) % float(value0)
-                value = value_abs + "[--]"
-                if len(ivalue) > 1:
-                    value1 = ivalue[-2][1]
-                    if value1 != 0 and isinstance(value0,(int,float)) and isinstance(value1,(int,float)):
-                        value_rel = ("%" + ".2f" + "%" + "%") % ((value0 - value1)*100/value1)
-                        if (value0 - value1) >= 0:
-                            value_rel = "+" + value_rel
-                        value = value_abs + f"[{value_rel}]"
-                        if (value0 - value1) > 0:
-                            value = "<font color='green'>" + value + "</font>"
-                        elif (value0 - value1) < 0:
-                            value = "<font color='red'>" + value + "</font>"
+                if value0 == None:
+                    value = "--"
+                else:
+                    value_abs = ("%." + "%df"%digit.get(ik,0)) % float(value0)
+                    value = value_abs + "[--]"
+                    if len(ivalue) > 1:
+                        value1 = ivalue[-2][1]
+                        if value1 != 0 and isinstance(value0,(int,float)) and isinstance(value1,(int,float)):
+                            value_rel = ("%" + ".2f" + "%" + "%") % ((value0 - value1)*100/value1)
+                            if (value0 - value1) >= 0:
+                                value_rel = "+" + value_rel
+                            value = value_abs + f"[{value_rel}]"
+                            if (value0 - value1) > 0:
+                                value = "<font color='green'>" + value + "</font>"
+                            elif (value0 - value1) < 0:
+                                value = "<font color='red'>" + value + "</font>"
             outtable[-1].append(value)
     return outtable
         
@@ -175,12 +193,16 @@ def send_to_feishu(outtable,webhook,comment):
             if link != None:
                 iprofile = f"[{iprofile}]({link})"
 
-        new_table.append([iprofile])
+        inew_table = [iprofile]
+        has_today_data = False
         for value in itable[4:]:
             if today_data: 
-                new_table[-1].append(value)
+                inew_table.append(value)
+                has_today_data = True
             else:
-                new_table[-1].append("--")
+                inew_table.append("--")
+        if has_today_data:
+            new_table.append(inew_table)
 
     new_comment = ""
     if len(set(version_list)) == 1 and version_list[0] != None:
@@ -196,12 +218,13 @@ def send_to_feishu(outtable,webhook,comment):
     Table2FeishuInteractive(new_table,webhook,title="abacus performance test %s" % today,comment=new_comment + comment)
     return outtable
 
-def produce_html_table(outtable,comment):
+def produce_html(outtable,comment):
+    import copy
     new_table = [["profile"] + [i for i in outtable[0][4:]] + ["test_date","version"]]  #table head
 
     for itable in outtable[1:]:
         iprofile = itable[0]
-        date0 = itable[1]
+        date0 = "--" if not itable[1] else itable[1].split()[0]
         link = itable[2]
         version = itable[3]
         if link != None:
@@ -221,23 +244,64 @@ def produce_html_table(outtable,comment):
                 version = f"<a href=\"{github_link}\" target=\"detail\">{version}</a>"
         new_table[-1].append(str(version))
 
-    html = '''<html><head><meta charset="UTF-8"></head><body>'''
-    html += comm_func.produce_html_table(new_table) 
-    html += "<p>" + "<br>".join(comment.split("\n")) + "</p>"
-    html += '</body></html>'
+    new_table_nolink = copy.deepcopy(new_table)
+    for i in range(1,len(new_table_nolink)):
+        if "<a href=" in new_table_nolink[i][0]:
+            profile_name = new_table_nolink[i][0].split(">")[1].split("<")[0]
+            new_table_nolink[i][0] = profile_name
+    
+    head_set = """
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            text-align: left;
+            font-family: Arial, sans-serif;
+        }
+        table {
+            text-align: center;
+        }
+        .description {
+            font-family: Arial, sans-serif;
+            text-align: left;
+            display: inline-block;
+            font-size: 16px;
+        }
+    </style>
+</head>
+"""
+    table_set = comm_func.produce_html_table(new_table) 
+    table_set_nolink = comm_func.produce_html_table(new_table_nolink)
+    description_set = "<div class=\"description\"><pre>" + comment + "\nClick profile to check the detail launching run.</pre></div>"
 
-    return html
+    html = "<html>"  + head_set + "<body>" + table_set + description_set + '</body></html>'
+    html_nolink = "<html>"  + head_set + "<body>" + table_set_nolink + '</body></html>'
+
+    return html,html_nolink
 
 class Summary(BaseModel):
     feishu_webhook:  String = Field(default = None,
                                     title="FeiShu Webhook")
     AIM_TOKEN: String = Field(title="AIM tracking token")
     setting: String = Field(default = None,title="setting json string")
+    setting_file:InputFilePath = Field(default = None,
+                                        title="Upload setting file",
+                                        st_kwargs_type = ["json"], 
+                                        description="Please upload the setting file or enter the setting information in latter 'setting' section.",
+                                        description_type="markdown")
     Config_dflow_labels: BenchmarkLabels
     #experiment: String = Field(title="abacustest/benchmark")
     #experiment_id: String = Field(title="7ab4e46a-43fb-440a-828d-4fbdef5b4709")
 
-class SummaryModel(Summary,comm_class.OutputSet,BaseModel):
+group1 = ui.Group("test","test")
+
+@group1
+@ui.Visible(Summary,("setting_file"),Equal,(True))
+class LoadData(BaseModel):
+    if_load_data: Boolean = Field(default = False)
+
+class SummaryModel(LoadData,Summary,comm_class.OutputSet,BaseModel):
     ...
 
 def echart_report(allvalues):
@@ -254,7 +318,8 @@ def echart_report(allvalues):
                 #ivalue.append([ii[0],ii[1][0]*coef])
             metric_name.append(imetric)
             metric_value.append(ivalue)
-
+        if len(metric_name) == 0:
+            continue
         nmetrics = len(metric_name)
         inter = 5
         height = (0.9 - inter/100.0 * (nmetrics-1))/nmetrics*100
@@ -318,65 +383,115 @@ def echart_report(allvalues):
 
     return ReportSection(title="metrics chart",elements=chart_section,ncols=1)
 
-def echart_html(allvalues):
-    import pyecharts
+def echart_html(allvalues,value_range,filename="all.html"):
     from pyecharts import options as opts
-    from pyecharts.charts import Line,Grid
+    from pyecharts.charts import Line,Grid,Page
+    
+    color_list = [
+    "#c23531", "#2f4554", "#61a0a8", "#d48265", "#91c7ae",
+    "#749f83", "#ca8622", "#bda29a", "#6e7074", "#546570",
+    "#c4ccd3", "#f05b72", "#ef5b9c", "#f47920", "#905a3d",
+    "#fab27b", "#2a5caa", "#444693", "#726930", "#b2d235"]
+    name_locations = ["end","start"]
+    
+    pre_path = os.path.split(filename)[0]
+    
+    page = Page(layout=Page.DraggablePageLayout)
     
     for iprofile,profile_value in allvalues.items():
         metric_name = []
-        metric_value = []
+        x = [ii[0].strftime('%Y/%m/%d\n%H:%M') for ii in [iii for iii in profile_value.values()][0] ]
+        ys = []
+        min_ = []
+        max_ = []
+        
         for imetric,imetric_value in profile_value.items():
-            ivalue = []
+            y = []
             for ii in imetric_value:
-                ivalue.append([ii[0].strftime('%Y/%m/%d\n%H:%M'),ii[1]])
-                #ivalue.append([ii[0],ii[1][0]*coef])
-            metric_name.append(imetric)
-            metric_value.append(ivalue)
-
+                y.append(ii[1])
+            if set(y) != set([None]): #if one metric has all None, then this metric is not needed
+                metric_name.append(imetric)
+                ys.append(y)
+                if value_range.get(imetric,None) != None:
+                    min_.append(value_range[imetric][0])
+                    max_.append(value_range[imetric][1])
+                else:
+                    y_no_none = [yy for yy in y if yy is not None]
+                    min_ = min(y_no_none) - 1
+                    max_ = max(y_no_none) - 1
         nmetrics = len(metric_name)
-        inter = 2
-        height = (0.85 - inter/100.0 * (nmetrics-1))/nmetrics*100
-        interv = height + inter
-        
-        grid = Grid(init_opts=opts.InitOpts(width="600px", height=f"{nmetrics*80}px"))
-        
+        if nmetrics == 0:
+            continue
+
+        width = 1200
+        height = 400
+        grid = Grid(init_opts=opts.InitOpts(width=f"{width}px", height=f"{height}px"))
+        line_chart = Line()
+        line_chart.add_xaxis(xaxis_data=x)
         for i in range(nmetrics):
-            if i ==0:
-                title = opts.TitleOpts(title=metric_name[i])
-                showx = True
-                zoom = opts.DataZoomOpts(type_="slider",
-                                        range_start=80, 
-                                        range_end=100,
-                                        xaxis_index=list(range(nmetrics)),
-                                        is_show=True)
-                legend = opts.LegendOpts(pos_left="10%", orient="vertical",pos_right="2%", pos_top="20%")
-            else:
-                showx = False
-                zoom = opts.DataZoomOpts(is_show=False)
-                legend = opts.LegendOpts(is_show = False)
-            line = Line()
-            line.add_xaxis([ii[0] for ii in metric_value[i]])
-            line.add_yaxis(metric_name[i],[ii[1] for ii in metric_value[i]],label_opts=opts.LabelOpts(is_show=False))
-            if i == 0:
-                line.set_global_opts(
-                    title_opts=opts.TitleOpts(title=iprofile),
-                    xaxis_opts=opts.AxisOpts(type_="category",is_show=True,is_xaxislabel_align=True),
-                    yaxis_opts=opts.AxisOpts(type_="value",is_scale=True),
-                    datazoom_opts= [zoom,opts.DataZoomOpts(type_="inside",is_show=True)],
-                    legend_opts=opts.LegendOpts(pos_left="10%", orient="vertical",pos_right="2%", pos_bottom=f"{10+interv*i+5}%"),
-                )
-            else:
-                line.set_global_opts(
-                    #title_opts=opts.TitleOpts(title=metric_name[i]),
-                    xaxis_opts=opts.AxisOpts(is_show=showx),
-                    yaxis_opts=opts.AxisOpts(type_="value",is_scale=True),
-                    datazoom_opts= [opts.DataZoomOpts(type_="inside",is_show=True)],
-                    legend_opts=opts.LegendOpts(pos_left="10%", orient="vertical",pos_right="2%", pos_bottom=f"{10+interv*i+5}%"),
-                )
-                
-            grid.add(line,grid_opts=opts.GridOpts(pos_top=f"{5+interv*(nmetrics-i-1)}%",pos_bottom=f"{10+interv*i}%",pos_right="5%",pos_left="10%"))
-        grid.render(f"{iprofile}.html")
+            line_chart.add_yaxis(metric_name[i], 
+                                 ys[i], 
+                                 xaxis_index=0,
+                                 yaxis_index=i,
+                                 label_opts=opts.LabelOpts(is_show=False),
+                                 color=color_list[i%len(color_list)])
+        for i in range(1,nmetrics):
+            line_chart.extend_axis(
+                yaxis=opts.AxisOpts(
+                    name=metric_name[i],
+                    name_location=name_locations[i % len(name_locations)],
+                    type_="value",
+                    #is_scale = True,
+                    min_=min_[i],
+                    max_=max_[i],
+                    position="right",
+                    offset=80*i,
+                    axisline_opts=opts.AxisLineOpts(
+                        linestyle_opts=opts.LineStyleOpts(
+                            color=color_list[i % len(color_list)]),
+                    ),
+                    axistick_opts=opts.AxisTickOpts(is_align_with_label=True),
+                ))
+        
+        # Set up the chart options
+        line_chart.set_global_opts(
+            yaxis_opts=opts.AxisOpts(name=metric_name[0],
+                                      min_=min_[0],
+                                      max_=max_[0],
+                                      #is_scale = True,
+                                      position="right",
+                                      name_location=name_locations[0],
+                                      axisline_opts=opts.AxisLineOpts(
+                                          linestyle_opts=opts.LineStyleOpts(color=color_list[0])),
+                                      axistick_opts=opts.AxisTickOpts(is_align_with_label=True),
+                                      ),
+            
+            datazoom_opts=[opts.DataZoomOpts(type_="slider", range_start=80, range_end=100),
+                           opts.DataZoomOpts(type_="inside", range_start=80, range_end=100),
+                          ],
+            tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type="cross"),
+            legend_opts=opts.LegendOpts(is_show=True,pos_top="30",pos_left="10"),
+            title_opts=opts.TitleOpts(title=iprofile,pos_left="center",pos_top="top"),
+            toolbox_opts=opts.ToolboxOpts(feature=opts.ToolBoxFeatureOpts(save_as_image=opts.ToolBoxFeatureSaveAsImageOpts(type_="png",background_color="white"),
+                                                                           data_zoom=opts.ToolBoxFeatureDataZoomOpts(),
+                                                                           restore=opts.ToolBoxFeatureRestoreOpts(),
+                                                                           data_view=opts.ToolBoxFeatureDataViewOpts(),
+                                                                           magic_type=opts.ToolBoxFeatureMagicTypeOpts(type_=["line", "bar"]),
+                                                                           brush=opts.ToolBoxFeatureBrushOpts(type_="rect")),
+                                          pos_left="10",
+                                          pos_top="50"),
+        )
+        grid.add(
+            line_chart,
+            grid_opts=opts.GridOpts(
+                pos_left="10px", pos_top="50px", pos_right=f"{50+80*(nmetrics-1)}px", pos_bottom="100px"),
+            is_control_axis_index=True
+        )
+        grid.render(f"{os.path.join(pre_path,iprofile)}.html")
+        page.add(grid)
+    page.render(filename)
+ 
+        
     
 
 def SummaryModelRunner(opts:SummaryModel):
@@ -389,8 +504,7 @@ def SummaryModelRunner(opts:SummaryModel):
 - SCFConverge Score以50步作为100分，值越大，表明收敛需要的步数越少
 - Performance Score以abacus v3.0.0 的结果为基准，值越大表明总耗时越少，计算效率越高：
     - cg/dav以v3.0.0 intel-cg的结果为100分
-    - genelpa/scalapack以v3.0.0 intel-elpa的结果为100分
-- 可点击profile查看Benchmark run的详细结果    
+    - genelpa/scalapack以v3.0.0 intel-elpa的结果为100分   
     """
     setting = {
         "experiment": "abacustest/benchmark",
@@ -433,16 +547,22 @@ def SummaryModelRunner(opts:SummaryModel):
             "omp-gnu-scalapack": ["benchmark-profile-OMP-gnu-scalapack", "benchmark-schedule-omp-gnu-scalapack"],
             "exx-test": ["benchmark-schedule-exx-test"]
         },
-        "metrics": ["NormalEnd_ratio", "converge_ratio", "SCFConverge Score", "Performance Score"],
+        "metrics": ["NormalEnd_ratio", "Converge_ratio", "SCFConverge Score", "Performance Score"],
         "metrics_name": {
             "NormalEnd_ratio": ["NormalEnd_ratio","TrueRatio(normal_end)"],
-            "converge_ratio": ["converge_ratio","TrueRatio(converge)"],
+            "Converge_ratio": ["converge_ratio","TrueRatio(converge)"],
             "SCFConverge Score": ["iGM(SCF_steps)","iGM(scf_steps)"],
             "Performance Score": ["iGM(total_time)"]
         },
+        "value_range": {
+            "NormalEnd_ratio": [0,1],
+            "Converge_ratio": [0,1],
+            "SCFConverge Score": [10,500],
+            "Performance Score": [10,500]
+        },
         "metrics_coef": {
             "NormalEnd_ratio": 1,
-            "converge_ratio": 1,
+            "Converge_ratio": 1,
             "SCFConverge Score": 100*50,
             "Performance Score": {
                 "intel-cg": 100 / 1.555e-03,
@@ -465,7 +585,7 @@ def SummaryModelRunner(opts:SummaryModel):
         },
         "digit": {
             "NormalEnd_ratio": 2,
-            "converge_ratio": 2,
+            "Converge_ratio": 2,
             "SCFConverge Score": 0,
             "Performance Score": 0
         },
@@ -473,12 +593,16 @@ def SummaryModelRunner(opts:SummaryModel):
     }
     output_path = opts.IO_output_path
     os.makedirs(output_path,exist_ok=True)
-    html_file_name = "result.html"
-    html_file = os.path.join(output_path,html_file_name)
+    table_html_file_name = "result.html"
+    table_html_file = os.path.join(output_path,table_html_file_name)
+    chart_html_file_name = "all.html"
+    chart_html_file = os.path.join(output_path,chart_html_file_name)
     
     token = opts.AIM_TOKEN
     if opts.setting != None and opts.setting.strip() != "":
         setting = json.loads(opts.setting)
+    elif opts.setting_file != None:
+        setting = json.load(open(opts.setting_file.get_full_path(),'r'))
     experiment = setting.get("experiment","abacustest/benchmark")
     experiment_id = setting.get("experiment_id","7ab4e46a-43fb-440a-828d-4fbdef5b4709")
     profile = setting.get("profile",[])
@@ -488,39 +612,41 @@ def SummaryModelRunner(opts:SummaryModel):
     metrics_coef = setting.get("metrics_coef",{})
     digit = setting.get("digit",{})
     comment = setting.get("comment","")
+    value_range = setting.get("value_range",{})
     
     json.dump(setting,open(os.path.join(output_path,"setting.json"),'w'),indent=4)
 
-    if 1:
+    if not opts.if_load_data:
         alltags = []
         for i in profile:
             alltags += aim_tag.get(i,[i])
         allruns,allruninfos = get_aim_data.get_runs(token,experiment,experiment_id,alltags,collect_metrics=False,GetVersion=False)
-        pickle.dump((allruns,allruninfos),open("tracking.pkl",'wb'))
+        allvalues = get_profile_value(allruninfos,profile,aim_tag,metrics,metrics_coef,metrics_name,token)
+        pickle.dump(allvalues,open("tracking.pkl",'wb'))
     else:
-        allruns,allruninfos = pickle.load(open("tracking.pkl",'rb'))
-
-    allvalues = get_profile_value(allruninfos,profile,aim_tag,metrics,metrics_coef,metrics_name,token)
-
+        allvalues = pickle.load(open("tracking.pkl",'rb'))
     
     #send to feishu and produce html file
     outtable = produce_outtable(allvalues,profile,metrics,digit)
     if opts.feishu_webhook:
         current_job = opts.Config_dflow_labels["benchmark-job"]
         current_url = "https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + current_job
-        comment_add = f"\n\nClick [here]({current_url}) to view detailed reports and historical trend graphs."
+        comment_add = f"\nClick profile to check the detail Benchmark run.\n\nClick [here]({current_url}) to view detailed reports and historical trend graphs."
         send_to_feishu(outtable,opts.feishu_webhook,comment+comment_add)
-    html_content = produce_html_table(outtable,comment)
-    with open(html_file,'w') as f1: f1.write(html_content)
+    html_content,html_content_nolink = produce_html(outtable,comment)
+    with open(table_html_file,'w') as f1: f1.write(html_content)
+    with open(table_html_file.replace(".html","_nolink.html"),'w') as f1: f1.write(html_content_nolink)
 
     #plot
     html_section = ReportSection(title="metrics chart",
-                             elements=[AutoReportElement(title='metrics', path=html_file_name, description="")])
-    chart_section = echart_report(allvalues)
-    #echart_html(allvalues)
+                             elements=[AutoReportElement(title='metrics', path=table_html_file_name, description="")])
+    #chart_section = echart_report(allvalues)
+    echart_html(allvalues,value_range,chart_html_file)
+    echart_html_section = ReportSection(title="metrics chart",
+                             elements=[AutoReportElement(title='metrics', path=chart_html_file_name, description="")])
 
     report = Report(title="abacus test report",
-                        sections=[html_section,chart_section],
+                        sections=[html_section,echart_html_section],
                         description="a report of abacustest")
     report.save(output_path)
 
