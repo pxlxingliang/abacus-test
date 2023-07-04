@@ -51,7 +51,10 @@ def SelfDefineModelRunner(opts):
         logs.iprint("Error: download examples or rundft_extrafiles or postdft_extrafiles failed!")
         return 1
 
-    #parse inputs
+    # parse inputs
+    # setting inputs is prefered
+    # and then the uploaded file
+    # and then the file in dataset or examples
     if opts.setting.strip() != "":
         try:
             setting = json.loads(opts.setting)
@@ -64,13 +67,26 @@ def SelfDefineModelRunner(opts):
         except:
             traceback.print_exc()
             return 1
-    elif opts.setting_file and hasattr(opts,"dataset") and getattr(opts,"dataset"):
-        try:
-            dataset_work_path = comm_class_exampleSource.get_dataset_work_path(opts)
-            if dataset_work_path:
-                setting = json.load(open(os.path.join(dataset_work_path,opts.setting_file)))
-        except:
-            traceback.print_exc()
+    elif opts.setting_file:
+        if hasattr(opts,"dataset") and getattr(opts,"dataset"):
+            try:
+                dataset_work_path = comm_class_exampleSource.get_dataset_work_path(opts)
+                if dataset_work_path:
+                    setting = json.load(open(os.path.join(dataset_work_path,opts.setting_file)))
+            except:
+                traceback.print_exc()
+                return 1
+        elif hasattr(opts,"ExampleSource"):
+            # if has ExampleSource, then the files should have been downloaded to work_path
+            # check if the setting file is in work_path
+            try:
+                setting = json.load(open(os.path.join(work_path,opts.setting_file)))
+            except:
+                traceback.print_exc()
+                print("Try to read setting file from 'Examples', but failed.\nPlease supply the setting information")
+                return 1
+        else:
+            print("Has set setting file, but not set dataset or ExampleSource.")
             return 1
     else:
         print("Please supply the setting information")
