@@ -13,6 +13,7 @@ import os,shutil,glob
 
 class DatasetSet(BaseModel):
     dataset: DataSet = Field(title=None,
+                             default=None,
                             description="Please enter your dataset in launching.")
     dataset_work_path: String = Field(default="",
                                        description="Please enter the work path in dataset")

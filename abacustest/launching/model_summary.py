@@ -8,7 +8,7 @@ from dp.launching.typing import (
 )
 from dp.launching.report import Report
 
-from . import comm_class,comm_func,get_aim_data
+from . import comm_class,comm_func,get_aim_data,comm_class_exampleSource
 import json,traceback,datetime,os,re,pickle
 from abacustest.outresult import Table2FeishuInteractive
 from dp.launching.report import ChartReportElement,ReportSection,AutoReportElement
@@ -280,30 +280,6 @@ def produce_html(outtable,comment):
 
     return html,html_nolink
 
-class Summary(BaseModel):
-    feishu_webhook:  String = Field(default = None,
-                                    title="FeiShu Webhook")
-    AIM_TOKEN: String = Field(title="AIM tracking token")
-    setting: String = Field(default = None,title="setting json string")
-    setting_file:InputFilePath = Field(default = None,
-                                        title="Upload setting file",
-                                        st_kwargs_type = ["json"], 
-                                        description="Please upload the setting file or enter the setting information in latter 'setting' section.",
-                                        description_type="markdown")
-    Config_dflow_labels: BenchmarkLabels
-    #experiment: String = Field(title="abacustest/benchmark")
-    #experiment_id: String = Field(title="7ab4e46a-43fb-440a-828d-4fbdef5b4709")
-
-group1 = ui.Group("test","test")
-
-@group1
-@ui.Visible(Summary,("setting_file"),Equal,(True))
-class LoadData(BaseModel):
-    if_load_data: Boolean = Field(default = False)
-
-class SummaryModel(LoadData,Summary,comm_class.OutputSet,BaseModel):
-    ...
-
 def echart_report(allvalues):
     #transfer the allvalues format
     
@@ -491,7 +467,34 @@ def echart_html(allvalues,value_range,filename="all.html"):
         page.add(grid)
     page.render(filename)
  
-        
+class Summary(BaseModel):
+    feishu_webhook:  String = Field(default = None,
+                                    title="FeiShu Webhook")
+    AIM_TOKEN: String = Field(title="AIM tracking token")
+    setting: String = Field(default = None,title="setting json string")
+    setting_file:InputFilePath = Field(default = None,
+                                        title="Upload setting file",
+                                        st_kwargs_type = ["json"], 
+                                        description="Please upload the setting file or enter the setting information in latter 'setting' section.",
+                                        description_type="markdown")
+    Config_dflow_labels: BenchmarkLabels
+    setting_file_name: String = Field(default = None,description="If use setting file in dataset, please enter the setting file name here")
+    #experiment: String = Field(title="abacustest/benchmark")
+    #experiment_id: String = Field(title="7ab4e46a-43fb-440a-828d-4fbdef5b4709")
+
+group1 = ui.Group("if_load_data","test")
+
+@group1
+@ui.Visible(Summary,("setting_file"),Equal,(True))
+class LoadData(BaseModel):
+    if_load_data: Boolean = Field(default = False)
+
+class SummaryModel(LoadData,
+                   Summary,
+                   comm_class_exampleSource.DatasetSet,
+                   comm_class.OutputSet,
+                   BaseModel):
+    ...        
     
 
 def SummaryModelRunner(opts:SummaryModel):
@@ -526,7 +529,8 @@ def SummaryModelRunner(opts:SummaryModel):
             #           "omp-gnu-dav",
             #           "omp-gnu-elpa",
             #          "omp-gnu-scalapack",
-            "exx-test"
+            "exx-test",
+            "examples"
         ],
         "aim_tag": {
             "intel-cg": ["benchmark-profile-pw-cg", "benchmark-schedule-intel-cg"],
@@ -545,18 +549,19 @@ def SummaryModelRunner(opts:SummaryModel):
             "omp-gnu-dav": ["benchmark-profile-OMP-gnu-dav", "benchmark-schedule-omp-gnu-dav"],
             "omp-gnu-elpa": ["benchmark-profile-OMP-gnu-elpa", "benchmark-schedule-omp-gnu-elpa"],
             "omp-gnu-scalapack": ["benchmark-profile-OMP-gnu-scalapack", "benchmark-schedule-omp-gnu-scalapack"],
-            "exx-test": ["benchmark-schedule-exx-test"]
+            "exx-test": ["benchmark-schedule-exx-test"],
+            "examples":["benchmark-schedule-exampletest"]
         },
         "metrics": ["NormalEnd_ratio", "Converge_ratio", "SCFConverge Score", "Performance Score"],
         "metrics_name": {
-            "NormalEnd_ratio": ["NormalEnd_ratio","TrueRatio(normal_end)"],
+            "NormalEnd_ratio": ["NormalEnd_ratio","TrueRatio(normal_end)","pass_ratio"],
             "Converge_ratio": ["converge_ratio","TrueRatio(converge)"],
             "SCFConverge Score": ["iGM(SCF_steps)","iGM(scf_steps)"],
             "Performance Score": ["iGM(total_time)"]
         },
         "value_range": {
-            "NormalEnd_ratio": [0,1],
-            "Converge_ratio": [0,1],
+            "NormalEnd_ratio": [0,1.2],
+            "Converge_ratio": [0,1.2],
             "SCFConverge Score": [10,500],
             "Performance Score": [10,500]
         },
@@ -603,6 +608,13 @@ def SummaryModelRunner(opts:SummaryModel):
         setting = json.loads(opts.setting)
     elif opts.setting_file != None:
         setting = json.load(open(opts.setting_file.get_full_path(),'r'))
+    elif opts.dataset != None and opts.setting_file_name != None and opts.setting_file_name.strip() != "":
+        dataset_work_path = comm_class_exampleSource.get_dataset_work_path(opts)
+        try:
+            setting = json.load(open(os.path.join(dataset_work_path,opts.setting_file_name),'r'))
+        except:
+            traceback.print_exc()
+            return 1
     experiment = setting.get("experiment","abacustest/benchmark")
     experiment_id = setting.get("experiment_id","7ab4e46a-43fb-440a-828d-4fbdef5b4709")
     profile = setting.get("profile",[])
