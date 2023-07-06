@@ -107,6 +107,7 @@ class PreDFT(OP):
                             else:
                                 outputs.append(Path.resolve(Path(i.strip())))
                 else:
+                    print(log)
                     raise RuntimeError("Can not find work directory file %s!" % work_directories_filename)
             else:
                 print(f"Have not defined the work directories filename! Return current path: {iexample}")
