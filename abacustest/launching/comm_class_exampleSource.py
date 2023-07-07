@@ -35,11 +35,11 @@ class DataSetsEnum(String, Enum):
     @classmethod
     def GetAddress(cls, package,dataset=None):
         if package == "dataset1-pw-v1.0":
-            return "https://launching.mlops.dp.tech/download/artifacts/datasets/abacusdailytest.abacustest/packages/v1_0-dataset1-pw.tar.gz"
+            return "https://launching.mlops.dp.tech/download/artifacts/datasets/dataset1-pw.abacustest/packages/dataset1-pw-v1.0.tar.gz"
         elif package == "dataset2-lcao-v1.0":
-            return "https://launching.mlops.dp.tech/download/artifacts/datasets/abacusdailytest.abacustest/packages/v1_0-dataset2-lcao.tar.gz"
+            return "https://launching.mlops.dp.tech/download/artifacts/datasets/dataset2-lcao.abacustest/packages/dataset2-lcao-v1.0.tar.gz"
         elif package == "dataset3-exx-v1.0":
-            return "https://launching.mlops.dp.tech/download/artifacts/datasets/abacusdailytest.abacustest/packages/v1_0-dataset3-exx.tar.gz"
+            return "https://launching.mlops.dp.tech/download/artifacts/datasets/dataset3-exx.abacustest/packages/dataset3-exx-v1.0.tar.gz"
         else:
             return GetDatasetAddress(package,dataset)
 
