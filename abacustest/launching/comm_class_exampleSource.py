@@ -73,7 +73,7 @@ class ExampleSourceSet(BaseModel):
 If you want to use the examples from datahub or datasets, please refer to the later 'RundftExampleSource' section.""",
                                          description_type="markdown")
     ExampleSource: Union[FromPreUpload,
-                         FromDatahub,
+                        # FromDatahub,
                          FromDatasets] = Field(title="Example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
@@ -91,7 +91,7 @@ class PrepareExampleSourceSet(BaseModel):
 If you want to use the examples from datahub or datasets, please refer to the later 'PrepareExampleSource' section.""",
                                          description_type="markdown")
     PrepareExampleSource: Union[FromPreUpload,
-                                FromDatahub,
+                            #    FromDatahub,
                          FromDatasets] = Field(title="Prepare Example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
@@ -109,7 +109,7 @@ class PredftExampleSourceSet(BaseModel):
 If you want to use the examples from datahub or datasets, please refer to the later 'PredftExampleSource' section.""",
                                          description_type="markdown")
     PredftExampleSource: Union[FromPreUpload,
-                         FromDatahub,
+                        # FromDatahub,
                          FromDatasets] = Field(title="Predft Example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
@@ -128,7 +128,7 @@ class RundftExampleSourceSet(BaseModel):
 If you want to use the examples from datahub or datasets, please refer to the later 'RundftExampleSource' section.""",
                                          description_type="markdown")
     RundftExampleSource: Union[FromPreUpload,
-                         FromDatahub,
+                        # FromDatahub,
                          FromDatasets] = Field(title="Rundft Example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
@@ -147,7 +147,7 @@ class PostdftExampleSourceSet(BaseModel):
 If you want to use the examples from datahub or datasets, please refer to the later 'PostdftExampleSource' section.""",
                                          description_type="markdown")
     PostdftExampleSource: Union[FromPreUpload,
-                         FromDatahub,
+                        # FromDatahub,
                          FromDatasets] = Field(title="Postdft example source",
                                                       discriminator="type",
                                                       description="Please choose the example source.")
@@ -166,7 +166,7 @@ class PrepareExtraFileSet(BaseModel):
     PrepareExtraFile: Union[
         NotRquired,
         FromPreUpload,
-        FromDatahub,
+       # FromDatahub,
         FromDatasets] = Field(title="Prepare Extra File Source",
                               discriminator="type",
                               description="Please choose the extra file source.")
@@ -187,7 +187,7 @@ class PredftExtraFileSet(BaseModel):
     PredftExtraFile: Union[
         NotRquired,
         FromPreUpload,
-        FromDatahub,
+    #    FromDatahub,
         FromDatasets] = Field(title="Predft Extra File Source",
                              discriminator="type",
                              description="Please choose the extra file source.")
@@ -209,7 +209,7 @@ class RundftExtraFileSet(BaseModel):
     RundftExtraFile: Union[
         NotRquired,
         FromPreUpload,
-        FromDatahub,
+    #    FromDatahub,
         FromDatasets] = Field(title="Rundft Extra File Source",
                              discriminator="type",
                              description="Please choose the extra file source.")
@@ -231,7 +231,7 @@ class PostdftExtraFileSet(BaseModel):
     PostdftExtraFile: Union[
         NotRquired,
         FromPreUpload,
-        FromDatahub,
+    #    FromDatahub,
         FromDatasets] = Field(title="Postdft Extra File Source",
                              discriminator="type",
                              description="Please choose the extra file source.")

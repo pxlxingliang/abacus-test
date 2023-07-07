@@ -44,7 +44,7 @@ class PrepareInputTemplateSet(BaseModel):
     PrepareInputTemplateSource: Union[
         comm_class_exampleSource.NotRquired,
         comm_class_exampleSource.FromPreUpload,
-        comm_class_exampleSource.FromDatahub,
+        #comm_class_exampleSource.FromDatahub,
         comm_class_exampleSource.FromDatasets] = Field(title="Prepare INPUT template source",
                               discriminator="type",
                               description="Please choose the INPUT template source.")
@@ -61,7 +61,7 @@ class PrepareStruTemplateSet(BaseModel):
     PrepareStruTemplateSource: Union[
         comm_class_exampleSource.NotRquired,
         comm_class_exampleSource.FromPreUpload,
-        comm_class_exampleSource.FromDatahub,
+    #    comm_class_exampleSource.FromDatahub,
         comm_class_exampleSource.FromDatasets] = Field(title="Prepare STRU template source",
                               discriminator="type",
                               description="Please choose the STRU template source.")
@@ -78,7 +78,7 @@ class PrepareKptTemplateSet(BaseModel):
     PrepareKptTemplateSource: Union[
         comm_class_exampleSource.NotRquired,
         comm_class_exampleSource.FromPreUpload,
-        comm_class_exampleSource.FromDatahub,
+    #    comm_class_exampleSource.FromDatahub,
         comm_class_exampleSource.FromDatasets] = Field(title="Prepare KPT template source",
                               discriminator="type",
                               description="Please choose the KPT template source.")
@@ -95,7 +95,7 @@ class PrepareDPKSDescriptorSet(BaseModel):
     PrepareDPKSDescriptor: Union[
         comm_class_exampleSource.NotRquired,
         comm_class_exampleSource.FromPreUpload,
-        comm_class_exampleSource.FromDatahub,
+    #    comm_class_exampleSource.FromDatahub,
         comm_class_exampleSource.FromDatasets] = Field(title="Prepare DeeP-KS Descriptor source",
                               discriminator="type",
                               description="Please choose the DeeP-KS Descriptor source.") 
@@ -112,7 +112,7 @@ class PreparePPLibSet(BaseModel):
     PreparePPLib: Union[
         comm_class_exampleSource.NotRquired,
         comm_class_exampleSource.FromPreUpload,
-        comm_class_exampleSource.FromDatahub,
+    #    comm_class_exampleSource.FromDatahub,
         PPFromDatasets] = Field(title="Prepare PP Lib source",
                               discriminator="type",
                               description="Please choose the PP Lib source.")   
@@ -129,7 +129,7 @@ class PrepareOrbLibSet(BaseModel):
     PrepareOrbLib: Union[
         comm_class_exampleSource.NotRquired,
         comm_class_exampleSource.FromPreUpload,
-        comm_class_exampleSource.FromDatahub,
+    #    comm_class_exampleSource.FromDatahub,
         OrbFromDatasets] = Field(title="Prepare Orb Lib source",
                               discriminator="type",
                               description="Please choose the Orb Lib source.")    
