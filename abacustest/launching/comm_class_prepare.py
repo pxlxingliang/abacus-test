@@ -21,7 +21,7 @@ class OrbLibEnum(String, Enum):
 
 class PPFromDatasets(BaseModel):
     type: Literal["from datasets"]
-    dataset: PPLibEnum = Field(title="PP Lib datasets",
+    dataset: PPLibEnum = Field(title="PP (pseudo potential) Lib datasets",
                         description="Please choose the PP Lib datasets.")
     dataset_unrecorded: String = Field(default=None,
                                        description="By default, the pp lib \"[SG15-ONCV-v1_0](https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fdatasets%2Fpporb)\" will be used. \
