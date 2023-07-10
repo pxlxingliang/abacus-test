@@ -1,0 +1,258 @@
+from . import globV
+import os,shutil,glob
+from pathlib import Path
+
+def printinfo(istr,*args):
+    LOGFILE = "abacustest.log"
+    output = " ".join([str(istr)]+[str(i) for i in args])
+    with open(LOGFILE,'a+') as f1:
+        f1.write(output + "\n")
+    if globV.get_value("OUTINFO"):
+        print(output,flush=True)
+        
+def GetBakFile(sfile):
+    while sfile[-1] == '/':
+        sfile = sfile[:-1]
+    n = 1
+    bk = sfile + ".bak%d" % n
+    while os.path.exists(bk):
+        n += 1
+        bk = sfile + ".bak%d" % n
+    return bk
+
+def CopyFiles(path1,path2,move = False):
+    '''copy the files in path1 to path2'''
+    abspath1 = os.path.abspath(path1)
+    abspath2 = os.path.abspath(path2)
+    
+    def CopyFile(old_path,new_path):
+        for ifile in os.listdir(old_path):
+            iold_path = os.path.join(old_path,ifile)
+            if os.path.isfile(iold_path):
+                shutil.copy(iold_path,new_path)
+            else:
+                if not os.path.isdir(os.path.join(new_path,ifile)):
+                    os.makedirs(os.path.join(new_path,ifile))
+                CopyFile(iold_path,os.path.join(new_path,ifile))
+
+    if abspath2.startswith(abspath1):
+        '''
+        If path2 is a son path of path1,
+        we will firstly create a tmp path, and copy/move
+        files in path1 to the tmp path, and then replace tmp path
+        to path2.
+        '''
+        tmp_path = GetBakFile(os.path.split(abspath1)[0])
+        os.makedirs(tmp_path)
+        if move:
+            for i in os.listdir(abspath1):
+                shutil.move(os.path.join(abspath1,i),tmp_path)
+        else:
+            #shutil.copytree(abspath1,tmp_path,dirs_exist_ok=True)
+            CopyFile(abspath1,tmp_path)
+        
+        if not os.path.isdir(abspath2):
+                os.makedirs(abspath2)                
+        #shutil.copytree(tmp_path,abspath2,dirs_exist_ok=True)
+        CopyFile(tmp_path,abspath2)
+        shutil.rmtree(tmp_path)
+        
+    else:
+        if not os.path.isdir(abspath2):
+                os.makedirs(abspath2)
+        
+        if os.path.isfile(abspath1):
+            if move:
+                shutil.move(abspath1,abspath2)
+            else:
+                shutil.copy(abspath1,abspath2)
+            return
+        if move:
+            for i in os.listdir(abspath1):
+                shutil.move(os.path.join(abspath1,i),abspath2)
+        else:
+            #shutil.copytree(abspath1,abspath2,dirs_exist_ok=True)
+            CopyFile(abspath1,abspath2)
+
+def CollectFileName(paths):
+    #Recursively find all files under the paths
+    allfiles = []
+    for ipath in glob.glob(os.path.join(paths,"*")):
+        if os.path.isfile(ipath):
+            allfiles.append(ipath)
+        elif os.path.isdir(ipath):
+            allfiles += CollectFileName(ipath)
+    return allfiles            
+
+def ProduceExecutor(param,group_name="abacustesting"):
+    from dflow.plugins.bohrium import BohriumContext, BohriumExecutor
+    from dflow.plugins.dispatcher import DispatcherExecutor
+    from dflow.plugins.bohrium import TiefblueClient,create_job_group
+    
+    if "bohrium" in param and param["bohrium"]:
+        bohrium_set = {}
+        for key in param["bohrium"]:
+            if key == 'scassType':
+                bohrium_set['scass_type'] = param["bohrium"][key]
+            elif key == 'jobType':
+                bohrium_set['job_type'] = param["bohrium"][key]
+            else:
+                bohrium_set[key] = param["bohrium"][key]
+
+        if 'platform' not in bohrium_set:
+            bohrium_set['platform'] = 'ali'
+
+        bohrium_set["bohr_job_group_id"] = create_job_group(group_name)
+        
+        if not globV.get_value("BOHRIUM_EXECUTOR"):    
+            dispatcher_executor = DispatcherExecutor(
+                machine_dict={
+                    "batch_type": "Bohrium",
+                    "context_type": "Bohrium",
+                    "remote_profile": {"input_data": bohrium_set},
+                    },
+                image_pull_policy = "Always",
+                retry_on_submission_error=3
+            )
+            #comm.printinfo("set bohrium: %s"%str(bohrium_set))
+            return dispatcher_executor,bohrium_set
+        else:
+            executor = BohriumExecutor(
+                executor= "bohrium_v2",
+                extra={
+                    "scassType": bohrium_set['scass_type'],
+                    "platform": bohrium_set['platform'] ,
+                    "projectId": globV.get_value("PRIVATE_SET").get("project_id"),
+                    "jobType":  bohrium_set['job_type']
+                }
+            )
+            return executor,bohrium_set
+    else:
+        return None,None
+    
+def FindLocalExamples_new(example,only_folder=False,oneartifact=False):
+    from dflow import upload_artifact
+    #use glob.glob find all examples, and transfer to artifact
+    #example = [[*],*]    
+    examples_name = []  
+    examples_name1 = []
+    for i in example:
+        if isinstance(i,list):
+            example_tmp = []
+            for j in i:
+                example_tmp += glob.glob(j)
+            if len(example_tmp) > 0:
+                example_tmp.sort()
+                tmp = []
+                for ii in example_tmp:
+                    if only_folder and not os.path.isdir(ii):
+                        continue
+                    tmp.append(ii)
+                    examples_name1.append(ii)
+                if len(tmp) > 0:
+                    tmp.sort()
+                    examples_name.append(tmp)
+        elif isinstance(i,str):
+            for ii in glob.glob(i):
+                if only_folder and not os.path.isdir(ii):
+                        continue
+                examples_name.append([ii])
+                examples_name1.append(ii)
+        else:
+            printinfo(i,"element of 'example' should be a list, or str")
+    
+    examples = None
+    if len(examples_name) > 0:  
+        if oneartifact:
+            examples_name = list(set(examples_name1))
+            examples_name.sort()
+            examples = [[upload_artifact(examples_name,archive=None)]]
+            examples_name = [examples_name]
+        else:
+            examples = []
+            examples_name.sort()
+            for ii in examples_name:
+                examples.append([upload_artifact(iii,archive=None) for iii in ii])    
+    
+    # if oneartifact is True, examples = [[artifact]], examples_name = [[example1,example2,...]]
+    # else examples = [[artifact1,artifact2,...],[artifact3,artifact4,...],...], examples_name = [[example1,example2,...],[example3,example4,...],...]
+    return examples,examples_name
+
+def transfer_source_to_artifact(example,source=None,source_type="local",only_folder=True,oneartifact=False):
+    # example specify the example name
+    # if onearitfact is True, then the source will be transfered to one artifact
+    # else, the source will be transfered to a list of artifacts (for rundft)
+    # for rundft, need set only_folder = True
+    if isinstance(example,str):
+        example = [example]
+    
+    examples,examples_name = [],[]   
+     
+    if source_type == "local":
+        examples,examples_name = FindLocalExamples_new(example,only_folder=only_folder,oneartifact=oneartifact)
+    
+    # examples = [artifact1,artifact2,...]
+    # examples_name = [[example1,example2,...],[example3,example4,...],...]
+    return examples,examples_name
+
+def SplitGroup(examples,examples_name,ngroup): 
+    #examples = [*[*],*]
+    newexamples = [] 
+    newexamples_name = []
+    se = 0
+    mod = len(examples) % ngroup
+    for i in range(ngroup):
+        example_tmp = []
+        example_name_tmp = []
+        add = 1 if mod > 0 else 0 
+        ee = se + int(len(examples)/ngroup) + add
+        for ie in range(se,ee):
+            example_tmp += examples[ie]
+            example_name_tmp += examples_name[ie]
+        newexamples.append(example_tmp)
+        newexamples_name.append(example_name_tmp)
+        
+        if mod > 0: mod -= 1
+        se = ee
+    return newexamples,newexamples_name
+
+def SplitGroupSize(examples,examples_name,group_size):
+    #examples = [*[*],*]
+    newexamples = [[]] 
+    newexamples_name = [[]]
+    
+    i = 0
+    j = 0
+    while i < len(examples):
+        newexamples[-1] += examples[i]
+        newexamples_name[-1] += examples_name[i]
+        j += 1
+        i += 1
+        if i >= len(examples):
+            break
+        if j >= group_size:
+            j = 0
+            newexamples.append([])
+            newexamples_name.append([])
+    return newexamples,newexamples_name
+
+def ParseSavePath(save_path):
+    if save_path != None:
+        save_path = save_path.strip()
+        if save_path == '':
+            save_path = globV.get_value("RESULT")
+    else:
+        save_path = globV.get_value("RESULT")
+    return save_path
+
+def ParseSubSavePath(sub_save_path):
+    if sub_save_path == None:
+        sub_save_path = ""
+    elif isinstance(sub_save_path,str):
+        sub_save_path = sub_save_path.strip()
+        if Path(sub_save_path) == Path("."):
+            sub_save_path = ""
+    else:
+        printinfo("the type of 'sub_save_path' should be 'str', but not '%s'. %s" % (type(sub_save_path),str(sub_save_path)))
+        sub_save_path = ""
+    return sub_save_path 

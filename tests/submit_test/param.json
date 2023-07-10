@@ -1,0 +1,37 @@
+{
+    "save_path": "result",
+    "pre_dft": {
+        "example": [
+            "a",
+            "b",
+            "c"
+        ],
+        "command": "mkdir -p d1 d2; echo d1 > workdirs;echo d2 >> workdirs; echo predft > d1/log; cp *.txt d1; cp *.inp d1",
+        "image": "python:3.8",
+        "extra_files": [
+            "a.txt",
+            "b.txt",
+            "c.txt"
+        ],
+        "work_directories_filename": "workdirs"
+    },
+    "run_dft": {
+        "command": "echo run > run.log",
+        "image": "python:3.8",
+        "extra_files": [
+            "a1.txt",
+            "b1.txt",
+            "c1.txt"
+        ],
+        "group_size": 2
+    },
+    "post_dft": {
+        "command": "echo post > post.log",
+        "image": "python:3.8",
+        "extra_files": [
+            "a2.txt",
+            "b2.txt",
+            "c2.txt"
+        ]
+    }
+}

@@ -1,0 +1,151 @@
+from dp.launching.typing.basic import BaseModel, Int, String, Float,List,Optional,Union,Dict
+from dp.launching.typing import InputFilePath, OutputDirectory
+from dp.launching.typing import (
+    Field
+)
+from dp.launching.report import Report,AutoReportElement,ReportSection
+
+from . import comm_class,comm_func,comm_class_exampleSource
+import json,traceback,os
+
+class SelfDefine(BaseModel):
+    IO_input_path:InputFilePath = Field(default = None,
+                                        title="Upload setting file",
+                                        st_kwargs_type = ["json"], 
+                                        description="Please upload the setting file or enter the setting information in latter 'setting' section.",
+                                        description_type="markdown")
+    setting: String = Field(default = "",
+                            description="Please enter the setting information in json format. If you fill in this field, the previous file will be ignored!")
+    setting_file: String = Field(default = "",
+                            description="Please enter the file name of setting json file in dataset set work path. This is valid only when preupload setting fiel and setting value is empty!")     
+    
+
+class SelfDefineModel(comm_class.TrackingSet,
+                      SelfDefine,
+                      comm_class_exampleSource.ExampleSet,
+                      comm_class_exampleSource.ExampleSourceSet,
+                      comm_class.ConfigSet,
+                      comm_class.OutputSet,
+                      BaseModel):
+    ...
+    
+class SelfDefineDatasetsModel(comm_class.TrackingSet,
+                      SelfDefine,
+                      comm_class_exampleSource.ExampleSet,
+                      comm_class_exampleSource.DatasetSet,
+                      comm_class.ConfigSet,
+                      comm_class.OutputSet,
+                      BaseModel):
+    ...
+    
+def SelfDefineModelRunner(opts):
+    logs = comm_class.myLog()  
+    paths = comm_func.create_path(str(opts.IO_output_path))
+    output_path = paths["output_path"]
+    work_path = paths["work_path"]
+    download_path = paths["download_path"]
+
+    logs.iprint("read source setting ...")
+    datas = comm_class_exampleSource.read_source(opts,work_path,download_path,logs.iprint)
+    if datas == None or not datas.get("all_files"):
+        logs.iprint("Error: download examples or rundft_extrafiles or postdft_extrafiles failed!")
+        return 1
+
+    # parse inputs
+    # setting inputs is prefered
+    # and then the uploaded file
+    # and then the file in dataset or examples
+    if opts.setting.strip() != "":
+        try:
+            setting = json.loads(opts.setting)
+        except:
+            traceback.print_exc()
+            return 1
+    elif opts.IO_input_path != None:
+        try:
+            setting = json.load(open(opts.IO_input_path.get_path()))
+        except:
+            traceback.print_exc()
+            return 1
+    elif opts.setting_file:
+        if hasattr(opts,"dataset") and getattr(opts,"dataset"):
+            try:
+                dataset_work_path = comm_class_exampleSource.get_dataset_work_path(opts)
+                if dataset_work_path:
+                    setting = json.load(open(os.path.join(dataset_work_path,opts.setting_file)))
+            except:
+                traceback.print_exc()
+                return 1
+        elif hasattr(opts,"ExampleSource"):
+            # if has ExampleSource, then the files should have been downloaded to work_path
+            # check if the setting file is in work_path
+            try:
+                setting = json.load(open(os.path.join(work_path,opts.setting_file)))
+            except:
+                traceback.print_exc()
+                print("Try to read setting file from 'Examples', but failed.\nPlease supply the setting information")
+                return 1
+        else:
+            print("Has set setting file, but not set dataset or ExampleSource.")
+            return 1
+    else:
+        print("Please supply the setting information")
+        return 1
+
+    #read setting
+    allparams = {"config": comm_func.read_config(opts)}
+    for k,v in setting.items():
+        if k == "config":
+            for ik,iv in v.items():
+                allparams["config"][ik] = iv
+        #elif k in ["ABBREVIATION","save_path","run_dft","post_dft","report","dataset_info","upload_datahub","upload_tracking"]:
+        else:
+            allparams[k] = v
+            
+    tracking_set = comm_class.TrackingSet.parse_obj(opts)
+    if tracking_set:
+        if "AIM_ACCESS_TOKEN" not in allparams["config"]:
+            allparams["config"]["AIM_ACCESS_TOKEN"] = str(tracking_set.get("token"))
+        if "post_dft" not in allparams:
+            allparams["post_dft"] = {}
+        if "upload_tracking" not in allparams["post_dft"]:
+            allparams["post_dft"]["upload_tracking"] = {}
+        if "name" not in allparams["post_dft"]["upload_tracking"]:
+            allparams["post_dft"]["upload_tracking"]["name"] = tracking_set.get("name")
+        if "experiment" not in allparams["post_dft"]["upload_tracking"]:
+            allparams["post_dft"]["upload_tracking"]["experiment"] = tracking_set.get("experiment")
+        if "tags" not in allparams["post_dft"]["upload_tracking"]:
+            allparams["post_dft"]["upload_tracking"]["tags"] = tracking_set.get("tags")
+            
+    #execut
+    stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
+    logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
+    reports = comm_func.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
+    
+    logfname = "output.log"
+    logs.write(os.path.join(str(opts.IO_output_path),logfname))
+    log_section = ReportSection(title="",
+                              elements=[AutoReportElement(title='', path=logfname, description="")])
+    reports.append(log_section)
+
+    if reports:
+        report = Report(title="abacus test report",
+                        sections=reports,
+                        description="a report of abacustest")
+        report.save(output_path)
+        
+    #move results to output_path
+    comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
+    
+    cwd = os.getcwd()
+    os.chdir(os.path.join(output_path,allparams.get("save_path","results")))
+    allfiles = os.listdir(".")
+    alldirs = []
+    for f in allfiles:
+        if os.path.isdir(f):
+            alldirs.append(f)
+    packed_file_name = "results.zip"
+    comm_func.pack(alldirs,packed_file_name,"zip")
+    os.chdir(cwd)
+    
+    return 0
