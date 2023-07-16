@@ -80,7 +80,7 @@ def get_profile_value(allruninfos,profile,aim_tag,metrics,metrics_coef,metrics_n
             continue
         runname = run["run_name"].split(".")[1]
         if runname.startswith("schedule-"):
-            url = "https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
+            url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
         else:
             url = "https://benchmark.mlops.dp.tech/?request=GET%3A%2Fprojects%2Fabacustest%2Fruns%2F" + runname
         tags = run["tags"] # tags in AIM
@@ -642,7 +642,7 @@ def SummaryModelRunner(opts:SummaryModel):
     outtable = produce_outtable(allvalues,profile,metrics,digit)
     if opts.feishu_webhook:
         current_job = opts.Config_dflow_labels["benchmark-job"]
-        current_url = "https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + current_job
+        current_url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + current_job
         comment_add = f"\nClick profile to check the detail Benchmark run.\n\nClick [here]({current_url}) to view detailed reports and historical trend graphs."
         send_to_feishu(outtable,opts.feishu_webhook,comment+comment_add)
     html_content,html_content_nolink = produce_html(outtable,comment)
