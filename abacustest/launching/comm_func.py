@@ -95,6 +95,7 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
     os.chdir(work_path)
 
     print("Execute abacustest ...")
+    '''
     return_code, stdout, stderr = run_command(command)
     if return_code != 0:
         print("Error Encountered!")
@@ -104,6 +105,15 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
         #print(stdout)
         print(stderr)
     os.chdir(cwd)
+    '''
+    import abacustest.abacustest as abatest
+    import argparse
+    parser = argparse.ArgumentParser(description="abacustest")
+    parser = abatest.AbacusTestArgs(parser)
+    parser = parser.parse_args(["-p","param.json"])
+    abatest.abacustest(parser)
+    
+    stdout,stderr = "",""     
     return stdout,stderr
 
 def produce_metrics(metric_file,output_path,report_titile="metrics"):
