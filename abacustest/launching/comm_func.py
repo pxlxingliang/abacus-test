@@ -104,7 +104,6 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
     else:
         #print(stdout)
         print(stderr)
-    os.chdir(cwd)
     '''
     import abacustest.abacustest as abatest
     import argparse
@@ -113,6 +112,7 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
     parser = parser.parse_args(["-p","param.json"])
     abatest.abacustest(parser)
     
+    os.chdir(cwd)
     stdout,stderr = "",""     
     return stdout,stderr
 
