@@ -17,6 +17,7 @@ from dp.launching.typing import (
     BohriumUsername,
     BohriumPassword,
     BohriumProjectId,
+    BohriumTicket,
     BenchmarkLabels,
     BenchmarkTags
 )
@@ -29,8 +30,9 @@ class OutputSet(BaseModel):
 class ConfigSet(BaseModel):
     #Bohrium config
     Config_lbg_username:   BohriumUsername
-    Config_lbg_password:   BohriumPassword
+#    Config_lbg_password:   BohriumPassword
     Config_project_id:     BohriumProjectId
+    Config_bohrium_ticket: BohriumTicket
 
     #dflow set
     Config_config_host: DflowArgoAPIServer
