@@ -71,8 +71,8 @@ def SetConfig(private_set,debug=False):
             
         if "lbg_password" in private_set:
             bohrium.config["password"] = private_set.get('lbg_password','')
-        else:
-            bohrium.config["password"] = os.environ.get("BOHRIUM_PASSWORD","")
+        elif "BOHRIUM_PASSWORD" in os.environ:
+            bohrium.config["password"] = os.environ.get("BOHRIUM_PASSWORD")
         
         if "bohrium_ticket" in private_set:
             bohrium.config["ticket"] = private_set.get('bohrium_ticket')
@@ -81,7 +81,7 @@ def SetConfig(private_set,debug=False):
             bohrium.config["project_id"] = private_set.get('project_id','')
         else:
             bohrium.config["project_id"] = os.environ.get("BOHRIUM_PROJECT_ID","")
-            
+  
         #comm.printinfo("set bohrium.config['username']/['password']/['project_id']: %s/.../%s" 
         #               % (bohrium.config["username"],bohrium.config["project_id"]))
         s3_config["repo_key"] = "oss-bohrium"
