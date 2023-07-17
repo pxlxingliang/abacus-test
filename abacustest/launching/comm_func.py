@@ -108,8 +108,9 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
     import abacustest.abacustest as abatest
     import argparse
     parser = argparse.ArgumentParser(description="abacustest")
-    parser = abatest.AbacusTestArgs(parser)
-    parser = parser.parse_args(["-p","param.json"])
+    subparser = parser.add_subparsers(dest="command")
+    abatest.AbacusTestArgs(subparser.add_parser("submit"))
+    parser = parser.parse_args(["submit","-p","param.json"])
     abatest.abacustest(parser)
     
     os.chdir(cwd)
