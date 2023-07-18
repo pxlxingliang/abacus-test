@@ -66,8 +66,8 @@ def SetConfig(private_set,debug=False):
 
         if "lbg_username" in private_set:
             bohrium.config["username"] = private_set.get('lbg_username')
-        else:
-            bohrium.config["username"] = os.environ.get("BOHRIUM_USERNAME","")
+        elif "BOHRIUM_USERNAME" in os.environ:
+            bohrium.config["username"] = os.environ.get("BOHRIUM_USERNAME")
             
         if "lbg_password" in private_set:
             bohrium.config["password"] = private_set.get('lbg_password','')
@@ -79,8 +79,8 @@ def SetConfig(private_set,debug=False):
                 
         if "project_id" in private_set:
             bohrium.config["project_id"] = private_set.get('project_id','')
-        else:
-            bohrium.config["project_id"] = os.environ.get("BOHRIUM_PROJECT_ID","")
+        elif "BOHRIUM_PROJECT_ID" in os.environ:
+            bohrium.config["project_id"] = os.environ.get("BOHRIUM_PROJECT_ID")
   
         #comm.printinfo("set bohrium.config['username']/['password']/['project_id']: %s/.../%s" 
         #               % (bohrium.config["username"],bohrium.config["project_id"]))
@@ -95,13 +95,15 @@ def SetConfig(private_set,debug=False):
                     username=bohrium.config["username"],
                     password=bohrium.config["password"]))
 
-        #register datahub setting    
+        #register datahub setting  
+        '''  
         if private_set.get("datahub_project",""):
             from dflow.plugins.metadata import MetadataClient
             config["lineage"] = MetadataClient(
                 project=private_set.get("datahub_project"),
                 token=private_set["datahub_gms_token"],
             )   
+        '''    
         
     globV.set_value("HOST", host)
     globV.set_value("storage_client", client)
