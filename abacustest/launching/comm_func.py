@@ -279,8 +279,11 @@ def produce_html_table(table):
             content += "<tbody>"
 
         content += "<tr>"
-        for j in it:
-            content += "<td>" + str(j) + "</td>"
+        if len(it) == 1:
+            content += f"<td colspan=\"{len(table[0])}\">" + str(it[0]) + "</td>"
+        else:
+            for j in it:
+                content += "<td>" + str(j) + "</td>"
         content += "</tr>"
 
         if i == 0:
