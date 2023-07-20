@@ -133,7 +133,10 @@ class PostDFT(OP):
             i += 1
         logfile = Path(logfile_name)
         if len(op_in["outputfiles"]) == 0:
-            outpath.append(Path(work_path))
+            for ifile in glob.glob("*"):
+                if ifile.startswith("."):
+                    continue 
+                outpath.append(Path(ifile))
         else:
             for i in op_in["outputfiles"]:
                 for j in glob.glob(i):
