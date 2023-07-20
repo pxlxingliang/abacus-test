@@ -79,10 +79,11 @@ def get_profile_value(allruninfos,profile,aim_tag,metrics,metrics_coef,metrics_n
         if not run["run_name"].endswith(".summary"):
             continue
         runname = run["run_name"].split(".")[1]
-        if runname.startswith("schedule-"):
-            url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
-        else:
-            url = "https://benchmark.mlops.dp.tech/?request=GET%3A%2Fprojects%2Fabacustest%2Fruns%2F" + runname
+        #if runname.startswith("sched"):
+        #    url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
+        #else:
+        #    url = "https://benchmark.mlops.dp.tech/?request=GET%3A%2Fprojects%2Fabacustest%2Fruns%2F" + runname
+        url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
         tags = run["tags"] # tags in AIM
         create_time = datetime.datetime.utcfromtimestamp(run["creation_time"]+8*3600)
 
