@@ -70,10 +70,18 @@ class PreDFT(OP):
         log = ""
         work_directories = []
         outputs = []
+        if not op_in["examples"]:
+            all_examples = [os.getcwd()]
+            example_root = None
+        else:
+            all_examples = op_in["examples"]
+            example_root = op_in["examples"].art_root
+            
         allexamples = [os.getcwd()] if not op_in["examples"] else op_in["examples"]
         for iexample in allexamples:
-            if "inputs/artifacts/examples/" in str(iexample):
-                current_path = str(iexample).split("inputs/artifacts/examples/")[1]
+            if example_root != None:
+                #current_path = str(iexample).split("inputs/artifacts/examples/")[1]
+                current_path = os.path.relpath(str(iexample),str(example_root))
                 root_path = False
             else:
                 current_path = ""
@@ -81,7 +89,8 @@ class PreDFT(OP):
             #work_directories.append([])
             log += "\nPrepare example %s\n" % current_path
             if op_in["extra_files"] != None:
-                extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+                #extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+                extra_file_path = op_in["extra_files"].art_root
                 comm.CopyFiles(extra_file_path,iexample,move=False)
 
             os.chdir(iexample)

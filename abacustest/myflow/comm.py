@@ -112,7 +112,8 @@ def ProduceExecutor(param,group_name="abacustesting"):
                     "remote_profile": {"input_data": bohrium_set},
                     },
                 image_pull_policy = "Always",
-                retry_on_submission_error=3
+                retry_on_submission_error=3,
+                image="registry.dp.tech/public/dptechnology/dpdispatcher:latest",
             )
             #comm.printinfo("set bohrium: %s"%str(bohrium_set))
             return dispatcher_executor,bohrium_set

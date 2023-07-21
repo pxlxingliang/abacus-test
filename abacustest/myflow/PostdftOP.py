@@ -73,18 +73,21 @@ class PostDFT(OP):
         outpath = []
         
         # if define sub_save_path, create sub_save_path in root and copy examples to sub_save_path
-        example_path = str(op_in["examples"][0]).split("/inputs/artifacts/examples/")[0] + "/inputs/artifacts/examples/"
-        work_path = example_path
+        #example_path = str(op_in["examples"][0]).split("/inputs/artifacts/examples/")[0] + "/inputs/artifacts/examples/"
+        #work_path = example_path
+        work_path = op_in["examples"].art_root
         
         allexample_path = []
         for i in op_in["examples"]:
-            allexample_path.append(str(i).split("/inputs/artifacts/examples/")[1])
+            #allexample_path.append(str(i).split("/inputs/artifacts/examples/")[1])
+            allexample_path.append(os.path.relpath(str(i),str(work_path)))
 
         print("work path:",work_path,file=sys.stderr)
         
         #copy extra_files to work path 
         if op_in["extra_files"] != None:
-            extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+            #extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+            extra_file_path = op_in["extra_files"].art_root
             comm.CopyFiles(extra_file_path,work_path,move=False)
 
         #run command
@@ -157,7 +160,7 @@ class PostDFT(OP):
         return op_out
 
 def SetEnvs():
-    if globV.get_value("PRIVATE_SET").get("config_host","").strip() in ["https://workflows.deepmodeling.com",""]:
+    if globV.get_value("PRIVATE_SET",{}).get("config_host","").strip() in ["https://workflows.deepmodeling.com",""]:
         return None
     from dflow import Secret
     envs = {}

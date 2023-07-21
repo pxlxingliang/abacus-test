@@ -77,8 +77,11 @@ class RunDFT(OP):
         
         # if define sub_save_path, create sub_save_path in root and copy examples to work path
         # else work path is examples
+        root_path = op_in["examples"].art_root
+        print("root_path:",root_path,file=sys.stderr)
         for iexample in op_in["examples"]:
-            example_path = str(iexample).split("/inputs/artifacts/examples/")[1]
+            #example_path = str(iexample).split("/inputs/artifacts/examples/")[1]
+            example_path = os.path.relpath(str(iexample),str(root_path))
             work_path = example_path
             if op_in["sub_save_path"] != None and str(op_in["sub_save_path"]).strip() != "":
                 work_path = os.path.join(str(op_in["sub_save_path"]),example_path)
@@ -91,7 +94,8 @@ class RunDFT(OP):
             #copy extra_files to work path
             print("sub_save_path:",op_in["sub_save_path"],file=sys.stderr) 
             if op_in["extra_files"] != None:
-                extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+                #extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+                extra_file_path = op_in["extra_files"].art_root
                 comm.CopyFiles(extra_file_path,work_path,move=False)
 
             #run command
