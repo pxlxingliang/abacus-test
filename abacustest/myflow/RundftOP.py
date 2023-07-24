@@ -49,7 +49,7 @@ class RunDFT(OP):
                 #"examples_name":str,
                 "command": str,
                 "sub_save_path": str,
-                "extra_files": Artifact(Path),
+                "extra_files": Artifact(Path,optional=True),
                 "outputfiles":[str],
                 "metrics": BigParameter(dict,default={}),
                 "super_metrics": BigParameter(dict,default={}),
@@ -239,8 +239,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
                 artifacts={"examples": artifact_example }
                 if extrafiles:
                     artifacts["extra_files"]=extrafiles[0][0]
-                else:
-                    pt.inputs.artifacts["extra_files"].optional = True
+
                 step = Step(name=rundft_stepname_istep, template=pt,
                             parameters=parameters,
                             artifacts=artifacts,
@@ -259,17 +258,17 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
         else:
             artifacts_example = predft_step.outputs.artifacts['outputs']
             #produce step
-            pt = PythonOPTemplate(RunDFT,image=image,slices=Slices(
+            pt = PythonOPTemplate(RunDFT,image=image,
+                    slices=Slices(
                         "int('{{item}}')",
                         input_artifact = ["examples"],
                         output_artifact = ["outputs"],
                         group_size=group_size,
-                        ))
+                        )
+                    )
             artifacts={"examples": artifacts_example }
             if extrafiles:
                 artifacts["extra_files"]=extrafiles[0][0]
-            else:
-                pt.inputs.artifacts["extra_files"].optional = True
             step = Step(name=rundft_stepname, template=pt,
                         parameters=parameters,
                         artifacts=artifacts,

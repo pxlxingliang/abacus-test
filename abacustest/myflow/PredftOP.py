@@ -44,9 +44,9 @@ class PreDFT(OP):
     def get_input_sign(cls):
         return OPIOSign(
             {
-                "examples": Artifact(List[Path]),
+                "examples": Artifact(List[Path],optional=True),
                 "command": str,
-                "extra_files": Artifact(Path),
+                "extra_files": Artifact(Path,optional=True),
                 "predft_setting" : BigParameter(dict,default={}),  #the setting of predft
             }
         )
@@ -198,15 +198,13 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
         artifacts={}
         if iexample_name:
             artifacts["examples"] = upload_artifact(iexample_name,archive=None)
-        else:
-            pt.inputs.artifacts["examples"].optional = True
+
         #artifacts={"examples": upload_artifact(iexample_name,archive=None)}
         
         #get extrafiles
         if extrafiles:
             artifacts["extra_files"]=extrafiles[0][0]
-        else:
-            pt.inputs.artifacts["extra_files"].optional = True
+
         step = Step(name=stepname_tmp, template=pt,
                     parameters={
                         "command": predft_set.get("command",""),

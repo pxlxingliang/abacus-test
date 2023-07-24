@@ -47,7 +47,7 @@ class PostDFT(OP):
             {
                 "examples": Artifact(List[Path]),
                 "command": str,
-                "extra_files": Artifact(Path),
+                "extra_files": Artifact(Path,optional=True),
                 "outputfiles":[str],
                 "metrics": BigParameter(dict,default={}),
                 "super_metrics": BigParameter(dict,default={}),
@@ -235,8 +235,6 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
     artifacts={"examples": artifact_example }
     if extrafiles:
         artifacts["extra_files"]=extrafiles[0][0]
-    else:
-        pt.inputs.artifacts["extra_files"].optional = True
     step = Step(name=postdft_stepname, template=pt,
                 parameters=parameters,
                 artifacts=artifacts,
