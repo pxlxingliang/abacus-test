@@ -14,21 +14,12 @@ from . import globV,dflowOP,comm
 def ParamParser(param):
     """
     {
-        "dataset_info":{
-            "type": "local"/"datahub",
-            "dataset_urn":,
-            "runset_urn":,
-            "download":false
-        },
-        "running_setting" : RUNNING_SETTING_FILE,
-
         "bohrium_goup_name": ,
         "ABBREVIATION":{},
         "save_path" : PATH_THE_FINAL_RESULT_WILL_BE_DOWNLOADED_TO,
         "pre_dft":{},
         "run_dft" : {},
         "post_dft": {},
-        "upload_datahub": {},
         "report":{}
     }
     """
@@ -40,79 +31,13 @@ def ParamParser(param):
     alljobs["pre_dft"] = param.get("pre_dft",{"ifrun":False})
     alljobs["run_dft"] = param.get("run_dft",{"ifrun":False})
     alljobs["post_dft"] = param.get("post_dft",{"ifrun":False})
-    alljobs["upload_datahub"] = param.get("upload_datahub",None)  #used to upload local files to datahub
-    alljobs["upload_tracking"] = param.get("upload_tracking",None)  #used to upload tracking
+#    alljobs["upload_datahub"] = param.get("upload_datahub",None)  #used to upload local files to datahub
+#    alljobs["upload_tracking"] = param.get("upload_tracking",None)  #used to upload tracking
     alljobs["report"] = param.get("report",None)
     alljobs["bohrium_group_name"] = param.get("bohrium_group_name","abacustesting")
     alljobs["ABBREVIATION"] = param.get("ABBREVIATION",{})
+
    
-    dataset_info = param.get("dataset_info")
-    globV.set_value("dataset_info",dataset_info)
-    if dataset_info:
-        if dataset_info.get("type") == "datahub" and dataset_info.get("download"):
-            dataset_urn = dataset_info.get("dataset_urn","")
-            runset_urn = dataset_info.get("runset_urn","")
-
-            pathname = "datahub"
-            if os.path.isdir("datahub"):
-                pathname = comm.GetBakFile("datahub")
-
-            for iurn in [dataset_urn,runset_urn]:
-                if not iurn: continue
-                uri,storage_client = dflowOP.GetURI(urn=iurn)
-                dflowOP.DownloadURI(uri,path=pathname)
-            comm.printinfo("download datahub data to %s" % pathname)
-
-    #read the setting file if is setted
-    setting_file = param.get("running_setting")
-    if setting_file:
-        if dataset_info and dataset_info.get("type") == "datahub" and not param.get("running_setting_from_local",False):
-            runset_urn = dataset_info.get("runset_urn","")
-            if runset_urn:
-                uri,storage_client = dflowOP.GetURI(urn=runset_urn)
-                uri += "/" + setting_file
-                comm.printinfo("download  the setting file '%s' from datahub " % setting_file)
-                dflowOP.DownloadURI(uri)    
-
-        if not os.path.isfile(setting_file):
-            comm.printinfo("Has specify the 'running_setting', but can not find file %s, skip to read it!" % setting_file)
-        else:   
-            comm.printinfo("Read setting from %s" % setting_file) 
-            setting = json.load(open(setting_file))
-            if "save_path" in setting:
-                alljobs["save_path"] = setting["save_path"]
-            if "prepare" in setting:
-                alljobs["prepare"] = setting["prepare"]
-            if "pre_dft" in setting:
-                alljobs["pre_dft"] = setting["pre_dft"]
-            if "run_dft" in setting:
-                alljobs["run_dft"] = setting["run_dft"]
-            if "post_dft" in setting:
-                alljobs["post_dft"] = setting["post_dft"]
-            if "upload_datahub" in setting:
-                alljobs["upload_datahub"] = setting["upload_datahub"]
-            if "upload_tracking" in setting:
-                alljobs["upload_tracking"] = setting["upload_tracking"]
-            if "report" in setting:
-                alljobs["report"] = setting["report"]  
-            if "bohrium_group_name" in setting:
-                alljobs["bohrium_group_name"] = setting["bohrium_group_name"]
-            if "ABBREVIATION" in setting:  
-                alljobs["ABBREVIATION"] = setting["ABBREVIATION"]
-
-    #if upload datahub or tracking is defined, then replace the definition in post_dft by current setting
-    if alljobs["upload_datahub"] != None:
-        if "upload_datahub" not in alljobs["post_dft"]:
-            alljobs["post_dft"]["upload_datahub"] = {}
-        for k,v in alljobs["upload_datahub"].items():
-            alljobs["post_dft"]["upload_datahub"][k] = v
-
-    if alljobs["upload_tracking"] != None:
-        if "upload_tracking" not in alljobs["post_dft"]:
-            alljobs["post_dft"]["upload_tracking"] = {}
-        for k,v in alljobs["upload_tracking"].items():
-            alljobs["post_dft"]["upload_tracking"][k] = v
-
     #print(alljobs)
     #sys.exit(1)
     globV.set_value("ABBREVIATION",alljobs.get('ABBREVIATION',{}))
@@ -166,6 +91,57 @@ def WriteParamUserFile(storefolder=None,override=False):
         save_cotext[k] = v
     json.dump(save_cotext,open(paraf,'w'),indent=4)
     #with open(paraf,'w') as f1: f1.write(globV.get_value("PARAM_CONTEXT")) 
+
+def set_config(param_context,debug):
+    # read config from param.json and os.environ
+    # key in param.json should be lower case, and in os.environ should be upper case
+    # support older key name, such as "bohrium_username" and "lbg_username"
+    '''
+    old keys:   "lbg_username","lbg_password","bohrium_ticket","project_id",
+                 "config_host","s3_config_endpoint","config_k8s_api_server","config_token",
+                 "datahub_project","datahub_gms_token","datahub_gms_url","AIM_ACCESS_TOKEN",
+                 "dflow_labels"
+    datahub is not used anymore.
+    '''
+    
+    if "config" in param_context:
+        user_context = param_context.get("config")
+    else:
+        comm.printinfo(f"WARNING: \"config\" is not detected in parameter file, try to read config information from os.environ.")
+        user_context = {}
+    
+    configs = {} 
+    for new_key,old_key in [["bohrium_username","lbg_username"],
+                            ["bohrium_password","lbg_password"],
+                            ["bohrium_ticket","bohrium_ticket"],
+                            ["bohrium_project_id","project_id"],
+                            ["dflow_host","config_host"],
+                            ["dflow_s3_config_endpoint","s3_config_endpoint"],
+                            ["dflow_k8s_api_server","config_k8s_api_server"],
+                            ["dflow_token","config_token"],
+                            ["dflow_labels","dflow_labels"],   # dflow_labels is a dict
+                            ["aim_access_token","AIM_ACCESS_TOKEN"],
+    ]:
+        if new_key in user_context:
+            configs[new_key] = user_context[new_key]
+        elif old_key in user_context:
+            configs[new_key] = user_context[old_key]
+        elif new_key.upper() in os.environ:
+            configs[new_key] = os.environ[new_key.upper()]
+        elif old_key.upper() in os.environ:
+            configs[new_key] = os.environ[old_key.upper()]
+    
+    if "dflow_labels" in configs and isinstance(configs["dflow_labels"],str):
+        if configs["dflow_labels"].strip() != "":
+            import ast
+            configs["dflow_labels"] = ast.literal_eval(configs["dflow_labels"].strip())
+        else:
+            del configs["dflow_labels"]
+            
+    globV.set_value("PRIVATE_SET", configs)
+    
+    dflowOP.SetConfig(configs,debug=debug)
+    return 
     
 def set_env(param):
     globV.set_value("OUTINFO", param.outinfo)
@@ -189,13 +165,7 @@ def set_env(param):
         bohrium_executor = bool(param_context["bohrium_executor"])
     globV.set_value("BOHRIUM_EXECUTOR",bohrium_executor)
     
-    if "config" in param_context:
-        user_context = param_context.get("config")
-    else:
-        comm.printinfo(f"WARNING: \"config\" is not detected in \"{param.param}\", try to read config information from os.env.")
-        user_context = {}
-    globV.set_value("PRIVATE_SET", user_context)
-    dflowOP.SetConfig(user_context,debug=param.debug) 
+    set_config(param_context,param.debug)
 
     #set save folder  
     if param_context.get("save_path"):

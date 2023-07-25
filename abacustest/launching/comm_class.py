@@ -29,19 +29,17 @@ class OutputSet(BaseModel):
 
 class ConfigSet(BaseModel):
     #Bohrium config
-    Config_lbg_username:   BohriumUsername
-#    Config_lbg_password:   BohriumPassword
-    Config_project_id:     BohriumProjectId
+    Config_bohrium_username:   BohriumUsername
+#    Config_bohrium_password:   BohriumPassword
+    Config_bohrium_project_id:     BohriumProjectId
     Config_bohrium_ticket: BohriumTicket
 
     #dflow set
-    Config_config_host: DflowArgoAPIServer
-    Config_s3_config_endpoint: DflowStorageEndpoint
-    Config_config_k8s_api_server: DflowK8sAPIServer
-    Config_config_token: DflowAccessToken
-
+    Config_dflow_config_host: DflowArgoAPIServer
+    Config_dflow_s3_config_endpoint: DflowStorageEndpoint
+    Config_dflow_k8s_api_server: DflowK8sAPIServer
+    Config_dflow_token: DflowAccessToken
     Config_dflow_labels: BenchmarkLabels
-
 
 class NgroupSet(BaseModel):
     ngroup: Int = Field(

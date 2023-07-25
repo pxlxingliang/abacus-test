@@ -260,19 +260,19 @@ def parse_source(example_source,upload_path,download_path,configs: comm_class.Co
                 logs(f"ERROR: The example file ({upload_path.get_path()}) is not valid!")
                 logs(f"\tPlease check the example file!")
                 return None
-    elif isinstance(example_source, FromDatahub):
-        try:
-            dataset = comm_func.get_datahub_dataset(configs.Config_lbg_username,
-                                                    configs.Config_lbg_password,
-                                                    configs.Config_project_id,
-                                                    example_source.urn)
-            if dataset == None:
-                logs(f"ERROR: The datahub urn ({example_source.urn}) is not valid!")
-                logs(f"\tPlease check the datahub urn, and ensure that your Bohrium project ID has permission to access this data!")
-                return None
-        except:
-            traceback.print_exc()
-            return None
+    #elif isinstance(example_source, FromDatahub):
+    #    try:
+    #        dataset = comm_func.get_datahub_dataset(configs.Config_lbg_username,
+    #                                                configs.Config_lbg_password,
+    #                                                configs.Config_project_id,
+    #                                                example_source.urn)
+    #        if dataset == None:
+    #            logs(f"ERROR: The datahub urn ({example_source.urn}) is not valid!")
+    #            logs(f"\tPlease check the datahub urn, and ensure that your Bohrium project ID has permission to access this data!")
+    #            return None
+    #    except:
+    #        traceback.print_exc()
+    #        return None
     elif isinstance(example_source, FromDatasets):
         if example_source.dataset_unrecorded != None and example_source.dataset_unrecorded.strip() != "":
             url = example_source.dataset_unrecorded.strip()

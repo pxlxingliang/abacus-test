@@ -18,26 +18,22 @@ def create_path(output_path):
             "download_path": os.path.abspath(download_path)}
 
 def register_dflow(private_set):
-    config["host"] = private_set.get("config_host","").strip()  
-    s3_config["endpoint"] =  private_set.get("s3_config_endpoint","").strip()
-    config["k8s_api_server"] = private_set.get("config_k8s_api_server","").strip()
-    config["token"] = private_set.get("config_token","").strip()
-    bohrium.config["username"] = private_set.get('lbg_username','')
-   # bohrium.config["password"] = private_set.get('lbg_password','')
+    config["host"] = private_set.get("dflow_host","").strip()  
+    s3_config["endpoint"] =  private_set.get("dflow_s3_config_endpoint","").strip()
+    config["k8s_api_server"] = private_set.get("dflow_k8s_api_server","").strip()
+    config["token"] = private_set.get("dflow_token","").strip()
+    bohrium.config["username"] = private_set.get('bohrium_username','')
+   # bohrium.config["password"] = private_set.get('bohrium_password','')
     bohrium.config["ticket"] = private_set.get('bohrium_ticket','')
-    bohrium.config["project_id"] = private_set.get('project_id','')
+    bohrium.config["project_id"] = private_set.get('bohrium_project_id','')
     s3_config["repo_key"] = "oss-bohrium"
     s3_config["storage_client"] = TiefblueClient()
 
 def read_config(opts):
     #parse config
-    CONFIG_KEYS=["lbg_username",
-                 #"lbg_password",
-                 "bohrium_ticket",
-                 "project_id",
-                 "config_host","s3_config_endpoint","config_k8s_api_server","config_token",
-                 "datahub_project","datahub_gms_token","datahub_gms_url","AIM_ACCESS_TOKEN",
-                 "dflow_labels"]
+    CONFIG_KEYS=["bohrium_username","bohrium_password","bohrium_ticket","bohrium_project_id",
+                 "dflow_host","dflow_s3_config_endpoint","dflow_k8s_api_server","dflow_token",
+                 "aim_access_token","dflow_labels"]
     my_config = {}
     for ikey in CONFIG_KEYS:
         config_key = "Config_" + ikey

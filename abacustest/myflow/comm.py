@@ -123,7 +123,7 @@ def ProduceExecutor(param,group_name="abacustesting"):
                 extra={
                     "scassType": bohrium_set['scass_type'],
                     "platform": bohrium_set['platform'] ,
-                    "projectId": globV.get_value("PRIVATE_SET").get("project_id"),
+                    "projectId": globV.get_value("PRIVATE_SET").get("bohrium_project_id"),
                     "jobType":  bohrium_set['job_type']
                 }
             )
@@ -257,3 +257,12 @@ def ParseSubSavePath(sub_save_path):
         printinfo("the type of 'sub_save_path' should be 'str', but not '%s'. %s" % (type(sub_save_path),str(sub_save_path)))
         sub_save_path = ""
     return sub_save_path 
+
+def SetEnvs():
+    if globV.get_value("PRIVATE_SET",{}).get("dflow_config_host","").strip() in ["https://workflows.deepmodeling.com",""]:
+        return None
+    from dflow import Secret
+    envs = {}
+    for k,v in globV.get_value("PRIVATE_SET").items():
+        envs[k.upper()] = Secret(str(v))
+    return envs

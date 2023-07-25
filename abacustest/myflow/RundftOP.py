@@ -235,7 +235,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
                 space = "\n" + (len(rundft_stepname_istep)+2)*" "
                 comm.printinfo("%s: %s" % (rundft_stepname_istep,space.join(iexample_name)))
                 artifact_example = upload_artifact(iexample_name,archive=None)
-                pt = PythonOPTemplate(RunDFT,image=image)
+                pt = PythonOPTemplate(RunDFT,image=image,envs=comm.SetEnvs())
                 artifacts={"examples": artifact_example }
                 if extrafiles:
                     artifacts["extra_files"]=extrafiles[0][0]
@@ -258,7 +258,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
         else:
             artifacts_example = predft_step.outputs.artifacts['outputs']
             #produce step
-            pt = PythonOPTemplate(RunDFT,image=image,
+            pt = PythonOPTemplate(RunDFT,image=image,envs=comm.SetEnvs(),
                     slices=Slices(
                         "int('{{item}}')",
                         input_artifact = ["examples"],

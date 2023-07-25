@@ -36,9 +36,9 @@ An example is like:
 ```
 {
     "config":{
-        "lbg_username":         "xxx",
-        "lbg_password":         "xxx",
-        "project_id":           111
+        "bohrium_username":         "xxx",
+        "bohrium_password":         "xxx",
+        "bohrium_project_id":           111
     },
     "ABBREVIATION":{
             "ABACUS310_IMAGE": "registry.dp.tech/dptech/abacus:3.1.0",

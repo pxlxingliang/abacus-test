@@ -98,8 +98,8 @@ def SelfDefineModelRunner(opts):
             
     tracking_set = comm_class.TrackingSet.parse_obj(opts)
     if tracking_set:
-        if "AIM_ACCESS_TOKEN" not in allparams["config"]:
-            allparams["config"]["AIM_ACCESS_TOKEN"] = str(tracking_set.get("token"))
+        if "aim_access_token" not in allparams["config"]:
+            allparams["config"]["aim_access_token"] = str(tracking_set.get("token"))
         if "post_dft" not in allparams:
             allparams["post_dft"] = {}
         if "upload_tracking" not in allparams["post_dft"]:

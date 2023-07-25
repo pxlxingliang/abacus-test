@@ -158,15 +158,6 @@ class PostDFT(OP):
             }
         )
         return op_out
-
-def SetEnvs():
-    if globV.get_value("PRIVATE_SET",{}).get("config_host","").strip() in ["https://workflows.deepmodeling.com",""]:
-        return None
-    from dflow import Secret
-    envs = {}
-    for k,v in globV.get_value("PRIVATE_SET").items():
-        envs[k] = Secret(str(v))
-    return envs
     
 def produce_postdft(setting,prestep_output,flowname,example_path):
     # if rundft_output is not None, then the input of postdft is the output of rundft,
@@ -231,7 +222,7 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
         "upload_tracking": setting.get("upload_tracking", {})
     }
     
-    pt = PythonOPTemplate(PostDFT,image=image,envs=SetEnvs())
+    pt = PythonOPTemplate(PostDFT,image=image,envs=comm.SetEnvs())
     artifacts={"examples": artifact_example }
     if extrafiles:
         artifacts["extra_files"]=extrafiles[0][0]

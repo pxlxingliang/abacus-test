@@ -194,7 +194,7 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
         stepname_tmp = stepname+f"-predft-{igroup}"
         space = "\n" + (len(stepname_tmp)+2)*" "
         comm.printinfo("%s: %s" % (stepname_tmp,space.join(iexample_name)))
-        pt = PythonOPTemplate(PreDFT,image=image)
+        pt = PythonOPTemplate(PreDFT,image=image,envs=comm.SetEnvs())
         artifacts={}
         if iexample_name:
             artifacts["examples"] = upload_artifact(iexample_name,archive=None)
