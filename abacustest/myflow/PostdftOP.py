@@ -95,7 +95,9 @@ class PostDFT(OP):
         log = ""
         if op_in["command"].strip() != "":
             cmd = str(op_in["command"])
-            log += os.popen("(%s) 2>&1" % cmd).read()
+            return_code, out, err = comm.run_command(cmd)
+            log += out + err
+            #log += os.popen("(%s) 2>&1" % cmd).read()
         
         #check if need to upload to tracking
         tracking_setting = op_in["upload_tracking"]

@@ -96,7 +96,9 @@ class PreDFT(OP):
             os.chdir(iexample)
             if op_in["command"] != None and op_in["command"].strip() != "":
                 cmd = str(op_in["command"])
-                log += os.popen("(%s) 2>&1" % cmd).read()
+                return_code, out, err = comm.run_command(cmd)
+                log += out + err
+                #log += os.popen("(%s) 2>&1" % cmd).read()
 
             #work_directories_filename = "WORKPATH"
             if op_in["predft_setting"].get("work_directories_filename"):

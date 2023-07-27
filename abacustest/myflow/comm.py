@@ -259,10 +259,46 @@ def ParseSubSavePath(sub_save_path):
     return sub_save_path 
 
 def SetEnvs():
-    if globV.get_value("PRIVATE_SET",{}).get("dflow_config_host","").strip() in ["https://workflows.deepmodeling.com",""]:
+    if globV.get_value("PRIVATE_SET",None) == None:
         return None
     from dflow import Secret
     envs = {}
     for k,v in globV.get_value("PRIVATE_SET").items():
         envs[k.upper()] = Secret(str(v))
     return envs
+
+def run_command(
+        cmd,
+        shell = True
+):
+    import subprocess,select
+    process = subprocess.Popen(
+        cmd, 
+        stdout=subprocess.PIPE, 
+        stderr=subprocess.PIPE,
+        shell=shell,
+        executable='/bin/bash'
+    )
+    out = ""
+    err = ""
+    while True:
+        # 监视stdout和stderr文件描述符的可读状态
+        readable, _, _ = select.select([process.stdout, process.stderr], [], [])
+
+        # 读取已经准备好的输出
+        for fd in readable:
+            if fd == process.stdout:
+                line = process.stdout.readline()
+                print(line.decode()[:-1])
+                out += line.decode()
+            elif fd == process.stderr:
+                line = process.stderr.readline()
+                print("STDERR:", line.decode()[:-1])
+                err += line.decode()
+
+        # 如果子进程已经结束，则退出循环
+        return_code = process.poll()
+        if return_code is not None:
+            break
+    return return_code, out, err
+
