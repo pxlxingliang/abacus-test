@@ -35,7 +35,7 @@ class ConfigSet(BaseModel):
     Config_bohrium_ticket: BohriumTicket
 
     #dflow set
-    Config_dflow_config_host: DflowArgoAPIServer
+    Config_dflow_host: DflowArgoAPIServer
     Config_dflow_s3_config_endpoint: DflowStorageEndpoint
     Config_dflow_k8s_api_server: DflowK8sAPIServer
     Config_dflow_token: DflowAccessToken
