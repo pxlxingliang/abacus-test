@@ -123,9 +123,9 @@ def set_config(param_context,debug):
                             ["aim_access_token","AIM_ACCESS_TOKEN"],
     ]:
         if new_key in user_context:
-            configs[new_key] = user_context[new_key]
+            configs[new_key] = user_context.pop(new_key)
         elif old_key in user_context:
-            configs[new_key] = user_context[old_key]
+            configs[new_key] = user_context.pop(old_key)
         elif new_key.upper() in os.environ:
             configs[new_key] = os.environ[new_key.upper()]
         elif old_key.upper() in os.environ:
@@ -137,6 +137,9 @@ def set_config(param_context,debug):
             configs["dflow_labels"] = ast.literal_eval(configs["dflow_labels"].strip())
         else:
             del configs["dflow_labels"]
+    
+    for ik,iv in user_context.items():
+        configs[ik] = iv    
             
     globV.set_value("PRIVATE_SET", configs)
     
