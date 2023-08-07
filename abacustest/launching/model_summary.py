@@ -822,7 +822,7 @@ def SummaryModelRunner(opts:SummaryModel):
     #send to feishu and produce html file
     outtable = produce_outtable(allvalues,profile,metrics,digit)
     if opts.feishu_webhook:
-        current_job = opts.Config_dflow_labels["benchmark-job"]
+        current_job = opts.Config_dflow_labels["launching-job"]
         current_url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + current_job
         comment_add = f"\nClick profile to check the detail Benchmark run.\n\nClick [here]({current_url}) to view detailed reports and historical trend graphs."
         send_to_feishu(outtable,opts.feishu_webhook,comment+comment_add)
