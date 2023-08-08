@@ -117,6 +117,6 @@ def construct_input(datas,opts,logs):
         for k,v in parse_image_set(opts.predft_image_set).items():
             pre_dft[k] = v
         if "bohrium" in pre_dft:   
-            logs.iprint("\tbohrium:",pre_dft[-1]["bohrium"])
+            logs.iprint("\tbohrium:",pre_dft["bohrium"])
             
     return need_predft,pre_dft
