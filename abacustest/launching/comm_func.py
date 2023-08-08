@@ -83,7 +83,14 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
     #work_path: to run abacustest
     #ouput_path: the write the report files
     #write param.json
-    json.dump(allparams,
+    import copy
+    params = copy.deepcopy(allparams)
+    if "config" in params:
+        for ik,iv in params["config"].items():
+            os.environ[ik.upper()] = iv
+        del params["config"]
+        
+    json.dump(params,
               open(os.path.join(work_path, "param.json"), 'w'),
               indent=4)
     
