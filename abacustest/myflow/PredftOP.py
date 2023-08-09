@@ -76,9 +76,8 @@ class PreDFT(OP):
         else:
             all_examples = op_in["examples"]
             example_root = op_in["examples"].art_root
-            
-        allexamples = [os.getcwd()] if not op_in["examples"] else op_in["examples"]
-        for iexample in allexamples:
+        
+        for iexample in all_examples:
             if example_root != None:
                 #current_path = str(iexample).split("inputs/artifacts/examples/")[1]
                 current_path = os.path.relpath(str(iexample),str(example_root))
