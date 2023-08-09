@@ -85,11 +85,12 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
     #write param.json
     import copy
     params = copy.deepcopy(allparams)
+    '''
     if "config" in params:
         for ik,iv in params["config"].items():
             os.environ[ik.upper()] = str(iv)
         del params["config"]
-        
+    '''    
     json.dump(params,
               open(os.path.join(work_path, "param.json"), 'w'),
               indent=4)
