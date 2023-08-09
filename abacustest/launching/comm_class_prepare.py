@@ -23,18 +23,21 @@ class PPFromDatasets(BaseModel):
     type: Literal["from datasets"]
     dataset: PPLibEnum = Field(title="PP (pseudo potential) Lib datasets",
                         description="Please choose the PP Lib datasets.")
+    '''
     dataset_unrecorded: String = Field(default=None,
                                        description="By default, the pp lib \"[SG15-ONCV-v1_0](https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fdatasets%2Fpporb)\" will be used. \
 If you want to use other pplib dataset, please enter download link here.")
+    '''
 
 class OrbFromDatasets(BaseModel):
     type: Literal["from datasets"]
     dataset: OrbLibEnum = Field(title="Orb Lib datasets",
                         description="Please choose the Orb Lib datasets.")
+    '''
     dataset_unrecorded: String = Field(default=None,
                                        description="By default, the Orb lib \"[SG15-Version1_0__StandardOrbitals-Version2_0](https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fdatasets%2Fpporb)\" will be used. \
 If you want to use other pplib dataset, please enter download link here.")
-
+    '''
 
 #prepare INPUT template
 class PrepareInputTemplateSet(BaseModel):
@@ -273,10 +276,10 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
         if isinstance(prepare_set.PreparePPLib,PPFromDatasets):
             tmp = None
             try:
-                if prepare_set.PreparePPLib.dataset_unrecorded != None and prepare_set.PreparePPLib.dataset_unrecorded.strip() != "":
-                    url = prepare_set.PreparePPLib.dataset_unrecorded.strip()
-                else:
-                    url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PreparePPLib.dataset,dataset="pporb")
+                #if prepare_set.PreparePPLib.dataset_unrecorded != None and prepare_set.PreparePPLib.dataset_unrecorded.strip() != "":
+                #    url = prepare_set.PreparePPLib.dataset_unrecorded.strip()
+                #else:
+                url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PreparePPLib.dataset,dataset="pporb")
                 package = comm_func.download_url(url, download_path)
                 if package == None:
                     logs(f"ERROR: download dataset failed!\n\turl:{url}")
@@ -308,10 +311,10 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
         if isinstance(prepare_set.PrepareOrbLib,OrbFromDatasets):
             tmp = None
             try:
-                if prepare_set.PrepareOrbLib.dataset_unrecorded != None and prepare_set.PrepareOrbLib.dataset_unrecorded.strip() != "":
-                    url = prepare_set.PrepareOrbLib.dataset_unrecorded.strip()
-                else:
-                    url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PrepareOrbLib.dataset,dataset="pporb")
+                #if prepare_set.PrepareOrbLib.dataset_unrecorded != None and prepare_set.PrepareOrbLib.dataset_unrecorded.strip() != "":
+                #    url = prepare_set.PrepareOrbLib.dataset_unrecorded.strip()
+                #else:
+                url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PrepareOrbLib.dataset,dataset="pporb")
                 package = comm_func.download_url(url, download_path)
                 if package == None:
                     logs(f"ERROR: download dataset failed!\n\turl:{url}")

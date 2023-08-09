@@ -60,8 +60,8 @@ class FromDatasets(BaseModel):
     type: Literal["from datasets"]
     dataset: DataSetsEnum = Field(title="datasets",
                                   description="Please choose the datasets.")
-    dataset_unrecorded: String = Field(default=None,
-                                       description="If the dataset you want is not in the above list, please enter download link of your datasets.")
+    #dataset_unrecorded: String = Field(default=None,
+    #                                   description="If the dataset you want is not in the above list, please enter download link of your datasets.")
 
 
 class ExampleSourceSet(BaseModel):
@@ -70,7 +70,7 @@ class ExampleSourceSet(BaseModel):
                                          st_kwargs_type=comm_func.unpack(
                                              None, None, get_support_filetype=True),
                                          description="""A compressed file contains all required files. \
-If you want to use the examples from datahub or datasets, please refer to the later 'RundftExampleSource' section.""",
+If you want to use the examples from datasets, please refer to the later 'RundftExampleSource' section.""",
                                          description_type="markdown")
     ExampleSource: Union[FromPreUpload,
                         # FromDatahub,
@@ -88,7 +88,7 @@ class PrepareExampleSourceSet(BaseModel):
                                          st_kwargs_type=comm_func.unpack(
                                              None, None, get_support_filetype=True),
                                          description="""A compressed file contains all example folders. For each folder is one example, and containing all the required files. \
-If you want to use the examples from datahub or datasets, please refer to the later 'PrepareExampleSource' section.""",
+If you want to use the examples from datasets, please refer to the later 'PrepareExampleSource' section.""",
                                          description_type="markdown")
     PrepareExampleSource: Union[FromPreUpload,
                             #    FromDatahub,
@@ -106,7 +106,7 @@ class PredftExampleSourceSet(BaseModel):
                                          st_kwargs_type=comm_func.unpack(
                                              None, None, get_support_filetype=True),
                                          description="""A compressed file contains all example folders. For each folder is one example, and containing all the required files. \
-If you want to use the examples from datahub or datasets, please refer to the later 'PredftExampleSource' section.""",
+If you want to use the examples from datasets, please refer to the later 'PredftExampleSource' section.""",
                                          description_type="markdown")
     PredftExampleSource: Union[FromPreUpload,
                         # FromDatahub,
@@ -125,7 +125,7 @@ class RundftExampleSourceSet(BaseModel):
                                          st_kwargs_type=comm_func.unpack(
                                              None, None, get_support_filetype=True),
                                          description="""A compressed file contains all example folders. For each folder is one example, and containing all the required files. \
-If you want to use the examples from datahub or datasets, please refer to the later 'RundftExampleSource' section.""",
+If you want to use the examples from datasets, please refer to the later 'RundftExampleSource' section.""",
                                          description_type="markdown")
     RundftExampleSource: Union[FromPreUpload,
                         # FromDatahub,
@@ -144,7 +144,7 @@ class PostdftExampleSourceSet(BaseModel):
                                          st_kwargs_type=comm_func.unpack(
                                              None, None, get_support_filetype=True),
                                          description="""A compressed file contains all required files in post dft. \
-If you want to use the examples from datahub or datasets, please refer to the later 'PostdftExampleSource' section.""",
+If you want to use the examples from datasets, please refer to the later 'PostdftExampleSource' section.""",
                                          description_type="markdown")
     PostdftExampleSource: Union[FromPreUpload,
                         # FromDatahub,
@@ -274,10 +274,10 @@ def parse_source(example_source,upload_path,download_path,configs: comm_class.Co
     #        traceback.print_exc()
     #        return None
     elif isinstance(example_source, FromDatasets):
-        if example_source.dataset_unrecorded != None and example_source.dataset_unrecorded.strip() != "":
-            url = example_source.dataset_unrecorded.strip()
-        else:
-            url = DataSetsEnum.GetAddress(example_source.dataset)
+        #if example_source.dataset_unrecorded != None and example_source.dataset_unrecorded.strip() != "":
+        #    url = example_source.dataset_unrecorded.strip()
+        #else:
+        url = DataSetsEnum.GetAddress(example_source.dataset)
         
         try:
             package = comm_func.download_url(url, download_path)

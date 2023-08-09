@@ -60,10 +60,11 @@ class PredftGroupSizeSet(BaseModel):
 class PredftCommandSet(BaseModel):
     predft_command: String = Field(default="",
                                    description="Command of predft in each example. Please note that the program will first enter each folder before executing this command.\
-If executing the command will generate some new example directories, please write these directories to a file with one line per directory. And enter the file in below \'predft_work_directories_filename\'",)
+If executing the command will generate some new example directories, please write these directories to a file named as 'example.txt'.",)
     
-    predft_work_directories_filename: String = Field(default="",
-                                                   description="If executing the predft_command will generate some new example directories, please write these directories to a file with one line per directory. And enter the file name here",)
+    #do not support self-defined filename in launching, and use default filename "example.txt"
+    #predft_work_directories_filename: String = Field(default="",
+    #                                               description="If executing the predft_command will generate some new example directories, please write these directories to a file with one line per directory. And enter the file name here",)
 
 def parse_image_set(image_set):
     if isinstance(image_set, ImageBohrium):
@@ -99,12 +100,12 @@ def construct_input(datas,opts,logs):
         pre_dft["extra_files"] = datas.get("predft_extrafile")
         logs.iprint("\rundft_extrafile:",pre_dft["extra_files"])
         
-    #read rundft command
+    #read predft command
     if hasattr(opts,"predft_command") and opts.predft_command.strip() != "":
         need_predft = True
         logs.iprint("\tcommand:",opts.predft_command)
         pre_dft["command"] = opts.predft_command
-        pre_dft["work_directories_filename"] = opts.predft_work_directories_filename
+        #pre_dft["work_directories_filename"] = opts.predft_work_directories_filename
     
     #read predft ngroup        
     #if hasattr(opts,"predft_group_size") and opts.predft_group_size > 0:

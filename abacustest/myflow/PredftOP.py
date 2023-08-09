@@ -99,28 +99,27 @@ class PreDFT(OP):
                 log += out + err
                 #log += os.popen("(%s) 2>&1" % cmd).read()
 
-            #work_directories_filename = "WORKPATH"
-            if op_in["predft_setting"].get("work_directories_filename"):
-                work_directories_filename = op_in["predft_setting"].get("work_directories_filename")
-                if os.path.isfile(work_directories_filename):
-                    with open(work_directories_filename) as f:
-                        lines = f.readlines()
-                    for i in lines:
-                        if not os.path.isdir(i.strip()):
-                            print("Can not find work directory %s" % i.strip())
+            work_directories_filename = op_in["predft_setting"].get("work_directories_filename") 
+            if not work_directories_filename:
+                work_directories_filename = "example.txt"
+                print(f"Have not define the work directories filename! Try to find the work directories in file '{work_directories_filename}'")            
+            
+            if os.path.isfile(work_directories_filename):
+                with open(work_directories_filename) as f:
+                    lines = f.readlines()
+                for i in lines:
+                    if not os.path.isdir(i.strip()):
+                        print("Can not find work directory %s" % i.strip())
+                    else:
+                        #work_directories[-1].append(os.path.join(current_path,i.strip()))
+                        work_directories.append(os.path.join(current_path,os.path.relpath(i.strip(),os.getcwd())))
+                        
+                        if root_path:
+                            outputs.append(Path(os.path.relpath(i.strip(),os.getcwd())))
                         else:
-                            #work_directories[-1].append(os.path.join(current_path,i.strip()))
-                            work_directories.append(os.path.join(current_path,os.path.relpath(i.strip(),os.getcwd())))
-                            
-                            if root_path:
-                                outputs.append(Path(os.path.relpath(i.strip(),os.getcwd())))
-                            else:
-                                outputs.append(Path.resolve(Path(i.strip())))
-                else:
-                    print(log)
-                    raise RuntimeError("Can not find work directory file %s!" % work_directories_filename)
+                            outputs.append(Path.resolve(Path(i.strip())))
             else:
-                print(f"Have not defined the work directories filename! Return current path: {iexample}")
+                print(f"Can not find work_directories_filename '{work_directories_filename}'! Return current path: {iexample}")
                 if root_path:
                     outputs.append(Path(os.path.relpath(iexample,os.getcwd())))
                 else:
