@@ -151,6 +151,70 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
             }
             chart_elements.append(ChartReportElement(options=options,title=imetric))
     
+    #produce some special case chart
+    # 1. if metrics has ecutwfc/kspacing and energy_per_atom, produce the ecutwfc vs energy_per_atom chart
+    print(metric_name)
+    if "energy_per_atom" in metric_name:
+        if "INPUT/ecutwfc" in metric_name:
+            x_name = "INPUT/ecutwfc"
+        elif "INPUT/kspacing" in metric_name:
+            x_name = "INPUT/kspacing"
+        else:
+            x_name = None
+        print(x_name)    
+        if x_name != None:
+            y_name = "energy_per_atom"
+            # the example name may be a/00000, a/00001, ..., b/00000, b/00001
+            # we need plot each chart for a, b, ...
+            # so we need to split the example name to get the prefix
+            # and then plot the chart for each prefix
+            all_x = pddata.loc[x_name,:].to_list()
+            all_y = pddata.loc[y_name,:].to_list()
+            all_prefix_list = [os.path.dirname(i) for i in example_name]
+            all_prefix_set = list(set(all_prefix_list))
+            all_basename_set = [os.path.basename(i) for i in example_name]
+            for iprefix in all_prefix_set:
+                # need to check the prefix is not empty
+                if not iprefix:
+                    continue
+                
+                # need to check if has more than one basename
+                if all_prefix_list.count(iprefix) <= 1:
+                    continue
+                print("Check basename, iprefix:",iprefix)
+                # need to check the basename is 00000 format
+                basename_format_right = True
+                for i in range(len(all_prefix_list)):
+                    if all_prefix_list[i] == iprefix:
+                        if not all_basename_set[i].isdigit():
+                            basename_format_right = False
+                            break
+                if not basename_format_right:
+                    continue
+                
+                # prepare the data for the chart
+                x,y = [],[]
+                for i in range(len(all_prefix_list)):
+                    if all_prefix_list[i] == iprefix:
+                        # need to check if the ecutwfc is None
+                        if all_x[i] == None:
+                            continue
+                        x.append(all_x[i])
+                        y.append(all_y[i])
+                print(x,y)
+                # need shift the y to make the min value is 0
+                y_real = [i for i in y if i != None]
+                if len(y_real) == 0:
+                    continue
+                min_e = min(y_real)
+                y = [i if i == None else i-min_e for i in y]
+
+                print("ecutwfc vs energy_per_atom (%s)" % iprefix)
+                print(x,y)
+                options = comm_echarts.get_bar_option(f"{x_name} vs {y_name} ({iprefix})",
+                                                          x,y,x_type="value",y_type="value")
+                chart_elements.append(ChartReportElement(options=options,title=f"{x_name} vs {y_name} ({iprefix})"))
+    
     return report_elements,chart_elements
 
 def produce_supermetrics(supermetric_file,output_path,work_path, save_path,report_titile="supermetrics"):

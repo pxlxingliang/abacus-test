@@ -1,5 +1,5 @@
 
-def get_bar_option(title,x,y):
+def get_bar_option(title,x,y,x_type="category",y_type="value"):
     option = {
         "title": {
             "text": title,
