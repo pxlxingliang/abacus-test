@@ -153,15 +153,14 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
     
     #produce some special case chart
     # 1. if metrics has ecutwfc/kspacing and energy_per_atom, produce the ecutwfc vs energy_per_atom chart
-    print(metric_name)
+    print("metric name:",metric_name)
     if "energy_per_atom" in metric_name:
         if "INPUT/ecutwfc" in metric_name:
             x_name = "INPUT/ecutwfc"
         elif "INPUT/kspacing" in metric_name:
             x_name = "INPUT/kspacing"
         else:
-            x_name = None
-        print(x_name)    
+            x_name = None  
         if x_name != None:
             y_name = "energy_per_atom"
             # the example name may be a/00000, a/00001, ..., b/00000, b/00001
@@ -181,7 +180,7 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
                 # need to check if has more than one basename
                 if all_prefix_list.count(iprefix) <= 1:
                     continue
-                print("Check basename, iprefix:",iprefix)
+                #print("Check basename, iprefix:",iprefix)
                 # need to check the basename is 00000 format
                 basename_format_right = True
                 for i in range(len(all_prefix_list)):
@@ -201,7 +200,6 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
                             continue
                         x.append(all_x[i])
                         y.append(all_y[i])
-                print(x,y)
                 # need shift the y to make the min value is 0
                 y_real = [i for i in y if i != None]
                 if len(y_real) == 0:
@@ -209,8 +207,6 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
                 min_e = min(y_real)
                 y = [i if i == None else i-min_e for i in y]
 
-                print("ecutwfc vs energy_per_atom (%s)" % iprefix)
-                print(x,y)
                 options = comm_echarts.get_bar_option(f"{x_name} vs {y_name} ({iprefix})",
                                                           x,y,x_type="value",y_type="value")
                 chart_elements.append(ChartReportElement(options=options,title=f"{x_name} vs {y_name} ({iprefix})"))
