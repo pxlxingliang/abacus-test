@@ -174,6 +174,7 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
         all_prefix_list = [os.path.dirname(i) for i in example_name]
         all_prefix_set = list(set(all_prefix_list))
         all_basename_set = [os.path.basename(i) for i in example_name]
+        all_prefix_set.sort()
         for iprefix in all_prefix_set:
             # need to check the prefix is not empty
             if not iprefix:
@@ -208,12 +209,50 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
                 continue
             min_e = min(y_real)
             y = [i if i == None else i-min_e for i in y]
-            x_type = "value" if isinstance(x[0],(int,float)) else "category"
             options = comm_echarts.get_bar_option(f"{x_name} vs {y_name} ({iprefix})",
-                                                      x,y,x_type=x_type,y_type="value")
+                                                      x,y,x_type="category",y_type="value")
             chart_elements.append(ChartReportElement(options=options,title=f"{x_name} vs {y_name} ({iprefix})"))
     
+    # if drho in metric_name, plot the drho
+    # drho should be a list
+    if "drho" in metric_name:
+        drho_list = pddata.loc["drho",:].to_list()
+        chart_elements += plot_drho(drho_list,example_name)
+    
+    
     return report_elements,chart_elements
+
+def plot_drho(drho_input,example_input):
+    from dp.launching.report import ChartReportElement
+    # drho_input: a list of drho of all examples
+    # example_input: a list of example name
+    # return a list of ChartReportElement
+    
+    chart_report = []
+    #only plot drho if drho is not None
+    drho_list = []
+    example_name = []
+    for i in range(len(drho_input)):
+        if isinstance(drho_input[i],list):
+            drho_list.append(drho_input[i])
+            example_name.append(example_input[i])
+    
+    # sort the example_name and drho_list
+    example_name,drho_list = zip(*sorted(zip(example_name,drho_list)))
+    max_example_in_one_chart = 10
+    all_data = []
+    for i in range(0,len(example_name),max_example_in_one_chart):
+        end = i+max_example_in_one_chart if i+max_example_in_one_chart < len(example_name) else len(example_name)
+        all_data.append([example_name[i:end],drho_list[i:end]])
+    idrho = 0
+    for legend,drho in all_data:
+        x = [i+1 for i in range(max([len(j) for j in drho]))]
+        #print(x,drho,legend)
+        options = comm_echarts.produce_multiple_y(f"drho{idrho}",x,drho,legend,x_type="category",y_type="log")
+        chart_report.append(ChartReportElement(options=options,title=f"drho{idrho}"))
+        idrho += 1
+    return chart_report
+    
 
 def produce_supermetrics(supermetric_file,output_path,work_path, save_path,report_titile="supermetrics"):
     import pandas as pd
