@@ -236,6 +236,8 @@ def plot_drho(drho_input,example_input):
         if isinstance(drho_input[i],list):
             drho_list.append(drho_input[i])
             example_name.append(example_input[i])
+    if len(drho_list) == 0:
+        return []
     
     # sort the example_name and drho_list
     example_name,drho_list = zip(*sorted(zip(example_name,drho_list)))
