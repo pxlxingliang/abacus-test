@@ -16,7 +16,7 @@
                 "00*"
             ],
             "bohrium": {
-                "scass_type": "c32_m64_cpu",
+                "scass_type": "c32_m128_cpu",
                 "job_type": "container",
                 "platform": "ali"
             },

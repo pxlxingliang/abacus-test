@@ -15,9 +15,6 @@ class DatasetSet(BaseModel):
     dataset: DataSet = Field(title=None,
                              default=None,
                             description="Please enter your dataset in launching.")
-    dataset_work_path: String = Field(default="",
-                                       description="Please enter the work path in dataset")
-
 
 def GetDatasetAddress(package,dataset=None):
     # find index of last -, and the string before it is the dataset name
@@ -60,23 +57,15 @@ class FromDatasets(BaseModel):
     type: Literal["from datasets"]
     dataset: DataSetsEnum = Field(title="datasets",
                                   description="Please choose the datasets.")
-    #dataset_unrecorded: String = Field(default=None,
-    #                                   description="If the dataset you want is not in the above list, please enter download link of your datasets.")
-
 
 class ExampleSourceSet(BaseModel):
     ExampleSource_local: InputFilePath = Field(default=None,
                                          title="Upload files locally",
                                          st_kwargs_type=comm_func.unpack(
                                              None, None, get_support_filetype=True),
-                                         description="""A compressed file contains all required files. \
-If you want to use the examples from datasets, please refer to the later 'RundftExampleSource' section.""",
+                                         description="""A compressed file contains all required files.""",
                                          description_type="markdown")
-    ExampleSource: Union[FromPreUpload,
-                        # FromDatahub,
-                         FromDatasets] = Field(title="Example source",
-                                                      discriminator="type",
-                                                      description="Please choose the example source.")
+    
 class ExampleSet(BaseModel):
     Example: String = Field(default="*",title="Examples",description = "You can choose to use only partial files, and seperate each example with space. \
 Tips: you can use regex to select files. For example: example_00[1-5]* example_[6,7,8]*. If you want to use all files, please type '*'.")  
@@ -90,11 +79,6 @@ class PrepareExampleSourceSet(BaseModel):
                                          description="""A compressed file contains all example folders. For each folder is one example, and containing all the required files. \
 If you want to use the examples from datasets, please refer to the later 'PrepareExampleSource' section.""",
                                          description_type="markdown")
-    PrepareExampleSource: Union[FromPreUpload,
-                            #    FromDatahub,
-                         FromDatasets] = Field(title="Prepare Example source",
-                                                      discriminator="type",
-                                                      description="Please choose the example source.")
 
 class PrepareExampleSet(BaseModel):                         
     PrepareExample: String = Field(default="*",title="Prepare Examples",description = "You can choose to run only partial examples of PrepareExampleSource, and separate each example with space. \
@@ -108,11 +92,6 @@ class PredftExampleSourceSet(BaseModel):
                                          description="""A compressed file contains all example folders. For each folder is one example, and containing all the required files. \
 If you want to use the examples from datasets, please refer to the later 'PredftExampleSource' section.""",
                                          description_type="markdown")
-    PredftExampleSource: Union[FromPreUpload,
-                        # FromDatahub,
-                         FromDatasets] = Field(title="Predft Example source",
-                                                      discriminator="type",
-                                                      description="Please choose the example source.")
                          
 class PredftExampleSet(BaseModel):                         
     PredftExample: String = Field(default="*",title="Predft Examples",description = "You can choose to run only partial examples of PredftExampleSource, and separate each example with space. \
@@ -127,11 +106,6 @@ class RundftExampleSourceSet(BaseModel):
                                          description="""A compressed file contains all example folders. For each folder is one example, and containing all the required files. \
 If you want to use the examples from datasets, please refer to the later 'RundftExampleSource' section.""",
                                          description_type="markdown")
-    RundftExampleSource: Union[FromPreUpload,
-                        # FromDatahub,
-                         FromDatasets] = Field(title="Rundft Example source",
-                                                      discriminator="type",
-                                                      description="Please choose the example source.")
                          
 class RundftExampleSet(BaseModel):                         
     RundftExample: String = Field(default="*",title="Rundft Examples",description = "You can choose to run only partial examples of RundftExampleSource, and separate each example with space. \
@@ -146,11 +120,6 @@ class PostdftExampleSourceSet(BaseModel):
                                          description="""A compressed file contains all required files in post dft. \
 If you want to use the examples from datasets, please refer to the later 'PostdftExampleSource' section.""",
                                          description_type="markdown")
-    PostdftExampleSource: Union[FromPreUpload,
-                        # FromDatahub,
-                         FromDatasets] = Field(title="Postdft example source",
-                                                      discriminator="type",
-                                                      description="Please choose the example source.")
 
 class PostdftExampleSet(BaseModel):                         
     PostdftExample: String = Field(default="*",title="Postdft examples",description = "You can choose to use only partial files of PostdftExampleSource, and separate each file or folder with space. \
@@ -163,13 +132,6 @@ class PrepareExtraFileSet(BaseModel):
                                                   st_kwargs_type=comm_func.unpack(
                                                       None, None, get_support_filetype=True),
                                                   description="""If some extra files that will be used for each newly created examples, you can upload the compressed file here.""")
-    PrepareExtraFile: Union[
-        NotRquired,
-        FromPreUpload,
-       # FromDatahub,
-        FromDatasets] = Field(title="Prepare Extra File Source",
-                              discriminator="type",
-                              description="Please choose the extra file source.")
         
 class PrepareExtraFileNeededSet(BaseModel):        
     PrepareExtraFile_needed_files: String = Field(default=None,
@@ -184,13 +146,6 @@ class PredftExtraFileSet(BaseModel):
                                                  st_kwargs_type=comm_func.unpack(
                                                      None, None, get_support_filetype=True),
                                                  description="""If you need some extra files that may be used in predft, you can upload the compressed file here.""")
-    PredftExtraFile: Union[
-        NotRquired,
-        FromPreUpload,
-    #    FromDatahub,
-        FromDatasets] = Field(title="Predft Extra File Source",
-                             discriminator="type",
-                             description="Please choose the extra file source.")
 
 class PredftExtraFileNeededSet(BaseModel):        
     PredftExtraFile_needed_files: String = Field(default=None,
@@ -206,13 +161,6 @@ class RundftExtraFileSet(BaseModel):
                                                  st_kwargs_type=comm_func.unpack(
                                                      None, None, get_support_filetype=True),
                                                  description="""If you need some extra files that may be used in rundft, you can upload the compressed file here.""")
-    RundftExtraFile: Union[
-        NotRquired,
-        FromPreUpload,
-    #    FromDatahub,
-        FromDatasets] = Field(title="Rundft Extra File Source",
-                             discriminator="type",
-                             description="Please choose the extra file source.")
         
 class RundftExtraFileNeededSet(BaseModel):        
     RundftExtraFile_needed_files: String = Field(default=None,
@@ -228,13 +176,6 @@ class PostdftExtraFileSet(BaseModel):
                                                   st_kwargs_type=comm_func.unpack(
                                                       None, None, get_support_filetype=True),
                                                   description="""If you need some extra files that may be used in postdft, you can upload the compressed file here.""")
-    PostdftExtraFile: Union[
-        NotRquired,
-        FromPreUpload,
-    #    FromDatahub,
-        FromDatasets] = Field(title="Postdft Extra File Source",
-                             discriminator="type",
-                             description="Please choose the extra file source.")
 
 class PostdftExtraFileNeededSet(BaseModel):        
     PostdftExtraFile_needed_files: String = Field(default=None,
@@ -260,23 +201,7 @@ def parse_source(example_source,upload_path,download_path,configs: comm_class.Co
                 logs(f"ERROR: The example file ({upload_path.get_path()}) is not valid!")
                 logs(f"\tPlease check the example file!")
                 return None
-    #elif isinstance(example_source, FromDatahub):
-    #    try:
-    #        dataset = comm_func.get_datahub_dataset(configs.Config_lbg_username,
-    #                                                configs.Config_lbg_password,
-    #                                                configs.Config_project_id,
-    #                                                example_source.urn)
-    #        if dataset == None:
-    #            logs(f"ERROR: The datahub urn ({example_source.urn}) is not valid!")
-    #            logs(f"\tPlease check the datahub urn, and ensure that your Bohrium project ID has permission to access this data!")
-    #            return None
-    #    except:
-    #        traceback.print_exc()
-    #        return None
     elif isinstance(example_source, FromDatasets):
-        #if example_source.dataset_unrecorded != None and example_source.dataset_unrecorded.strip() != "":
-        #    url = example_source.dataset_unrecorded.strip()
-        #else:
         url = DataSetsEnum.GetAddress(example_source.dataset)
         
         try:
@@ -337,54 +262,54 @@ def copy_download_to_work(download_path,work_path,needed_files):
     return alldirectories,allfiles
 
 def download_source(opts,
-                    example_source_name, 
                     example_source_local_name,
                     example_name,
                     work_path,
                     download_path,
                     dataset_work_path,
                     logs,):
-    # if opts has example_source_name, download the example_source to download_path, and copy the example_source to work_path
-    # else if has dataset_work_path, copy the dataset_work_path to work_path
+    '''
+    example_source_name: choose where to get the example source
+    example_source_local_name: the local path of the example source (in IO class to upload source from local)
+    example_name: a string to define which files will be used.
+    dataset_work_path: if use dataset as source
+    
+    Only support two types:
+        1. Not use dataset, and only need example_source_local_name.
+            If example_source_local_name is None, return None, else unpack the example_source_local_name to download_path,
+            and then find all_files and all_directories in download_path. Then copy allfiles to work_path.
+        2. Use dataset, and only need example_name.
+            now will check dataset_work_path, if it is not None, will copy the example_name to work_path
+    '''
     all_files = all_directories = None
-    has_source = False
-    logs(f"read {example_source_name} setting ...")
-    if hasattr(opts,example_source_name):
-        logs(f"\t{example_source_name}:",getattr(opts,example_source_name))
-        logs(f"\t{example_source_local_name}:",getattr(opts,example_source_local_name))
-        
-        has_source = parse_source(
-            getattr(opts,example_source_name),
-            getattr(opts,example_source_local_name),download_path,opts,logs)
-        if has_source == None:
-            return None,None
-        
-    if hasattr(opts,example_name):
-        if getattr(opts,example_name):
-            logs(f"\t{example_name}:",getattr(opts,example_name))
-            if has_source:
-                all_directories, all_files = copy_download_to_work(
-                    download_path, work_path,getattr(opts,example_name))
-                comm_func.clean_dictorys(download_path)
-            elif dataset_work_path != None:
-                all_directories, all_files = copy_download_to_work(
-                    dataset_work_path, work_path, getattr(opts,example_name))
-
+    
+    logs(f"read {example_name} setting ...")
+    if example_source_local_name and hasattr(opts,example_source_local_name) and getattr(opts,example_source_local_name) != None:
+        local_file_path = getattr(opts,example_source_local_name).get_path()
+        logs(f"\t{example_source_local_name}:",local_file_path)
+        comm_func.unpack(local_file_path, download_path)
+        all_directories, all_files = copy_download_to_work(
+            download_path, work_path,"*")
+        comm_func.clean_dictorys(download_path)
+        return all_directories,all_files
+    elif dataset_work_path and example_name != None and hasattr(opts,example_name):
+        need_files = getattr(opts,example_name)
+        if need_files != None and need_files.strip() != "":
+            logs(f"\t{example_name}:",need_files)
+            all_directories, all_files = copy_download_to_work(
+                dataset_work_path, work_path,need_files.strip())
+            return all_directories,all_files
     return all_directories,all_files
 
 def get_dataset_work_path(opts):
-    dataset_work_path = None
-    if hasattr(opts,"dataset") and hasattr(opts,"dataset_work_path"):
-        try:
-            dataset_path = opts.dataset.get_full_path()
-            if dataset_path:
-                if opts.dataset_work_path:
-                    dataset_work_path = os.path.join(dataset_path,opts.dataset_work_path.strip())
-                else:
-                    dataset_work_path = dataset_path
-        except:
-            traceback.print_exc()
-    return dataset_work_path
+    if hasattr(opts,"dataset"):
+        if opts.dataset.get_full_path():
+            dataset_work_path = opts.dataset.get_full_path()
+            if os.path.isdir(dataset_work_path):
+                return dataset_work_path
+            elif os.path.isfile(dataset_work_path):
+                return os.path.dirname(dataset_work_path)
+    return None
     
 def read_source(opts,work_path,download_path,logs=None):
     # read setting in opts, and dowload example/rundft_extrafile/postdft_extrafile to downlaod path
@@ -401,7 +326,6 @@ def read_source(opts,work_path,download_path,logs=None):
     
     #read example source
     all_directories, all_files = download_source(opts,
-                                                 "ExampleSource",
                                                  "ExampleSource_local",
                                                  "Example",
                                                  work_path,
@@ -412,7 +336,6 @@ def read_source(opts,work_path,download_path,logs=None):
     
     #read prepare example source
     all_directories, all_files = download_source(opts,
-                                                 "PrepareExampleSource",
                                                  "PrepareExampleSource_local",
                                                  "PrepareExample",
                                                  work_path,
@@ -423,7 +346,6 @@ def read_source(opts,work_path,download_path,logs=None):
             
     #read predft example source
     all_directories, all_files = download_source(opts,
-                                                 "PredftExampleSource",
                                                  "PredftExampleSource_local",
                                                  "PredftExample",
                                                  work_path,
@@ -434,7 +356,6 @@ def read_source(opts,work_path,download_path,logs=None):
            
     #read rundft example source
     all_directories, all_files = download_source(opts,
-                                                 "RundftExampleSource",
                                                  "RundftExampleSource_local",
                                                  "RundftExample",
                                                  work_path,
@@ -445,7 +366,6 @@ def read_source(opts,work_path,download_path,logs=None):
    
     #read postdft example source
     all_directories, all_files = download_source(opts,
-                                                 "PostdftExampleSource",
                                                  "PostdftExampleSource_local",
                                                  "PostdftExample",
                                                  work_path,
@@ -456,7 +376,6 @@ def read_source(opts,work_path,download_path,logs=None):
 
     #read prepare extra files
     all_directories, all_files = download_source(opts,
-                                                 "PrepareExtraFile",
                                                  "PrepareExtraFile_local",
                                                  "PrepareExtraFile_needed_files",
                                                  work_path,
@@ -467,7 +386,6 @@ def read_source(opts,work_path,download_path,logs=None):
         
     #read predft extra files
     all_directories, all_files = download_source(opts,
-                                                 "PredftExtraFile",
                                                  "PredftExtraFile_local",
                                                  "PredftExtraFile_needed_files",
                                                  work_path,
@@ -478,7 +396,6 @@ def read_source(opts,work_path,download_path,logs=None):
         
     #read rundft extra files
     all_directories, all_files = download_source(opts,
-                                                 "RundftExtraFile",
                                                  "RundftExtraFile_local",
                                                  "RundftExtraFile_needed_files",
                                                  work_path,
@@ -489,7 +406,6 @@ def read_source(opts,work_path,download_path,logs=None):
     
     #read postdft extra files
     all_directories, all_files = download_source(opts,
-                                                 "PostdftExtraFile",
                                                  "PostdftExtraFile_local",
                                                  "PostdftExtraFile_needed_files",
                                                  work_path,

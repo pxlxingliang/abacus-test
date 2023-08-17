@@ -102,11 +102,32 @@ An example is like:
     - `save_file`: the file name to store the values of metrics, which is a json file type.
     - `newmethods`: if the self-defined methods is needed, please add the file name (generally is a .py file) in `extra_files` and the module name (generally is file name without .py) in here.Detail of newmethods please see [2.3 import self-defined methods](#2.3 import self-defined methods).
   - `outputs`: specify which files and folders will be downloaded. If set to be "[]", all of the files in the folder will be downloaded.\
+  - `dispatcher`: if you need to use other platform (not Bohrium), you can delete key `bohrium` and add a key `dispatcher`, which is a dict, like:
+    ```
+    "dispatcher": {
+                "machine_dict": {
+                    "remote_root": "/home/username/abacustest_work",   # Here is a path where the username can access
+                    "remote_profile": {
+                        "hostname": "xxx.xx.xxx.xxx",
+                        "username": "Username",         
+                        "password": "password",
+                        "port": 22
+                    }
+                },
+                "resources_dict": {
+                    "number_node": 1,
+                    "cpu_per_node": 8,
+                    "gpu_per_node": 1,
+                    "queue_name": "Normal"
+                }
+            }
+    ```
+    If you do not need gpu, then you should delete key `gpu_per_node`.
 
 - `post_dft`: define the detail of post processing, and now all examples will be put at one same place. The key are same as those in `run_dft`, but no need the definition of example. 
 
 
-### 1.3 submit a test
+### 1.2 submit a test
 ```
 abacustest submit -p job.json -s result/test
 ```

@@ -88,6 +88,16 @@ def WriteParamUserFile(storefolder=None,override=False):
     for k,v in globV.get_value("PARAM_CONTEXT").items():
         if k in ["config"]:
             continue
+        
+        # hide the config information in dispatcher
+        if isinstance(v,dict):
+            if "dispatcher" in v:
+                comm.hide_config_in_dispatcher(v["dispatcher"])
+        elif isinstance(v,list):
+            for i in range(len(v)):
+                if isinstance(v[i],dict):
+                    if "dispatcher" in v[i]:
+                        comm.hide_config_in_dispatcher(v[i]["dispatcher"])
         save_cotext[k] = v
     json.dump(save_cotext,open(paraf,'w'),indent=4)
     #with open(paraf,'w') as f1: f1.write(globV.get_value("PARAM_CONTEXT")) 

@@ -23,6 +23,7 @@ from enum import Enum
 from typing import Literal
 import re
 
+from . import comm_class
 
 class Image(BaseModel):
     type: Literal["Local Image"]
@@ -49,7 +50,8 @@ class ImageBohrium(BaseModel):
 
 class PostdftImageSet(BaseModel):
     postdft_image_set: Union[Image,
-                     ImageBohrium] = Field(discriminator="type",
+                     ImageBohrium,
+                     comm_class.ImageDispatcher] = Field(discriminator="type",
                                            description="IMAGE and MACHINE used in POST DFT")
 
 class PostdftCommandSet(BaseModel):
@@ -73,6 +75,8 @@ def parse_image_set(image_set):
         return {
             "image": image_set.image
         }
+    elif isinstance(image_set, comm_class.ImageDispatcher):
+        return comm_class.ImageDispatcher.construct_dispatcher(image_set)
     else:
         raise ValueError(f"Unknown image set type: {type(image_set)}")
 
@@ -95,11 +99,14 @@ def construct_input(datas,opts,logs):
         
     #read postdft image
     if hasattr(opts,"postdft_image_set"):
-        logs.iprint("\timage:",opts.postdft_image_set.image)
-        for k,v in parse_image_set(opts.postdft_image_set).items():
+        image_set = parse_image_set(opts.postdft_image_set)   
+        logs.iprint("\timage:",image_set.get("image",""))
+        for k,v in image_set.items():
             post_dft[k] = v
-        if "bohrium" in post_dft:
+        if "bohrium" in post_dft:   
             logs.iprint("\tbohrium:",post_dft["bohrium"])
+        elif "dispatcher" in post_dft:
+            logs.iprint("\tdispatcher:",post_dft["dispatcher"]["resources_dict"])
     
     #read postdft command
     if hasattr(opts,"postdft_command"): 

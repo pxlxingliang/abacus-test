@@ -128,9 +128,65 @@ def ProduceExecutor(param,group_name="abacustesting"):
                 }
             )
             return executor,bohrium_set
+    elif "dispatcher" in param and param["dispatcher"]:
+        '''
+        host: remote host
+        queue_name: queue name
+        port: SSH port
+        username: username
+        private_key_file: private key file for SSH
+        image: image for dispatcher
+        command: command for dispatcher
+        remote_command: command for running the script remotely
+        map_tmp_dir: map /tmp to ./tmp
+        machine_dict: machine config for dispatcher
+        resources_dict: resources config for dispatcher
+        task_dict: task config for dispatcher
+        json_file: JSON file containing machine and resources config
+        '''
+        
+        dispatcher_executor = DispatcherExecutor(
+            host = param["dispatcher"].get("host",None),
+            queue_name = param["dispatcher"].get("queue_name",None),
+            port = param["dispatcher"].get("port",22),
+            username = param["dispatcher"].get("username","root"),
+            private_key_file = param["dispatcher"].get("private_key_file",None),
+        #    image = image,
+        #    command = command,
+        #    remote_command = remote_command,
+        #    map_tmp_dir = map_tmp_dir,
+            machine_dict = param["dispatcher"].get("machine_dict",None),
+            resources_dict = param["dispatcher"].get("resources_dict",None),
+            task_dict = param["dispatcher"].get("task_dict",None),
+            json_file = param["dispatcher"].get("json_file",None)
+            )
+        import copy
+        tmp_param = copy.deepcopy(param["dispatcher"])
+        hide_config_in_dispatcher(tmp_param)
+        return dispatcher_executor,tmp_param
     else:
         return None,None
-    
+
+def hide_config_in_dispatcher(tmp_param):
+    # tmp_param is the value of dispatcher
+    if "host" in tmp_param:
+        tmp_param["host"] = "******"
+    if "username" in tmp_param:
+        tmp_param["username"] = "******"
+    if "port" in tmp_param:
+        tmp_param["port"] = "******"
+    if "private_key_file" in tmp_param:
+        tmp_param["private_key_file"] = "******"
+    if "machine_dict" in tmp_param and "remote_profile" in tmp_param["machine_dict"]:
+        if "hostname" in tmp_param["machine_dict"]["remote_profile"]:
+            tmp_param["machine_dict"]["remote_profile"]["hostname"] = "******"
+        if "username" in tmp_param["machine_dict"]["remote_profile"]:
+            tmp_param["machine_dict"]["remote_profile"]["username"] = "******"
+        if "password" in tmp_param["machine_dict"]["remote_profile"]:
+            tmp_param["machine_dict"]["remote_profile"]["password"] = "******"
+        if "port" in tmp_param["machine_dict"]["remote_profile"]:
+            tmp_param["machine_dict"]["remote_profile"]["port"] = "******"
+
 def FindLocalExamples_new(example,only_folder=False,oneartifact=False):
     from dflow import upload_artifact
     #use glob.glob find all examples, and transfer to artifact
