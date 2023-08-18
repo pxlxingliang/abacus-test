@@ -1,57 +1,69 @@
-import json,os,sys,subprocess,glob,shutil,select
+import json
+import os
+import sys
+import subprocess
+import glob
+import shutil
+import select
 import traceback
 from . import comm_echarts
 from dp.metadata import MetadataContext
 from dp.metadata.utils.storage import TiefblueStorageClient
-from dflow import download_artifact,S3Artifact,config,s3_config
+from dflow import download_artifact, S3Artifact, config, s3_config
 from dflow.plugins import bohrium
 from dflow.plugins.bohrium import TiefblueClient
 
 
 def create_path(output_path):
-    work_path = "abacustest" #os.path.join(output_path,"abacustest")
-    download_path = "abacustest_download" #os.path.join(output_path,"abacustest_download")
-    for ipath in [output_path,work_path,download_path]:
-        os.makedirs(ipath,exist_ok=True)
+    work_path = "abacustest"  # os.path.join(output_path,"abacustest")
+    # os.path.join(output_path,"abacustest_download")
+    download_path = "abacustest_download"
+    for ipath in [output_path, work_path, download_path]:
+        os.makedirs(ipath, exist_ok=True)
     return {"output_path": os.path.abspath(output_path),
             "work_path": os.path.abspath(work_path),
             "download_path": os.path.abspath(download_path)}
 
+
 def register_dflow(private_set):
-    config["host"] = private_set.get("dflow_host","").strip()  
-    s3_config["endpoint"] =  private_set.get("dflow_s3_config_endpoint","").strip()
-    config["k8s_api_server"] = private_set.get("dflow_k8s_api_server","").strip()
-    config["token"] = private_set.get("dflow_token","").strip()
-    bohrium.config["username"] = private_set.get('bohrium_username','')
+    config["host"] = private_set.get("dflow_host", "").strip()
+    s3_config["endpoint"] = private_set.get(
+        "dflow_s3_config_endpoint", "").strip()
+    config["k8s_api_server"] = private_set.get(
+        "dflow_k8s_api_server", "").strip()
+    config["token"] = private_set.get("dflow_token", "").strip()
+    bohrium.config["username"] = private_set.get('bohrium_username', '')
    # bohrium.config["password"] = private_set.get('bohrium_password','')
-    bohrium.config["ticket"] = private_set.get('bohrium_ticket','')
-    bohrium.config["project_id"] = private_set.get('bohrium_project_id','')
+    bohrium.config["ticket"] = private_set.get('bohrium_ticket', '')
+    bohrium.config["project_id"] = private_set.get('bohrium_project_id', '')
     s3_config["repo_key"] = "oss-bohrium"
     s3_config["storage_client"] = TiefblueClient()
 
+
 def read_config(opts):
-    #parse config
-    CONFIG_KEYS=["bohrium_username","bohrium_password","bohrium_ticket","bohrium_project_id",
-                 "dflow_host","dflow_s3_config_endpoint","dflow_k8s_api_server","dflow_token",
-                 "aim_access_token","dflow_labels"]
+    # parse config
+    CONFIG_KEYS = ["bohrium_username", "bohrium_password", "bohrium_ticket", "bohrium_project_id",
+                   "dflow_host", "dflow_s3_config_endpoint", "dflow_k8s_api_server", "dflow_token",
+                   "aim_access_token", "dflow_labels"]
     my_config = {}
     for ikey in CONFIG_KEYS:
         config_key = "Config_" + ikey
-        if hasattr(opts,config_key):
+        if hasattr(opts, config_key):
             if ikey == "dflow_labels":
-                my_config[ikey] = getattr(opts,config_key)
-            elif getattr(opts,config_key).strip():
-                my_config[ikey] = getattr(opts,config_key).strip()
+                my_config[ikey] = getattr(opts, config_key)
+            elif getattr(opts, config_key).strip():
+                my_config[ikey] = getattr(opts, config_key).strip()
     register_dflow(my_config)
     return my_config
 
+
 def run_command(
         cmd,
-        shell = True
+        shell=True
 ):
     process = subprocess.Popen(
-        cmd, 
-        stdout=subprocess.PIPE, 
+        cmd,
+        stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=shell,
         executable='/bin/bash'
@@ -60,7 +72,8 @@ def run_command(
     err = ""
     while True:
         # 监视stdout和stderr文件描述符的可读状态
-        readable, _, _ = select.select([process.stdout, process.stderr], [], [])
+        readable, _, _ = select.select(
+            [process.stdout, process.stderr], [], [])
 
         # 读取已经准备好的输出
         for fd in readable:
@@ -79,10 +92,11 @@ def run_command(
             break
     return return_code, out, err
 
-def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.json"):
-    #work_path: to run abacustest
-    #ouput_path: the write the report files
-    #write param.json
+
+def exec_abacustest(allparams, work_path, command="abacustest submit -p param.json"):
+    # work_path: to run abacustest
+    # ouput_path: the write the report files
+    # write param.json
     import copy
     params = copy.deepcopy(allparams)
     '''
@@ -90,11 +104,11 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
         for ik,iv in params["config"].items():
             os.environ[ik.upper()] = str(iv)
         del params["config"]
-    '''    
+    '''
     json.dump(params,
               open(os.path.join(work_path, "param.json"), 'w'),
               indent=4)
-    
+
     cwd = os.getcwd()
     os.chdir(work_path)
 
@@ -114,279 +128,352 @@ def exec_abacustest(allparams,work_path,command = "abacustest submit -p param.js
     parser = argparse.ArgumentParser(description="abacustest")
     subparser = parser.add_subparsers(dest="command")
     abatest.AbacusTestArgs(subparser.add_parser("submit"))
-    parser = parser.parse_args(["submit","-p","param.json"])
+    parser = parser.parse_args(["submit", "-p", "param.json"])
     abatest.abacustest(parser)
-    
-    os.chdir(cwd)
-    stdout,stderr = "",""     
-    return stdout,stderr
 
-def produce_metrics(metric_file,output_path,report_titile="metrics"):
+    os.chdir(cwd)
+    stdout, stderr = "", ""
+    return stdout, stderr
+
+
+def produce_metrics(metric_file, output_path, report_titile="metrics"):
     from abacustest import outresult
     import pandas as pd
-    from dp.launching.report import Report,AutoReportElement,ReportSection,ChartReportElement
-    
+    from dp.launching.report import Report, AutoReportElement, ReportSection, ChartReportElement
+
     metric_filename = os.path.split(metric_file)[-1]
     allresults = json.load(open(metric_file))
     csv_filename = os.path.splitext(metric_filename)[0] + ".csv"
-    _, _, savefile_names = outresult.pandas_out(allresults,os.path.join(output_path,csv_filename))
+    _, _, savefile_names = outresult.pandas_out(
+        allresults, os.path.join(output_path, csv_filename))
     report_elements = []
     for ifilename in savefile_names:
         ifilename = os.path.split(ifilename)[-1]
-        report_elements.append(AutoReportElement(title=os.path.splitext(ifilename)[0], path=ifilename,description=""))
-    
+        report_elements.append(AutoReportElement(
+            title=os.path.splitext(ifilename)[0], path=ifilename, description=""))
+
     chart_elements = []
-    #produce the Echarts option for each metric
+    # produce the Echarts option for each metric
     pddata = pd.DataFrame.from_dict(allresults)
-    example_name = pddata.columns.to_list() #get the column name
-    metric_name = pddata.index.to_list()  #get the row/index name
-    type_set = (int,float,type(None),bool)
+    example_name = pddata.columns.to_list()  # get the column name
+    metric_name = pddata.index.to_list()  # get the row/index name
+    type_set = (int, float, type(None), bool)
     for imetric in metric_name:
-        ivalue = pddata.loc[imetric,:].to_list()
-        if False not in [isinstance(i,type_set) for i in ivalue]:
-            options = comm_echarts.get_bar_option(imetric,example_name,ivalue)
+        ivalue = pddata.loc[imetric, :].to_list()
+        if False not in [isinstance(i, type_set) for i in ivalue]:
+            options = comm_echarts.get_bar_option(
+                imetric, example_name, ivalue)
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
             }
-            chart_elements.append(ChartReportElement(options=options,title=imetric))
-    
-    #produce some special case chart
+            chart_elements.append(ChartReportElement(
+                options=options, title=imetric))
+
+    # produce some special case chart
     # 1. if metrics has ecutwfc/kspacing and energy_per_atom, produce the ecutwfc vs energy_per_atom chart
-    print("metric name:",metric_name)
-    for x_name,y_name in [["INPUT/ecutwfc","energy_per_atom"],
-                          ["INPUT/kspacing","energy_per_atom"],
-                          ["INPUT/lcao_ecut","energy_per_atom"]]:
-        if x_name not in metric_name or y_name not in metric_name:
-            continue
-        
-        # the example name may be a/00000, a/00001, ..., b/00000, b/00001
-        # we need plot each chart for a, b, ...
-        # so we need to split the example name to get the prefix
-        # and then plot the chart for each prefix
-        all_x = pddata.loc[x_name,:].to_list()
-        all_y = pddata.loc[y_name,:].to_list()
-        
-        # check if only one x
-        if len(set(all_x)) <= 1:
-            continue
-        
-        print("x_name,y_name:",x_name,y_name)
-        all_prefix_list = [os.path.dirname(i) for i in example_name]
-        all_prefix_set = list(set(all_prefix_list))
-        all_basename_set = [os.path.basename(i) for i in example_name]
-        all_prefix_set.sort()
-        for iprefix in all_prefix_set:
-            # need to check the prefix is not empty
-            if not iprefix:
-                continue
-            
-            # need to check if has more than one basename
-            if all_prefix_list.count(iprefix) <= 1:
-                continue
-            #print("Check basename, iprefix:",iprefix)
-            # need to check the basename is 00000 format
-            basename_format_right = True
-            for i in range(len(all_prefix_list)):
-                if all_prefix_list[i] == iprefix:
-                    if not all_basename_set[i].isdigit():
-                        basename_format_right = False
-                        break
-            if not basename_format_right:
-                continue
-            
-            # prepare the data for the chart
-            x,y = [],[]
-            for i in range(len(all_prefix_list)):
-                if all_prefix_list[i] == iprefix:
-                    # need to check if the ecutwfc is None
-                    if all_x[i] == None:
-                        continue
-                    x.append(all_x[i])
-                    y.append(all_y[i])
-            # need shift the y to make the min value is 0
-            y_real = [i for i in y if i != None]
-            if len(y_real) == 0:
-                continue
-            if x_name == "INPUT/lcao_ecut":
-                min_e = y_real[-1]
-            else:
-                min_e = min(y_real)
-            y = [i if i == None else i-min_e for i in y]
-            x_type = "category"
-            #if x_name in ["INPUT/lcao_ecut"]:
-            #    x_type = "log"
-            options = comm_echarts.get_bar_option(f"{x_name} vs {y_name} ({iprefix})",
-                                                      x,y,x_type=x_type,y_type="value")
-            chart_elements.append(ChartReportElement(options=options,title=f"{x_name} vs {y_name} ({iprefix})"))
-    
+    print("metric name:", metric_name)
+    for x_name, y_name, y_type, shift_type in [
+        ["INPUT/ecutwfc", "energy_per_atom","value",1],
+        ["INPUT/kspacing", "energy_per_atom","value",1],
+        ["INPUT/lcao_ecut", "energy_per_atom","value",2]]:
+        '''
+        shift_type: the type to shift the y value
+        0: do not shift
+        1: shift to make the min value is 0
+        2: shift to make the last value is 0
+        '''
+        try:
+            chart_elements += plot_two_metrics(pddata,
+                                               x_name, y_name,
+                                               example_name,
+                                               x_type="category", y_type=y_type, shift_type=shift_type)
+        except:
+            traceback.print_exc()
+            print("Error: plot two metrics failed!", x_name, y_name)
+
     # if drho in metric_name, plot the drho
     # drho should be a list
     if "drho" in metric_name:
-        drho_list = pddata.loc["drho",:].to_list()
-        chart_elements += plot_drho(drho_list,example_name)
-    
-    
-    return report_elements,chart_elements
+        try:
+            drho_list = pddata.loc["drho", :].to_list()
+            chart_elements += plot_drho(drho_list, example_name)
+        except:
+            traceback.print_exc()
+            print("Error: plot drho failed!")
 
-def plot_drho(drho_input,example_input):
+    return report_elements, chart_elements
+
+
+def plot_two_metrics(pddata,
+                     x_name, y_name,
+                     example_name,
+                     x_type="category", y_type="value", shift_type=0):
+    '''
+    all_x: a list of x value
+    all_y: a list of y value
+    x_name: the name of x
+    y_name: the name of y
+    example_name: a list of example name
+    x_type: the type of x in echart  # now only support category
+    y_type: the type of y in echart
+    shift_type: the type to shift the y value
+        0: do not shift
+        1: shift to make the min value is 0
+        2: shift to make the last value is 0
+    '''
+    from dp.launching.report import ChartReportElement
+    x_type = "category"
+
+    if x_name not in pddata.index.to_list() or y_name not in pddata.index.to_list():
+        return []
+
+    print("x_name,y_name:", x_name, y_name)
+    all_x = pddata.loc[x_name, :].to_list()
+    all_y = pddata.loc[y_name, :].to_list()
+    chart_elements = []
+    if len(set(all_x)) <= 1:
+        return []
+
+    # the example name may be a/00000, a/00001, ..., b/00000, b/00001
+    # we need plot each chart for a, b, ...
+    # so we need to split the example name to get the prefix
+    # and then plot the chart for each prefix
+    # we need to plot the chart for all example that do not match the prefix/00000 format
+    # we will seperate the example to several parts: prefix/00000 and others
+    all_xy = {"": [[], [], f"{x_name} vs {y_name}"]}
+
+    # remove / in the end of the example_name
+    example_name = [i.rstrip("/") for i in example_name]
+    for i, ie in enumerate(example_name):
+        prefix = os.path.dirname(ie)
+        basename = os.path.basename(ie)
+        if basename.isdigit():
+            if prefix not in all_xy:
+                all_xy[prefix] = [[], [], f"{x_name} vs {y_name} ({prefix})"]
+            all_xy[prefix][0].append(all_x[i])
+            all_xy[prefix][1].append(all_y[i])
+        else:
+            all_xy[""][0].append(f"{all_x[i]}({prefix})")
+            all_xy[""][1].append(all_y[i])
+
+    # if one prefix only has one example, add the example to ""
+    for iprefix, ivalue in all_xy.items():
+        if len(ivalue[0]) == 1:
+            all_xy[""][0].append(f"{ivalue[0][0]}({iprefix})")
+            all_xy[""][1].append(ivalue[1][0])
+            del all_xy[iprefix]
+
+    # plot the chart for each prefix
+    for iprefix, ivalue in all_xy.items():
+        # if ivalues is empty or only one value, continue
+        if len(ivalue[0]) <= 1:
+            continue
+
+        x = ivalue[0]
+        y = ivalue[1]
+        title = ivalue[2]
+
+        # need sort the x and y
+        x, y = zip(*sorted(zip(x, y)))
+
+        # need shift the y
+        y_real = [i for i in y if i != None]
+        if len(y_real) == 0:
+            continue
+        if shift_type == 1:
+            min_e = min(y_real)
+            y = [i if i == None else i-min_e for i in y]
+        elif shift_type == 2:
+            min_e = y_real[-1]
+            y = [i if i == None else i-min_e for i in y]
+        options = comm_echarts.get_bar_option(title,
+                                              x, y, x_type=x_type, y_type=y_type)
+        chart_elements.append(ChartReportElement(options=options, title=title))
+    return chart_elements
+
+
+def plot_drho(drho_input, example_input):
     from dp.launching.report import ChartReportElement
     # drho_input: a list of drho of all examples
     # example_input: a list of example name
     # return a list of ChartReportElement
-    
+
     chart_report = []
-    #only plot drho if drho is not None
+    # only plot drho if drho is not None
     drho_list = []
     example_name = []
     for i in range(len(drho_input)):
-        if isinstance(drho_input[i],list):
+        if isinstance(drho_input[i], list):
             drho_list.append(drho_input[i])
             example_name.append(example_input[i])
     if len(drho_list) == 0:
         return []
-    
+
     # sort the example_name and drho_list
-    example_name,drho_list = zip(*sorted(zip(example_name,drho_list)))
+    example_name, drho_list = zip(*sorted(zip(example_name, drho_list)))
     max_example_in_one_chart = 10
     all_data = []
-    for i in range(0,len(example_name),max_example_in_one_chart):
-        end = i+max_example_in_one_chart if i+max_example_in_one_chart < len(example_name) else len(example_name)
-        all_data.append([example_name[i:end],drho_list[i:end]])
+    for i in range(0, len(example_name), max_example_in_one_chart):
+        end = i+max_example_in_one_chart if i + \
+            max_example_in_one_chart < len(example_name) else len(example_name)
+        all_data.append([example_name[i:end], drho_list[i:end]])
     idrho = 0
-    for legend,drho in all_data:
+    for legend, drho in all_data:
         x = [i+1 for i in range(max([len(j) for j in drho]))]
-        #print(x,drho,legend)
-        options = comm_echarts.produce_multiple_y(f"drho{idrho}",x,drho,legend,x_type="category",y_type="log")
-        chart_report.append(ChartReportElement(options=options,title=f"drho{idrho}"))
+        # print(x,drho,legend)
+        options = comm_echarts.produce_multiple_y(
+            f"drho{idrho}", x, drho, legend, x_type="category", y_type="log")
+        chart_report.append(ChartReportElement(
+            options=options, title=f"drho{idrho}"))
         idrho += 1
     return chart_report
-    
 
-def produce_supermetrics(supermetric_file,output_path,work_path, save_path,report_titile="supermetrics"):
+
+def produce_supermetrics(supermetric_file, output_path, work_path, save_path, report_titile="supermetrics"):
     import pandas as pd
-    from dp.launching.report import Report,AutoReportElement,ReportSection,ChartReportElement
-    
+    from dp.launching.report import Report, AutoReportElement, ReportSection, ChartReportElement
+
     supermetrics_filename = os.path.split(supermetric_file)[-1]
     super_metrics = json.load(open(supermetric_file))
     normal_metrics = {}
     special_metrics = {}
-    for ikey,ivalue in super_metrics.items():
-        if isinstance(ivalue,dict):
+    for ikey, ivalue in super_metrics.items():
+        if isinstance(ivalue, dict):
             special_metrics[ikey] = ivalue
         else:
             normal_metrics[ikey] = ivalue
-    
+
     report_element = None
     if normal_metrics:
-        pddata = pd.DataFrame(normal_metrics,index=[0])
+        pddata = pd.DataFrame(normal_metrics, index=[0])
         print(pddata)
         csv_filename = os.path.splitext(supermetrics_filename)[0] + ".csv"
-        pddata.to_csv(os.path.join(output_path,csv_filename),index=False)
-        report_element = AutoReportElement(title=report_titile, path=csv_filename,description="")
-    
-    special_section = None   
-    special_elements = [] 
+        pddata.to_csv(os.path.join(output_path, csv_filename), index=False)
+        report_element = AutoReportElement(
+            title=report_titile, path=csv_filename, description="")
+
+    special_section = None
+    special_elements = []
     if special_metrics:
-        for ikey,ivalue in special_metrics.items():
-            file_name = ivalue.get("file",None)
+        for ikey, ivalue in special_metrics.items():
+            file_name = ivalue.get("file", None)
             if file_name:
-                ifile_name = os.path.join(work_path,save_path,file_name)
+                ifile_name = os.path.join(work_path, save_path, file_name)
                 if os.path.isfile(ifile_name):
-                    special_elements.append(AutoReportElement(title=ikey, path=os.path.join(save_path,file_name),description=""))
-                    
+                    special_elements.append(AutoReportElement(
+                        title=ikey, path=os.path.join(save_path, file_name), description=""))
+
     if special_elements:
-        special_section = ReportSection(title=report_titile,elements=special_elements)
-        
-    return report_element,special_section
+        special_section = ReportSection(
+            title=report_titile, elements=special_elements)
 
-def produce_metrics_superMetrics_reports(allparams,work_path,output_path):
-    from dp.launching.report import Report,AutoReportElement,ReportSection,ChartReportElement
+    return report_element, special_section
 
-    save_path = allparams.get("save_path","result")
+
+def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
+    from dp.launching.report import Report, AutoReportElement, ReportSection, ChartReportElement
+
+    save_path = allparams.get("save_path", "result")
     reports = []
     allmetrics_files = []
     allsupermetrics_files = []
-    
-    #produce the metrics reports
+
+    # produce the metrics reports
     # 1. metrics from the custome defined metrics file
-    customized_metrics_filename = allparams.get("post_dft",{}).get("metrics",{}).get("value_from_file",None)
+    customized_metrics_filename = allparams.get("post_dft", {}).get(
+        "metrics", {}).get("value_from_file", None)
     if customized_metrics_filename:
-        allmetrics_files.append(os.path.join(work_path,save_path,customized_metrics_filename)) 
-    
+        allmetrics_files.append(os.path.join(
+            work_path, save_path, customized_metrics_filename))
+
     # 2. metrics from the metrics file
-    metric_filename = allparams.get("post_dft",{}).get("metrics",{}).get("save_file")
+    metric_filename = allparams.get("post_dft", {}).get(
+        "metrics", {}).get("save_file")
     if metric_filename:
-        allmetrics_files.append(os.path.join(work_path,save_path,metric_filename))
-    
+        allmetrics_files.append(os.path.join(
+            work_path, save_path, metric_filename))
+
     # 3. metrics from the undefined metrics file
-    allmetrics_files += glob.glob(os.path.join(work_path,save_path,"metric*.json"))
+    allmetrics_files += glob.glob(os.path.join(work_path,
+                                  save_path, "metric*.json"))
     metrics_report = []
     metrics_chart_elements = []
-    for metric_file in list(set(allmetrics_files)): 
+    for metric_file in list(set(allmetrics_files)):
         try:
             metric_filename = os.path.split(metric_file)[-1]
-            tmp_report_elements,tmp_chart_elements = produce_metrics(metric_file,output_path,report_titile=metric_filename)
+            tmp_report_elements, tmp_chart_elements = produce_metrics(
+                metric_file, output_path, report_titile=metric_filename)
             if tmp_report_elements:
                 metrics_report += tmp_report_elements
             if tmp_chart_elements:
                 metrics_chart_elements += tmp_chart_elements
         except:
             traceback.print_exc()
-            print(f"Error: report metrics from file \"{metric_file}\" failed!") 
-    
-    #produce the supermetrics reports
-    # 1. supermetrics from the custome defined supermetrics file        
-    super_metric_filename = allparams.get("post_dft",{}).get("super_metrics",[{}])[0].get("save_file")
+            print(f"Error: report metrics from file \"{metric_file}\" failed!")
+
+    # produce the supermetrics reports
+    # 1. supermetrics from the custome defined supermetrics file
+    super_metric_filename = allparams.get("post_dft", {}).get(
+        "super_metrics", [{}])[0].get("save_file")
     if super_metric_filename:
-        allsupermetrics_files.append(os.path.join(work_path,save_path,super_metric_filename))
-    
+        allsupermetrics_files.append(os.path.join(
+            work_path, save_path, super_metric_filename))
+
     # 2. supermetrics from the supermetrics file
-    customized_super_metrics_filename = allparams.get("post_dft",{}).get("super_metrics",[{}])[0].get("value_from_file",None)
+    customized_super_metrics_filename = allparams.get("post_dft", {}).get(
+        "super_metrics", [{}])[0].get("value_from_file", None)
     if customized_super_metrics_filename:
-        allsupermetrics_files.append(os.path.join(work_path,save_path,customized_super_metrics_filename))   
-    
+        allsupermetrics_files.append(os.path.join(
+            work_path, save_path, customized_super_metrics_filename))
+
     # 3. supermetrics from the undefined supermetrics file
-    allsupermetrics_files += glob.glob(os.path.join(work_path,save_path,"superMetric*.json")) + \
-                             glob.glob(os.path.join(work_path,save_path,"super_metric*.json")) + \
-                             glob.glob(os.path.join(work_path,save_path,"supermetric*.json"))
+    allsupermetrics_files += glob.glob(os.path.join(work_path, save_path, "superMetric*.json")) + \
+        glob.glob(os.path.join(work_path, save_path, "super_metric*.json")) + \
+        glob.glob(os.path.join(work_path, save_path, "supermetric*.json"))
     supermetrics_report = []
     supermetrics_special_section = []
     for super_metric_file in list(set(allsupermetrics_files)):
         try:
             super_metric_filename = os.path.split(super_metric_file)[-1]
-            tmp_report_element,tmp_special_section = produce_supermetrics(super_metric_file,output_path,work_path,save_path,report_titile=super_metric_filename)
+            tmp_report_element, tmp_special_section = produce_supermetrics(
+                super_metric_file, output_path, work_path, save_path, report_titile=super_metric_filename)
             if tmp_report_element:
                 supermetrics_report.append(tmp_report_element)
             if tmp_special_section:
                 supermetrics_special_section.append(tmp_special_section)
         except:
             traceback.print_exc()
-            print(f"Error: report supermetrics from file \"{super_metric_file}\" failed!")
-    
-    #produce the report
+            print(
+                f"Error: report supermetrics from file \"{super_metric_file}\" failed!")
+
+    # produce the report
     # 1. metrics report
     if metrics_report:
-        reports.append(ReportSection(title="metrics",elements=metrics_report,ncols=1))
-    
+        reports.append(ReportSection(title="metrics",
+                       elements=metrics_report, ncols=1))
+
     # 2. supermetrics report
     if supermetrics_report:
-        reports.append(ReportSection(title="supermetrics",elements=supermetrics_report,ncols=1))
-        
+        reports.append(ReportSection(title="supermetrics",
+                       elements=supermetrics_report, ncols=1))
+
     # 3. metrics chart
     if metrics_chart_elements:
-        reports.append(ReportSection(title="metrics chart",elements=metrics_chart_elements,ncols=2))
-        
+        reports.append(ReportSection(title="metrics chart",
+                       elements=metrics_chart_elements, ncols=2))
+
     # 4. supermetrics special section
     if supermetrics_special_section:
         for i in supermetrics_special_section:
             reports.append(i)
- 
+
     return reports
+
 
 def produce_html_table(table):
     content = "<table border=\"2px\">"
-    for i,it in enumerate(table):
+    for i, it in enumerate(table):
         if i == 0:
             content += "<thead>"
         else:
@@ -394,7 +481,8 @@ def produce_html_table(table):
 
         content += "<tr>"
         if len(it) == 1:
-            content += f"<td colspan=\"{len(table[0])}\">" + str(it[0]) + "</td>"
+            content += f"<td colspan=\"{len(table[0])}\">" + \
+                str(it[0]) + "</td>"
         else:
             for j in it:
                 content += "<td>" + str(j) + "</td>"
@@ -407,36 +495,42 @@ def produce_html_table(table):
     content += "</table>"
     return content
 
-def get_datahub_dataset(bohrium_username,bohrium_password,bohrium_project,urn,download_path=None):
-    metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password,bohrium_project)
+
+def get_datahub_dataset(bohrium_username, bohrium_password, bohrium_project, urn, download_path=None):
+    metadata_storage_client = TiefblueStorageClient(
+        bohrium_username, bohrium_password, bohrium_project)
     with MetadataContext(storage_client=metadata_storage_client) as context:
         dataset = context.client.get_dataset(urn)
-        #print(dataset,dataset.uri)
+        # print(dataset,dataset.uri)
         if dataset != None and download_path != None:
-            #context.client.download_dataset(dataset,download_path)
+            # context.client.download_dataset(dataset,download_path)
             artifact = S3Artifact(key=dataset.uri)
-            download_artifact(artifact,path=download_path)
+            download_artifact(artifact, path=download_path)
         return dataset
 
-def unpack(filepath, output_path, filetype = None, get_support_filetype = False):
+
+def unpack(filepath, output_path, filetype=None, get_support_filetype=False):
     # if file type is not supportted, just copy the file to output_path
     if get_support_filetype:
-        return ["zip","tar","gz","bz2","tgz"]
-    
-    import zipfile,tarfile,gzip,bz2
+        return ["zip", "tar", "gz", "bz2", "tgz"]
+
+    import zipfile
+    import tarfile
+    import gzip
+    import bz2
 
     if not os.path.isfile(filepath):
         raise Exception("File %s not exists!" % filepath)
-    
+
     if not os.path.isdir(output_path):
-        os.makedirs(output_path,exist_ok=True)
+        os.makedirs(output_path, exist_ok=True)
 
     if filetype == None:
         if filepath.endswith(".tar.gz"):
             filetype = "tgz"
         else:
             filetype = os.path.splitext(filepath)[1][1:]
- 
+
     if filetype == "zip":
         with zipfile.ZipFile(filepath, 'r') as zip_ref:
             zip_ref.extractall(output_path)
@@ -457,21 +551,22 @@ def unpack(filepath, output_path, filetype = None, get_support_filetype = False)
     else:
         print("File type \'%s\' is not supported!" % filetype)
         filename = os.path.split(filepath)[-1]
-        if os.path.isfile(os.path.join(output_path,filename)):
-            os.remove(os.path.join(output_path,filename))
-        shutil.copyfile(filepath,os.path.join(output_path,filename))
-    
-    print("Unpack %s to %s" % (filepath,output_path))
+        if os.path.isfile(os.path.join(output_path, filename)):
+            os.remove(os.path.join(output_path, filename))
+        shutil.copyfile(filepath, os.path.join(output_path, filename))
+
+    print("Unpack %s to %s" % (filepath, output_path))
     return output_path
 
-def pack(packfile_list,packfile_name,pack_type="zip"):
+
+def pack(packfile_list, packfile_name, pack_type="zip"):
     if pack_type == "zip":
         import zipfile
         with zipfile.ZipFile(packfile_name, 'w') as zip_ref:
             for ifile in packfile_list:
-                for root,__,ifile in os.walk(ifile):
+                for root, __, ifile in os.walk(ifile):
                     for i in ifile:
-                        zip_ref.write(os.path.join(root,i))
+                        zip_ref.write(os.path.join(root, i))
     elif pack_type == "tar":
         import tarfile
         with tarfile.open(packfile_name, "w") as tar_ref:
@@ -503,8 +598,8 @@ def download_url(url, output_path="./"):
     response = requests.get(url, stream=True)
     if response.status_code == 200:
         if not os.path.isdir(output_path):
-            os.makedirs(output_path,exist_ok=True)
-        filename = os.path.join(output_path,url.split("/")[-1])
+            os.makedirs(output_path, exist_ok=True)
+        filename = os.path.join(output_path, url.split("/")[-1])
         with open(filename, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
@@ -514,17 +609,20 @@ def download_url(url, output_path="./"):
         print(f"dwonload ({url}) failed, status code:", response.status_code)
         return None
 
+
 def clean_dictorys(ipath):
-    for ifile in glob.glob(os.path.join(ipath,"*")):
+    for ifile in glob.glob(os.path.join(ipath, "*")):
         if os.path.isdir(ifile):
             shutil.rmtree(ifile)
         else:
             os.remove(ifile)
 
-def move_results_to_output(work_path,output_path,result_folder):
-    target_result_folder = os.path.join(output_path,result_folder)
+
+def move_results_to_output(work_path, output_path, result_folder):
+    target_result_folder = os.path.join(output_path, result_folder)
     n = 1
     while os.path.isdir(target_result_folder):
-        target_result_folder = os.path.join(output_path,result_folder + "_" + str(n))
+        target_result_folder = os.path.join(
+            output_path, result_folder + "_" + str(n))
         n += 1
-    shutil.move(os.path.join(work_path,result_folder),target_result_folder)
+    shutil.move(os.path.join(work_path, result_folder), target_result_folder)
