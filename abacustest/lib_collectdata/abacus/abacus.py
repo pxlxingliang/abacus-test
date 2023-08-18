@@ -205,40 +205,50 @@ class Abacus(ResultAbacus):
             self['band_gap'] = None
             return
         
+        nband = self['nbands']  
+        if self["ibzk"] != None:    
+            nk = self['ibzk']
+        elif self["nkstot"] != None:
+            nk = self["nkstot"]
+        else:
+            nk = None
+            
+        if nband == None or nk == None:
+            ErrorReturn("no nbands or ibzk")
+            return
+                
         band_gap = None
         for i,line in enumerate(self.LOG):
             if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
-                nband = self['nbands']
-                nk = self['ibzk']
-                if nband == None or nk == None:
-                    ErrorReturn("no nbands or ibzk")
-
                 nspin = int(line.split()[-1])
                 if nspin not in [1,2]:
                     ErrorReturn("NOT SUPPORT FOR NSPIN=%d now" % nspin)
+                    return
 
-                totalcb = -999999
-                totalvb = 999999
+                totalcb = None
+                totalvb = None
                 for ispin in range(nspin):
-                    cb = -999999
-                    vb = 999999
+                    cb = None
+                    vb = None
                     fermi = self['efermi']
                     if fermi == None:
                         ErrorReturn("can not get efermi")
+                        return
 
                     for k in range(nk):
                         for m in range(nband):
                             ni = ((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + m + 1 + i
                             eband = float(self.LOG[ni].split()[1])
                             if eband > fermi:
-                                if eband < vb:
+                                if vb == None or eband < vb:
                                     vb = eband
-                                if float(self.LOG[ni-1].split()[1]) > cb:
+                                if cb == None or float(self.LOG[ni-1].split()[1]) > cb:
                                     cb = float(self.LOG[ni-1].split()[1])
                                 break
-                    if totalcb < cb: totalcb = cb
-                    if totalvb > vb: totalvb = vb
-                band_gap = totalvb-totalcb
+                    if totalcb == None or (cb != None and totalcb < cb): totalcb = cb
+                    if totalvb == None or (vb != None and totalvb > vb): totalvb = vb
+                band_gap = None if totalvb == None or totalcb == None else totalvb-totalcb
+                break
                 
         self['band_gap'] = band_gap
 
