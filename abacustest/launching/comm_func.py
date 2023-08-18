@@ -155,7 +155,8 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
     # 1. if metrics has ecutwfc/kspacing and energy_per_atom, produce the ecutwfc vs energy_per_atom chart
     print("metric name:",metric_name)
     for x_name,y_name in [["INPUT/ecutwfc","energy_per_atom"],
-                          ["INPUT/kspacing","energy_per_atom"]]:
+                          ["INPUT/kspacing","energy_per_atom"],
+                          ["INPUT/lcao_ecut","energy_per_atom"]]:
         if x_name not in metric_name or y_name not in metric_name:
             continue
         
@@ -207,10 +208,16 @@ def produce_metrics(metric_file,output_path,report_titile="metrics"):
             y_real = [i for i in y if i != None]
             if len(y_real) == 0:
                 continue
-            min_e = min(y_real)
+            if x_name == "INPUT/lcao_ecut":
+                min_e = y_real[-1]
+            else:
+                min_e = min(y_real)
             y = [i if i == None else i-min_e for i in y]
+            x_type = "category"
+            #if x_name in ["INPUT/lcao_ecut"]:
+            #    x_type = "log"
             options = comm_echarts.get_bar_option(f"{x_name} vs {y_name} ({iprefix})",
-                                                      x,y,x_type="category",y_type="value")
+                                                      x,y,x_type=x_type,y_type="value")
             chart_elements.append(ChartReportElement(options=options,title=f"{x_name} vs {y_name} ({iprefix})"))
     
     # if drho in metric_name, plot the drho

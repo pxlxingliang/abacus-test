@@ -16,6 +16,7 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric4_1 = 'INPUT:ks_solver'
     AbacusMetric_metric4_2 = 'INPUT:ecutwfc'
     AbacusMetric_metric4_3 = 'INPUT:kspacing'
+    AbacusMetric_metric4_4 = 'INPUT:lcao_ecut'
     AbacusMetric_metric5 = 'kpt'
     AbacusMetric_metric6 = 'nbands'
     AbacusMetric_metric7 = 'converge'
