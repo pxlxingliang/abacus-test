@@ -82,7 +82,7 @@ If you want to use the examples from datasets, please refer to the later 'Prepar
 
 class PrepareExampleSet(BaseModel):                         
     PrepareExample: String = Field(default="*",title="Prepare Examples",description = "You can choose to run only partial examples of PrepareExampleSource, and separate each example with space. \
-Tips: you can use regex to select examples. For example: example_00[1-5]* example_[6,7,8]*. If you want to run all examples, please type '*'.")     
+Tips: you can use regex to select examples. For example: example_00[1-5]* example_[6,7,8]*. If you want to run all examples, please enter '*'.")     
 
 class PredftExampleSourceSet(BaseModel):
     PredftExampleSource_local: InputFilePath = Field(default=None,
@@ -283,17 +283,21 @@ def download_source(opts,
     '''
     all_files = all_directories = None
     
+    need_files = None
+    if example_name != None and hasattr(opts,example_name):
+        need_files = getattr(opts,example_name)
+    
     logs(f"read {example_name} setting ...")
     if example_source_local_name and hasattr(opts,example_source_local_name) and getattr(opts,example_source_local_name) != None:
+        if need_files == None: need_files = "*" 
         local_file_path = getattr(opts,example_source_local_name).get_path()
         logs(f"\t{example_source_local_name}:",local_file_path)
         comm_func.unpack(local_file_path, download_path)
         all_directories, all_files = copy_download_to_work(
-            download_path, work_path,"*")
+            download_path, work_path,need_files)
         comm_func.clean_dictorys(download_path)
         return all_directories,all_files
-    elif dataset_work_path and example_name != None and hasattr(opts,example_name):
-        need_files = getattr(opts,example_name)
+    elif dataset_work_path:
         if need_files != None and need_files.strip() != "":
             logs(f"\t{example_name}:",need_files)
             all_directories, all_files = copy_download_to_work(
