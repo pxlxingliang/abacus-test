@@ -247,7 +247,8 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
     for x_name, y_name, y_type, shift_type in [
         ["INPUT/ecutwfc", "energy_per_atom","value",1],
         ["INPUT/kspacing", "energy_per_atom","value",1],
-        ["INPUT/lcao_ecut", "energy_per_atom","log",2]]:
+        ["INPUT/lcao_ecut", "energy_per_atom","log",2],
+        ["INPUT/lcao_ecut", "band_gap","value",0]]:
         '''
         shift_type: the type to shift the y value
         0: do not shift
