@@ -135,14 +135,66 @@ def exec_abacustest(allparams, work_path, command="abacustest submit -p param.js
     stdout, stderr = "", ""
     return stdout, stderr
 
+def add_ref(allresults, ref_data):
+    # allresults: the metrics data
+    # ref_data: the reference data
+    # return the metrics data with reference data
+    # allresults = {"example1":{"metric1":value1,"metric2":value2,...},"example2":{"metric1":value1,"metric2":value2,...},...}
+    # ref_data = {"ref1":{"example1":{"metric1":value1,"metric2":value2,...},"example2":{"metric1":value1,"metric2":value2,...},...},"ref2":{"example1":{"metric1":value1,"metric2":value2,...},"example2":{"metric1":value1,"metric2":value2,...},...},...}
+    # 1. the reference metrics wiil be named as "<metrics>_ref_<name of reference>"
+    # 2. if example/metrics in ref_data is not in allresults, the ref will not be added
+    # 3. if example in ref_data is a father path of example in allresults, the ref will be added
 
-def produce_metrics(metric_file, output_path, report_titile="metrics"):
+    # get the example name
+    example_name = list(allresults.keys())
+    
+    # get the metrics name
+    metric_name = []
+    for ivalue in allresults.values():
+        metric_name += list(ivalue.keys())
+    metric_name = list(set(metric_name))
+    
+    # get the reference name
+    ref_name = list(ref_data.keys())
+    # get the metric_name in ref_data
+    ref_metric_name = []
+    for iref in ref_name:
+        for imetric in ref_data[iref].values():
+            ref_metric_name += list(imetric.keys())
+    #only metrics in metric_name will be added
+    print(ref_name,ref_metric_name,metric_name)
+    ref_metric_name = list(set(ref_metric_name) & set(metric_name))
+    
+    # if ref_metric_name is empty, return
+    if len(ref_metric_name) == 0:
+        return allresults,[]
+    
+    new_results = {}
+    for ikey,ivalue in allresults.items():
+        new_results[ikey] = ivalue.copy()
+        
+        for iref in ref_name:
+            # check if ikey in ref_data[iref]
+            if ikey in ref_data[iref]:
+                for imetric in ref_metric_name:
+                    new_results[ikey][f"{imetric}_ref_{iref}"] = ref_data[iref][ikey].get(imetric,None)
+            else:
+                # check if path in iref is a father path of ikey
+                for iref_example in ref_data[iref]:
+                    if ikey.startswith(iref_example):
+                        for imetric in ref_metric_name:
+                            new_results[ikey][f"{imetric}_ref_{iref}"] = ref_data[iref][iref_example].get(imetric,None)
+                        break
+    return new_results,[f"{imetric}_ref_{iref}" for imetric in ref_metric_name for iref in ref_name]   
+
+def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metrics"):
     from abacustest import outresult
     import pandas as pd
     from dp.launching.report import Report, AutoReportElement, ReportSection, ChartReportElement
 
     metric_filename = os.path.split(metric_file)[-1]
     allresults = json.load(open(metric_file))
+    allresults,ref_metric_name = add_ref(allresults, ref_data)
     csv_filename = os.path.splitext(metric_filename)[0] + ".csv"
     _, _, savefile_names = outresult.pandas_out(
         allresults, os.path.join(output_path, csv_filename))
@@ -158,17 +210,36 @@ def produce_metrics(metric_file, output_path, report_titile="metrics"):
     example_name = pddata.columns.to_list()  # get the column name
     metric_name = pddata.index.to_list()  # get the row/index name
     type_set = (int, float, type(None), bool)
+    print("ref_metric_name",ref_metric_name)
     for imetric in metric_name:
+        if imetric in ref_metric_name:
+            continue
         ivalue = pddata.loc[imetric, :].to_list()
         if False not in [isinstance(i, type_set) for i in ivalue]:
-            options = comm_echarts.get_bar_option(
-                imetric, example_name, ivalue)
+            #check if imetric has refence
+            ref_type = []
+            for iref_metric in ref_metric_name:
+                if iref_metric.startswith(f"{imetric}_ref_"):
+                    ref_type.append(iref_metric.split("_ref_")[-1])
+                    
+            # if imetric has refence, we need to plot the imetric and its reference together
+            # we need to split the imetric to imetric and its reference
+            # comm_echarts.produce_multiple_y(produce_multiple_y(title,x,y_list,legend_list,x_type="category",y_type="value")
+            y_list = [ivalue]
+            legend_list = [imetric]
+            for iref in ref_type:
+                if f"{imetric}_ref_{iref}" in metric_name:
+                    y_list.append(pddata.loc[f"{imetric}_ref_{iref}", :].to_list())
+                    legend_list.append(f"{imetric}_ref_{iref}")
+            print(y_list,legend_list)
+            options = comm_echarts.produce_multiple_y(imetric, example_name, y_list, legend_list, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
-                "rotate": 15,
-                "interval": int(len(example_name)/15)
-            }
+                    "rotate": 15,
+                    "interval": int(len(example_name)/15)
+                } 
             chart_elements.append(ChartReportElement(
-                options=options, title=imetric))
+                    options=options, title=imetric))
+                
 
     # produce some special case chart
     # 1. if metrics has ecutwfc/kspacing and energy_per_atom, produce the ecutwfc vs energy_per_atom chart
@@ -176,7 +247,7 @@ def produce_metrics(metric_file, output_path, report_titile="metrics"):
     for x_name, y_name, y_type, shift_type in [
         ["INPUT/ecutwfc", "energy_per_atom","value",1],
         ["INPUT/kspacing", "energy_per_atom","value",1],
-        ["INPUT/lcao_ecut", "energy_per_atom","value",2]]:
+        ["INPUT/lcao_ecut", "energy_per_atom","log",2]]:
         '''
         shift_type: the type to shift the y value
         0: do not shift
@@ -187,6 +258,7 @@ def produce_metrics(metric_file, output_path, report_titile="metrics"):
             chart_elements += plot_two_metrics(pddata,
                                                x_name, y_name,
                                                example_name,
+                                               ref_metric_name,
                                                x_type="category", y_type=y_type, shift_type=shift_type)
         except:
             traceback.print_exc()
@@ -208,19 +280,23 @@ def produce_metrics(metric_file, output_path, report_titile="metrics"):
 def plot_two_metrics(pddata,
                      x_name, y_name,
                      example_name,
+                     ref_metric_name=[],
                      x_type="category", y_type="value", shift_type=0):
     '''
-    all_x: a list of x value
-    all_y: a list of y value
+    pddata: the pandas data
+    ref_metric_name: the reference metric name
     x_name: the name of x
     y_name: the name of y
     example_name: a list of example name
     x_type: the type of x in echart  # now only support category
     y_type: the type of y in echart
     shift_type: the type to shift the y value
+        -1: has reference, will minus the reference value
         0: do not shift
         1: shift to make the min value is 0
         2: shift to make the last value is 0
+    if has reference, all value will minus the reference value
+    if has multiple reference, will minus each reference, and set shift_type to -1
     '''
     from dp.launching.report import ChartReportElement
     x_type = "category"
@@ -228,6 +304,15 @@ def plot_two_metrics(pddata,
     if x_name not in pddata.index.to_list() or y_name not in pddata.index.to_list():
         return []
 
+    # check if has reference, only chech for y_name
+    ref_names = []
+    ref_values = []
+    for imetric in ref_metric_name:
+        if imetric.startswith(f"{y_name}_ref_") and imetric in pddata.index.to_list():
+            ref_names.append(imetric.split("_ref_")[-1])
+            ref_values.append(pddata.loc[imetric, :].to_list())
+            shift_type = -1
+    
     print("x_name,y_name:", x_name, y_name)
     all_x = pddata.loc[x_name, :].to_list()
     all_y = pddata.loc[y_name, :].to_list()
@@ -241,7 +326,9 @@ def plot_two_metrics(pddata,
     # and then plot the chart for each prefix
     # we need to plot the chart for all example that do not match the prefix/00000 format
     # we will seperate the example to several parts: prefix/00000 and others
-    all_xy = {"": [[], [], f"{x_name} vs {y_name}"]}
+    all_xy = {"": [[], [], f"{x_name} VS {y_name}"]}
+    for i in range(len(ref_names)): 
+        all_xy[""].append([])  # add a new list for each reference
 
     # remove / in the end of the example_name
     example_name = [i.rstrip("/") for i in example_name]
@@ -251,17 +338,25 @@ def plot_two_metrics(pddata,
         if basename.isdigit():
             if prefix not in all_xy:
                 all_xy[prefix] = [[], [], f"{x_name} vs {y_name} ({prefix})"]
+                for iref in range(len(ref_names)):
+                    all_xy[prefix].append([])
             all_xy[prefix][0].append(all_x[i])
             all_xy[prefix][1].append(all_y[i])
+            for iref in range(len(ref_names)):
+                all_xy[prefix][iref+3].append(ref_values[iref][i])
         else:
             all_xy[""][0].append(f"{all_x[i]}({prefix})")
             all_xy[""][1].append(all_y[i])
+            for iref in range(len(ref_names)):
+                all_xy[""][iref+3].append(ref_values[iref][i])
 
     # if one prefix only has one example, add the example to ""
     for iprefix, ivalue in all_xy.items():
         if len(ivalue[0]) == 1:
             all_xy[""][0].append(f"{ivalue[0][0]}({iprefix})")
             all_xy[""][1].append(ivalue[1][0])
+            for iref in range(len(ref_names)):
+                all_xy[""][iref+3].append(ivalue[iref+3][0])
             del all_xy[iprefix]
 
     # plot the chart for each prefix
@@ -271,25 +366,53 @@ def plot_two_metrics(pddata,
             continue
 
         x = ivalue[0]
-        y = ivalue[1]
-        title = ivalue[2]
+        y = [ivalue[1]]
+        for iref in range(len(ref_names)):
+            y.append(ivalue[iref+3])
+        title_full = title = ivalue[2]
 
         # need sort the x and y
-        x, y = zip(*sorted(zip(x, y)))
+        new_x = []
+        new_y = [[] for i in range(len(y))]
+        for ii in sorted(zip(x,*tuple(y))):
+            new_x.append(ii[0])
+            for ij,jj in enumerate(ii[1:]):
+                new_y[ij].append(jj)
+        x = new_x
+        y = new_y
+        #x, y = zip(*sorted(zip(x, y)))
 
         # need shift the y
-        y_real = [i for i in y if i != None]
+        y_real = [i for i in y[0] if i != None]  # get the none-none value of y[0]
         if len(y_real) == 0:
             continue
+        legend = [y_name]
         if shift_type == 1:
+            title_full = title_full + " (minus the minimum)"
             min_e = min(y_real)
-            y = [i if i == None else i-min_e for i in y]
+            y = [[i if i == None else i-min_e for i in y[0]]]
         elif shift_type == 2:
+            title_full = title_full + " (minus the last value)"
             min_e = y_real[-1]
-            y = [i if i == None else i-min_e for i in y]
-        options = comm_echarts.get_bar_option(title,
-                                              x, y, x_type=x_type, y_type=y_type)
-        chart_elements.append(ChartReportElement(options=options, title=title))
+            y = [[i if i == None else i-min_e for i in y[0]]]
+        elif shift_type == -1:
+            title_full = title_full + f" (minus the reference)"
+            new_y = [[] for i in range(len(y)-1)]
+            for iy in range(len(y[0])):
+                for iy2 in range(len(y)-1):
+                    if y[0][iy] != None and y[iy2+1][iy] != None:
+                        new_y[iy2].append(y[0][iy]-y[iy2+1][iy])
+                    else:
+                        new_y[iy2].append(None) 
+            y = new_y
+            legend = [f"ref_{i}" for i in ref_names]
+        if y_type == "log":
+            title_full = title_full + " (abs(delta_y))"
+                
+        options =comm_echarts.produce_multiple_y(
+            title, x, y, legend, x_type=x_type, y_type=y_type)
+        
+        chart_elements.append(ChartReportElement(options=options, title=title_full))
     return chart_elements
 
 
@@ -397,13 +520,49 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     # 3. metrics from the undefined metrics file
     allmetrics_files += glob.glob(os.path.join(work_path,
                                   save_path, "metric*.json"))
+    
+    # 4. support the compare with reference, the reference file name shuold be "metrics_ref.json"
+    # we need to find the reference file and get the reference metrics.
+    # the format of the reference file is the same as the metrics file
+    # or the key is the name of reference, and the value is the metrics
+    # the reference metrics wiil be named as "<metrics>_ref_<name of reference>"
+    # we first read the reference file and get the reference metrics, and save to a dict
+    # if the ref file is metrics format, then the refence name will be ""
+    ref_data = {}
+    ref_file = os.path.join(work_path, save_path, "metrics_ref.json")
+    if os.path.isfile(ref_file):
+        ref_metrics = json.load(open(ref_file))
+        # need to check if the reference metrics is a dict of dict of dict
+        format_ok = True
+        Three_layer = True
+        if isinstance(ref_metrics, dict):
+            for ikey, ivalue in ref_metrics.items():
+                if not isinstance(ivalue, dict):
+                    format_ok = False
+                    break
+                if Three_layer:
+                    for jkey, jvalue in ivalue.items():
+                        if not isinstance(jvalue, dict):
+                            Three_layer = False
+                            break
+        else:
+            format_ok = False
+        if format_ok:
+            if Three_layer:
+                ref_data = ref_metrics
+            else:
+                ref_data = {"": ref_metrics}
+                
+        if ref_file in allmetrics_files:
+            allmetrics_files.remove(ref_file)
+        
     metrics_report = []
     metrics_chart_elements = []
     for metric_file in list(set(allmetrics_files)):
         try:
             metric_filename = os.path.split(metric_file)[-1]
             tmp_report_elements, tmp_chart_elements = produce_metrics(
-                metric_file, output_path, report_titile=metric_filename)
+                metric_file, output_path, ref_data=ref_data,report_titile=metric_filename)
             if tmp_report_elements:
                 metrics_report += tmp_report_elements
             if tmp_chart_elements:
