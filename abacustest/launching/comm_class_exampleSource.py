@@ -274,12 +274,13 @@ def download_source(opts,
     example_name: a string to define which files will be used.
     dataset_work_path: if use dataset as source
     
-    Only support two types:
+    Support both two types:
         1. Not use dataset, and only need example_source_local_name.
             If example_source_local_name is None, return None, else unpack the example_source_local_name to download_path,
             and then find all_files and all_directories in download_path. Then copy allfiles to work_path.
         2. Use dataset, and only need example_name.
             now will check dataset_work_path, if it is not None, will copy the example_name to work_path
+    Will firstly copy files from dataset, and the copy files from example_source_local_name
     '''
     all_files = all_directories = None
     
@@ -288,21 +289,31 @@ def download_source(opts,
         need_files = getattr(opts,example_name)
     
     logs(f"read {example_name} setting ...")
+    if dataset_work_path:
+        if need_files != None and need_files.strip() != "":
+            logs(f"\t{example_name}:",need_files)
+            all_directories, all_files = copy_download_to_work(
+                dataset_work_path, work_path,need_files.strip())
+    
     if example_source_local_name and hasattr(opts,example_source_local_name) and getattr(opts,example_source_local_name) != None:
         if need_files == None: need_files = "*" 
         local_file_path = getattr(opts,example_source_local_name).get_path()
         logs(f"\t{example_source_local_name}:",local_file_path)
         comm_func.unpack(local_file_path, download_path)
-        all_directories, all_files = copy_download_to_work(
+        all_directories_tmp, all_files_tmp = copy_download_to_work(
             download_path, work_path,need_files)
         comm_func.clean_dictorys(download_path)
-        return all_directories,all_files
-    elif dataset_work_path:
-        if need_files != None and need_files.strip() != "":
-            logs(f"\t{example_name}:",need_files)
-            all_directories, all_files = copy_download_to_work(
-                dataset_work_path, work_path,need_files.strip())
-            return all_directories,all_files
+        if all_directories_tmp:
+            if all_directories == None:
+                all_directories = all_directories_tmp
+            else:
+                all_directories.extend(list(set(all_directories_tmp)-set(all_directories)))
+        if all_files_tmp:
+            if all_files == None:
+                all_files = all_files_tmp
+            else:
+                all_files.extend(list(set(all_files_tmp)-set(all_files)))
+    
     return all_directories,all_files
 
 def get_dataset_work_path(opts):
