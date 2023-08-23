@@ -230,7 +230,7 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
             for iref in ref_type:
                 if f"{imetric}_ref_{iref}" in metric_name:
                     y_list.append(pddata.loc[f"{imetric}_ref_{iref}", :].to_list())
-                    legend_list.append(f"{imetric}_ref_{iref}")
+                    legend_list.append(f"ref_{iref}")
             print(y_list,legend_list)
             options = comm_echarts.produce_multiple_y(imetric, example_name, y_list, legend_list, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
@@ -240,26 +240,50 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
             chart_elements.append(ChartReportElement(
                     options=options, title=imetric))
             
-            # plot the delta Y
+            # plot the delta Y and percentage delta Y
             if len(ref_type) > 0:
                 delta_y_list = []
-                delta_legend_list = legend_list[1:]
+                percentage_delta_y_list = []
+                delta_legend_list1 = []
+                delta_legend_list2 = []
                 for iy in range(1,len(y_list)):
                     # need to check if the two value can do minus
-                    delta_y_list.append([])
+                    values1 = []
+                    values2 = []
                     for i in range(len(y_list[iy])):
                         try:
-                            ivalue = y_list[iy][i] - y_list[0][i]
+                            ivalue = y_list[0][i] - y_list[iy][i]                     
                         except:
                             ivalue = None
-                        delta_y_list[-1].append(ivalue)
-                options = comm_echarts.produce_multiple_y(f"{imetric}(Delta)", example_name, delta_y_list, delta_legend_list, x_type="category", y_type="value")
-                options["xAxis"][0]["axisLabel"] = {
-                    "rotate": 15,
-                    "interval": int(len(example_name)/15)
-                    } 
-                chart_elements.append(ChartReportElement(
-                        options=options, title=imetric))
+                        values1.append(ivalue)
+                        
+                        try:
+                            ivalue = (y_list[0][i] - y_list[iy][i])/y_list[iy][i]
+                        except:
+                            ivalue = None
+                        values2.append(ivalue)
+                    if set(values1) != {None}:
+                        delta_y_list.append(values1)
+                        delta_legend_list1.append(legend_list[iy])
+                    if set(values2) != {None}:
+                        percentage_delta_y_list.append(values2)
+                        delta_legend_list2.append(legend_list[iy])
+                if len(delta_y_list) > 0:  
+                    options = comm_echarts.produce_multiple_y(f"{imetric}(Delta = this job - reference)", example_name, delta_y_list, delta_legend_list1, x_type="category", y_type="value")
+                    options["xAxis"][0]["axisLabel"] = {
+                        "rotate": 15,
+                        "interval": int(len(example_name)/15)
+                        } 
+                    chart_elements.append(ChartReportElement(
+                            options=options, title=f"{imetric}(Delta = this job - reference)"))
+                if len(percentage_delta_y_list) > 0:
+                    options = comm_echarts.produce_multiple_y(f"{imetric}(Delta/Reference)", example_name, percentage_delta_y_list, delta_legend_list2, x_type="category", y_type="value")
+                    options["xAxis"][0]["axisLabel"] = {
+                        "rotate": 15,
+                        "interval": int(len(example_name)/15)
+                        } 
+                    chart_elements.append(ChartReportElement(
+                            options=options, title=f"{imetric}(Delta/Reference)"))
                     
                 
 
