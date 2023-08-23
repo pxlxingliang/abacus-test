@@ -470,10 +470,11 @@ def produce_supermetrics(supermetric_file, output_path, work_path, save_path, re
 
     report_element = None
     if normal_metrics:
-        pddata = pd.DataFrame(normal_metrics, index=[0])
-        print(pddata)
+        pddata = pd.DataFrame(normal_metrics, index=[0],)
+        t_pddata = pddata.transpose()
+        print(t_pddata)
         csv_filename = os.path.splitext(supermetrics_filename)[0] + ".csv"
-        pddata.to_csv(os.path.join(output_path, csv_filename), index=False)
+        t_pddata.to_csv(os.path.join(output_path, csv_filename), index=True, header=True)
         report_element = AutoReportElement(
             title=report_titile, path=csv_filename, description="")
 
