@@ -226,7 +226,7 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
             # we need to split the imetric to imetric and its reference
             # comm_echarts.produce_multiple_y(produce_multiple_y(title,x,y_list,legend_list,x_type="category",y_type="value")
             y_list = [ivalue]
-            legend_list = [imetric]
+            legend_list = ["This_Job"]
             for iref in ref_type:
                 if f"{imetric}_ref_{iref}" in metric_name:
                     y_list.append(pddata.loc[f"{imetric}_ref_{iref}", :].to_list())
@@ -253,7 +253,7 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
                         except:
                             ivalue = None
                         delta_y_list[-1].append(ivalue)
-                options = comm_echarts.produce_multiple_y(f"{imetric}_(delta)", example_name, delta_y_list, delta_legend_list, x_type="category", y_type="value")
+                options = comm_echarts.produce_multiple_y(f"{imetric}(Delta)", example_name, delta_y_list, delta_legend_list, x_type="category", y_type="value")
                 options["xAxis"][0]["axisLabel"] = {
                     "rotate": 15,
                     "interval": int(len(example_name)/15)
