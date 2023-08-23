@@ -239,6 +239,28 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
                 } 
             chart_elements.append(ChartReportElement(
                     options=options, title=imetric))
+            
+            # plot the delta Y
+            if len(ref_type) > 0:
+                delta_y_list = []
+                delta_legend_list = legend_list[1:]
+                for iy in range(1,len(y_list)):
+                    # need to check if the two value can do minus
+                    delta_y_list.append([])
+                    for i in range(len(y_list[iy])):
+                        try:
+                            ivalue = y_list[iy][i] - y_list[0][i]
+                        except:
+                            ivalue = None
+                        delta_y_list[-1].append(ivalue)
+                options = comm_echarts.produce_multiple_y(f"{imetric}_(delta)", example_name, delta_y_list, delta_legend_list, x_type="category", y_type="value")
+                options["xAxis"][0]["axisLabel"] = {
+                    "rotate": 15,
+                    "interval": int(len(example_name)/15)
+                    } 
+                chart_elements.append(ChartReportElement(
+                        options=options, title=imetric))
+                    
                 
 
     # produce some special case chart
