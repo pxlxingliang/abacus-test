@@ -443,7 +443,8 @@ def plot_two_metrics(pddata,
             min_e = y_real[-1]
             y = [[i if i == None else i-min_e for i in y[0]]]
         elif shift_type == -1:
-            title_full = title_full + f" (minus the reference)"
+            title_full = title_full + f" (minus reference)"
+            title += f" (minus reference)"
             new_y = [[] for i in range(len(y)-1)]
             for iy in range(len(y[0])):
                 for iy2 in range(len(y)-1):
