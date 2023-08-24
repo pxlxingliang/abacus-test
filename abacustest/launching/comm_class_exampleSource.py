@@ -318,15 +318,15 @@ def download_source(opts,
 
 def get_dataset_work_path(opts):
     if hasattr(opts,"dataset"):
-        try:
-            if opts.dataset.get_full_path():
+        if opts.dataset:
+            try:
                 dataset_work_path = opts.dataset.get_full_path()
                 if os.path.isdir(dataset_work_path):
                     return dataset_work_path
                 elif os.path.isfile(dataset_work_path):
                     return os.path.dirname(dataset_work_path)
-        except:
-            pass
+            except:
+                return None
     return None
     
 def read_source(opts,work_path,download_path,logs=None):
