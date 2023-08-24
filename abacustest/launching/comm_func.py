@@ -568,7 +568,7 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     # 3. metrics from the undefined metrics file
     allmetrics_files += glob.glob(os.path.join(work_path,
                                   save_path, "metric*.json"))
-    
+    allmetrics_files = list(set(allmetrics_files))
     # 4. support the compare with reference, the reference file name shuold be "metrics_ref.json"
     # we need to find the reference file and get the reference metrics.
     # the format of the reference file is the same as the metrics file
