@@ -15,8 +15,16 @@ class BdaAbacus(ResultAbacus):
         mag = tuple([{"tot":i} for i in self['atom_mag'][-1]])
         from ..comm_funcs.bda import BasicProperty
         output = BasicProperty(mag,None,None,Poscar(structure))
-        self["bda_mag_moment"] = output.magnetic_moment('TM')
-        self["bda_bond_length"] = output.bond_length()
+        mag = output.magnetic_moment('TM')
+        bond = output.bond_length()
+        if mag:
+            self["bda_mag_moment"] = mag
+        else:
+            self["bda_mag_moment"] = None
+        if bond:
+            self["bda_bond_length"] = bond
+        else: 
+            self["bda_bond_length"] = None
 
         
         
