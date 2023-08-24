@@ -6,13 +6,14 @@ import glob
 import shutil
 import select
 import traceback
+import copy
 from . import comm_echarts
 from dp.metadata import MetadataContext
 from dp.metadata.utils.storage import TiefblueStorageClient
 from dflow import download_artifact, S3Artifact, config, s3_config
 from dflow.plugins import bohrium
 from dflow.plugins.bohrium import TiefblueClient
-
+from dp.launching.report import Report, AutoReportElement, ReportSection, ChartReportElement
 
 def create_path(output_path):
     work_path = "abacustest"  # os.path.join(output_path,"abacustest")
@@ -97,7 +98,6 @@ def exec_abacustest(allparams, work_path, command="abacustest submit -p param.js
     # work_path: to run abacustest
     # ouput_path: the write the report files
     # write param.json
-    import copy
     params = copy.deepcopy(allparams)
     '''
     if "config" in params:
@@ -187,10 +187,149 @@ def add_ref(allresults, ref_data):
                         break
     return new_results,[f"{imetric}_ref_{iref}" for imetric in ref_metric_name for iref in ref_name]   
 
+def plot_delta_Y(y_list, legend_list, example_name, imetric):
+    # y_list is a list of list
+    # y_list = [[y1,y2,...],[y1,y2,...],...]
+    # return the delta y_list and percentage delta y_list
+    # the first list is the value of this job, and the other lists are the values of different reference
+    # length of y_list should be at least 2, and equal to length of legend_list
+    chart_elements = []
+    
+    def flat_list(list1):
+        new_list = []
+        for i in list1:
+            if isinstance(i,list):
+                new_list += flat_list(i)
+            else:
+                new_list.append(i)
+        return new_list
+    
+    # need to check if y_list[0] is a list of list
+    print(imetric)
+    if True in [isinstance(i,list) for i in y_list[0]]:
+        # if y_list[0] is a list of list, we need to plot the delta Y
+        #print(y_list)
+        new_y_list = copy.deepcopy(y_list)
+        # need to transfer each list to one dimension list
+        for iy in range(len(new_y_list)):
+            for iiy in range(len(new_y_list[iy])):
+                if isinstance(new_y_list[iy][iiy],list):
+                    new_y_list[iy][iiy] = flat_list(new_y_list[iy][iiy])
+        
+        #print("new_y_list",new_y_list)
+        #print(len(new_y_list),len(new_y_list[0]))
+        delta_y = []
+        for iy in range(1,len(new_y_list)): # loop for each reference
+            delta_y.append([])
+            for jy in range(len(new_y_list[0])): # loop for each example
+                if not isinstance(new_y_list[0][jy],list) or not isinstance(new_y_list[iy][jy],list) or len(new_y_list[0][jy]) != len(new_y_list[iy][jy]):
+                    #print(type(new_y_list[0][jy]),type(new_y_list[iy][jy]))
+                    delta_y[-1].append(None)
+                    continue
+                try:
+                    ivalue = [new_y_list[0][jy][i] - new_y_list[iy][jy][i] for i in range(len(new_y_list[0][jy]))]
+                    delta_y[-1].append(ivalue)
+                except:
+                    delta_y[-1].append(None)
+        # now we need to calculate some statistics
+        # 1. the max absolute value
+        # 2. the norm of delta_y
+        
+        max_abs = []
+        norm = []
+        legend_abs = []
+        legend_norm = []
+        for iy in range(len(delta_y)):# loop for each reference
+            iabs = []
+            inorm = []
+            for jy in range(len(delta_y[iy])):# loop for each example
+                if delta_y[iy][jy] == None:
+                    iabs.append(None)
+                    inorm.append(None)
+                    continue
+                try:
+                    ivalue = max([abs(i) for i in delta_y[iy][jy]])
+                except:
+                    ivalue = None
+                iabs.append(ivalue)
+                try:
+                    ivalue = sum([i**2 for i in delta_y[iy][jy]])**0.5
+                except:
+                    ivalue = None
+                inorm.append(ivalue)
+            if set(iabs) != {None}:
+                max_abs.append(iabs)
+                legend_abs.append(legend_list[iy+1])
+            if set(inorm) != {None}:
+                norm.append(inorm)
+                legend_norm.append(legend_list[iy+1])
+        
+        # plot max_abs and norm
+        if len(max_abs) > 0:
+            options = comm_echarts.produce_multiple_y(f"{imetric}(max(abs(this job - reference)))", example_name, max_abs, legend_abs, x_type="category", y_type="value")
+            options["xAxis"][0]["axisLabel"] = {
+                "rotate": 15,
+                "interval": int(len(example_name)/15)
+                } 
+            chart_elements.append(ChartReportElement(
+                    options=options, title=f"{imetric}(max(abs(this job - reference)))"))
+        if len(norm) > 0:
+            options = comm_echarts.produce_multiple_y(f"{imetric}(Norm(this job - reference))", example_name, norm, legend_norm, x_type="category", y_type="value")
+            options["xAxis"][0]["axisLabel"] = {
+                "rotate": 15,
+                "interval": int(len(example_name)/15)
+                } 
+            chart_elements.append(ChartReportElement(
+                    options=options, title=f"{imetric}(Norm(this job - reference))"))      
+    else:
+        delta_y_list = []
+        percentage_delta_y_list = []
+        delta_legend_list1 = []
+        delta_legend_list2 = []
+
+        for iy in range(1,len(y_list)):
+            # need to check if the two value can do minus
+            values1 = []
+            values2 = []
+            for i in range(len(y_list[iy])):
+                try:
+                    ivalue = y_list[0][i] - y_list[iy][i]                     
+                except:
+                    ivalue = None
+                values1.append(ivalue)
+
+                try:
+                    ivalue = (y_list[0][i] - y_list[iy][i])/y_list[iy][i]
+                except:
+                    ivalue = None
+                values2.append(ivalue)
+            if set(values1) != {None}:
+                delta_y_list.append(values1)
+                delta_legend_list1.append(legend_list[iy])
+            if set(values2) != {None}:
+                percentage_delta_y_list.append(values2)
+                delta_legend_list2.append(legend_list[iy])
+        if len(delta_y_list) > 0:  
+            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta = this job - reference)", example_name, delta_y_list, delta_legend_list1, x_type="category", y_type="value")
+            options["xAxis"][0]["axisLabel"] = {
+                "rotate": 15,
+                "interval": int(len(example_name)/15)
+                } 
+            chart_elements.append(ChartReportElement(
+                    options=options, title=f"{imetric}(Delta = this job - reference)"))
+        if len(percentage_delta_y_list) > 0:
+            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta/Reference)", example_name, percentage_delta_y_list, delta_legend_list2, x_type="category", y_type="value")
+            options["xAxis"][0]["axisLabel"] = {
+                "rotate": 15,
+                "interval": int(len(example_name)/15)
+                } 
+            chart_elements.append(ChartReportElement(
+                    options=options, title=f"{imetric}(Delta/Reference)"))
+    return chart_elements
+
 def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metrics"):
     from abacustest import outresult
     import pandas as pd
-    from dp.launching.report import Report, AutoReportElement, ReportSection, ChartReportElement
 
     metric_filename = os.path.split(metric_file)[-1]
     allresults = json.load(open(metric_file))
@@ -209,7 +348,7 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
     pddata = pd.DataFrame.from_dict(allresults)
     example_name = pddata.columns.to_list()  # get the column name
     metric_name = pddata.index.to_list()  # get the row/index name
-    type_set = (int, float, type(None), bool)
+    type_set = (int, float, type(None), bool,list)
     print("ref_metric_name",ref_metric_name)
     for imetric in metric_name:
         if imetric in ref_metric_name:
@@ -231,61 +370,28 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
                 if f"{imetric}_ref_{iref}" in metric_name:
                     y_list.append(pddata.loc[f"{imetric}_ref_{iref}", :].to_list())
                     legend_list.append(f"ref_{iref}")
-            print(y_list,legend_list)
-            options = comm_echarts.produce_multiple_y(imetric, example_name, y_list, legend_list, x_type="category", y_type="value")
-            options["xAxis"][0]["axisLabel"] = {
-                    "rotate": 15,
-                    "interval": int(len(example_name)/15)
-                } 
-            chart_elements.append(ChartReportElement(
-                    options=options, title=imetric))
-            
-            # plot the delta Y and percentage delta Y
-            if len(ref_type) > 0:
-                delta_y_list = []
-                percentage_delta_y_list = []
-                delta_legend_list1 = []
-                delta_legend_list2 = []
-                for iy in range(1,len(y_list)):
-                    # need to check if the two value can do minus
-                    values1 = []
-                    values2 = []
-                    for i in range(len(y_list[iy])):
-                        try:
-                            ivalue = y_list[0][i] - y_list[iy][i]                     
-                        except:
-                            ivalue = None
-                        values1.append(ivalue)
-                        
-                        try:
-                            ivalue = (y_list[0][i] - y_list[iy][i])/y_list[iy][i]
-                        except:
-                            ivalue = None
-                        values2.append(ivalue)
-                    if set(values1) != {None}:
-                        delta_y_list.append(values1)
-                        delta_legend_list1.append(legend_list[iy])
-                    if set(values2) != {None}:
-                        percentage_delta_y_list.append(values2)
-                        delta_legend_list2.append(legend_list[iy])
-                if len(delta_y_list) > 0:  
-                    options = comm_echarts.produce_multiple_y(f"{imetric}(Delta = this job - reference)", example_name, delta_y_list, delta_legend_list1, x_type="category", y_type="value")
-                    options["xAxis"][0]["axisLabel"] = {
-                        "rotate": 15,
-                        "interval": int(len(example_name)/15)
-                        } 
-                    chart_elements.append(ChartReportElement(
-                            options=options, title=f"{imetric}(Delta = this job - reference)"))
-                if len(percentage_delta_y_list) > 0:
-                    options = comm_echarts.produce_multiple_y(f"{imetric}(Delta/Reference)", example_name, percentage_delta_y_list, delta_legend_list2, x_type="category", y_type="value")
-                    options["xAxis"][0]["axisLabel"] = {
-                        "rotate": 15,
-                        "interval": int(len(example_name)/15)
-                        } 
-                    chart_elements.append(ChartReportElement(
-                            options=options, title=f"{imetric}(Delta/Reference)"))
                     
-                
+            if True not in [isinstance(i,list) for i in ivalue]:
+                # do not plot a list
+                #print(y_list,legend_list)
+                options = comm_echarts.produce_multiple_y(imetric, example_name, y_list, legend_list, x_type="category", y_type="value")
+                options["xAxis"][0]["axisLabel"] = {
+                        "rotate": 15,
+                        "interval": int(len(example_name)/15)
+                    } 
+                chart_elements.append(ChartReportElement(
+                        options=options, title=imetric))
+            
+            
+            if len(ref_type) > 0:
+                # plot the delta Y and percentage delta Y
+                try:
+                    delta_y_elements = plot_delta_Y(y_list, legend_list, example_name, imetric)
+                    chart_elements += delta_y_elements
+                except:
+                    traceback.print_exc()
+                    print("Error: plot delta Y failed!")
+                    
 
     # produce some special case chart
     # 1. if metrics has ecutwfc/kspacing and energy_per_atom, produce the ecutwfc vs energy_per_atom chart
@@ -345,7 +451,6 @@ def plot_two_metrics(pddata,
     if has reference, all value will minus the reference value
     if has multiple reference, will minus each reference, and set shift_type to -1
     '''
-    from dp.launching.report import ChartReportElement
     x_type = "category"
 
     if x_name not in pddata.index.to_list() or y_name not in pddata.index.to_list():
@@ -465,7 +570,6 @@ def plot_two_metrics(pddata,
 
 
 def plot_drho(drho_input, example_input):
-    from dp.launching.report import ChartReportElement
     # drho_input: a list of drho of all examples
     # example_input: a list of example name
     # return a list of ChartReportElement
@@ -503,7 +607,6 @@ def plot_drho(drho_input, example_input):
 
 def produce_supermetrics(supermetric_file, output_path, work_path, save_path, report_titile="supermetrics"):
     import pandas as pd
-    from dp.launching.report import Report, AutoReportElement, ReportSection, ChartReportElement
 
     supermetrics_filename = os.path.split(supermetric_file)[-1]
     super_metrics = json.load(open(supermetric_file))
@@ -544,7 +647,6 @@ def produce_supermetrics(supermetric_file, output_path, work_path, save_path, re
 
 
 def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
-    from dp.launching.report import Report, AutoReportElement, ReportSection, ChartReportElement
 
     save_path = allparams.get("save_path", "result")
     reports = []
@@ -834,3 +936,15 @@ def move_results_to_output(work_path, output_path, result_folder):
             output_path, result_folder + "_" + str(n))
         n += 1
     shutil.move(os.path.join(work_path, result_folder), target_result_folder)
+
+def pack_results(output_path,result_path):
+    cwd = os.getcwd()
+    os.chdir(os.path.join(output_path,result_path))
+    allfiles = os.listdir(".")
+    alldirs = []
+    for f in allfiles:
+        if os.path.isdir(f):
+            alldirs.append(f)
+    packed_file_name = "results.zip"
+    pack(alldirs,packed_file_name,"zip")
+    os.chdir(cwd)
