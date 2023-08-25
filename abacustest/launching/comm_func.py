@@ -135,6 +135,29 @@ def exec_abacustest(allparams, work_path, command="abacustest submit -p param.js
     stdout, stderr = "", ""
     return stdout, stderr
 
+def sort_lists(lists):
+    # lists is a list of list
+    # lists = [[x1,x2,...],[y1,y2,...],...]
+    # return the sorted lists
+    # the first list will be sorted, and the other lists will be sorted according to the first list
+    # if the length of lists is not equal, return the original lists
+    if len(lists) in [0,1]:
+        return lists
+    else:
+        # check if all elements are list and the length of each list is equal
+        if False in [isinstance(i,list) for i in lists]:
+            return lists
+        if len(set([len(i) for i in lists])) != 1:
+            return lists
+        
+        lists_tmp = copy.deepcopy(lists)
+        new_lists = [[] for i in range(len(lists))]
+        for ii in sorted(zip(*lists_tmp)):
+            for ij,jj in enumerate(list(ii)):
+                new_lists[ij].append(jj)
+        
+        return new_lists
+
 def add_ref(allresults, ref_data):
     # allresults: the metrics data
     # ref_data: the reference data
@@ -265,8 +288,10 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
                 legend_norm.append(legend_list[iy+1])
         
         # plot max_abs and norm
+        
         if len(max_abs) > 0:
-            options = comm_echarts.produce_multiple_y(f"{imetric}(max(abs(this job - reference)))", example_name, max_abs, legend_abs, x_type="category", y_type="value")
+            tmp_ = sort_lists([example_name]+max_abs)
+            options = comm_echarts.produce_multiple_y(f"{imetric}(max(abs(this job - reference)))", tmp_[0], tmp_[1:], legend_abs, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
@@ -274,7 +299,8 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
             chart_elements.append(ChartReportElement(
                     options=options, title=f"{imetric}(max(abs(this job - reference)))"))
         if len(norm) > 0:
-            options = comm_echarts.produce_multiple_y(f"{imetric}(Norm(this job - reference))", example_name, norm, legend_norm, x_type="category", y_type="value")
+            tmp_ = sort_lists([example_name]+norm)
+            options = comm_echarts.produce_multiple_y(f"{imetric}(Norm(this job - reference))", tmp_[0], tmp_[1:], legend_norm, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
@@ -310,7 +336,8 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
                 percentage_delta_y_list.append(values2)
                 delta_legend_list2.append(legend_list[iy])
         if len(delta_y_list) > 0:  
-            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta = this job - reference)", example_name, delta_y_list, delta_legend_list1, x_type="category", y_type="value")
+            tmp_ = sort_lists([example_name]+delta_y_list)
+            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta = this job - reference)", tmp_[0], tmp_[1:], delta_legend_list1, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
@@ -318,7 +345,8 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
             chart_elements.append(ChartReportElement(
                     options=options, title=f"{imetric}(Delta = this job - reference)"))
         if len(percentage_delta_y_list) > 0:
-            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta/Reference)", example_name, percentage_delta_y_list, delta_legend_list2, x_type="category", y_type="value")
+            tmp_ = sort_lists([example_name]+percentage_delta_y_list)
+            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta/Reference)", tmp_[0], tmp_[1:], delta_legend_list2, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
@@ -374,7 +402,8 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
             if True not in [isinstance(i,list) for i in ivalue]:
                 # do not plot a list
                 #print(y_list,legend_list)
-                options = comm_echarts.produce_multiple_y(imetric, example_name, y_list, legend_list, x_type="category", y_type="value")
+                tmp_ = sort_lists([example_name]+y_list)
+                options = comm_echarts.produce_multiple_y(imetric, tmp_[0], tmp_[1:], legend_list, x_type="category", y_type="value")
                 options["xAxis"][0]["axisLabel"] = {
                         "rotate": 15,
                         "interval": int(len(example_name)/15)
@@ -524,14 +553,14 @@ def plot_two_metrics(pddata,
         title_full = title = ivalue[2]
 
         # need sort the x and y
-        new_x = []
-        new_y = [[] for i in range(len(y))]
-        for ii in sorted(zip(x,*tuple(y))):
-            new_x.append(ii[0])
-            for ij,jj in enumerate(ii[1:]):
-                new_y[ij].append(jj)
-        x = new_x
-        y = new_y
+        #new_x = []
+        #new_y = [[] for i in range(len(y))]
+        #for ii in sorted(zip(x,*tuple(y))):
+        #    new_x.append(ii[0])
+        #    for ij,jj in enumerate(ii[1:]):
+        #        new_y[ij].append(jj)
+        #x = new_x
+        #y = new_y
         #x, y = zip(*sorted(zip(x, y)))
 
         # need shift the y
@@ -561,9 +590,10 @@ def plot_two_metrics(pddata,
             legend = [f"ref_{i}" for i in ref_names]
         if y_type == "log":
             title_full = title_full + " (abs(delta_y))"
-                
+        
+        tmp_ = sort_lists([x]+y)        
         options =comm_echarts.produce_multiple_y(
-            title, x, y, legend, x_type=x_type, y_type=y_type)
+            title, tmp_[0], tmp_[1:], legend, x_type=x_type, y_type=y_type)
         
         chart_elements.append(ChartReportElement(options=options, title=title_full))
     return chart_elements
