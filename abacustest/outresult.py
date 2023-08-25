@@ -571,7 +571,7 @@ def GetAllResults(result_setting):
             "plot":plot,
             "webhook":webhook}
 
-def pandas_out(allresult,savefile = None):
+def pandas_out(allresult,savefile = None, report_sample_max = 5):
     """
     allresult = {sample1: {key1:value,key2:value},
                  sample2: {key1:value,key2:value}}
@@ -598,8 +598,9 @@ def pandas_out(allresult,savefile = None):
                 if isinstance(allresult[i][ikey][0],(list,dict)):
                     allkeys_seperate[-1] = True
                     break
-        
+    nsample = 0    
     for isample in allsamples:
+        nsample += 1
         normal_result[isample] = {}
         for i,ikey in enumerate(allkeys):
             sfname = savefile_prefix +"_" + isample.replace("/","_")+"_"+ikey.replace("/","_")
@@ -609,21 +610,24 @@ def pandas_out(allresult,savefile = None):
                         list_result.append("%s\t%s:\n" % (isample,ikey) + str(pd.DataFrame.from_dict(allresult[isample][ikey])))
                         if savefile:
                             pd.DataFrame.from_dict(allresult[isample][ikey]).to_csv(sfname+".csv")
-                            savefile_names.append(sfname+".csv")
+                            if nsample <= report_sample_max:
+                                savefile_names.append(sfname+".csv")
                             
                     except:
                         list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample][ikey]))
                         if savefile:
                             with open(sfname+".txt",'w') as f:
                                 f.write(str(allresult[isample][ikey]))
-                                savefile_names.append(sfname+".txt")
+                                if nsample <= report_sample_max:
+                                    savefile_names.append(sfname+".txt")
                             
                 else:
                     list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample][ikey]))
                     if savefile:
                         with open(sfname+".txt",'w') as f:
                             f.write(str(allresult[isample][ikey]))
-                            savefile_names.append(sfname+".txt")
+                            if nsample <= report_sample_max:
+                                savefile_names.append(sfname+".txt")
             else:
                 normal_result[isample][ikey] = allresult[isample][ikey]
                 
