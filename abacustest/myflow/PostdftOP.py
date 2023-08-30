@@ -90,15 +90,6 @@ class PostDFT(OP):
             extra_file_path = op_in["extra_files"].art_root
             comm.CopyFiles(extra_file_path,work_path,move=False)
 
-        #run command
-        os.chdir(work_path)
-        log = ""
-        if op_in["command"].strip() != "":
-            cmd = str(op_in["command"])
-            return_code, out, err = comm.run_command(cmd)
-            log += out + err
-            #log += os.popen("(%s) 2>&1" % cmd).read()
-        
         #check if need to upload to tracking
         tracking_setting = op_in["upload_tracking"]
         metrics_setting = op_in["metrics"]
@@ -108,11 +99,46 @@ class PostDFT(OP):
             do_upload_tracking = True
             
         #read metrics
-        try:
-            os.chdir(work_path)
-            tracking_values = metrics.ReadMetrics(metrics.Metrics.TransferMetricsOPIO(metrics_setting),do_upload_tracking,allexample_path)
-        except:
-            traceback.print_exc()
+        metrics_setting_list = metrics.Metrics.TransferMetricsOPIO(metrics_setting)
+        # need to split metrics_setting_list to before_command and after_command
+        metrics_setting_list_before_command = []
+        metrics_setting_list_after_command = []
+        for imetric in metrics_setting_list:
+            if imetric.get("before_command",False):
+                metrics_setting_list_before_command.append(imetric)
+            else:
+                metrics_setting_list_after_command.append(imetric)
+        tracking_values_before = tracking_values_after = None
+        if metrics_setting_list_before_command:
+            try:
+                os.chdir(work_path)
+                tracking_values_before = metrics.ReadMetrics(metrics_setting_list_before_command,do_upload_tracking,allexample_path)
+            except:
+                traceback.print_exc()
+        
+        #execute command
+        os.chdir(work_path)
+        log = ""
+        if op_in["command"].strip() != "":
+            cmd = str(op_in["command"])
+            return_code, out, err = comm.run_command(cmd)
+            log += out + err
+            #log += os.popen("(%s) 2>&1" % cmd).read()
+        
+        if metrics_setting_list_after_command:
+            try:
+                os.chdir(work_path)
+                tracking_values_after = metrics.ReadMetrics(metrics_setting_list_after_command,do_upload_tracking,allexample_path)
+            except:
+                traceback.print_exc()              
+
+        # merge tracking_values_before and tracking_values_after
+        tracking_values = []
+        if tracking_values_before:
+            tracking_values.extend(tracking_values_before)
+        if tracking_values_after:
+            tracking_values.extend(tracking_values_after)
+        if not tracking_values:
             tracking_values = None
         #calculate super_metrics
         try:

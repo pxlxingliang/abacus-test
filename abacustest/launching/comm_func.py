@@ -798,15 +798,15 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
         reports.append(ReportSection(title="supermetrics",
                        elements=supermetrics_report, ncols=1))
 
-    # 3. metrics chart
-    if metrics_chart_elements:
-        reports.append(ReportSection(title="metrics chart",
-                       elements=metrics_chart_elements, ncols=2))
-
     # 4. supermetrics special section
     if supermetrics_special_section:
         for i in supermetrics_special_section:
             reports.append(i)
+    
+    # 3. metrics chart
+    if metrics_chart_elements:
+        reports.append(ReportSection(title="metrics chart",
+                       elements=metrics_chart_elements, ncols=2))
 
     return reports
 
@@ -960,12 +960,20 @@ def clean_dictorys(ipath):
 
 def move_results_to_output(work_path, output_path, result_folder):
     target_result_folder = os.path.join(output_path, result_folder)
-    n = 1
-    while os.path.isdir(target_result_folder):
-        target_result_folder = os.path.join(
-            output_path, result_folder + "_" + str(n))
-        n += 1
-    shutil.move(os.path.join(work_path, result_folder), target_result_folder)
+    if os.path.abspath(target_result_folder) != os.path.abspath(output_path):
+        n = 1
+        while os.path.isdir(target_result_folder):
+            target_result_folder = os.path.join(
+                output_path, result_folder + "_" + str(n))
+            n += 1
+    
+    src_folder = os.path.join(work_path, result_folder)
+    if os.path.abspath(src_folder) != os.path.abspath(work_path):
+        shutil.move(os.path.join(work_path, result_folder), target_result_folder)
+    else:
+        # move all files in work_path to target_result_folder
+        for ifile in glob.glob(os.path.join(work_path, "*")):
+            shutil.move(ifile, target_result_folder)
 
 def pack_results(output_path,result_path):
     cwd = os.getcwd()
