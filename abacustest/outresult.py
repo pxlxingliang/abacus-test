@@ -570,8 +570,22 @@ def GetAllResults(result_setting):
             "metrics": metrics,
             "plot":plot,
             "webhook":webhook}
+    
+def check_file(ifile):
+    # check if ifile exist,
+    # if exist, then modify the file name to add a number at the end until the file does not exist
+    # return the new file name
+    ifile = os.path.abspath(ifile)
+    if os.path.isfile(ifile):
+        ifile_prefix = os.path.splitext(ifile)[0]
+        ifile_suffix = os.path.splitext(ifile)[1]
+        i = 1
+        while os.path.isfile(ifile):
+            ifile = ifile_prefix + "_%d" % i + ifile_suffix
+            i += 1
+    return ifile
 
-def pandas_out(allresult,savefile = None, report_sample_max = 5):
+def pandas_out(allresult,savefile = None, report_sample_max = 5,print_result=True):
     """
     allresult = {sample1: {key1:value,key2:value},
                  sample2: {key1:value,key2:value}}
@@ -609,25 +623,28 @@ def pandas_out(allresult,savefile = None, report_sample_max = 5):
                     try:
                         list_result.append("%s\t%s:\n" % (isample,ikey) + str(pd.DataFrame.from_dict(allresult[isample][ikey])))
                         if savefile:
-                            pd.DataFrame.from_dict(allresult[isample][ikey]).to_csv(sfname+".csv")
+                            fname_final = check_file(sfname+".csv")
+                            pd.DataFrame.from_dict(allresult[isample][ikey]).to_csv(fname_final)
                             if nsample <= report_sample_max:
-                                savefile_names.append(sfname+".csv")
+                                savefile_names.append(fname_final)
                             
                     except:
                         list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample][ikey]))
                         if savefile:
-                            with open(sfname+".txt",'w') as f:
+                            fname_final = check_file(sfname+".txt")
+                            with open(fname_final,'w') as f:
                                 f.write(str(allresult[isample][ikey]))
                                 if nsample <= report_sample_max:
-                                    savefile_names.append(sfname+".txt")
+                                    savefile_names.append(fname_final)
                             
                 else:
                     list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample][ikey]))
                     if savefile:
-                        with open(sfname+".txt",'w') as f:
+                        fname_final = check_file(sfname+".txt")
+                        with open(fname_final,'w') as f:
                             f.write(str(allresult[isample][ikey]))
                             if nsample <= report_sample_max:
-                                savefile_names.append(sfname+".txt")
+                                savefile_names.append(fname_final)
             else:
                 normal_result[isample][ikey] = allresult[isample][ikey]
                 
@@ -636,8 +653,9 @@ def pandas_out(allresult,savefile = None, report_sample_max = 5):
     else:
         pddata = pd.DataFrame.from_dict(normal_result,orient='index')
         if savefile:
-            pddata.to_csv(savefile)
-            savefile_names.insert(0,savefile)
+            savefile_name_final = check_file(savefile)
+            pddata.to_csv(savefile_name_final)
+            savefile_names.insert(0,savefile_name_final)
         normal_result = str(pddata)
         
     if True not in allkeys_seperate:
@@ -645,8 +663,8 @@ def pandas_out(allresult,savefile = None, report_sample_max = 5):
     else:
         list_result = "\n\n".join(list_result)
     
-    print("%s\n\n%s" % (normal_result,list_result))
-           
+    if print_result:
+        print("%s\n\n%s" % (normal_result,list_result))      
     return normal_result,list_result,savefile_names
 
 def OutResultArgs(parser):  

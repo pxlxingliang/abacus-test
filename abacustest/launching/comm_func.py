@@ -185,7 +185,7 @@ def add_ref(allresults, ref_data):
         for imetric in ref_data[iref].values():
             ref_metric_name += list(imetric.keys())
     #only metrics in metric_name will be added
-    print(ref_name,ref_metric_name,metric_name)
+    #print(ref_name,ref_metric_name,metric_name)
     ref_metric_name = list(set(ref_metric_name) & set(metric_name))
     
     # if ref_metric_name is empty, return
@@ -228,7 +228,7 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
         return new_list
     
     # need to check if y_list[0] is a list of list
-    print(imetric)
+    #print(imetric)
     if True in [isinstance(i,list) for i in y_list[0]]:
         # if y_list[0] is a list of list, we need to plot the delta Y
         #print(y_list)
@@ -355,110 +355,6 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
                     options=options, title=f"{imetric}(Delta/Reference)"))
     return chart_elements
 
-def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metrics"):
-    from abacustest import outresult
-    import pandas as pd
-
-    metric_filename = os.path.split(metric_file)[-1]
-    allresults = json.load(open(metric_file))
-    allresults,ref_metric_name = add_ref(allresults, ref_data)
-    csv_filename = os.path.splitext(metric_filename)[0] + ".csv"
-    _, _, savefile_names = outresult.pandas_out(
-        allresults, os.path.join(output_path, csv_filename))
-    report_elements = []
-    for ifilename in savefile_names:
-        ifilename = os.path.split(ifilename)[-1]
-        report_elements.append(AutoReportElement(
-            title=os.path.splitext(ifilename)[0], path=ifilename, description=""))
-
-    chart_elements = []
-    # produce the Echarts option for each metric
-    pddata = pd.DataFrame.from_dict(allresults)
-    example_name = pddata.columns.to_list()  # get the column name
-    metric_name = pddata.index.to_list()  # get the row/index name
-    type_set = (int, float, type(None), bool,list)
-    print("ref_metric_name",ref_metric_name)
-    for imetric in metric_name:
-        if imetric in ref_metric_name:
-            continue
-        ivalue = pddata.loc[imetric, :].to_list()
-        if False not in [isinstance(i, type_set) for i in ivalue]:
-            #check if imetric has refence
-            ref_type = []
-            for iref_metric in ref_metric_name:
-                if iref_metric.startswith(f"{imetric}_ref_"):
-                    ref_type.append(iref_metric.split("_ref_")[-1])
-                    
-            # if imetric has refence, we need to plot the imetric and its reference together
-            # we need to split the imetric to imetric and its reference
-            # comm_echarts.produce_multiple_y(produce_multiple_y(title,x,y_list,legend_list,x_type="category",y_type="value")
-            y_list = [ivalue]
-            legend_list = ["This_Job"]
-            for iref in ref_type:
-                if f"{imetric}_ref_{iref}" in metric_name:
-                    y_list.append(pddata.loc[f"{imetric}_ref_{iref}", :].to_list())
-                    legend_list.append(f"ref_{iref}")
-                    
-            if True not in [isinstance(i,list) for i in ivalue]:
-                # do not plot a list
-                #print(y_list,legend_list)
-                tmp_ = sort_lists([example_name]+y_list)
-                options = comm_echarts.produce_multiple_y(imetric, tmp_[0], tmp_[1:], legend_list, x_type="category", y_type="value")
-                options["xAxis"][0]["axisLabel"] = {
-                        "rotate": 15,
-                        "interval": int(len(example_name)/15)
-                    } 
-                chart_elements.append(ChartReportElement(
-                        options=options, title=imetric))
-            
-            
-            if len(ref_type) > 0:
-                # plot the delta Y and percentage delta Y
-                try:
-                    delta_y_elements = plot_delta_Y(y_list, legend_list, example_name, imetric)
-                    chart_elements += delta_y_elements
-                except:
-                    traceback.print_exc()
-                    print("Error: plot delta Y failed!")
-                    
-
-    # produce some special case chart
-    # 1. if metrics has ecutwfc/kspacing and energy_per_atom, produce the ecutwfc vs energy_per_atom chart
-    print("metric name:", metric_name)
-    for x_name, y_name, y_type, shift_type in [
-        ["INPUT/ecutwfc", "energy_per_atom","value",1],
-        ["INPUT/kspacing", "energy_per_atom","value",1],
-        ["INPUT/lcao_ecut", "energy_per_atom","log",2],
-        ["INPUT/lcao_ecut", "band_gap","value",0]]:
-        '''
-        shift_type: the type to shift the y value
-        0: do not shift
-        1: shift to make the min value is 0
-        2: shift to make the last value is 0
-        '''
-        try:
-            chart_elements += plot_two_metrics(pddata,
-                                               x_name, y_name,
-                                               example_name,
-                                               ref_metric_name,
-                                               x_type="category", y_type=y_type, shift_type=shift_type)
-        except:
-            traceback.print_exc()
-            print("Error: plot two metrics failed!", x_name, y_name)
-
-    # if drho in metric_name, plot the drho
-    # drho should be a list
-    if "drho" in metric_name:
-        try:
-            drho_list = pddata.loc["drho", :].to_list()
-            chart_elements += plot_drho(drho_list, example_name)
-        except:
-            traceback.print_exc()
-            print("Error: plot drho failed!")
-
-    return report_elements, chart_elements
-
-
 def plot_two_metrics(pddata,
                      x_name, y_name,
                      example_name,
@@ -494,7 +390,7 @@ def plot_two_metrics(pddata,
             ref_values.append(pddata.loc[imetric, :].to_list())
             shift_type = -1
     
-    print("x_name,y_name:", x_name, y_name)
+    #print("x_name,y_name:", x_name, y_name)
     all_x = pddata.loc[x_name, :].to_list()
     all_y = pddata.loc[y_name, :].to_list()
     chart_elements = []
@@ -634,6 +530,109 @@ def plot_drho(drho_input, example_input):
         idrho += 1
     return chart_report
 
+def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metrics"):
+    from abacustest import outresult
+    import pandas as pd
+
+    metric_filename = os.path.split(metric_file)[-1]
+    allresults = json.load(open(metric_file))
+    allresults,ref_metric_name = add_ref(allresults, ref_data)
+    csv_filename = os.path.splitext(metric_filename)[0] + ".csv"
+    _, _, savefile_names = outresult.pandas_out(
+        allresults, os.path.join(output_path, csv_filename),print_result=False)
+    report_elements = []
+    for ifilename in savefile_names:
+        ifilename = os.path.split(ifilename)[-1]
+        report_elements.append(AutoReportElement(
+            title=os.path.splitext(ifilename)[0], path=ifilename, description=""))
+
+    chart_elements = []
+    # produce the Echarts option for each metric
+    pddata = pd.DataFrame.from_dict(allresults)
+    example_name = pddata.columns.to_list()  # get the column name
+    metric_name = pddata.index.to_list()  # get the row/index name
+    type_set = (int, float, type(None), bool,list)
+    print("ref_metric_name",ref_metric_name)
+    for imetric in metric_name:
+        if imetric in ref_metric_name:
+            continue
+        ivalue = pddata.loc[imetric, :].to_list()
+        if False not in [isinstance(i, type_set) for i in ivalue]:
+            #check if imetric has refence
+            ref_type = []
+            for iref_metric in ref_metric_name:
+                if iref_metric.startswith(f"{imetric}_ref_"):
+                    ref_type.append(iref_metric.split("_ref_")[-1])
+                    
+            # if imetric has refence, we need to plot the imetric and its reference together
+            # we need to split the imetric to imetric and its reference
+            # comm_echarts.produce_multiple_y(produce_multiple_y(title,x,y_list,legend_list,x_type="category",y_type="value")
+            y_list = [ivalue]
+            legend_list = ["This_Job"]
+            for iref in ref_type:
+                if f"{imetric}_ref_{iref}" in metric_name:
+                    y_list.append(pddata.loc[f"{imetric}_ref_{iref}", :].to_list())
+                    legend_list.append(f"ref_{iref}")
+                    
+            if True not in [isinstance(i,list) for i in ivalue]:
+                # do not plot a list
+                #print(y_list,legend_list)
+                tmp_ = sort_lists([example_name]+y_list)
+                options = comm_echarts.produce_multiple_y(imetric, tmp_[0], tmp_[1:], legend_list, x_type="category", y_type="value")
+                options["xAxis"][0]["axisLabel"] = {
+                        "rotate": 15,
+                        "interval": int(len(example_name)/15)
+                    } 
+                chart_elements.append(ChartReportElement(
+                        options=options, title=imetric))
+            
+            
+            if len(ref_type) > 0:
+                # plot the delta Y and percentage delta Y
+                try:
+                    delta_y_elements = plot_delta_Y(y_list, legend_list, example_name, imetric)
+                    chart_elements += delta_y_elements
+                except:
+                    traceback.print_exc()
+                    print("Error: plot delta Y failed!")
+                    
+
+    # produce some special case chart
+    # 1. if metrics has ecutwfc/kspacing and energy_per_atom, produce the ecutwfc vs energy_per_atom chart
+    print(f"plot {metric_file} metric name:", metric_name)
+    for x_name, y_name, y_type, shift_type in [
+        ["INPUT/ecutwfc", "energy_per_atom","value",1],
+        ["INPUT/kspacing", "energy_per_atom","value",1],
+        ["INPUT/lcao_ecut", "energy_per_atom","log",2],
+        ["INPUT/lcao_ecut", "band_gap","value",0]]:
+        '''
+        shift_type: the type to shift the y value
+        0: do not shift
+        1: shift to make the min value is 0
+        2: shift to make the last value is 0
+        '''
+        try:
+            chart_elements += plot_two_metrics(pddata,
+                                               x_name, y_name,
+                                               example_name,
+                                               ref_metric_name,
+                                               x_type="category", y_type=y_type, shift_type=shift_type)
+        except:
+            traceback.print_exc()
+            print("Error: plot two metrics failed!", x_name, y_name)
+
+    # if drho in metric_name, plot the drho
+    # drho should be a list
+    if "drho" in metric_name:
+        try:
+            drho_list = pddata.loc["drho", :].to_list()
+            chart_elements += plot_drho(drho_list, example_name)
+        except:
+            traceback.print_exc()
+            print("Error: plot drho failed!")
+
+    return report_elements, chart_elements
+
 
 def produce_supermetrics(supermetric_file, output_path, work_path, save_path, report_titile="supermetrics"):
     import pandas as pd
@@ -683,20 +682,21 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     allmetrics_files = []
     allsupermetrics_files = []
 
-    # produce the metrics reports
-    # 1. metrics from the custome defined metrics file
-    customized_metrics_filename = allparams.get("post_dft", {}).get(
-        "metrics", {}).get("value_from_file", None)
-    if customized_metrics_filename:
-        allmetrics_files.append(os.path.join(
-            work_path, save_path, customized_metrics_filename))
-
-    # 2. metrics from the metrics file
-    metric_filename = allparams.get("post_dft", {}).get(
-        "metrics", {}).get("save_file")
-    if metric_filename:
-        allmetrics_files.append(os.path.join(
-            work_path, save_path, metric_filename))
+    # produce the metrics reports 
+    metrics_block = allparams.get("post_dft", {}).get("metrics", [])
+    if not isinstance(metrics_block, list):
+        metrics_block = [metrics_block]
+    for imetrics_block in metrics_block:
+        if isinstance(imetrics_block,dict):
+            # 1. metrics from the custome defined metrics file
+            if imetrics_block.get("value_from_file",None):
+                allmetrics_files.append(os.path.join(
+                    work_path, save_path, str(imetrics_block.get("value_from_file"))))
+                
+            # 2. metrics from the metrics file
+            if imetrics_block.get("save_file",None):
+                allmetrics_files.append(os.path.join(
+                    work_path, save_path, str(imetrics_block.get("save_file"))))
 
     # 3. metrics from the undefined metrics file
     allmetrics_files += glob.glob(os.path.join(work_path,
@@ -740,6 +740,7 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     metrics_report = []
     metrics_chart_elements = []
     for metric_file in list(set(allmetrics_files)):
+        print("PRODUCE REPORT for metric file:", metric_file)
         try:
             metric_filename = os.path.split(metric_file)[-1]
             tmp_report_elements, tmp_chart_elements = produce_metrics(
@@ -774,6 +775,7 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     supermetrics_report = []
     supermetrics_special_section = []
     for super_metric_file in list(set(allsupermetrics_files)):
+        print("PRODUCE REPORT for supermetric file:", super_metric_file)
         try:
             super_metric_filename = os.path.split(super_metric_file)[-1]
             tmp_report_element, tmp_special_section = produce_supermetrics(
