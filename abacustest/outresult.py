@@ -598,18 +598,23 @@ def pandas_out(allresult,savefile = None, report_sample_max = 5,print_result=Tru
     normal_result = {}
     list_result = []
     allsamples = [i for i in allresult.keys()]
-    allkeys = [i for i in allresult[allsamples[0]].keys()]
+    allkeys = []
+    for v in allresult.values():
+        for iv in v.keys():
+            if iv not in allkeys:
+                allkeys.append(iv)
+        
     allkeys_seperate = []
     savefile_prefix = "" if not savefile else os.path.splitext(savefile)[0]
     savefile_names = []
     for ikey in allkeys:
         allkeys_seperate.append(False)
         for i in allsamples:
-            if isinstance(allresult[i][ikey],dict):
+            if isinstance(allresult[i].get(ikey,None),dict):
                 allkeys_seperate[-1] = True
                 break
-            elif isinstance(allresult[i][ikey],list):
-                if isinstance(allresult[i][ikey][0],(list,dict)):
+            elif isinstance(allresult[i].get(ikey,None),list):
+                if len(allresult[i][ikey]) > 0 and isinstance(allresult[i][ikey][0],(list,dict)):
                     allkeys_seperate[-1] = True
                     break
     nsample = 0    
@@ -619,7 +624,7 @@ def pandas_out(allresult,savefile = None, report_sample_max = 5,print_result=Tru
         for i,ikey in enumerate(allkeys):
             sfname = savefile_prefix +"_" + isample.replace("/","_")+"_"+ikey.replace("/","_")
             if allkeys_seperate[i]:
-                if isinstance(allresult[isample][ikey],(list,dict)):
+                if isinstance(allresult[isample].get(ikey,None),(list,dict)):
                     try:
                         list_result.append("%s\t%s:\n" % (isample,ikey) + str(pd.DataFrame.from_dict(allresult[isample][ikey])))
                         if savefile:
@@ -638,15 +643,16 @@ def pandas_out(allresult,savefile = None, report_sample_max = 5,print_result=Tru
                                     savefile_names.append(fname_final)
                             
                 else:
-                    list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample][ikey]))
-                    if savefile:
-                        fname_final = check_file(sfname+".txt")
-                        with open(fname_final,'w') as f:
-                            f.write(str(allresult[isample][ikey]))
-                            if nsample <= report_sample_max:
-                                savefile_names.append(fname_final)
+                    if allresult[isample].get(ikey,None) != None:
+                        list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample].get(ikey,None)))
+                        if savefile:
+                            fname_final = check_file(sfname+".txt")
+                            with open(fname_final,'w') as f:
+                                f.write(str(allresult[isample][ikey]))
+                                if nsample <= report_sample_max:
+                                    savefile_names.append(fname_final)
             else:
-                normal_result[isample][ikey] = allresult[isample][ikey]
+                normal_result[isample][ikey] = allresult[isample].get(ikey,None)
                 
     if False not in allkeys_seperate:
         normal_result = ""

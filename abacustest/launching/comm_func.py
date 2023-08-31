@@ -318,15 +318,15 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
             values1 = []
             values2 = []
             for i in range(len(y_list[iy])):
-                try:
+                if isinstance(y_list[0][i],(int,float)) and isinstance(y_list[iy][i],(int,float)):
                     ivalue = y_list[0][i] - y_list[iy][i]                     
-                except:
+                else:
                     ivalue = None
                 values1.append(ivalue)
 
-                try:
+                if isinstance(y_list[0][i],(int,float)) and isinstance(y_list[iy][i],(int,float)) and y_list[iy][i] != 0:
                     ivalue = (y_list[0][i] - y_list[iy][i])/y_list[iy][i]
-                except:
+                else:
                     ivalue = None
                 values2.append(ivalue)
             if set(values1) != {None}:
@@ -530,6 +530,17 @@ def plot_drho(drho_input, example_input):
         idrho += 1
     return chart_report
 
+def fill_none(allresults):
+    # if some metrics is not in some example, we need to add None to the example
+    allkeys = []
+    for ivalue in allresults.values():
+        allkeys += list(ivalue.keys())
+    allkeys = list(set(allkeys))
+    for ikey in allkeys:
+        for iexample in allresults:
+            if ikey not in allresults[iexample]:
+                allresults[iexample][ikey] = None
+
 def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metrics"):
     from abacustest import outresult
     import pandas as pd
@@ -548,6 +559,7 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
 
     chart_elements = []
     # produce the Echarts option for each metric
+    fill_none(allresults)
     pddata = pd.DataFrame.from_dict(allresults)
     example_name = pddata.columns.to_list()  # get the column name
     metric_name = pddata.index.to_list()  # get the row/index name
