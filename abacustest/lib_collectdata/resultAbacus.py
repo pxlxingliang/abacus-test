@@ -54,11 +54,11 @@ class ResultAbacus(Result):
 
         return suffix,calculation
     
-    def ReadTime(self):
-        if os.path.isfile(os.path.join(self.PATH,f"OUT.{self.SUFFIX}","time.json")):
-            time_file = os.path.join(self.PATH,f"OUT.{self.SUFFIX}","time.json")
-        elif os.path.isfile(os.path.join(self.PATH,"time.json")):
+    def ReadTime(self): 
+        if os.path.isfile(os.path.join(self.PATH,"time.json")):
             time_file = os.path.join(self.PATH,"time.json")
+        elif os.path.isfile(os.path.join(self.PATH,f"OUT.{self.SUFFIX}","time.json")):
+            time_file = os.path.join(self.PATH,f"OUT.{self.SUFFIX}","time.json")
         else:
             time_file = None
         
