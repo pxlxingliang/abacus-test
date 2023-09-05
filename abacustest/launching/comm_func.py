@@ -657,7 +657,10 @@ def produce_supermetrics(supermetric_file, output_path, work_path, save_path, re
         if isinstance(ivalue, dict):
             special_metrics[ikey] = ivalue
         else:
-            normal_metrics[ikey] = ivalue
+            if isinstance(ivalue,list) and len(ivalue) == 1:
+                normal_metrics[ikey] = ivalue[0]
+            else:
+                normal_metrics[ikey] = ivalue
 
     report_element = None
     if normal_metrics:
@@ -693,7 +696,7 @@ def gen_sm_tag(allparams):
     # 2. schedule name from allparams["config"]["dflow_labels"]["launching-schedule"]
     # 3. job name from allparams["config"]["dflow_labels"]["launching-job"]
     return [
-        f"user_{allparams.get('config',{}).get('lbg_username','')}",
+        f"user_{allparams.get('config',{}).get('bohrium_username','')}",
         f"schedule_{allparams.get('config',{}).get('dflow_labels',{}).get('launching-schedule','')}",
         f"job_{allparams.get('config',{}).get('dflow_labels',{}).get('launching-job','')}"    
     ]
@@ -815,15 +818,19 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
                 supermetrics_report.append(tmp_report_element)
             if tmp_special_section:
                 supermetrics_special_section.append(tmp_special_section)
+            #print("tmp_smetrics:",tmp_smetrics)
             if tmp_smetrics:
                 for ik,iv in tmp_smetrics.items():
-                    if not isinstance(iv,(int,float)):
+                    if not isinstance(iv,(int,float,bool)):
                         continue
                     sname = ik
                     if ik in supermetrics_save:
                         print(f"\tWarning: supermetric \"{ik}\" is already in the supermetrics_save, will be replaced by the new one!")
                         sname = ik + "_" + os.path.splitext(os.path.basename(super_metric_file))[0]
-                    supermetrics_save[sname+":float"] = iv
+                    if isinstance(iv,bool):
+                        supermetrics_save[sname+":int"] = 1 if iv else 0
+                    else:
+                        supermetrics_save[sname+":float"] = iv
         except:
             traceback.print_exc()
             print(
@@ -836,6 +843,7 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
                        elements=metrics_report, ncols=1))
 
     # 2. supermetrics report
+    #print("supermetrics_save:",supermetrics_save)
     if supermetrics_report:
         reports.append(ReportSection(title="supermetrics",
                        elements=supermetrics_report, ncols=1,
