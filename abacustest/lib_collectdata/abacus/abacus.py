@@ -260,27 +260,50 @@ class Abacus(ResultAbacus):
                            step1_time = "the time of 1st SCF step",
                            scf_steps = "the steps of SCF")
     def GetTimeFromOutput(self):
+        # first, check if self.time is already exist
+        if self.TIME:
+            total_time = self.GetTime("total",None)[0]
+            # if PW basis, stress time = Stress_PW/cal_stress, force_time = cal_force_nl
+            # if lcao basis, stress time = getForceStress, force_time = None
+            stress_time_pw = self.GetTime("Stress_PW","cal_stress")[0]
+            stress_time_lcao = self.GetTime("Force_Stress_LCAO","getForceStress")[0]
+            force_time_pw = self.GetTime("Forces","cal_force_nl")[0]
+            force_time_lcao = None
+            if stress_time_pw != None:
+                stress_time = stress_time_pw
+            else:
+                stress_time = stress_time_lcao
+                
+            if force_time_pw != None:
+                force_time = force_time_pw
+            else:
+                force_time = force_time_lcao
+        else:
+            stress_time = None
+            force_time = None
+            total_time = None
+            for i,line in enumerate(self.OUTPUT):
+                if line[23:28] == 'total':
+                    total_time = float(line.split()[1])
+                elif line[23:33] == 'cal_stress':
+                    stress_time = float(line.split()[-5])
+                elif line[23:35] == 'cal_force_nl':
+                    force_time = float(line.split()[-5])
+                elif line[23:37] == 'getForceStress':
+                    stress_time = float(line.split()[-5])
+                    force_time = None
+                    
+        self["total_time"] = total_time
+        self['stress_time'] = stress_time
+        self['force_time'] = force_time
+
         scftime = []
-        stress_time = None
-        force_time = None
         for i,line in enumerate(self.OUTPUT):
             if line[1:5] == 'ITER':
                 for j in range(i+1,len(self.OUTPUT)):
                     if self.OUTPUT[j][1:3] in ['CG','DA','GE','GV']:
                         scftime.append(float(self.OUTPUT[j].split()[-1]))
-            elif line[23:28] == 'total':
-                self['total_time'] = float(line.split()[1])
-            elif line[23:33] == 'cal_stress':
-                stress_time = float(line.split()[-5])
-            elif line[23:35] == 'cal_force_nl':
-                force_time = float(line.split()[-5])
-            elif line[23:37] == 'getForceStress':
-                stress_time = float(line.split()[-5])
-                force_time = None
-        
-        self['stress_time'] = stress_time
-        self['force_time'] = force_time
-        
+                break
         if len(scftime) > 0:
             import numpy as np
             self['scf_time'] = np.array(scftime).sum()

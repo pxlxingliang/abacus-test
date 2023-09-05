@@ -753,6 +753,9 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     metrics_chart_elements = []
     for metric_file in list(set(allmetrics_files)):
         print("PRODUCE REPORT for metric file:", metric_file)
+        if not os.path.isfile(metric_file):
+            print(f"\tError: metric file \"{metric_file}\" does not exist! Skip it!")
+            continue
         try:
             metric_filename = os.path.split(metric_file)[-1]
             tmp_report_elements, tmp_chart_elements = produce_metrics(
@@ -788,6 +791,10 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     supermetrics_special_section = []
     for super_metric_file in list(set(allsupermetrics_files)):
         print("PRODUCE REPORT for supermetric file:", super_metric_file)
+        if not os.path.isfile(super_metric_file):
+            print(
+                f"\tError: supermetric file \"{super_metric_file}\" does not exist! Skip it!")
+            continue
         try:
             super_metric_filename = os.path.split(super_metric_file)[-1]
             tmp_report_element, tmp_special_section = produce_supermetrics(

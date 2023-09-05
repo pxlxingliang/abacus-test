@@ -1,4 +1,5 @@
 import os,sys,json
+import traceback
 from .result import Result
 from . import comm
 
@@ -30,12 +31,16 @@ class ResultAbacus(Result):
         #OUT.XXX/running_xxx.log
         self.LOGf   = os.path.join(self.PATH,"OUT.%s/running_%s.log"%(self.SUFFIX,self.CALCULATION))
         self.LOG    = comm.ReadFile(self.LOGf,warn=True)
+        
 
         #resultREF is a json file of a dict, where key is the param name, and value is the value of the param
         #such as : {"energy": -10000.1111111, "force": [[0.1,0.1,0.1],[0.1,0.1,0.1],[0.1,0.1,0.1]]}
         self.resultREF = {}
         if resultREF and os.path.isfile(resultREF):
             self.resultREF = json.load(open(resultREF))
+        
+        # time.json
+        self.TIME = self.ReadTime()
 
     def SuffixCalculation(self,INPUT):
         suffix = "ABACUS"
@@ -48,4 +53,66 @@ class ResultAbacus(Result):
                 calculation = sline[1].strip()
 
         return suffix,calculation
+    
+    def ReadTime(self):
+        if os.path.isfile(os.path.join(self.PATH,f"OUT.{self.SUFFIX}","time.json")):
+            time_file = os.path.join(self.PATH,f"OUT.{self.SUFFIX}","time.json")
+        elif os.path.isfile(os.path.join(self.PATH,"time.json")):
+            time_file = os.path.join(self.PATH,"time.json")
+        else:
+            time_file = None
+        
+        if time_file:
+            import json
+            try:
+                return json.load(open(time_file))
+            except:
+                traceback.print_exc()
+                return None
+        else:
+            return None
 
+    def GetTime(self,class_name,func_name):
+        # return the cpu_second of the function, and the calls of the function
+        # if tunc_name is None, return the cpu_second of the class and the number of functions in the class
+        '''
+        time.json:
+	    {
+	        "total": 1.0,
+	        "sub": [
+	            {
+	                "class_name": "wavefunc",
+	                "sub": [
+	                    {
+	                        "name": "evc",
+	                        "cpu_second": 0.000318,
+	                        "calls": 2,
+	                        "cpu_second_per_call": 0.000159,
+	                        "cpu_second_per_total": 0.000318
+	                    }
+	                ]
+	            }
+	        ]
+	    }
+        '''
+        if self.TIME == None:
+            return (None,None)
+        if class_name == "total":
+            return (self.TIME.get("total",None),1)
+        if "sub" not in self.TIME:
+            return (None,None)
+        for sub in self.TIME["sub"]:
+            if sub.get("class_name",None) == class_name:
+                if "sub" not in sub:
+                    return (None,None)
+                if func_name == None:
+                    total_time = 0.0
+                    for subsub in sub["sub"]:
+                        total_time += subsub.get("cpu_second",0.0)
+                    return (total_time,len(sub["sub"]))
+                else:
+                    for subsub in sub["sub"]:
+                        if subsub.get("name",None) == func_name:
+                            return (subsub.get("cpu_second",None),subsub.get("calls",None))
+                break
+        return (None,None)
