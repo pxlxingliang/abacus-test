@@ -684,8 +684,19 @@ def produce_supermetrics(supermetric_file, output_path, work_path, save_path, re
         special_section = ReportSection(
             title=report_titile, elements=special_elements)
 
-    return report_element, special_section
+    return report_element, special_section, normal_metrics
 
+def gen_sm_tag(allparams):
+    # generate the tag for supermetrics to save on launching
+    # the tag include below information:
+    # 1. lbg_username from allparams["config"]
+    # 2. schedule name from allparams["config"]["dflow_labels"]["launching-schedule"]
+    # 3. job name from allparams["config"]["dflow_labels"]["launching-job"]
+    return [
+        f"user_{allparams.get('config',{}).get('lbg_username','')}",
+        f"schedule_{allparams.get('config',{}).get('dflow_labels',{}).get('launching-schedule','')}",
+        f"job_{allparams.get('config',{}).get('dflow_labels',{}).get('launching-job','')}"    
+    ]
 
 def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
 
@@ -789,6 +800,7 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
         glob.glob(os.path.join(work_path, save_path, "supermetric*.json"))
     supermetrics_report = []
     supermetrics_special_section = []
+    supermetrics_save = {}
     for super_metric_file in list(set(allsupermetrics_files)):
         print("PRODUCE REPORT for supermetric file:", super_metric_file)
         if not os.path.isfile(super_metric_file):
@@ -797,12 +809,21 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
             continue
         try:
             super_metric_filename = os.path.split(super_metric_file)[-1]
-            tmp_report_element, tmp_special_section = produce_supermetrics(
+            tmp_report_element, tmp_special_section, tmp_smetrics = produce_supermetrics(
                 super_metric_file, output_path, work_path, save_path, report_titile=super_metric_filename)
             if tmp_report_element:
                 supermetrics_report.append(tmp_report_element)
             if tmp_special_section:
                 supermetrics_special_section.append(tmp_special_section)
+            if tmp_smetrics:
+                for ik,iv in tmp_smetrics.items():
+                    if not isinstance(iv,(int,float)):
+                        continue
+                    sname = ik
+                    if ik in supermetrics_save:
+                        print(f"\tWarning: supermetric \"{ik}\" is already in the supermetrics_save, will be replaced by the new one!")
+                        sname = ik + "_" + os.path.splitext(os.path.basename(super_metric_file))[0]
+                    supermetrics_save[sname+":float"] = iv
         except:
             traceback.print_exc()
             print(
@@ -817,7 +838,9 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     # 2. supermetrics report
     if supermetrics_report:
         reports.append(ReportSection(title="supermetrics",
-                       elements=supermetrics_report, ncols=1))
+                       elements=supermetrics_report, ncols=1,
+                       metrics=supermetrics_save,
+                       tags=gen_sm_tag(allparams)))
 
     # 4. supermetrics special section
     if supermetrics_special_section:
