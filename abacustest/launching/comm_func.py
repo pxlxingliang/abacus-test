@@ -448,17 +448,6 @@ def plot_two_metrics(pddata,
             y.append(ivalue[iref+3])
         title_full = title = ivalue[2]
 
-        # need sort the x and y
-        #new_x = []
-        #new_y = [[] for i in range(len(y))]
-        #for ii in sorted(zip(x,*tuple(y))):
-        #    new_x.append(ii[0])
-        #    for ij,jj in enumerate(ii[1:]):
-        #        new_y[ij].append(jj)
-        #x = new_x
-        #y = new_y
-        #x, y = zip(*sorted(zip(x, y)))
-
         # need shift the y
         y_real = [i for i in y[0] if i != None]  # get the none-none value of y[0]
         if len(y_real) == 0:
@@ -487,7 +476,7 @@ def plot_two_metrics(pddata,
         if y_type == "log":
             title_full = title_full + " (abs(delta_y))"
         
-        tmp_ = sort_lists([x]+y)        
+        tmp_ = sort_lists([x]+y)     
         options =comm_echarts.produce_multiple_y(
             title, tmp_[0], tmp_[1:], legend, x_type=x_type, y_type=y_type)
         
@@ -701,6 +690,22 @@ def gen_sm_tag(allparams):
         f"job_{allparams.get('config',{}).get('dflow_labels',{}).get('launching-job','')}"    
     ]
 
+def judge_sm(x,criteria):
+    if criteria == None:
+        return None
+    if isinstance(criteria,str):
+        try:
+            print("SuperMetric value:",x, "\ncriteria:",criteria)
+            sm_pass = eval(criteria)
+            return bool(sm_pass)
+        except:
+            print("Error: the supermetrics criteria string is not correct!")
+            return False
+    else:
+        print("Error: the supermetrics  criteria string is not correct!")
+        return False
+            
+
 def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
 
     save_path = allparams.get("save_path", "result")
@@ -801,9 +806,19 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     allsupermetrics_files += glob.glob(os.path.join(work_path, save_path, "superMetric*.json")) + \
         glob.glob(os.path.join(work_path, save_path, "super_metric*.json")) + \
         glob.glob(os.path.join(work_path, save_path, "supermetric*.json"))
+    
+    # 4. read the criteria.json, which defined criteria for supermetrics
+    if os.path.isfile(os.path.join(work_path, save_path, "criteria.json")):
+        criterias = json.load(open(os.path.join(work_path, save_path, "criteria.json")))
+    else:
+        criterias = {}
+    print("criteria:",criterias)
+    
     supermetrics_report = []
     supermetrics_special_section = []
     supermetrics_save = {}
+    # the summary of supermetrics, this table will be tranlated to a html table
+    sm_summary = [["Super Metric","Value","Criteria"]]   
     for super_metric_file in list(set(allsupermetrics_files)):
         print("PRODUCE REPORT for supermetric file:", super_metric_file)
         if not os.path.isfile(super_metric_file):
@@ -821,6 +836,16 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
             #print("tmp_smetrics:",tmp_smetrics)
             if tmp_smetrics:
                 for ik,iv in tmp_smetrics.items():
+                    sm_summary.append([ik,iv,criterias.get(ik,None)])
+                    cri_tmp = criterias.get(ik,None)
+                    sm_pass = judge_sm(iv,cri_tmp)
+                    if sm_pass == True:
+                        # if True, set the iv to green
+                        sm_summary[-1][1] = "<font color=\"green\">"+str(iv)+"</font>"
+                    elif sm_pass == False:
+                        # if False, set the iv to red
+                        sm_summary[-1][1] = "<font color=\"red\">"+str(iv)+"</font>"
+                            
                     if not isinstance(iv,(int,float,bool)):
                         continue
                     sname = ik
@@ -836,11 +861,22 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
             print(
                 f"Error: report supermetrics from file \"{super_metric_file}\" failed!")
 
-    # produce the report
-    # 1. metrics report
-    if metrics_report:
-        reports.append(ReportSection(title="metrics",
-                       elements=metrics_report, ncols=1))
+    # produce the summary of supermetrics
+    if len(sm_summary) > 1:
+        sm_summary = produce_html_table(sm_summary)
+        # write the summary to a html file
+        with open(os.path.join(output_path,"supermetrics_summary.html"),"w") as f:
+            # firstly add the head of html
+            # set the table width to 100%, and set content to center
+            # add a title to the table, "supermetrics summary"
+            f.write("<html><head><meta charset=\"utf-8\"><style>table {width:100%;text-align:center;}</style></head><body>")
+            f.write("<table border=\"2px\"><thead><tr><td>Super Metrics Summary</td></tr></thead>")
+            f.write(sm_summary)
+            f.write("</body></html>")
+        # add the summary to the report at the first position
+        supermetrics_report = [] # only keep the summary
+        supermetrics_report.insert(0,AutoReportElement(title="supermetrics summary",path="supermetrics_summary.html",description=""))
+        
 
     # 2. supermetrics report
     #print("supermetrics_save:",supermetrics_save)
@@ -854,7 +890,13 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     if supermetrics_special_section:
         for i in supermetrics_special_section:
             reports.append(i)
-    
+            
+    # produce the report
+    # 1. metrics report
+    if metrics_report:
+        reports.append(ReportSection(title="metrics",
+                       elements=metrics_report, ncols=1))
+        
     # 3. metrics chart
     if metrics_chart_elements:
         reports.append(ReportSection(title="metrics chart",

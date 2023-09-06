@@ -1,6 +1,14 @@
+import numpy as np
+def trans_nan_to_none(x):
+    if x is None:
+        return None
+    if isinstance(x, float) and np.isnan(x):
+        return None
+    return x
+
 
 def get_bar_option(title, x, y, x_type="category", y_type="value"):
-    y_used = [i for i in y]
+    y_used = [trans_nan_to_none(i) for i in y]
     if y_type == "log":
         # need set 0 to None and set negative to abs
         for ix, v in enumerate(y_used):
@@ -69,6 +77,7 @@ def get_bar_option(title, x, y, x_type="category", y_type="value"):
 
 def produce_multiple_y(title, x, y_list, legend_list, x_type="category", y_type="value"):
     series = []
+    y_list = [[trans_nan_to_none(i) for i in y] for y in y_list]
     for iy, y in enumerate(y_list):
         series.append({
             "name": legend_list[iy],

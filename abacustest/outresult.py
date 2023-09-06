@@ -585,7 +585,7 @@ def check_file(ifile):
             i += 1
     return ifile
 
-def pandas_out(allresult,savefile = None, report_sample_max = 5,print_result=True):
+def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=True):
     """
     allresult = {sample1: {key1:value,key2:value},
                  sample2: {key1:value,key2:value}}
