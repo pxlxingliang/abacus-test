@@ -864,14 +864,18 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
     # produce the summary of supermetrics
     if len(sm_summary) > 1:
         sm_summary = produce_html_table(sm_summary)
+        criterias_comment = criterias.get("__COMMENT","")
         # write the summary to a html file
         with open(os.path.join(output_path,"supermetrics_summary.html"),"w") as f:
             # firstly add the head of html
             # set the table width to 100%, and set content to center
             # add a title to the table, "supermetrics summary"
+            # add the criterias_comment to the end of the table
             f.write("<html><head><meta charset=\"utf-8\"><style>table {width:100%;text-align:center;}</style></head><body>")
             f.write("<table border=\"2px\"><thead><tr><td>Super Metrics Summary</td></tr></thead>")
             f.write(sm_summary)
+            if criterias_comment:
+                f.write("<tr><td>Note: "+criterias_comment+"</td></tr>")
             f.write("</body></html>")
         # add the summary to the report at the first position
         supermetrics_report = [] # only keep the summary
