@@ -11,11 +11,6 @@ from typing import Literal
 from . import comm_func,comm_class
 import os,shutil,glob
 
-class DatasetSet(BaseModel):
-    dataset: DataSet = Field(title=None,
-                             default=None,
-                            description="Please enter your dataset in launching.")
-
 def GetDatasetAddress(package,dataset=None):
     # find index of last -, and the string before it is the dataset name
     # the string after it is the version
@@ -58,6 +53,12 @@ class FromDatasets(BaseModel):
     dataset: DataSetsEnum = Field(title="datasets",
                                   description="Please choose the datasets.")
 
+# DatasetSet/ExampleSourceSet/ExampleSet define the files of examples
+class DatasetSet(BaseModel):
+    dataset: DataSet = Field(title=None,
+                             default=None,
+                            description="Please enter your dataset in launching.")
+
 class ExampleSourceSet(BaseModel):
     ExampleSource_local: InputFilePath = Field(default=None,
                                          title="Upload files locally",
@@ -70,6 +71,24 @@ class ExampleSet(BaseModel):
     Example: String = Field(default="*",title="Examples",description = "You can choose to use only partial files, and seperate each example with space. \
 Tips: you can use regex to select files. For example: example_00[1-5]* example_[6,7,8]*. If you want to use all files, please type '*'.")  
 
+# script dataset is similar to example dataset, but it is used for scripts, and there has an attribute to define the unneeded files
+class ScriptDatasetSet(BaseModel):
+    script_dataset: DataSet = Field(title=None,
+                                default=None,
+                                description="Please enter the script dataset. Like: \"launching+datasets://reuse.abacustest@v1.0/stress_difference_test\". You can choose use the scripts from datasets or upload from local at below.")
+
+class ScriptSourceSet(BaseModel):
+    ScriptSource_local: InputFilePath = Field(default=None,
+                                         title="Upload the script files locally",
+                                         st_kwargs_type=comm_func.unpack(
+                                             None, None, get_support_filetype=True),
+                                         description="""A compressed file contains all required files. Please make sure there has a setting.json file in the root directory, which controls the running of workflow""",
+                                         description_type="markdown")
+
+class ScriptExampleSet(BaseModel):
+    Script_Unneeded: String = Field(default="",
+                            title="Unneeded Script",
+                            description = "If not all the files in the script dataset are needed, please enter the unneeded files or directories. Like: \"*.py,*.sh\". If all the files are needed, please leave it blank.")  
 
 class PrepareExampleSourceSet(BaseModel):
     PrepareExampleSource_local: InputFilePath = Field(default=None,
@@ -224,8 +243,41 @@ def parse_source(example_source,upload_path,download_path,configs: comm_class.Co
         return None
     return download_path
 
-def copy_download_to_work(download_path,work_path,needed_files):
+def copy_download_to_work(download_path,work_path,needed_files,reverse=False):
     #needed_files is a string, each file is separated by space
+    # if reverse is True, will copy all files except needed_files
+    if reverse:
+        cwd = os.getcwd()
+        os.chdir(download_path)
+        unneeded_files = [] 
+        for ifile in needed_files.split():
+            for iifile in glob.glob(os.path.join(download_path,ifile)):
+                unneeded_files.append(iifile)
+        os.chdir(cwd)
+        if unneeded_files == []:
+            return copy_download_to_work(download_path,work_path,"*",reverse=False)
+        else:
+            # we firstly copy all files to a tmp directory, and then remove the unneeded files
+            # then move the tmp directory to work_path
+            tmp_path = "tmp"
+            n = 0
+            while os.path.exists(os.path.join(download_path,tmp_path)) and os.path.exists(os.path.join(work_path,tmp_path)):
+                tmp_path = f"tmp{n}"
+                n += 1
+            tmp_path = os.path.join(work_path,tmp_path)
+            copy_download_to_work(download_path,tmp_path,"*",reverse=False)
+            # remove unneeded files
+            os.chdir(tmp_path)
+            for iifile in unneeded_files:
+                if os.path.isdir(iifile):
+                    shutil.rmtree(iifile)
+                else:
+                    os.remove(iifile)
+            os.chdir(cwd)
+            alldirectories,allfiles = copy_download_to_work(tmp_path,work_path,"*",reverse=False)
+            shutil.rmtree(tmp_path)
+            return alldirectories,allfiles
+          
     cwd = os.getcwd()
     os.chdir(download_path)
     alldirectories = []
@@ -259,6 +311,7 @@ def copy_download_to_work(download_path,work_path,needed_files):
     else:   
         allfiles = list(set(allfiles))
         allfiles.sort()
+
     return alldirectories,allfiles
 
 def download_source(opts,
@@ -267,11 +320,12 @@ def download_source(opts,
                     work_path,
                     download_path,
                     dataset_work_path,
-                    logs,):
+                    logs,
+                    example_name_is_unneeded=False):
     '''
     example_source_name: choose where to get the example source
     example_source_local_name: the local path of the example source (in IO class to upload source from local)
-    example_name: a string to define which files will be used.
+    example_name: a string to define which files will be used or not be used (example_name_is_unneeded=True).
     dataset_work_path: if use dataset as source
     
     Support both two types:
@@ -287,13 +341,22 @@ def download_source(opts,
     need_files = None
     if example_name != None and hasattr(opts,example_name):
         need_files = getattr(opts,example_name)
+    if example_name_is_unneeded and need_files == None:
+        need_files = ""
+        # be noticed, if example_name_is_unneeded is True, then need_files actually is unneeded_files, 
+        # and if need_files is None, it means all files are needed, and so we set need_files to ""
     
     logs(f"read {example_name} setting ...")
     if dataset_work_path:
-        if need_files != None and need_files.strip() != "":
+        if not example_name_is_unneeded:
+            if need_files != None and need_files.strip() != "":
+                logs(f"\t{example_name}:",need_files)
+                all_directories, all_files = copy_download_to_work(
+                    dataset_work_path, work_path,need_files.strip())
+        else:
             logs(f"\t{example_name}:",need_files)
             all_directories, all_files = copy_download_to_work(
-                dataset_work_path, work_path,need_files.strip())
+                dataset_work_path, work_path,need_files,reverse=True)
     
     if example_source_local_name and hasattr(opts,example_source_local_name) and getattr(opts,example_source_local_name) != None:
         if need_files == None: need_files = "*" 
@@ -301,7 +364,7 @@ def download_source(opts,
         logs(f"\t{example_source_local_name}:",local_file_path)
         comm_func.unpack(local_file_path, download_path)
         all_directories_tmp, all_files_tmp = copy_download_to_work(
-            download_path, work_path,need_files)
+            download_path, work_path,need_files,reverse=example_name_is_unneeded)
         comm_func.clean_dictorys(download_path)
         if all_directories_tmp:
             if all_directories == None:
@@ -316,11 +379,12 @@ def download_source(opts,
     
     return all_directories,all_files
 
-def get_dataset_work_path(opts):
-    if hasattr(opts,"dataset"):
-        if opts.dataset:
+def get_dataset_work_path(opts,dataset_name="dataset"):
+    # dataset_name should be "dataset" or "script_dataset"
+    if hasattr(opts,dataset_name):
+        if getattr(opts,dataset_name):
             try:
-                dataset_work_path = opts.dataset.get_full_path()
+                dataset_work_path = getattr(opts,dataset_name).get_full_path()
                 if os.path.isdir(dataset_work_path):
                     return dataset_work_path
                 elif os.path.isfile(dataset_work_path):
@@ -431,4 +495,17 @@ def read_source(opts,work_path,download_path,logs=None):
                                                  dataset_work_path,
                                                  logs) 
     outdict["postdft_extrafile"] = all_files
+    
+    #read script source
+    # For original design, only use one dataset, but here we may need another script dataset
+    # So, the dataset_work_path is not used here, but use the script_dataset
+    script_dataset_work_path = get_dataset_work_path(opts,"script_dataset")
+    all_directories, all_files = download_source(opts,
+                                                 "ScriptSource_local",
+                                                 "Script_Unneeded",
+                                                 work_path,
+                                                 download_path,
+                                                 script_dataset_work_path,
+                                                 logs)
+    outdict["all_scripts"] = all_files
     return outdict

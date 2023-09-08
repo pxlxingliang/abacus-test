@@ -128,14 +128,14 @@ def parse_metrics_set(metrics_set:MetricsSet):
             out_dict["metrics"] = {
                 "dft_type": "abacus",
                 "metrics_name": metrics,
-                "save_file": "metrics.json",
+                "save_file": "metrics_default.json",
                 "modules":["bda"]
             }
 
             if has_super_metrics:
                 out_dict["super_metrics"] = [{
                     "save_file": "superMetrics.json",
-                    "result_file": ["metrics.json"],
+                    "result_file": ["metrics_default.json"],
                     "metrics":[],
                     "outparams":[]
                 }]  

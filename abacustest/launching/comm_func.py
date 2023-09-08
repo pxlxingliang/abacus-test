@@ -1084,3 +1084,12 @@ def pack_results(output_path,result_path):
     packed_file_name = "results.zip"
     pack(alldirs,packed_file_name,"zip")
     os.chdir(cwd)
+
+def gen_dir(dir1):
+    dir1 = dir1.rstrip("/")
+    n = 0
+    while os.path.isdir(dir1):
+        dir1 = dir1 + "_" + str(n)
+        n += 1
+    return dir1
+    
