@@ -12,6 +12,7 @@ from . import (comm_class,
                readsetting) 
     
 class ReuseModel(
+    comm_class.TrackingSet,
     comm_class_exampleSource.ScriptExampleSet,
     comm_class_exampleSource.ScriptSourceSet,
     comm_class_exampleSource.ScriptDatasetSet,
