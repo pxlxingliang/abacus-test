@@ -506,6 +506,7 @@ def read_source(opts,work_path,download_path,logs=None):
                                                  work_path,
                                                  download_path,
                                                  script_dataset_work_path,
-                                                 logs)
+                                                 logs,
+                                                 example_name_is_unneeded=True)
     outdict["all_scripts"] = all_files
     return outdict
