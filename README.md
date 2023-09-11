@@ -35,6 +35,7 @@ This file defines the detail of the jobs. \
 An example is like:
 ```
 {
+    "bohrium_group_name": "abacustest",
     "config":{
         "bohrium_username":         "xxx",
         "bohrium_password":         "xxx",
@@ -52,7 +53,7 @@ An example is like:
          "sub_save_path": "",
          "image": "ABACUS310_IMAGE",
          "example":[["00[0-2]"],"00[3-5]"],
-         "ngroup" : 0,
+         "group_size" : 1,
          "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
          "command": "mpirun -np 8 abacus > log",
          "extra_files":[],
@@ -67,7 +68,7 @@ An example is like:
         {"ifrun": true,
          "image": "ABACUS310_IMAGE",
          "example":[["00[6-7]"],"00[8-9]"],
-         "ngroup" : 3,
+         "group_size" : 1,
          "bohrium": {"scass_type":"c16_m32_cpu","job_type":"container","platform":"ali"},
          "command": "mpirun -np 8 abacus > log",
          "extra_files":[],
@@ -84,6 +85,7 @@ An example is like:
     }
 }
 ```
+- ``bohrium_group_name``: If use bohrium, you can define the group name at here.
 - `ABBREVIATION`: define some abbreviation, and is only valid for `image`.
 - `config`: The setting of config information.
 - `save_path`: define the path to save the results of this test. If this key is not defined or if is deined to be "" or None, the value will be replaced to be the path defined by "-s" (the param of abacustest, the default of "-s" is "result/date_of_today" like "result/20230101")
@@ -91,8 +93,8 @@ An example is like:
   - `ifrun`: if set it to be `false`, will skip this part. 
   - `sub_save_path`: the path to save the results of this part in `save_path`, which means the real save path will be "save_path/sub_save_path". If this key is not defined, or is defined to be "" ornull, the real save path will be "save_path".
   - `iamge`: define the image name. Also you can use the name defined in `ABBREVIATION`. Progrma will firstly check if the image name is defined in `ABBREVIATION`, if yes, the name will be replacedby the value in `ABBREVIATION`, and if no, the iamge name will be kept to be value of `iamge`.
-  - `example`: The folder names of your jobs. Here assume that you have 5 jobs and the folder names are 000, 001, 002, ..., 004. You can write as ["000", "001", "002", "003", "004"], and also youcan write as ["00[0-4]"] that can be recongnized by `glob.glob`. Besides, you can put some folders in a list, and they will be set as one group and run the jobs serially. Such as: [["00[0-1]"],"0[2-4]"], "000" and "001" is one group, each of "002", "003" and "004" is one group and total 4 groups.
-  - `ngroup`: split `example` to `ngroup` groups, and will apply `ngroup` machines to run the jobs.
+  - `example`: The folder names of your jobs. Here assume that you have 5 jobs and the folder names are 000, 001, 002, ..., 004. You can write as ["000", "001", "002", "003", "004"], and also you can write as ["00[0-4]"] that can be recongnized by `glob.glob`. Besides, you can put some folders in a list, and they will be set as one group and run the jobs serially. Such as: [["00[0-1]"],"0[2-4]"], "000" and "001" is one group, each of "002", "003" and "004" is one group and total 4 groups.
+  - `group_size`: define how many example groups to run on a single machine.
   - `bohrium`: if you want to submit the job to Bohrium, you need set this key, and if you do not want to use Bohrium, please remove this key or set it to be `false`.
   - `command`: the command to run the job. It is same for all jobs defined in `example`.
   - `extra_files`: if you need extra files (such as "collectdata-abacus.json"), you can defined them at here. Before run the command, these files will be copied to each example folder.

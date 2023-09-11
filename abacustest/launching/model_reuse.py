@@ -10,9 +10,15 @@ from . import (comm_class,
                comm_func,
                comm_class_exampleSource,
                readsetting) 
+
+class RundftImage(BaseModel):
+    rundft_image: String = Field(default="",
+                          title="Rundft Image",
+                          description="If you do not want to use the rundft image defined in setting file, please fill in the image address here",)
     
 class ReuseModel(
     comm_class.TrackingSet,
+    RundftImage,
     comm_class_exampleSource.ScriptExampleSet,
     comm_class_exampleSource.ScriptSourceSet,
     comm_class_exampleSource.ScriptDatasetSet,
@@ -71,6 +77,18 @@ def ReuseModelRunner(opts:ReuseModel) -> int:
             if "tags" not in allparams["post_dft"]["upload_tracking"]:
                 allparams["post_dft"]["upload_tracking"]["tags"] = tracking_set.get("tags")
 
+        # modify the image of rundft
+        if opts.rundft_image != None and opts.rundft_image.strip() != "":
+            new_image = opts.rundft_image.strip()
+            if "rundft" in allparams:
+                if isinstance(allparams["rundft"],list):
+                    for idx in range(len(allparams["rundft"])):
+                        if "image" in allparams["rundft"][idx]:
+                            allparams["rundft"][idx]["image"] = new_image
+                elif isinstance(allparams["rundft"],dict):
+                    if "image" in allparams["rundft"]:
+                        allparams["rundft"]["image"] = new_image
+                           
         #execut
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
         logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
