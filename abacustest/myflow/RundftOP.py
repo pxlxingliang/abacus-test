@@ -231,13 +231,13 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
                 oneartifact=False)
             new_examples,new_examples_name = comm.SplitGroupSize(examples,examples_name,group_size)
             istep = 0
+            pt = PythonOPTemplate(RunDFT,image=image,envs=comm.SetEnvs())
             for iexample_name in new_examples_name:
                 istep += 1
                 rundft_stepname_istep = rundft_stepname + f"-{istep}"
                 space = "\n" + (len(rundft_stepname_istep)+2)*" "
                 comm.printinfo("%s: %s" % (rundft_stepname_istep,space.join(iexample_name)))
                 artifact_example = upload_artifact(iexample_name,archive=None)
-                pt = PythonOPTemplate(RunDFT,image=image,envs=comm.SetEnvs())
                 artifacts={"examples": artifact_example }
                 if extrafiles:
                     artifacts["extra_files"]=extrafiles[0][0]
