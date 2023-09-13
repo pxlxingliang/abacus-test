@@ -871,17 +871,20 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
             # set the table width to 100%, and set content to center
             # add a title to the table, "supermetrics summary"
             # add the criterias_comment to the end of the table
-            f.write("<html><head><meta charset=\"utf-8\"><style>table {width:100%;text-align:center;} pre {text-align:left;display:inline-block;} </style></head><body>")
+            f.write("<html><head><meta charset=\"utf-8\"><style>")
+            f.write("table {width:85%;text-align:center;}")
+            f.write(".note {width: 75%;text-align: left;display: inline-block;word-wrap: break-word;white-space: pre-wrap;}")
+            f.write("</style></head><body>")
             f.write("<table border=\"2px\"><thead><tr><td>Super Metrics Summary</td></tr></thead>")
             f.write(sm_summary)
+            f.write("</table>")
             if criterias_comment:
-                f.write("<pre>Note:\n"+criterias_comment+"</pre>")
+                f.write("<div class=\"note\">Note:\n"+criterias_comment+"</note>")
             f.write("</body></html>")
         # add the summary to the report at the first position
         supermetrics_report = [] # only keep the summary
         supermetrics_report.insert(0,AutoReportElement(title="supermetrics summary",path="supermetrics_summary.html",description=""))
         
-
     # 2. supermetrics report
     #print("supermetrics_save:",supermetrics_save)
     if supermetrics_report:
