@@ -283,13 +283,13 @@ class Abacus(ResultAbacus):
             force_time = None
             total_time = None
             for i,line in enumerate(self.OUTPUT):
-                if line[23:28] == 'total':
+                if line[23:28] == 'total' or (len(line.split()) == 5 and line.split()[0] == 'total'):  # old version or new version
                     total_time = float(line.split()[1])
-                elif line[23:33] == 'cal_stress':
+                elif line[23:33] == 'cal_stress' or (len(line.split()) == 6 and line.split()[0] == 'cal_stress'): # old version or new version
                     stress_time = float(line.split()[-5])
-                elif line[23:35] == 'cal_force_nl':
+                elif line[23:35] == 'cal_force_nl' or (len(line.split()) == 6 and line.split()[0] == 'cal_force_nl'):
                     force_time = float(line.split()[-5])
-                elif line[23:37] == 'getForceStress':
+                elif line[23:37] == 'getForceStress' or (len(line.split()) == 6 and line.split()[0] == 'getForceStress'):
                     stress_time = float(line.split()[-5])
                     force_time = None
                     

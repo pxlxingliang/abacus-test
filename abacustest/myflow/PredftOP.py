@@ -93,6 +93,7 @@ class PreDFT(OP):
                 comm.CopyFiles(extra_file_path,iexample,move=False)
 
             os.chdir(iexample)
+            log += "COMMAND: %s\n" % str(op_in["command"])
             if op_in["command"] != None and op_in["command"].strip() != "":
                 cmd = str(op_in["command"])
                 return_code, out, err = comm.run_command(cmd)

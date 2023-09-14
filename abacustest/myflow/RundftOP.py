@@ -100,7 +100,7 @@ class RunDFT(OP):
 
             #run command
             os.chdir(work_path)
-            log = ""
+            log = f"COMMAND: {op_in['command']}"
             if op_in["command"].strip() != "":
                 cmd = str(op_in["command"])
                 return_code, out, err = comm.run_command(cmd)
@@ -138,6 +138,17 @@ class RunDFT(OP):
                 except:
                     traceback.print_exc()   
 
+            # get cpuinfo to CPUINFO.log
+            os.chdir(work_path)
+            try:
+                os.system("lscpu > CPUINFO.log")
+            except:
+                pass
+            cpuinfo_log = None if not os.path.isfile("CPUINFO.log") else "CPUINFO.log" 
+            if cpuinfo_log:
+                with open(cpuinfo_log) as f1:
+                    log += "\n\nCPUINFO:\n" + f1.read()  
+                                
             #collect outputs
             os.chdir(work_path)
             logfile_name = "STDOUTER.log"
@@ -158,6 +169,8 @@ class RunDFT(OP):
                         else:
                             log += "\n%s is not exist" % j
                 outpath.append(logfile)
+                if cpuinfo_log:
+                    outpath.append(Path(os.path.join(work_path_name,cpuinfo_log)))
             print("log:",log,file=sys.stderr)
             logfile.write_text(log)
             #os.chdir(cwd)
