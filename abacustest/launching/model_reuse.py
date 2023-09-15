@@ -1,4 +1,4 @@
-import traceback,json
+import traceback,json,sys
 from dp.launching.typing.basic import BaseModel,String
 from dp.launching.typing import Field,DataSet
 import os
@@ -80,15 +80,15 @@ def ReuseModelRunner(opts:ReuseModel) -> int:
         # modify the image of rundft
         if opts.rundft_image != None and opts.rundft_image.strip() != "":
             new_image = opts.rundft_image.strip()
-            if "rundft" in allparams:
-                if isinstance(allparams["rundft"],list):
-                    for idx in range(len(allparams["rundft"])):
-                        if "image" in allparams["rundft"][idx]:
-                            allparams["rundft"][idx]["image"] = new_image
-                elif isinstance(allparams["rundft"],dict):
-                    if "image" in allparams["rundft"]:
-                        allparams["rundft"]["image"] = new_image
-                           
+            if "run_dft" in allparams:
+                if isinstance(allparams["run_dft"],list):
+                    for idx in range(len(allparams["run_dft"])):
+                        if "image" in allparams["run_dft"][idx]:
+                            allparams["run_dft"][idx]["image"] = new_image
+                elif isinstance(allparams["run_dft"],dict):
+                    if "image" in allparams["run_dft"]:
+                        allparams["run_dft"]["image"] = new_image
+                
         #execut
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
         logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
