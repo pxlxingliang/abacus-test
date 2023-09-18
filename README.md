@@ -57,12 +57,6 @@ An example is like:
          "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
          "command": "mpirun -np 8 abacus > log",
          "extra_files":[],
-         "metrics":{
-			"dft_type":"abacus",
-			"metrics_name": [],
-			"save_file": "result.json",
-			"newmethods": []
-		},
          "outputs":["log","result.json","OUT.*"]
         },
         {"ifrun": true,
@@ -81,6 +75,12 @@ An example is like:
                 "command": "collectdata.py collectdata-abacus.json -o result.json -j 00*",
                 "extra_files": [],
                 "image":   "python:3.8",
+                "metrics":{
+			        "dft_type":"abacus",
+			        "metrics_name": [],
+			        "save_file": "result.json",
+			        "newmethods": []
+		        },
                 "outputs": []
     }
 }
@@ -304,7 +304,28 @@ A template of param.json is:
   }
 }
 ```
-Only key "prepare" is recongnized by `abacustest prepare`.          
+Only key "prepare" is recongnized by `abacustest prepare`.    
+
+- `example_template`: the template of example folder, such as: ["example_path"], ["example_path1","example_path2"]. 
+- `input_template`: the template of INPUT file. If is not null, all example will use this file as INPUT file. 
+- `kpt_template`: the template of KPT file. If is not null, all example will use this file as KPT file. 
+- `stru_template`: the template of STRU file. If is not null, all example will use this file as STRU file. 
+- `mix_input`: the mix of INPUT parameters. If is not null, will generate all combinations of the parameters for each example. Such as: {"ecutwfc":[50,60,70],"kspacing":[0.1,0.12,0.13]}, will generate 9 INPUTs. 
+- `mix_kpt`: the mix of KPT parameters. If is not null, will generate all combinations of the parameters for each example. There are three types to define the kpt parameters: 
+    - One Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: 4, means 4 4 4 0 0 0. 
+    - Three Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: [4,4,4], means 4 4 4 0 0 0. 
+    - Three Int number defines the K points in a/b/c direction, and three Float defines the shift in G space. Such as: [4,4,4,1,1,1], means 4 4 4 1 1 1.  
+    So, an example of mix_kpt can be: [2,[3,3,3],[4,4,4,1,1,1]] 
+- `mix_stru`: the mix of STRU file. If is not null, will generate all combinations for each example.
+- `pp_dict`: the pseudopotential dict. The key is the element name, and the value is the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}. 
+- `orb_dict`: the orbital dict. The key is the element name, and the value is the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}. 
+- `pp_path`: the path of pseudopotential files. There should has an extra "element.json" file that defines the element name and the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}, or abacustest will read the first two letters of the pseudopotential file name as the element name. If one element has been defined in both `pp_dict` and `pp_path`, the value in `pp_dict` will be used. 
+- `orb_path`: the path of orbital files. There should has an extra "element.json" file that defines the element name and the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}, or abacustest will read the first two letters of the orbital file name as the element name. If one element has been defined in both `orb_dict` and `orb_path`, the value in `orb_dict` will be used. 
+- `dpks_descriptor`: the descriptor of dpks. If is not null, will link the dpks file for each example. 
+- `extra_files`: the extra files that will be lniked to each example folder. Such as: ["abc.py","def.json"]. 
+
+If there has more than two types of mixing, will put inputs in a subfolder named by 00000, 00001, 00002, ...
+
 
 ## 6. example
 some exmaples
