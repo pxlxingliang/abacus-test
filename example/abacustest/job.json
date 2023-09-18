@@ -1,8 +1,8 @@
 {
     "config": {
-        "lbg_username": "XXX",
-        "lbg_password": "XXX",
-        "project_id": 111
+        "bohrium_username": "XXX",
+        "bohrium_password": "XXX",
+        "bohrium_project_id": 111
     },
     "ABBREVIATION": {
         "ABACUS310_IMAGE": "registry.dp.tech/dptech/abacus:3.1.0"
@@ -16,7 +16,7 @@
                 "00*"
             ],
             "bohrium": {
-                "scass_type": "c32_m64_cpu",
+                "scass_type": "c32_m128_cpu",
                 "job_type": "container",
                 "platform": "ali"
             },

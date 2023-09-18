@@ -49,7 +49,7 @@ class RunDFT(OP):
                 #"examples_name":str,
                 "command": str,
                 "sub_save_path": str,
-                "extra_files": Artifact(Path),
+                "extra_files": Artifact(Path,optional=True),
                 "outputfiles":[str],
                 "metrics": BigParameter(dict,default={}),
                 "super_metrics": BigParameter(dict,default={}),
@@ -77,8 +77,11 @@ class RunDFT(OP):
         
         # if define sub_save_path, create sub_save_path in root and copy examples to work path
         # else work path is examples
+        root_path = op_in["examples"].art_root
+        print("root_path:",root_path,file=sys.stderr)
         for iexample in op_in["examples"]:
-            example_path = str(iexample).split("/inputs/artifacts/examples/")[1]
+            #example_path = str(iexample).split("/inputs/artifacts/examples/")[1]
+            example_path = os.path.relpath(str(iexample),str(root_path))
             work_path = example_path
             if op_in["sub_save_path"] != None and str(op_in["sub_save_path"]).strip() != "":
                 work_path = os.path.join(str(op_in["sub_save_path"]),example_path)
@@ -91,15 +94,18 @@ class RunDFT(OP):
             #copy extra_files to work path
             print("sub_save_path:",op_in["sub_save_path"],file=sys.stderr) 
             if op_in["extra_files"] != None:
-                extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+                #extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+                extra_file_path = op_in["extra_files"].art_root
                 comm.CopyFiles(extra_file_path,work_path,move=False)
 
             #run command
             os.chdir(work_path)
-            log = ""
+            log = f"COMMAND: {op_in['command']}"
             if op_in["command"].strip() != "":
                 cmd = str(op_in["command"])
-                log += os.popen("(%s) 2>&1" % cmd).read()
+                return_code, out, err = comm.run_command(cmd)
+                log += out + err
+                #log += os.popen("(%s) 2>&1" % cmd).read()
 
             #check if need to upload to tracking
             tracking_setting = op_in["upload_tracking"]
@@ -132,6 +138,17 @@ class RunDFT(OP):
                 except:
                     traceback.print_exc()   
 
+            # get cpuinfo to CPUINFO.log
+            os.chdir(work_path)
+            try:
+                os.system("lscpu > CPUINFO.log")
+            except:
+                pass
+            cpuinfo_log = None if not os.path.isfile("CPUINFO.log") else "CPUINFO.log" 
+            if cpuinfo_log:
+                with open(cpuinfo_log) as f1:
+                    log += "\n\nCPUINFO:\n" + f1.read()  
+                                
             #collect outputs
             os.chdir(work_path)
             logfile_name = "STDOUTER.log"
@@ -152,6 +169,8 @@ class RunDFT(OP):
                         else:
                             log += "\n%s is not exist" % j
                 outpath.append(logfile)
+                if cpuinfo_log:
+                    outpath.append(Path(os.path.join(work_path_name,cpuinfo_log)))
             print("log:",log,file=sys.stderr)
             logfile.write_text(log)
             #os.chdir(cwd)
@@ -225,18 +244,17 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
                 oneartifact=False)
             new_examples,new_examples_name = comm.SplitGroupSize(examples,examples_name,group_size)
             istep = 0
+            pt = PythonOPTemplate(RunDFT,image=image,envs=comm.SetEnvs())
             for iexample_name in new_examples_name:
                 istep += 1
                 rundft_stepname_istep = rundft_stepname + f"-{istep}"
                 space = "\n" + (len(rundft_stepname_istep)+2)*" "
                 comm.printinfo("%s: %s" % (rundft_stepname_istep,space.join(iexample_name)))
                 artifact_example = upload_artifact(iexample_name,archive=None)
-                pt = PythonOPTemplate(RunDFT,image=image)
                 artifacts={"examples": artifact_example }
                 if extrafiles:
                     artifacts["extra_files"]=extrafiles[0][0]
-                else:
-                    pt.inputs.artifacts["extra_files"].optional = True
+
                 step = Step(name=rundft_stepname_istep, template=pt,
                             parameters=parameters,
                             artifacts=artifacts,
@@ -255,17 +273,17 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
         else:
             artifacts_example = predft_step.outputs.artifacts['outputs']
             #produce step
-            pt = PythonOPTemplate(RunDFT,image=image,slices=Slices(
+            pt = PythonOPTemplate(RunDFT,image=image,envs=comm.SetEnvs(),
+                    slices=Slices(
                         "int('{{item}}')",
                         input_artifact = ["examples"],
                         output_artifact = ["outputs"],
                         group_size=group_size,
-                        ))
+                        )
+                    )
             artifacts={"examples": artifacts_example }
             if extrafiles:
                 artifacts["extra_files"]=extrafiles[0][0]
-            else:
-                pt.inputs.artifacts["extra_files"].optional = True
             step = Step(name=rundft_stepname, template=pt,
                         parameters=parameters,
                         artifacts=artifacts,

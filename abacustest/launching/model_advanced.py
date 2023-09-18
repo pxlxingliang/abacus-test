@@ -18,12 +18,10 @@ class AdvancedModel(comm_class.TrackingSet,
                     comm_class_metrics.MetricsSet,
                     comm_class_postdft.PostdftImageSet,
                     comm_class_postdft.PostdftCommandSet,
-                    comm_class_exampleSource.PostdftExtraFileNeededSet,
                     comm_class_exampleSource.PostdftExtraFileSet,
                     comm_class_rundft.RundftImageSet,
                     comm_class_rundft.RundftCommandSet,
                     comm_class_rundft.RundftGroupSizeSet,
-                    comm_class_exampleSource.RundftExtraFileNeededSet,
                     comm_class_exampleSource.RundftExtraFileSet,
                     comm_class_exampleSource.RundftExampleSet,
                     comm_class_exampleSource.RundftExampleSourceSet,
@@ -80,16 +78,8 @@ def AdvancedModelRunner(opts) -> int:
             
         #move results to output_path
         comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
-        cwd = os.getcwd()
-        os.chdir(os.path.join(output_path,allparams.get("save_path","results")))
-        allfiles = os.listdir(".")
-        alldirs = []
-        for f in allfiles:
-            if os.path.isdir(f):
-                alldirs.append(f)
-        packed_file_name = "results.zip"
-        comm_func.pack(alldirs,packed_file_name,"zip")
-        os.chdir(cwd)
+        comm_func.pack_results(output_path,allparams.get("save_path","results"))
+        
     except:
         traceback.print_exc()
         return 1

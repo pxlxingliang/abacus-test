@@ -117,16 +117,16 @@ def UplaodDatasetModelRunner(opts:UplaodDatasetModel):
         zip_ref.extractall(download_path)
 
     today = datetime.datetime.now().strftime('%Y/%m/%d-%H:%M')
-    new_dataset_name_tail = "_" + opts.Config_lbg_username.split("@")[0]
+    new_dataset_name_tail = "_" + opts.Config_bohrium_username.split("@")[0]
     overwrite = opts.overwrite
-    tags = [opts.Config_lbg_username,opts.Config_project_id,today.split("-")[0],today]
-    properties = {"bohrium_project":opts.Config_project_id}
+    tags = [opts.Config_bohrium_username,opts.Config_bohrium_project_id,today.split("-")[0],today]
+    properties = {"bohrium_project":opts.Config_bohrium_project_id}
 
     logs = comm_class.myLog()
     doupload = upload(download_path,
-           opts.Config_lbg_username, 
-           opts.Config_lbg_password, 
-           opts.Config_project_id, 
+           opts.Config_bohrium_username, 
+           opts.Config_bohrium_password, 
+           opts.Config_bohrium_project_id, 
            opts.name.strip(), 
            new_dataset_name_tail, 
            tags, 

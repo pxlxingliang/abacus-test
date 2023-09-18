@@ -47,7 +47,7 @@ class PostDFT(OP):
             {
                 "examples": Artifact(List[Path]),
                 "command": str,
-                "extra_files": Artifact(Path),
+                "extra_files": Artifact(Path,optional=True),
                 "outputfiles":[str],
                 "metrics": BigParameter(dict,default={}),
                 "super_metrics": BigParameter(dict,default={}),
@@ -73,27 +73,23 @@ class PostDFT(OP):
         outpath = []
         
         # if define sub_save_path, create sub_save_path in root and copy examples to sub_save_path
-        example_path = str(op_in["examples"][0]).split("/inputs/artifacts/examples/")[0] + "/inputs/artifacts/examples/"
-        work_path = example_path
+        #example_path = str(op_in["examples"][0]).split("/inputs/artifacts/examples/")[0] + "/inputs/artifacts/examples/"
+        #work_path = example_path
+        work_path = op_in["examples"].art_root
         
         allexample_path = []
         for i in op_in["examples"]:
-            allexample_path.append(str(i).split("/inputs/artifacts/examples/")[1])
+            #allexample_path.append(str(i).split("/inputs/artifacts/examples/")[1])
+            allexample_path.append(os.path.relpath(str(i),str(work_path)))
 
         print("work path:",work_path,file=sys.stderr)
         
         #copy extra_files to work path 
         if op_in["extra_files"] != None:
-            extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+            #extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+            extra_file_path = op_in["extra_files"].art_root
             comm.CopyFiles(extra_file_path,work_path,move=False)
 
-        #run command
-        os.chdir(work_path)
-        log = ""
-        if op_in["command"].strip() != "":
-            cmd = str(op_in["command"])
-            log += os.popen("(%s) 2>&1" % cmd).read()
-        
         #check if need to upload to tracking
         tracking_setting = op_in["upload_tracking"]
         metrics_setting = op_in["metrics"]
@@ -103,11 +99,46 @@ class PostDFT(OP):
             do_upload_tracking = True
             
         #read metrics
-        try:
-            os.chdir(work_path)
-            tracking_values = metrics.ReadMetrics(metrics.Metrics.TransferMetricsOPIO(metrics_setting),do_upload_tracking,allexample_path)
-        except:
-            traceback.print_exc()
+        metrics_setting_list = metrics.Metrics.TransferMetricsOPIO(metrics_setting)
+        # need to split metrics_setting_list to before_command and after_command
+        metrics_setting_list_before_command = []
+        metrics_setting_list_after_command = []
+        for imetric in metrics_setting_list:
+            if imetric.get("before_command",False):
+                metrics_setting_list_before_command.append(imetric)
+            else:
+                metrics_setting_list_after_command.append(imetric)
+        tracking_values_before = tracking_values_after = None
+        if metrics_setting_list_before_command:
+            try:
+                os.chdir(work_path)
+                tracking_values_before = metrics.ReadMetrics(metrics_setting_list_before_command,do_upload_tracking,allexample_path)
+            except:
+                traceback.print_exc()
+        
+        #execute command
+        os.chdir(work_path)
+        log = f"COMMAND: {op_in['command']}"
+        if op_in["command"].strip() != "":
+            cmd = str(op_in["command"])
+            return_code, out, err = comm.run_command(cmd)
+            log += out + err
+            #log += os.popen("(%s) 2>&1" % cmd).read()
+        
+        if metrics_setting_list_after_command:
+            try:
+                os.chdir(work_path)
+                tracking_values_after = metrics.ReadMetrics(metrics_setting_list_after_command,do_upload_tracking,allexample_path)
+            except:
+                traceback.print_exc()              
+
+        # merge tracking_values_before and tracking_values_after
+        tracking_values = []
+        if tracking_values_before:
+            tracking_values.extend(tracking_values_before)
+        if tracking_values_after:
+            tracking_values.extend(tracking_values_after)
+        if not tracking_values:
             tracking_values = None
         #calculate super_metrics
         try:
@@ -122,8 +153,19 @@ class PostDFT(OP):
             try:
                 tracking.upload_to_tracking(tracking_setting,tracking_values,tracking_summary,AIM_ACCESS_TOKEN=None)
             except:
-                traceback.print_exc()   
-                    
+                traceback.print_exc() 
+                  
+        # get cpuinfo to CPUINFO.log
+        os.chdir(work_path)
+        try:
+            os.system("lscpu > CPUINFO.log")
+        except:
+            pass
+        cpuinfo_log = None if not os.path.isfile("CPUINFO.log") else "CPUINFO.log" 
+        if cpuinfo_log:
+            with open(cpuinfo_log) as f1:
+                log += "\n\nCPUINFO:\n" + f1.read() 
+                                
         #collect outputs
         os.chdir(work_path)
         logfile_name = "STDOUTER.log"
@@ -133,7 +175,10 @@ class PostDFT(OP):
             i += 1
         logfile = Path(logfile_name)
         if len(op_in["outputfiles"]) == 0:
-            outpath.append(Path(work_path))
+            for ifile in glob.glob("*"):
+                if ifile.startswith("."):
+                    continue 
+                outpath.append(Path(ifile))
         else:
             for i in op_in["outputfiles"]:
                 for j in glob.glob(i):
@@ -142,6 +187,8 @@ class PostDFT(OP):
                     else:
                         log += "\n%s is not exist" % j
             outpath.append(logfile)
+            if cpuinfo_log:
+                outpath.append(Path(cpuinfo_log))
         print("log:",log,file=sys.stderr)
         logfile.write_text(log)
 
@@ -152,15 +199,6 @@ class PostDFT(OP):
             }
         )
         return op_out
-
-def SetEnvs():
-    if globV.get_value("PRIVATE_SET").get("config_host","").strip() in ["https://workflows.deepmodeling.com",""]:
-        return None
-    from dflow import Secret
-    envs = {}
-    for k,v in globV.get_value("PRIVATE_SET").items():
-        envs[k] = Secret(str(v))
-    return envs
     
 def produce_postdft(setting,prestep_output,flowname,example_path):
     # if rundft_output is not None, then the input of postdft is the output of rundft,
@@ -225,12 +263,10 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
         "upload_tracking": setting.get("upload_tracking", {})
     }
     
-    pt = PythonOPTemplate(PostDFT,image=image,envs=SetEnvs())
+    pt = PythonOPTemplate(PostDFT,image=image,envs=comm.SetEnvs())
     artifacts={"examples": artifact_example }
     if extrafiles:
         artifacts["extra_files"]=extrafiles[0][0]
-    else:
-        pt.inputs.artifacts["extra_files"].optional = True
     step = Step(name=postdft_stepname, template=pt,
                 parameters=parameters,
                 artifacts=artifacts,

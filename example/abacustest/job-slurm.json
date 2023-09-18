@@ -1,0 +1,65 @@
+{
+    "save_path": "result",
+    "run_dft": [
+        {
+            "ifrun": true,
+            "example": [
+                "00*"
+            ],
+            "dispatcher": {
+                "machine_dict": {
+                    "remote_root": "/home/username/abacustest_work", 
+                    "remote_profile": {
+                        "hostname": "xxx.xx.xxx.xxx",
+                        "username": "Username",         
+                        "password": "password",
+                        "port": 22
+                    }
+                },
+                "resources_dict": {
+                    "number_node": 1,
+                    "cpu_per_node": 8,
+                    "gpu_per_node": 1,
+                    "queue_name": "Normal"
+                }
+            },
+            "command": "OMP_NUM_THREADS=1 mpirun -np 16 abacus > log",
+            "outputs": []
+        }
+    ],
+    "post_dft": {
+        "ifrun": true,
+        "command": "",
+        "dispatcher": {
+            "machine_dict": {
+                "remote_root": "/home/username/abacustest_work", 
+                "remote_profile": {
+                    "hostname": "xxx.xx.xxx.xxx",
+                    "username": "Username",         
+                    "password": "password",
+                    "port": 22
+                }
+            },
+            "resources_dict": {
+                "number_node": 1,
+                "cpu_per_node": 2,
+                "gpu_per_node": 1,
+                "queue_name": "Normal"
+            }
+        },
+        "metrics": {
+            "path": [
+                "00*"
+            ],
+            "dft_type": "abacus",
+            "metrics_name": [
+                "scf_steps",
+                "total_time",
+                "converge",
+                "normal_end"
+            ],
+            "save_file": "result.json"
+        },
+        "outputs": []
+    }
+}

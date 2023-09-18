@@ -205,40 +205,50 @@ class Abacus(ResultAbacus):
             self['band_gap'] = None
             return
         
+        nband = self['nbands']  
+        if self["ibzk"] != None:    
+            nk = self['ibzk']
+        elif self["nkstot"] != None:
+            nk = self["nkstot"]
+        else:
+            nk = None
+            
+        if nband == None or nk == None:
+            ErrorReturn("no nbands or ibzk")
+            return
+                
         band_gap = None
         for i,line in enumerate(self.LOG):
             if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
-                nband = self['nbands']
-                nk = self['ibzk']
-                if nband == None or nk == None:
-                    ErrorReturn("no nbands or ibzk")
-
                 nspin = int(line.split()[-1])
                 if nspin not in [1,2]:
                     ErrorReturn("NOT SUPPORT FOR NSPIN=%d now" % nspin)
+                    return
 
-                totalcb = -999999
-                totalvb = 999999
+                totalcb = None
+                totalvb = None
                 for ispin in range(nspin):
-                    cb = -999999
-                    vb = 999999
+                    cb = None
+                    vb = None
                     fermi = self['efermi']
                     if fermi == None:
                         ErrorReturn("can not get efermi")
+                        return
 
                     for k in range(nk):
                         for m in range(nband):
                             ni = ((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + m + 1 + i
                             eband = float(self.LOG[ni].split()[1])
                             if eband > fermi:
-                                if eband < vb:
+                                if vb == None or eband < vb:
                                     vb = eband
-                                if float(self.LOG[ni-1].split()[1]) > cb:
+                                if cb == None or float(self.LOG[ni-1].split()[1]) > cb:
                                     cb = float(self.LOG[ni-1].split()[1])
                                 break
-                    if totalcb < cb: totalcb = cb
-                    if totalvb > vb: totalvb = vb
-                band_gap = totalvb-totalcb
+                    if totalcb == None or (cb != None and totalcb < cb): totalcb = cb
+                    if totalvb == None or (vb != None and totalvb > vb): totalvb = vb
+                band_gap = None if totalvb == None or totalcb == None else totalvb-totalcb
+                break
                 
         self['band_gap'] = band_gap
 
@@ -250,27 +260,50 @@ class Abacus(ResultAbacus):
                            step1_time = "the time of 1st SCF step",
                            scf_steps = "the steps of SCF")
     def GetTimeFromOutput(self):
+        # first, check if self.time is already exist
+        if self.TIME:
+            total_time = self.GetTime("total",None)[0]
+            # if PW basis, stress time = Stress_PW/cal_stress, force_time = cal_force_nl
+            # if lcao basis, stress time = getForceStress, force_time = None
+            stress_time_pw = self.GetTime("Stress_PW","cal_stress")[0]
+            stress_time_lcao = self.GetTime("Force_Stress_LCAO","getForceStress")[0]
+            force_time_pw = self.GetTime("Forces","cal_force_nl")[0]
+            force_time_lcao = None
+            if stress_time_pw != None:
+                stress_time = stress_time_pw
+            else:
+                stress_time = stress_time_lcao
+                
+            if force_time_pw != None:
+                force_time = force_time_pw
+            else:
+                force_time = force_time_lcao
+        else:
+            stress_time = None
+            force_time = None
+            total_time = None
+            for i,line in enumerate(self.OUTPUT):
+                if line[23:28] == 'total' or (len(line.split()) == 5 and line.split()[0] == 'total'):  # old version or new version
+                    total_time = float(line.split()[1])
+                elif line[23:33] == 'cal_stress' or (len(line.split()) == 6 and line.split()[0] == 'cal_stress'): # old version or new version
+                    stress_time = float(line.split()[-5])
+                elif line[23:35] == 'cal_force_nl' or (len(line.split()) == 6 and line.split()[0] == 'cal_force_nl'):
+                    force_time = float(line.split()[-5])
+                elif line[23:37] == 'getForceStress' or (len(line.split()) == 6 and line.split()[0] == 'getForceStress'):
+                    stress_time = float(line.split()[-5])
+                    force_time = None
+                    
+        self["total_time"] = total_time
+        self['stress_time'] = stress_time
+        self['force_time'] = force_time
+
         scftime = []
-        stress_time = None
-        force_time = None
         for i,line in enumerate(self.OUTPUT):
             if line[1:5] == 'ITER':
                 for j in range(i+1,len(self.OUTPUT)):
                     if self.OUTPUT[j][1:3] in ['CG','DA','GE','GV']:
                         scftime.append(float(self.OUTPUT[j].split()[-1]))
-            elif line[23:28] == 'total':
-                self['total_time'] = float(line.split()[1])
-            elif line[23:33] == 'cal_stress':
-                stress_time = float(line.split()[-5])
-            elif line[23:35] == 'cal_force_nl':
-                force_time = float(line.split()[-5])
-            elif line[23:37] == 'getForceStress':
-                stress_time = float(line.split()[-5])
-                force_time = None
-        
-        self['stress_time'] = stress_time
-        self['force_time'] = force_time
-        
+                break
         if len(scftime) > 0:
             import numpy as np
             self['scf_time'] = np.array(scftime).sum()

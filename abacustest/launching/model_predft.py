@@ -16,7 +16,6 @@ from . import (comm_class,
 class PredftModel(
     comm_class_predft.PredftImageSet,
     comm_class_predft.PredftCommandSet,
-    comm_class_exampleSource.PredftExtraFileNeededSet,
     comm_class_exampleSource.PredftExtraFileSet,
     #comm_class_predft.PredftGroupSizeSet,
     comm_class_prepare.PrepareSet,
@@ -26,7 +25,6 @@ class PredftModel(
     comm_class_prepare.PrepareKptTemplateSet,
     comm_class_prepare.PrepareStruTemplateSet,
     comm_class_prepare.PrepareInputTemplateSet,
-    comm_class_exampleSource.PrepareExtraFileNeededSet,
     comm_class_exampleSource.PrepareExtraFileSet,
     comm_class_exampleSource.PrepareExampleSet,
     comm_class_exampleSource.PrepareExampleSourceSet,
@@ -73,16 +71,7 @@ def PredftModelRunner(opts) -> int:
         
         #move results to output_path
         comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
-        cwd = os.getcwd()
-        os.chdir(os.path.join(output_path,allparams.get("save_path","results")))
-        allfiles = os.listdir(".")
-        alldirs = []
-        for f in allfiles:
-            if os.path.isdir(f):
-                alldirs.append(f)
-        packed_file_name = "examples.zip"
-        comm_func.pack(alldirs,packed_file_name,"zip")
-        os.chdir(cwd)
+        comm_func.pack_results(output_path,allparams.get("save_path","results"))
         
     except:
         traceback.print_exc()

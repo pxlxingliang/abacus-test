@@ -570,8 +570,22 @@ def GetAllResults(result_setting):
             "metrics": metrics,
             "plot":plot,
             "webhook":webhook}
+    
+def check_file(ifile):
+    # check if ifile exist,
+    # if exist, then modify the file name to add a number at the end until the file does not exist
+    # return the new file name
+    ifile = os.path.abspath(ifile)
+    if os.path.isfile(ifile):
+        ifile_prefix = os.path.splitext(ifile)[0]
+        ifile_suffix = os.path.splitext(ifile)[1]
+        i = 1
+        while os.path.isfile(ifile):
+            ifile = ifile_prefix + "_%d" % i + ifile_suffix
+            i += 1
+    return ifile
 
-def pandas_out(allresult,savefile = None):
+def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=True):
     """
     allresult = {sample1: {key1:value,key2:value},
                  sample2: {key1:value,key2:value}}
@@ -584,55 +598,70 @@ def pandas_out(allresult,savefile = None):
     normal_result = {}
     list_result = []
     allsamples = [i for i in allresult.keys()]
-    allkeys = [i for i in allresult[allsamples[0]].keys()]
+    allkeys = []
+    for v in allresult.values():
+        for iv in v.keys():
+            if iv not in allkeys:
+                allkeys.append(iv)
+        
     allkeys_seperate = []
-    savefile_prefix = None if not savefile else os.path.splitext(savefile)[0]
+    savefile_prefix = "" if not savefile else os.path.splitext(savefile)[0]
     savefile_names = []
     for ikey in allkeys:
         allkeys_seperate.append(False)
         for i in allsamples:
-            if isinstance(allresult[i][ikey],dict):
+            if isinstance(allresult[i].get(ikey,None),dict):
                 allkeys_seperate[-1] = True
                 break
-            elif isinstance(allresult[i][ikey],list):
-                if isinstance(allresult[i][ikey][0],(list,dict)):
+            elif isinstance(allresult[i].get(ikey,None),list):
+                if len(allresult[i][ikey]) > 0 and isinstance(allresult[i][ikey][0],(list,dict)):
                     allkeys_seperate[-1] = True
                     break
-        
+    nsample = 0    
     for isample in allsamples:
+        nsample += 1
         normal_result[isample] = {}
         for i,ikey in enumerate(allkeys):
+            sfname = savefile_prefix +"_" + isample.replace("/","_")+"_"+ikey.replace("/","_")
             if allkeys_seperate[i]:
-                if isinstance(allresult[isample][ikey],(list,dict)):
+                if isinstance(allresult[isample].get(ikey,None),(list,dict)):
                     try:
                         list_result.append("%s\t%s:\n" % (isample,ikey) + str(pd.DataFrame.from_dict(allresult[isample][ikey])))
                         if savefile:
-                            pd.DataFrame.from_dict(allresult[isample][ikey]).to_csv(savefile_prefix+"_"+isample+"_"+ikey+".csv")
-                            savefile_names.append(savefile_prefix+"_"+isample+"_"+ikey+".csv")
+                            fname_final = check_file(sfname+".csv")
+                            pd.DataFrame.from_dict(allresult[isample][ikey]).to_csv(fname_final)
+                            if nsample <= report_sample_max:
+                                savefile_names.append(fname_final)
                             
                     except:
                         list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample][ikey]))
                         if savefile:
-                            with open(savefile_prefix+"_"+isample+"_"+ikey+".txt",'w') as f:
+                            fname_final = check_file(sfname+".txt")
+                            with open(fname_final,'w') as f:
                                 f.write(str(allresult[isample][ikey]))
-                                savefile_names.append(savefile_prefix+"_"+isample+"_"+ikey+".txt")
+                                if nsample <= report_sample_max:
+                                    savefile_names.append(fname_final)
                             
                 else:
-                    list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample][ikey]))
-                    if savefile:
-                        with open(savefile_prefix+"_"+isample+"_"+ikey+".txt",'w') as f:
-                            f.write(str(allresult[isample][ikey]))
-                            savefile_names.append(savefile_prefix+"_"+isample+"_"+ikey+".txt")
+                    if allresult[isample].get(ikey,None) != None:
+                        list_result.append("%s\t%s:\n" % (isample,ikey) + str(allresult[isample].get(ikey,None)))
+                        if savefile:
+                            fname_final = check_file(sfname+".txt")
+                            with open(fname_final,'w') as f:
+                                f.write(str(allresult[isample][ikey]))
+                                if nsample <= report_sample_max:
+                                    savefile_names.append(fname_final)
             else:
-                normal_result[isample][ikey] = allresult[isample][ikey]
+                normal_result[isample][ikey] = allresult[isample].get(ikey,None)
                 
     if False not in allkeys_seperate:
         normal_result = ""
     else:
         pddata = pd.DataFrame.from_dict(normal_result,orient='index')
         if savefile:
-            pddata.to_csv(savefile)
-            savefile_names.insert(0,savefile)
+            savefile_name_final = check_file(savefile)
+            pddata.to_csv(savefile_name_final)
+            savefile_names.insert(0,savefile_name_final)
         normal_result = str(pddata)
         
     if True not in allkeys_seperate:
@@ -640,8 +669,8 @@ def pandas_out(allresult,savefile = None):
     else:
         list_result = "\n\n".join(list_result)
     
-    print("%s\n\n%s" % (normal_result,list_result))
-           
+    if print_result:
+        print("%s\n\n%s" % (normal_result,list_result))      
     return normal_result,list_result,savefile_names
 
 def OutResultArgs(parser):  

@@ -22,6 +22,7 @@ from dp.launching.typing import (
 from enum import Enum
 from typing import Literal
 import re
+from . import comm_class
 
 
 class Image(BaseModel):
@@ -37,16 +38,17 @@ class ImageBohrium(BaseModel):
     image: String = Field(default=BohriumMachineType("registry.dp.tech/deepmodeling/abacus-intel:latest"),
                           title="Bohrium Image Address",
                           description="",)
-    bohrium_machine_type: BohriumMachineType = Field(default=BohriumMachineType("c32_m64_cpu"))
+    bohrium_machine_type: BohriumMachineType = Field(default=BohriumMachineType("c32_m128_cpu"))
     bohrium_job_type: BohriumJobType = Field(default=BohriumJobType.CONTAINER)
     bohrium_plat_form: BohriumPlatform = Field(default=BohriumPlatform.ALI)
-    #bohrium_machine_type: String = Field(default="c32_m64_cpu")
+    #bohrium_machine_type: String = Field(default="c32_m128_cpu")
     #bohrium_job_type: String = Field(default="container")
     #bohrium_plat_form: String = Field(default="ali")
 
 
 class RundftImageSet(BaseModel):
     rundft_image_set: Union[ImageBohrium,
+                            comm_class.ImageDispatcher,
                      Image] = Field(discriminator="type",
                                     description="IMAGE and MACHINE used in RUN DFT")
 
@@ -73,6 +75,8 @@ def parse_image_set(image_set):
         return {
             "image": image_set.image
         }
+    elif isinstance(image_set, comm_class.ImageDispatcher):
+        return comm_class.ImageDispatcher.construct_dispatcher(image_set)
     else:
         raise ValueError(f"Unknown image set type: {type(image_set)}")
 
@@ -106,10 +110,13 @@ def construct_input(datas,opts,logs):
     
     #read rundft image
     if hasattr(opts,"rundft_image_set"):
-        logs.iprint("\timage:",opts.rundft_image_set.image)
-        for k,v in parse_image_set(opts.rundft_image_set).items():
+        image_set = parse_image_set(opts.rundft_image_set)   
+        logs.iprint("\timage:",image_set.get("image",""))
+        for k,v in image_set.items():
             run_dft[-1][k] = v
         if "bohrium" in run_dft[-1]:   
             logs.iprint("\tbohrium:",run_dft[-1]["bohrium"])
+        elif "dispatcher" in run_dft[-1]:
+            logs.iprint("\tdispatcher:",run_dft[-1]["dispatcher"]["resources_dict"])
 
     return need_rundft, run_dft

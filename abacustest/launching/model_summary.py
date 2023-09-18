@@ -79,10 +79,11 @@ def get_profile_value(allruninfos,profile,aim_tag,metrics,metrics_coef,metrics_n
         if not run["run_name"].endswith(".summary"):
             continue
         runname = run["run_name"].split(".")[1]
-        if runname.startswith("schedule-"):
-            url = "https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
-        else:
-            url = "https://benchmark.mlops.dp.tech/?request=GET%3A%2Fprojects%2Fabacustest%2Fruns%2F" + runname
+        #if runname.startswith("sched"):
+        #    url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
+        #else:
+        #    url = "https://benchmark.mlops.dp.tech/?request=GET%3A%2Fprojects%2Fabacustest%2Fruns%2F" + runname
+        url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
         tags = run["tags"] # tags in AIM
         create_time = datetime.datetime.utcfromtimestamp(run["creation_time"]+8*3600)
 
@@ -129,7 +130,15 @@ def get_profile_value(allruninfos,profile,aim_tag,metrics,metrics_coef,metrics_n
 
 def produce_outtable(allvalues,profile,metrics,digit):
     '''
-    outtable = [["profile","date","profile_link",metrics_value]]
+    outtable = [
+        ["profile","date","profile_link",metrics_value],
+        ititle1,
+        ["profile_name1",value1,value2,...],
+        ...,
+        ititle2,
+        ["profile_name2",value1,value2,...],
+        ...]
+    profile = [{"title":,"profiles":[]},...]
     metrics_value = a string for the final display
     This function will collect the last value, which may not be today
     '''
@@ -138,41 +147,43 @@ def produce_outtable(allvalues,profile,metrics,digit):
     for ii in metrics:
         outtable[0].append(ii)
         
-    for iprofile in profile:
-        if iprofile not in allvalues:
-            continue
-        profile_value = allvalues[iprofile]
-        
-        outtable.append([iprofile,None,None,None])
-        not_set_date = True
-        for ik in metrics:
-            value = "--"
-            ivalue = profile_value.get(ik)
-            if ivalue:
-                if not_set_date:
-                    outtable[-1][1] = ivalue[-1][0].strftime('%Y/%m/%d %H:%M')
-                    outtable[-1][2] = ivalue[-1][2]
-                    outtable[-1][3] = ivalue[-1][3]
-                    not_set_date = False
+    for sub_profile in profile:
+        outtable.append([sub_profile["title"]])
+        for iprofile in sub_profile["profiles"]:
+            if iprofile not in allvalues:
+                continue
+            profile_value = allvalues[iprofile]
 
-                value0 = ivalue[-1][1]
-                if value0 == None:
-                    value = "--"
-                else:
-                    value_abs = ("%." + "%df"%digit.get(ik,0)) % float(value0)
-                    value = value_abs + "[--]"
-                    if len(ivalue) > 1:
-                        value1 = ivalue[-2][1]
-                        if value1 != 0 and isinstance(value0,(int,float)) and isinstance(value1,(int,float)):
-                            value_rel = ("%" + ".2f" + "%" + "%") % ((value0 - value1)*100/value1)
-                            if (value0 - value1) >= 0:
-                                value_rel = "+" + value_rel
-                            value = value_abs + f"[{value_rel}]"
-                            if (value0 - value1) > 0:
-                                value = "<font color='green'>" + value + "</font>"
-                            elif (value0 - value1) < 0:
-                                value = "<font color='red'>" + value + "</font>"
-            outtable[-1].append(value)
+            outtable.append([iprofile,None,None,None])
+            not_set_date = True
+            for ik in metrics:
+                value = "--"
+                ivalue = profile_value.get(ik)
+                if ivalue:
+                    if not_set_date:
+                        outtable[-1][1] = ivalue[-1][0].strftime('%Y/%m/%d %H:%M')
+                        outtable[-1][2] = ivalue[-1][2]
+                        outtable[-1][3] = ivalue[-1][3]
+                        not_set_date = False
+
+                    value0 = ivalue[-1][1]
+                    if value0 == None:
+                        value = "--"
+                    else:
+                        value_abs = ("%." + "%df"%digit.get(ik,0)) % float(value0)
+                        value = value_abs + "[--]"
+                        if len(ivalue) > 1:
+                            value1 = ivalue[-2][1]
+                            if value1 != 0 and isinstance(value0,(int,float)) and isinstance(value1,(int,float)):
+                                value_rel = ("%" + ".2f" + "%" + "%") % ((value0 - value1)*100/value1)
+                                if (value0 - value1) >= 0:
+                                    value_rel = "+" + value_rel
+                                value = value_abs + f"[{value_rel}]"
+                                if (value0 - value1) > 0:
+                                    value = "<font color='green'>" + value + "</font>"
+                                elif (value0 - value1) < 0:
+                                    value = "<font color='red'>" + value + "</font>"
+                outtable[-1].append(value)
     return outtable
         
 def send_to_feishu(outtable,webhook,comment):
@@ -182,6 +193,9 @@ def send_to_feishu(outtable,webhook,comment):
     version_list = []
     profile_list = []
     for itable in outtable[1:]:
+        if len(itable) == 1:
+            new_table.append(itable)
+            continue
         iprofile = itable[0]
         date0 = itable[1]
         link = itable[2]
@@ -223,6 +237,9 @@ def produce_html(outtable,comment):
     new_table = [["profile"] + [i for i in outtable[0][4:]] + ["test_date","version"]]  #table head
 
     for itable in outtable[1:]:
+        if len(itable) == 1:
+            new_table.append(itable)
+            continue
         iprofile = itable[0]
         date0 = "--" if not itable[1] else itable[1].split()[0]
         link = itable[2]
@@ -359,112 +376,238 @@ def echart_report(allvalues):
 
     return ReportSection(title="metrics chart",elements=chart_section,ncols=1)
 
-def echart_html(allvalues,value_range,filename="all.html"):
+def plot_chart(values,minmax):
+    '''
+    values = {
+        profile_name: [],
+        metric_name:[],
+        title:,
+        profile1:{
+            create_time:[value1,value2,...],
+            metric_name1:[value1,value2,...],
+            metric_name2:[value1,value2,...]
+            ...
+        },
+        profile2:{
+            create_time:[value1,value2,...],
+            metric_name1:[value1,value2,...],
+            metric_name2:[value1,value2,...]
+        }}
+    minmax = {
+        metric_name1:[min,max],
+        metric_name2:[min,max],
+        ...}
+        
+    return a line chart
+    '''
     from pyecharts import options as opts
-    from pyecharts.charts import Line,Grid,Page
-    
+    from pyecharts.charts import Line,Grid
     color_list = [
     "#c23531", "#2f4554", "#61a0a8", "#d48265", "#91c7ae",
     "#749f83", "#ca8622", "#bda29a", "#6e7074", "#546570",
     "#c4ccd3", "#f05b72", "#ef5b9c", "#f47920", "#905a3d",
     "#fab27b", "#2a5caa", "#444693", "#726930", "#b2d235"]
-    name_locations = ["end","start"]
+    '''
+    1. "#c23531" - 砖红色
+    2. "#2f4554" - 深蓝灰色
+    3. "#61a0a8" - 青绿色
+    4. "#d48265" - 淡赭色
+    5. "#91c7ae" - 草绿色
+    6. "#749f83" - 绿灰色
+    7. "#ca8622" - 金黄色
+    8. "#bda29a" - 灰褐色
+    9. "#6e7074" - 深灰色
+    10. "#546570" - 蓝灰色
+    11. "#c4ccd3" - 亮灰色
+    12. "#f05b72" - 水粉红色
+    13. "#ef5b9c" - 粉红色
+    14. "#f47920" - 橙色
+    15. "#905a3d" - 棕色
+    16. "#fab27b" - 杏色
+    17. "#2a5caa" - 蓝色
+    18. "#444693" - 深蓝色
+    19. "#726930" - 橄榄色
+    20. "#b2d235" - 黄绿色
+    '''
+    name_locations = ["start","end"]
+    
+    profile_name = values["profile_name"]
+    metric_name = values["metric_name"]
+    final_chart = Line()
+    line_idx = 0
+    width = 1000
+    height = 400
+    grid = Grid(init_opts=opts.InitOpts(width=f"{width}px", height=f"{height}px"))
+
+    
+    for profile_idx in range(len(profile_name)):
+        iprofile = profile_name[profile_idx]
+        line_chart = Line()
+        line_chart.add_xaxis(xaxis_data=values[iprofile]["create_time"])
+        for metric_idx in range(len(metric_name)):
+            imetric = metric_name[metric_idx]
+            if len(profile_name) == 1:
+                legend_name = imetric
+            elif len(metric_name) == 1:
+                legend_name = iprofile
+            else:
+                legend_name = iprofile + "/" + imetric 
+            
+            if metric_idx > 0:
+                line_chart.extend_axis(
+                    yaxis=opts.AxisOpts(
+                        name=imetric,
+                        name_location=name_locations[metric_idx % len(name_locations)],
+                        type_="value",
+                        min_=minmax[imetric][0],
+                        max_=minmax[imetric][1],
+                        position="right",
+                        offset=80*(metric_idx-1),
+                        axisline_opts=opts.AxisLineOpts(linestyle_opts=opts.LineStyleOpts(color=color_list[line_idx % len(color_list)]),),
+                        axistick_opts=opts.AxisTickOpts(is_align_with_label=True),
+                    ))
+            line_chart.add_yaxis(
+                legend_name,
+                values[iprofile][imetric],
+                xaxis_index=0,
+                yaxis_index=metric_idx,
+                label_opts=opts.LabelOpts(is_show=False),
+                color=color_list[ line_idx % len(color_list)]
+            )
+            line_idx += 1
+        
+        if profile_idx == 0:
+            line_chart.set_global_opts(
+                xaxis_opts=opts.AxisOpts(type_="time", boundary_gap=False),
+                yaxis_opts=opts.AxisOpts(name=metric_name[0],
+                                         min_=minmax[metric_name[0]][0],
+                                         max_=minmax[metric_name[0]][1],
+                                         #is_scale = True,
+                                         name_location="middle",
+                                         name_gap=30,
+                                         axisline_opts=opts.AxisLineOpts(
+                    linestyle_opts=opts.LineStyleOpts(color=color_list[0])),
+                    axistick_opts=opts.AxisTickOpts(is_align_with_label=True),
+                ),
+                datazoom_opts=[opts.DataZoomOpts(type_="slider", range_start=80, range_end=100),
+                               opts.DataZoomOpts(type_="inside", range_start=80, range_end=100),],
+                tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type="cross"),
+                legend_opts=opts.LegendOpts(is_show=True, pos_top="30"),
+                title_opts=opts.TitleOpts(title=values["title"], pos_left="center", pos_top="top"),
+                toolbox_opts=opts.ToolboxOpts(feature=opts.ToolBoxFeatureOpts(save_as_image=opts.ToolBoxFeatureSaveAsImageOpts(type_="png", background_color="white"),
+                                                                              data_zoom=opts.ToolBoxFeatureDataZoomOpts(),
+                                                                              restore=opts.ToolBoxFeatureRestoreOpts(),
+                                                                              data_view=opts.ToolBoxFeatureDataViewOpts(),
+                                                                              magic_type=opts.ToolBoxFeatureMagicTypeOpts(type_=["line", "bar"]),
+                                                                              brush=opts.ToolBoxFeatureBrushOpts(type_="rect")),
+                                              pos_left="50",
+                                              pos_top="60"),
+            )
+            
+        if profile_idx == 0:
+            final_chart = line_chart
+        else:
+            final_chart.overlap(line_chart)
+    
+    
+    right_shift = 100 if len(metric_name) < 3 else 100+80*(len(metric_name)-2)
+    grid.add(
+        final_chart,
+        grid_opts=opts.GridOpts(
+            pos_left="50px", pos_top="90px", pos_right=f"{right_shift}px", pos_bottom="70px"),
+        is_control_axis_index=True
+    )
+       
+    return grid
+
+def echart_html(allvalues,value_range,setting,filename="all.html"):
+    '''
+    setting = [
+        {
+            "profiles": ["intel-cg","intel-dav",...],
+            "metrics": ["NormalEndRatio","ConvergeRatio",...],
+            "title":""
+        },
+        {
+            "profiles": ["intel-cg","intel-dav",...],
+            "metrics": ["SCFConverge Score","Performance Score",...],
+            "title":""   
+        }
+    ]
+    '''
+    from pyecharts import options as opts
+    from pyecharts.charts import Line,Grid,Page
     
     pre_path = os.path.split(filename)[0]
+    page = Page(layout=Page.SimplePageLayout)
     
-    page = Page(layout=Page.DraggablePageLayout)
-    
-    for iprofile,profile_value in allvalues.items():
+    chart_idx = 0
+    for iset in setting:
+        profiles = iset["profiles"]
+        metrics = iset["metrics"]
+        title = iset["title"]
+        if title.strip() == "":
+            title = "metrics chart{chart_idx}"
+        
+        profile_name = []
         metric_name = []
-        x = [ii[0].strftime('%Y/%m/%d\n%H:%M') for ii in [iii for iii in profile_value.values()][0] ]
-        ys = []
-        min_ = []
-        max_ = []
-        
-        for imetric,imetric_value in profile_value.items():
-            y = []
-            for ii in imetric_value:
-                y.append(ii[1])
-            if set(y) != set([None]): #if one metric has all None, then this metric is not needed
-                metric_name.append(imetric)
-                ys.append(y)
-                if value_range.get(imetric,None) != None:
-                    min_.append(value_range[imetric][0])
-                    max_.append(value_range[imetric][1])
-                else:
-                    y_no_none = [yy for yy in y if yy is not None]
-                    min_ = min(y_no_none) - 1
-                    max_ = max(y_no_none) - 1
-        nmetrics = len(metric_name)
-        if nmetrics == 0:
-            continue
+        chart_values = {}
+        for iprofile in profiles:
+            if iprofile not in allvalues:
+                continue
+            profile_value = {}
+            profile_has_value = False
+            for imetrics in metrics:
+                if imetrics not in allvalues[iprofile]:
+                    continue
 
-        width = 1200
-        height = 400
-        grid = Grid(init_opts=opts.InitOpts(width=f"{width}px", height=f"{height}px"))
-        line_chart = Line()
-        line_chart.add_xaxis(xaxis_data=x)
-        for i in range(nmetrics):
-            line_chart.add_yaxis(metric_name[i], 
-                                 ys[i], 
-                                 xaxis_index=0,
-                                 yaxis_index=i,
-                                 label_opts=opts.LabelOpts(is_show=False),
-                                 color=color_list[i%len(color_list)])
-        for i in range(1,nmetrics):
-            line_chart.extend_axis(
-                yaxis=opts.AxisOpts(
-                    name=metric_name[i],
-                    name_location=name_locations[i % len(name_locations)],
-                    type_="value",
-                    #is_scale = True,
-                    min_=min_[i],
-                    max_=max_[i],
-                    position="right",
-                    offset=80*i,
-                    axisline_opts=opts.AxisLineOpts(
-                        linestyle_opts=opts.LineStyleOpts(
-                            color=color_list[i % len(color_list)]),
-                    ),
-                    axistick_opts=opts.AxisTickOpts(is_align_with_label=True),
-                ))
+                x = []
+                y = []
+                all_none = True
+                for ii in allvalues[iprofile][imetrics]:
+                    y.append(ii[1])
+                    x.append(ii[0])
+                    if ii[1] != None:
+                        all_none = False
+                        
+                if all_none:
+                    continue
+                profile_value["create_time"] = x
+                profile_value[imetrics] = y
+                profile_has_value = True
+                if imetrics not in metric_name:
+                    metric_name.append(imetrics)
+                    
+            if profile_has_value:
+                profile_name.append(iprofile)
+                chart_values[iprofile] = profile_value
         
-        # Set up the chart options
-        line_chart.set_global_opts(
-            yaxis_opts=opts.AxisOpts(name=metric_name[0],
-                                      min_=min_[0],
-                                      max_=max_[0],
-                                      #is_scale = True,
-                                      position="right",
-                                      name_location=name_locations[0],
-                                      axisline_opts=opts.AxisLineOpts(
-                                          linestyle_opts=opts.LineStyleOpts(color=color_list[0])),
-                                      axistick_opts=opts.AxisTickOpts(is_align_with_label=True),
-                                      ),
-            
-            datazoom_opts=[opts.DataZoomOpts(type_="slider", range_start=80, range_end=100),
-                           opts.DataZoomOpts(type_="inside", range_start=80, range_end=100),
-                          ],
-            tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type="cross"),
-            legend_opts=opts.LegendOpts(is_show=True,pos_top="30",pos_left="10"),
-            title_opts=opts.TitleOpts(title=iprofile,pos_left="center",pos_top="top"),
-            toolbox_opts=opts.ToolboxOpts(feature=opts.ToolBoxFeatureOpts(save_as_image=opts.ToolBoxFeatureSaveAsImageOpts(type_="png",background_color="white"),
-                                                                           data_zoom=opts.ToolBoxFeatureDataZoomOpts(),
-                                                                           restore=opts.ToolBoxFeatureRestoreOpts(),
-                                                                           data_view=opts.ToolBoxFeatureDataViewOpts(),
-                                                                           magic_type=opts.ToolBoxFeatureMagicTypeOpts(type_=["line", "bar"]),
-                                                                           brush=opts.ToolBoxFeatureBrushOpts(type_="rect")),
-                                          pos_left="10",
-                                          pos_top="50"),
-        )
-        grid.add(
-            line_chart,
-            grid_opts=opts.GridOpts(
-                pos_left="10px", pos_top="50px", pos_right=f"{50+80*(nmetrics-1)}px", pos_bottom="100px"),
-            is_control_axis_index=True
-        )
-        grid.render(f"{os.path.join(pre_path,iprofile)}.html")
-        page.add(grid)
+        if len(profile_name) == 0 or len(metric_name) == 0:
+            continue
+        chart_idx += 1
+        
+        # get min and max of each metric
+        minmax = {}
+        for imetric in metric_name:
+            if value_range.get(imetric,None) != None:
+                minmax[imetric] = value_range[imetric]
+            else:
+                y_no_none = []
+                for iprofile in profile_name:
+                    if imetric not in chart_values[iprofile]:
+                        chart_values[iprofile][imetric] = [None for i in chart_values[iprofile]["create_time"]]
+                    else:
+                        y_no_none += [ii for ii in chart_values[iprofile][imetric] if ii is not None]
+                minmax[imetric] = [min(y_no_none) - 1,max(y_no_none) + 1]
+                  
+        chart_values["profile_name"] = profile_name
+        chart_values["metric_name"] = metric_name
+        chart_values["title"] = title      
+
+        chart = plot_chart(chart_values,minmax)
+        chart_name = "_".join(title.split())
+        chart.render(f"{os.path.join(pre_path,chart_name)}.html")
+        page.add(chart)
     page.render(filename)
  
 class Summary(BaseModel):
@@ -512,25 +655,12 @@ def SummaryModelRunner(opts:SummaryModel):
     setting = {
         "experiment": "abacustest/benchmark",
         "experiment_id": "7ab4e46a-43fb-440a-828d-4fbdef5b4709",
-        "profile": [
-            "intel-cg",
-            "intel-dav",
-            "intel-elpa",
-            "intel-scalapack",
-            #            "gnu-cg",
-            "gnu-dav",
-            "gnu-elpa",
-            #            "gnu-scalapack",
-            #            "omp-intel-cg",
-            "omp-intel-dav",
-            "omp-intel-elpa",
-            #           "omp-intel-scalapack",
-            #           "omp-gnu-cg",
-            #           "omp-gnu-dav",
-            #           "omp-gnu-elpa",
-            #          "omp-gnu-scalapack",
-            "exx-test",
-            "examples"
+        "profile": [{"title": "PW Performance Test",
+                     "profiles": ["intel-cg","intel-dav","gnu-dav","omp-intel-dav",]},
+                    {"title": "LCAO Performance Test",
+                     "profiles": ["intel-elpa","intel-scalapack","gnu-elpa","omp-intel-elpa",]},
+                    {"title": "Function Test",
+                     "profiles": ["exx-test","examples",]}
         ],
         "aim_tag": {
             "intel-cg": ["benchmark-profile-pw-cg", "benchmark-schedule-intel-cg"],
@@ -594,7 +724,54 @@ def SummaryModelRunner(opts:SummaryModel):
             "SCFConverge Score": 0,
             "Performance Score": 0
         },
-        "comment": comment
+        "comment": comment,
+        "chart_setting":[
+            {
+                "profiles": ["intel-cg","intel-dav","gnu-dav","omp-intel-dav"],
+                "metrics": ["NormalEnd_ratio"],
+                "title": "PW NormalEnd_ratio"
+            },
+            {
+                "profiles": ["intel-cg","intel-dav","gnu-dav","omp-intel-dav"],
+                "metrics": ["Converge_ratio"],
+                "title": "PW Converge_ratio"
+            },
+            {
+                "profiles": ["intel-cg","intel-dav","gnu-dav","omp-intel-dav"],
+                "metrics": ["SCFConverge Score"],
+                "title": "PW SCFConverge Score"
+            },
+            {
+                "profiles": ["intel-cg","intel-dav","gnu-dav","omp-intel-dav"],
+                "metrics": ["Performance Score"],
+                "title": "PW Performance Score"
+            },
+            {
+                "profiles": ["intel-elpa","intel-scalapack","gnu-elpa","omp-intel-elpa"],
+                "metrics": ["NormalEnd_ratio"],
+                "title": "LCAO NormalEnd_ratio"
+            },
+            {
+                "profiles": ["intel-elpa","intel-scalapack","gnu-elpa","omp-intel-elpa"],
+                "metrics": ["Converge_ratio"],
+                "title": "LCAO Converge_ratio"
+            },
+            {
+                "profiles": ["intel-elpa","intel-scalapack","gnu-elpa","omp-intel-elpa"],
+                "metrics": ["SCFConverge Score"],
+                "title": "LCAO SCFConverge Score"
+            },
+            {
+                "profiles": ["intel-elpa","intel-scalapack","gnu-elpa","omp-intel-elpa"],
+                "metrics": ["Performance Score"],
+                "title": "LCAO Performance Score"
+            },
+            {
+                "profiles": ["exx-test","examples"],
+                "metrics": ["NormalEnd_ratio"],
+                "title": "Other functions test"
+            }
+        ]
     }
     output_path = opts.IO_output_path
     os.makedirs(output_path,exist_ok=True)
@@ -625,15 +802,19 @@ def SummaryModelRunner(opts:SummaryModel):
     digit = setting.get("digit",{})
     comment = setting.get("comment","")
     value_range = setting.get("value_range",{})
+    chart_setting = setting.get("chart_setting",[])
     
     json.dump(setting,open(os.path.join(output_path,"setting.json"),'w'),indent=4)
 
     if not opts.if_load_data:
+        allprofiles = []
+        for ipro in profile: allprofiles += ipro.get("profiles",[])
+        
         alltags = []
-        for i in profile:
+        for i in allprofiles:
             alltags += aim_tag.get(i,[i])
         allruns,allruninfos = get_aim_data.get_runs(token,experiment,experiment_id,alltags,collect_metrics=False,GetVersion=False)
-        allvalues = get_profile_value(allruninfos,profile,aim_tag,metrics,metrics_coef,metrics_name,token)
+        allvalues = get_profile_value(allruninfos,allprofiles,aim_tag,metrics,metrics_coef,metrics_name,token)
         pickle.dump(allvalues,open("tracking.pkl",'wb'))
     else:
         allvalues = pickle.load(open("tracking.pkl",'rb'))
@@ -641,8 +822,8 @@ def SummaryModelRunner(opts:SummaryModel):
     #send to feishu and produce html file
     outtable = produce_outtable(allvalues,profile,metrics,digit)
     if opts.feishu_webhook:
-        current_job = opts.Config_dflow_labels["benchmark-job"]
-        current_url = "https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + current_job
+        current_job = opts.Config_dflow_labels["launching-job"]
+        current_url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + current_job
         comment_add = f"\nClick profile to check the detail Benchmark run.\n\nClick [here]({current_url}) to view detailed reports and historical trend graphs."
         send_to_feishu(outtable,opts.feishu_webhook,comment+comment_add)
     html_content,html_content_nolink = produce_html(outtable,comment)
@@ -653,7 +834,7 @@ def SummaryModelRunner(opts:SummaryModel):
     html_section = ReportSection(title="metrics chart",
                              elements=[AutoReportElement(title='metrics', path=table_html_file_name, description="")])
     #chart_section = echart_report(allvalues)
-    echart_html(allvalues,value_range,chart_html_file)
+    echart_html(allvalues,value_range,chart_setting,chart_html_file)
     echart_html_section = ReportSection(title="metrics chart",
                              elements=[AutoReportElement(title='metrics', path=chart_html_file_name, description="")])
 

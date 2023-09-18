@@ -67,16 +67,7 @@ def NormalModelRunner(opts) -> int:
 
     #move results to output_path
     comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
+    comm_func.pack_results(output_path,allparams.get("save_path","results"))
     
-    cwd = os.getcwd()
-    os.chdir(os.path.join(output_path,allparams.get("save_path","results")))
-    allfiles = os.listdir(".")
-    alldirs = []
-    for f in allfiles:
-        if os.path.isdir(f):
-            alldirs.append(f)
-    packed_file_name = "results.zip"
-    comm_func.pack(alldirs,packed_file_name,"zip")
-    os.chdir(cwd)
     
     return 0

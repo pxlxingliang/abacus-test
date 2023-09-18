@@ -13,8 +13,11 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric1 = 'version'
     AbacusMetric_metric2 = 'ncore'
     AbacusMetric_metric3 = 'normal_end'
-    AbacusMetric_metric4 = 'INPUT:ks_solver'
-#    AbacusMetric_metric5 = 'kpt'
+    AbacusMetric_metric4_1 = 'INPUT:ks_solver'
+    AbacusMetric_metric4_2 = 'INPUT:ecutwfc'
+    AbacusMetric_metric4_3 = 'INPUT:kspacing'
+    AbacusMetric_metric4_4 = 'INPUT:lcao_ecut'
+    AbacusMetric_metric5 = 'kpt'
     AbacusMetric_metric6 = 'nbands'
     AbacusMetric_metric7 = 'converge'
     AbacusMetric_metric8 = 'total_mag'
@@ -25,11 +28,11 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric13 = 'nelec'
     AbacusMetric_metric14 = 'energy'
     AbacusMetric_metric15 = 'volume'
-#    AbacusMetric_metric16 = 'fft_grid'
+    AbacusMetric_metric16 = 'fft_grid'
     AbacusMetric_metric17 = 'efermi'
     AbacusMetric_metric18 = 'energy_per_atom'
-#    AbacusMetric_metric19 = 'stress'
-#    AbacusMetric_metric20 = 'force'
+    AbacusMetric_metric19 = 'stress'
+    AbacusMetric_metric20 = 'force'
     AbacusMetric_metric21 = 'band_gap'
     AbacusMetric_metric22 = 'total_time'
     AbacusMetric_metric23 = 'stress_time'
@@ -39,14 +42,14 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric27 = 'step1_time'
     AbacusMetric_metric28 = 'scf_steps'
     AbacusMetric_metric29 = 'atom_mag'
-#    AbacusMetric_metric30 = 'drho'
+    AbacusMetric_metric30 = 'drho'
     AbacusMetric_metric31 = 'lattice_constant'
     AbacusMetric_metric32 = 'cell'
-#    AbacusMetric_metric33 = 'coordinate'
+    AbacusMetric_metric33 = 'coordinate'
     AbacusMetric_metric34 = 'element_list'
     AbacusMetric_metric35 = 'atomlabel_list'
-#    AbacusMetric_metric36 = 'delta_energy'
-#    AbacusMetric_metric37 = 'delta_energyPerAtom'
+    AbacusMetric_metric36 = 'delta_energy'
+    AbacusMetric_metric37 = 'delta_energyPerAtom'
     AbacusMetric_metric38 = 'relax_converge'
     AbacusMetric_metric39 = 'relax_steps'
     AbacusMetric_metric40 = 'bda_mag_moment'
@@ -125,14 +128,14 @@ def parse_metrics_set(metrics_set:MetricsSet):
             out_dict["metrics"] = {
                 "dft_type": "abacus",
                 "metrics_name": metrics,
-                "save_file": "metrics.json",
+                "save_file": "metrics_default.json",
                 "modules":["bda"]
             }
 
             if has_super_metrics:
                 out_dict["super_metrics"] = [{
                     "save_file": "superMetrics.json",
-                    "result_file": ["metrics.json"],
+                    "result_file": ["metrics_default.json"],
                     "metrics":[],
                     "outparams":[]
                 }]  

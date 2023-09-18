@@ -100,7 +100,7 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
     if need_postdft and hasattr(opts,"Tracking_metrics"):
         tracking_set = comm_class.TrackingSet.parse_obj(opts)
         if tracking_set:
-            config["AIM_ACCESS_TOKEN"] = tracking_set.get("token")
+            config["aim_access_token"] = tracking_set.get("token")
             post_dft["upload_tracking"] = {
                 "tags": tracking_set.get("tags"),
                 "name": tracking_set.get("name"),

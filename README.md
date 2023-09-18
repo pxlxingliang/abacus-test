@@ -35,10 +35,11 @@ This file defines the detail of the jobs. \
 An example is like:
 ```
 {
+    "bohrium_group_name": "abacustest",
     "config":{
-        "lbg_username":         "xxx",
-        "lbg_password":         "xxx",
-        "project_id":           111
+        "bohrium_username":         "xxx",
+        "bohrium_password":         "xxx",
+        "bohrium_project_id":           111
     },
     "ABBREVIATION":{
             "ABACUS310_IMAGE": "registry.dp.tech/dptech/abacus:3.1.0",
@@ -52,22 +53,16 @@ An example is like:
          "sub_save_path": "",
          "image": "ABACUS310_IMAGE",
          "example":[["00[0-2]"],"00[3-5]"],
-         "ngroup" : 0,
+         "group_size" : 1,
          "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
          "command": "mpirun -np 8 abacus > log",
          "extra_files":[],
-         "metrics":{
-			"dft_type":"abacus",
-			"metrics_name": [],
-			"save_file": "result.json",
-			"newmethods": []
-		},
          "outputs":["log","result.json","OUT.*"]
         },
         {"ifrun": true,
          "image": "ABACUS310_IMAGE",
          "example":[["00[6-7]"],"00[8-9]"],
-         "ngroup" : 3,
+         "group_size" : 1,
          "bohrium": {"scass_type":"c16_m32_cpu","job_type":"container","platform":"ali"},
          "command": "mpirun -np 8 abacus > log",
          "extra_files":[],
@@ -80,10 +75,17 @@ An example is like:
                 "command": "collectdata.py collectdata-abacus.json -o result.json -j 00*",
                 "extra_files": [],
                 "image":   "python:3.8",
+                "metrics":{
+			        "dft_type":"abacus",
+			        "metrics_name": [],
+			        "save_file": "result.json",
+			        "newmethods": []
+		        },
                 "outputs": []
     }
 }
 ```
+- ``bohrium_group_name``: If use bohrium, you can define the group name at here.
 - `ABBREVIATION`: define some abbreviation, and is only valid for `image`.
 - `config`: The setting of config information.
 - `save_path`: define the path to save the results of this test. If this key is not defined or if is deined to be "" or None, the value will be replaced to be the path defined by "-s" (the param of abacustest, the default of "-s" is "result/date_of_today" like "result/20230101")
@@ -91,8 +93,8 @@ An example is like:
   - `ifrun`: if set it to be `false`, will skip this part. 
   - `sub_save_path`: the path to save the results of this part in `save_path`, which means the real save path will be "save_path/sub_save_path". If this key is not defined, or is defined to be "" ornull, the real save path will be "save_path".
   - `iamge`: define the image name. Also you can use the name defined in `ABBREVIATION`. Progrma will firstly check if the image name is defined in `ABBREVIATION`, if yes, the name will be replacedby the value in `ABBREVIATION`, and if no, the iamge name will be kept to be value of `iamge`.
-  - `example`: The folder names of your jobs. Here assume that you have 5 jobs and the folder names are 000, 001, 002, ..., 004. You can write as ["000", "001", "002", "003", "004"], and also youcan write as ["00[0-4]"] that can be recongnized by `glob.glob`. Besides, you can put some folders in a list, and they will be set as one group and run the jobs serially. Such as: [["00[0-1]"],"0[2-4]"], "000" and "001" is one group, each of "002", "003" and "004" is one group and total 4 groups.
-  - `ngroup`: split `example` to `ngroup` groups, and will apply `ngroup` machines to run the jobs.
+  - `example`: The folder names of your jobs. Here assume that you have 5 jobs and the folder names are 000, 001, 002, ..., 004. You can write as ["000", "001", "002", "003", "004"], and also you can write as ["00[0-4]"] that can be recongnized by `glob.glob`. Besides, you can put some folders in a list, and they will be set as one group and run the jobs serially. Such as: [["00[0-1]"],"0[2-4]"], "000" and "001" is one group, each of "002", "003" and "004" is one group and total 4 groups.
+  - `group_size`: define how many example groups to run on a single machine.
   - `bohrium`: if you want to submit the job to Bohrium, you need set this key, and if you do not want to use Bohrium, please remove this key or set it to be `false`.
   - `command`: the command to run the job. It is same for all jobs defined in `example`.
   - `extra_files`: if you need extra files (such as "collectdata-abacus.json"), you can defined them at here. Before run the command, these files will be copied to each example folder.
@@ -102,11 +104,32 @@ An example is like:
     - `save_file`: the file name to store the values of metrics, which is a json file type.
     - `newmethods`: if the self-defined methods is needed, please add the file name (generally is a .py file) in `extra_files` and the module name (generally is file name without .py) in here.Detail of newmethods please see [2.3 import self-defined methods](#2.3 import self-defined methods).
   - `outputs`: specify which files and folders will be downloaded. If set to be "[]", all of the files in the folder will be downloaded.\
+  - `dispatcher`: if you need to use other platform (not Bohrium), you can delete key `bohrium` and add a key `dispatcher`, which is a dict, like:
+    ```
+    "dispatcher": {
+                "machine_dict": {
+                    "remote_root": "/home/username/abacustest_work",   # Here is a path where the username can access
+                    "remote_profile": {
+                        "hostname": "xxx.xx.xxx.xxx",
+                        "username": "Username",         
+                        "password": "password",
+                        "port": 22
+                    }
+                },
+                "resources_dict": {
+                    "number_node": 1,
+                    "cpu_per_node": 8,
+                    "gpu_per_node": 1,
+                    "queue_name": "Normal"
+                }
+            }
+    ```
+    If you do not need gpu, then you should delete key `gpu_per_node`.
 
 - `post_dft`: define the detail of post processing, and now all examples will be put at one same place. The key are same as those in `run_dft`, but no need the definition of example. 
 
 
-### 1.3 submit a test
+### 1.2 submit a test
 ```
 abacustest submit -p job.json -s result/test
 ```
@@ -281,7 +304,28 @@ A template of param.json is:
   }
 }
 ```
-Only key "prepare" is recongnized by `abacustest prepare`.          
+Only key "prepare" is recongnized by `abacustest prepare`.    
+
+- `example_template`: the template of example folder, such as: ["example_path"], ["example_path1","example_path2"]. 
+- `input_template`: the template of INPUT file. If is not null, all example will use this file as INPUT file. 
+- `kpt_template`: the template of KPT file. If is not null, all example will use this file as KPT file. 
+- `stru_template`: the template of STRU file. If is not null, all example will use this file as STRU file. 
+- `mix_input`: the mix of INPUT parameters. If is not null, will generate all combinations of the parameters for each example. Such as: {"ecutwfc":[50,60,70],"kspacing":[0.1,0.12,0.13]}, will generate 9 INPUTs. 
+- `mix_kpt`: the mix of KPT parameters. If is not null, will generate all combinations of the parameters for each example. There are three types to define the kpt parameters: 
+    - One Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: 4, means 4 4 4 0 0 0. 
+    - Three Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: [4,4,4], means 4 4 4 0 0 0. 
+    - Three Int number defines the K points in a/b/c direction, and three Float defines the shift in G space. Such as: [4,4,4,1,1,1], means 4 4 4 1 1 1.  
+    So, an example of mix_kpt can be: [2,[3,3,3],[4,4,4,1,1,1]] 
+- `mix_stru`: the mix of STRU file. If is not null, will generate all combinations for each example.
+- `pp_dict`: the pseudopotential dict. The key is the element name, and the value is the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}. 
+- `orb_dict`: the orbital dict. The key is the element name, and the value is the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}. 
+- `pp_path`: the path of pseudopotential files. There should has an extra "element.json" file that defines the element name and the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}, or abacustest will read the first two letters of the pseudopotential file name as the element name. If one element has been defined in both `pp_dict` and `pp_path`, the value in `pp_dict` will be used. 
+- `orb_path`: the path of orbital files. There should has an extra "element.json" file that defines the element name and the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}, or abacustest will read the first two letters of the orbital file name as the element name. If one element has been defined in both `orb_dict` and `orb_path`, the value in `orb_dict` will be used. 
+- `dpks_descriptor`: the descriptor of dpks. If is not null, will link the dpks file for each example. 
+- `extra_files`: the extra files that will be lniked to each example folder. Such as: ["abc.py","def.json"]. 
+
+If there has more than two types of mixing, will put inputs in a subfolder named by 00000, 00001, 00002, ...
+
 
 ## 6. example
 some exmaples

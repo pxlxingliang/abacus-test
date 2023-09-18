@@ -51,36 +51,32 @@ def SetConfig(private_set,debug=False):
         client = "LOCAL"
     else:
         comm.printinfo("set config info...")
-        if private_set.get("config_host","").strip() != "":
-            config["host"] = private_set.get("config_host","").strip()
+        if private_set.get("dflow_host","").strip() != "":
+            config["host"] = private_set.get("dflow_host","").strip()
+            
         host = config["host"]
         
-        if private_set.get("s3_config_endpoint","").strip() != "": 
-            s3_config["endpoint"] =  private_set.get("s3_config_endpoint","").strip()
+        if private_set.get("dflow_s3_config_endpoint","").strip() != "": 
+            s3_config["endpoint"] =  private_set.get("dflow_s3_config_endpoint","").strip()
         
-        if private_set.get("config_k8s_api_server","").strip() != "":
-            config["k8s_api_server"] = private_set.get("config_k8s_api_server","").strip()
+        if private_set.get("dflow_k8s_api_server","").strip() != "":
+            config["k8s_api_server"] = private_set.get("dflow_k8s_api_server","").strip()
             
-        if private_set.get("config_token","").strip() != "":
-            config["token"] = private_set.get("config_token","").strip()
+        if private_set.get("dflow_token","").strip() != "":
+            config["token"] = private_set.get("dflow_token","").strip()
 
-        if "lbg_username" in private_set:
-            bohrium.config["username"] = private_set.get('lbg_username')
-        else:
-            bohrium.config["username"] = os.environ.get("BOHRIUM_USERNAME","")
+        if "bohrium_username" in private_set:
+            bohrium.config["username"] = private_set.get('bohrium_username')
             
-        if "lbg_password" in private_set:
-            bohrium.config["password"] = private_set.get('lbg_password','')
-        else:
-            bohrium.config["password"] = os.environ.get("BOHRIUM_PASSWORD","")
-            
-        if "project_id" in private_set:
-            bohrium.config["project_id"] = private_set.get('project_id','')
-        else:
-            bohrium.config["project_id"] = os.environ.get("BOHRIUM_PROJECT_ID","")
-            
-        #comm.printinfo("set bohrium.config['username']/['password']/['project_id']: %s/.../%s" 
-        #               % (bohrium.config["username"],bohrium.config["project_id"]))
+        if "bohrium_password" in private_set:
+            bohrium.config["password"] = private_set.get('bohrium_password','')
+        
+        if "bohrium_ticket" in private_set:
+            bohrium.config["ticket"] = private_set.get('bohrium_ticket')
+                
+        if "bohrium_project_id" in private_set:
+            bohrium.config["project_id"] = private_set.get('bohrium_project_id','')
+
         s3_config["repo_key"] = "oss-bohrium"
         s3_config["storage_client"] = TiefblueClient()
         client = s3_config["storage_client"]
@@ -92,41 +88,9 @@ def SetConfig(private_set,debug=False):
                     username=bohrium.config["username"],
                     password=bohrium.config["password"]))
 
-        #register datahub setting    
-        if private_set.get("datahub_project",""):
-            from dflow.plugins.metadata import MetadataClient
-            config["lineage"] = MetadataClient(
-                project=private_set.get("datahub_project"),
-                token=private_set["datahub_gms_token"],
-            )   
         
     globV.set_value("HOST", host)
     globV.set_value("storage_client", client)
-
-
-def GetURI(urn,privateset=None):
-    if privateset == None:
-        privateset = globV.get_value("PRIVATE_SET")
-    bohrium_username = privateset.get("lbg_username")
-    bohrium_password = privateset.get("lbg_password")
-    bohrium_project = privateset.get("project_id")
-    
-    from dp.metadata import MetadataContext
-    from dp.metadata.utils.storage import TiefblueStorageClient
-    metadata_storage_client = TiefblueStorageClient(bohrium_username,bohrium_password,bohrium_project)
-    with MetadataContext(storage_client=metadata_storage_client) as context:
-        dataset = context.client.get_dataset(urn)
-        if dataset == None:
-            comm.printinfo("ERROR: can not catch the dataset for urn:'%s'. \nSkip it!!!\n" % urn)
-            return None,None
-        uri = str(dataset.uri)  
-    storage_client =  context.storage_client #globV.get_value("storage_client")
-    return uri,storage_client
-
-def DownloadURI(uri,path="."):
-    artifact = S3Artifact(key=uri)
-    download_artifact(artifact,path=path)
-    return path
 
 def PrepareExample(setting):
     '''

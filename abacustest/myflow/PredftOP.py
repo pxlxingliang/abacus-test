@@ -44,9 +44,9 @@ class PreDFT(OP):
     def get_input_sign(cls):
         return OPIOSign(
             {
-                "examples": Artifact(List[Path]),
+                "examples": Artifact(List[Path],optional=True),
                 "command": str,
-                "extra_files": Artifact(Path),
+                "extra_files": Artifact(Path,optional=True),
                 "predft_setting" : BigParameter(dict,default={}),  #the setting of predft
             }
         )
@@ -70,10 +70,17 @@ class PreDFT(OP):
         log = ""
         work_directories = []
         outputs = []
-        allexamples = [os.getcwd()] if not op_in["examples"] else op_in["examples"]
-        for iexample in allexamples:
-            if "inputs/artifacts/examples/" in str(iexample):
-                current_path = str(iexample).split("inputs/artifacts/examples/")[1]
+        if not op_in["examples"]:
+            all_examples = [os.getcwd()]
+            example_root = None
+        else:
+            all_examples = op_in["examples"]
+            example_root = op_in["examples"].art_root
+        
+        for iexample in all_examples:
+            if example_root != None:
+                #current_path = str(iexample).split("inputs/artifacts/examples/")[1]
+                current_path = os.path.relpath(str(iexample),str(example_root))
                 root_path = False
             else:
                 current_path = ""
@@ -81,36 +88,39 @@ class PreDFT(OP):
             #work_directories.append([])
             log += "\nPrepare example %s\n" % current_path
             if op_in["extra_files"] != None:
-                extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+                #extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
+                extra_file_path = op_in["extra_files"].art_root
                 comm.CopyFiles(extra_file_path,iexample,move=False)
 
             os.chdir(iexample)
+            log += "COMMAND: %s\n" % str(op_in["command"])
             if op_in["command"] != None and op_in["command"].strip() != "":
                 cmd = str(op_in["command"])
-                log += os.popen("(%s) 2>&1" % cmd).read()
+                return_code, out, err = comm.run_command(cmd)
+                log += out + err
+                #log += os.popen("(%s) 2>&1" % cmd).read()
 
-            #work_directories_filename = "WORKPATH"
-            if op_in["predft_setting"].get("work_directories_filename"):
-                work_directories_filename = op_in["predft_setting"].get("work_directories_filename")
-                if os.path.isfile(work_directories_filename):
-                    with open(work_directories_filename) as f:
-                        lines = f.readlines()
-                    for i in lines:
-                        if not os.path.isdir(i.strip()):
-                            print("Can not find work directory %s" % i.strip())
+            work_directories_filename = op_in["predft_setting"].get("work_directories_filename") 
+            if not work_directories_filename:
+                work_directories_filename = "example.txt"
+                print(f"Have not define the work directories filename! Try to find the work directories in file '{work_directories_filename}'")            
+            
+            if os.path.isfile(work_directories_filename):
+                with open(work_directories_filename) as f:
+                    lines = f.readlines()
+                for i in lines:
+                    if not os.path.isdir(i.strip()):
+                        print("Can not find work directory %s" % i.strip())
+                    else:
+                        #work_directories[-1].append(os.path.join(current_path,i.strip()))
+                        work_directories.append(os.path.join(current_path,os.path.relpath(i.strip(),os.getcwd())))
+                        
+                        if root_path:
+                            outputs.append(Path(os.path.relpath(i.strip(),os.getcwd())))
                         else:
-                            #work_directories[-1].append(os.path.join(current_path,i.strip()))
-                            work_directories.append(os.path.join(current_path,os.path.relpath(i.strip(),os.getcwd())))
-                            
-                            if root_path:
-                                outputs.append(Path(os.path.relpath(i.strip(),os.getcwd())))
-                            else:
-                                outputs.append(Path.resolve(Path(i.strip())))
-                else:
-                    print(log)
-                    raise RuntimeError("Can not find work directory file %s!" % work_directories_filename)
+                            outputs.append(Path.resolve(Path(i.strip())))
             else:
-                print(f"Have not defined the work directories filename! Return current path: {iexample}")
+                print(f"Can not find work_directories_filename '{work_directories_filename}'! Return current path: {iexample}")
                 if root_path:
                     outputs.append(Path(os.path.relpath(iexample,os.getcwd())))
                 else:
@@ -185,19 +195,17 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
         stepname_tmp = stepname+f"-predft-{igroup}"
         space = "\n" + (len(stepname_tmp)+2)*" "
         comm.printinfo("%s: %s" % (stepname_tmp,space.join(iexample_name)))
-        pt = PythonOPTemplate(PreDFT,image=image)
+        pt = PythonOPTemplate(PreDFT,image=image,envs=comm.SetEnvs())
         artifacts={}
         if iexample_name:
             artifacts["examples"] = upload_artifact(iexample_name,archive=None)
-        else:
-            pt.inputs.artifacts["examples"].optional = True
+
         #artifacts={"examples": upload_artifact(iexample_name,archive=None)}
         
         #get extrafiles
         if extrafiles:
             artifacts["extra_files"]=extrafiles[0][0]
-        else:
-            pt.inputs.artifacts["extra_files"].optional = True
+
         step = Step(name=stepname_tmp, template=pt,
                     parameters={
                         "command": predft_set.get("command",""),

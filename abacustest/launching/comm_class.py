@@ -17,9 +17,12 @@ from dp.launching.typing import (
     BohriumUsername,
     BohriumPassword,
     BohriumProjectId,
+    BohriumTicket,
     BenchmarkLabels,
-    BenchmarkTags
+    BenchmarkTags,
+    DflowLabels 
 )
+from typing import Literal
 
 import re,os
 
@@ -28,19 +31,75 @@ class OutputSet(BaseModel):
 
 class ConfigSet(BaseModel):
     #Bohrium config
-    Config_lbg_username:   BohriumUsername
-    Config_lbg_password:   BohriumPassword
-    Config_project_id:     BohriumProjectId
+    Config_bohrium_username:   BohriumUsername
+#    Config_bohrium_password:   BohriumPassword
+    Config_bohrium_project_id:     BohriumProjectId
+    Config_bohrium_ticket: BohriumTicket
 
     #dflow set
-    Config_config_host: DflowArgoAPIServer
-    Config_s3_config_endpoint: DflowStorageEndpoint
-    Config_config_k8s_api_server: DflowK8sAPIServer
-    Config_config_token: DflowAccessToken
+    Config_dflow_host: DflowArgoAPIServer
+    Config_dflow_s3_config_endpoint: DflowStorageEndpoint
+    Config_dflow_k8s_api_server: DflowK8sAPIServer
+    Config_dflow_token: DflowAccessToken
+    Config_dflow_labels: DflowLabels
 
-    Config_dflow_labels: BenchmarkLabels
+class ImageDispatcher(BaseModel):
+    type: Literal["Use dp-dispatcher"]
 
+    '''
+    "machine_dict": {
+                    "remote_root": "xxxx",
+                    "remote_profile": {
+                        "hostname": "xxxx",
+                        "username": "xxx",
+                        "password": "xxx",
+                        "port": 22
+                    }
+    },
+    "resources_dict": {
+        "number_node": 1,
+        "cpu_per_node": 8,
+        "gpu_per_node": 1,
+        "queue_name": "normal"
+    }
+    '''
+    host: String = Field(default="",title="host",description="host of remote server")
+    username: String = Field(default="",title="username",description="username of remote server")
+    password: String = Field(default="",title="password",description="password of remote server")
+    port: Int = Field(default=22,title="port",description="port of remote server")
+    remote_root: String = Field(default="",title="remote_root",description="an absolute path on remote server to run the calculation")
+    number_node: Int = Field(default=1,title="number_node",description="number of nodes to run the calculation")
+    cpu_per_node: Int = Field(default=8,title="cpu_per_node",description="number of cpus per node to run the calculation")
+    gpu_per_node: Int = Field(default=0,title="gpu_per_node",description="number of gpus per node to run the calculation")
+    queue_name: String = Field(default="",title="queue_name",description="queue name to run the calculation")
 
+    @classmethod
+    def construct_dispatcher(cls,opts):
+        param = {
+            "dispatcher":{
+                "machine_dict":{
+                    "remote_root":opts.remote_root,
+                    "remote_profile":{
+                        "hostname":opts.host,
+                        "username":opts.username,
+                        "password":opts.password,
+                        "port":opts.port
+                    }
+                },
+                "resources_dict":{
+                    "number_node":opts.number_node,
+                    "cpu_per_node":opts.cpu_per_node,
+                    "gpu_per_node":opts.gpu_per_node,
+                    "queue_name":opts.queue_name
+                }
+            }
+        }
+        if opts.gpu_per_node < 1:
+            del param["dispatcher"]["resources_dict"]["gpu_per_node"]
+        if opts.queue_name.strip() == "":
+            del param["dispatcher"]["resources_dict"]["queue_name"]
+        return param
+    
 class NgroupSet(BaseModel):
     ngroup: Int = Field(
         default=0, description="Number of groups to run in parallel. If not set, all examples will be run in parallel.", ge=0)

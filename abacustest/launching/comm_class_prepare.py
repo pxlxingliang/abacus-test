@@ -23,31 +23,27 @@ class PPFromDatasets(BaseModel):
     type: Literal["from datasets"]
     dataset: PPLibEnum = Field(title="PP (pseudo potential) Lib datasets",
                         description="Please choose the PP Lib datasets.")
+    '''
     dataset_unrecorded: String = Field(default=None,
                                        description="By default, the pp lib \"[SG15-ONCV-v1_0](https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fdatasets%2Fpporb)\" will be used. \
 If you want to use other pplib dataset, please enter download link here.")
+    '''
 
 class OrbFromDatasets(BaseModel):
     type: Literal["from datasets"]
     dataset: OrbLibEnum = Field(title="Orb Lib datasets",
                         description="Please choose the Orb Lib datasets.")
+    '''
     dataset_unrecorded: String = Field(default=None,
                                        description="By default, the Orb lib \"[SG15-Version1_0__StandardOrbitals-Version2_0](https://launching.mlops.dp.tech/?request=GET%3A%2Fapplications%2Fabacustest%2Fdatasets%2Fpporb)\" will be used. \
 If you want to use other pplib dataset, please enter download link here.")
-
+    '''
 
 #prepare INPUT template
 class PrepareInputTemplateSet(BaseModel):
     PrepareInputTemplate_local: InputFilePath = Field(default=None,
                                                   title="Upload INPUT template locally",
-                                                  description="""You can upload an INPUT file, and then all examples will use the content as INPUT""")
-    PrepareInputTemplateSource: Union[
-        comm_class_exampleSource.NotRquired,
-        comm_class_exampleSource.FromPreUpload,
-        #comm_class_exampleSource.FromDatahub,
-        comm_class_exampleSource.FromDatasets] = Field(title="Prepare INPUT template source",
-                              discriminator="type",
-                              description="Please choose the INPUT template source.")
+                                                  description="""You can upload an INPUT file, and then all examples will use this INPUT""")
 
 # prepare INPUT template path, for dataset case
 class PrepareInputTemplatePathSet(BaseModel):
@@ -57,14 +53,7 @@ class PrepareInputTemplatePathSet(BaseModel):
 class PrepareStruTemplateSet(BaseModel):
     PrepareStruTemplate_local: InputFilePath = Field(default=None,
                                                   title="Upload STRU template locally",
-                                                  description="""You can upload a STRU file, and then all examples will use this structure as STRU""")
-    PrepareStruTemplateSource: Union[
-        comm_class_exampleSource.NotRquired,
-        comm_class_exampleSource.FromPreUpload,
-    #    comm_class_exampleSource.FromDatahub,
-        comm_class_exampleSource.FromDatasets] = Field(title="Prepare STRU template source",
-                              discriminator="type",
-                              description="Please choose the STRU template source.")
+                                                  description="""You can upload a STRU file, and then all examples will use this STRU""")
 
 #prepare STRU template path, for dataset case
 class PrepareStruTemplatePathSet(BaseModel):
@@ -75,13 +64,6 @@ class PrepareKptTemplateSet(BaseModel):
     PrepareKptTemplate_local: InputFilePath = Field(default=None,
                                                   title="Upload KPT template locally",
                                                   description="""You can upload a KPT file, and then all examples will use this KPT""")
-    PrepareKptTemplateSource: Union[
-        comm_class_exampleSource.NotRquired,
-        comm_class_exampleSource.FromPreUpload,
-    #    comm_class_exampleSource.FromDatahub,
-        comm_class_exampleSource.FromDatasets] = Field(title="Prepare KPT template source",
-                              discriminator="type",
-                              description="Please choose the KPT template source.")
 
 #prepare KPT template path, for dataset case
 class PrepareKptTemplatePathSet(BaseModel):
@@ -92,13 +74,6 @@ class PrepareDPKSDescriptorSet(BaseModel):
     PrepareDPKSDescriptor_local: InputFilePath = Field(default=None,
                                                   title="Upload DeeP-KS Descriptor locally",
                                                   description="""If you want to use Deep-KS, you can upload the descriptor file here, or prepare the descriptor file in each example directory.""")
-    PrepareDPKSDescriptor: Union[
-        comm_class_exampleSource.NotRquired,
-        comm_class_exampleSource.FromPreUpload,
-    #    comm_class_exampleSource.FromDatahub,
-        comm_class_exampleSource.FromDatasets] = Field(title="Prepare DeeP-KS Descriptor source",
-                              discriminator="type",
-                              description="Please choose the DeeP-KS Descriptor source.") 
 
 # prepare dpks descriptor path, for dataset case
 class PrepareDPKSDescriptorPathSet(BaseModel):
@@ -108,15 +83,16 @@ class PrepareDPKSDescriptorPathSet(BaseModel):
 class PreparePPLibSet(BaseModel):
     PreparePPLib_local: InputFilePath = Field(default=None,
                                                   title="Upload pseudopotential library locally",
-                                                  description="""If you have a pseudopotential library, you can upload it here. Please also prepare a \"element.json\" file in the library directory, and the key is name of element and value is the name of pseudopotential file.""")
+                                                  description="""If you have a pseudopotential library and you want to use it for all elements, please upload it here. Please also prepare an \"element.json\" file in the library directory, and the key is name of element and value is the name of pseudopotential file.""")
+    '''
     PreparePPLib: Union[
         comm_class_exampleSource.NotRquired,
         comm_class_exampleSource.FromPreUpload,
     #    comm_class_exampleSource.FromDatahub,
-        PPFromDatasets] = Field(title="Prepare PP Lib source",
+        PPFromDatasets] = Field(title="Prepare pseudopotential lib source",
                               discriminator="type",
                               description="Please choose the PP Lib source.")   
-
+    '''
 # prepare pp lib path, for dataset case
 class PreparePPLibPathSet(BaseModel):
     PreparePPLibPath: String = Field(default=None,title="PP Lib",description = "If you want to use pseudopotential library, please enter the path of PP Lib here.")
@@ -126,6 +102,7 @@ class PrepareOrbLibSet(BaseModel):
     PrepareOrbLib_local: InputFilePath = Field(default=None,
                                                   title="Upload Orbital library locally",
                                                   description="""If you have an Orbital library, you can upload it here. Please also prepare a \"element.json\" file in the library directory, and the key is name of element and value is the name of Orbital file.""")
+    '''
     PrepareOrbLib: Union[
         comm_class_exampleSource.NotRquired,
         comm_class_exampleSource.FromPreUpload,
@@ -133,7 +110,7 @@ class PrepareOrbLibSet(BaseModel):
         OrbFromDatasets] = Field(title="Prepare Orb Lib source",
                               discriminator="type",
                               description="Please choose the Orb Lib source.")    
-
+    '''
 # prepare orb lib path, for dataset case
 class PrepareOrbLibPathSet(BaseModel):
     PrepareOrbLibPath: String = Field(default=None,title="Orb Lib",description = "If you want to use Orbital library, please enter the path of Orb Lib here.")
@@ -143,33 +120,9 @@ class PrepareSet(BaseModel):
 You can set multiple values (separated by comma) for each parameter, which will generate a set of ABACUS inputs for each value. Commonly used parameters: \
 \"calculation\", \"ecutwfc\", \"scf_thr\", \"scf_nmax\", \"basis_type\", \"smearing_method\", \"smearing_sigma\", \"mixing_type\", \"mixing_beta\",\"ks_solver\"")
     prepare_mix_kpt: String = Field(default=None,title="Additional KPT settings",description="You can set additional KPT SETTING for each examples. \
-Please enter 1/3/6 values seperated by space (such as \"2\" means [2,2,2,0,0,0], which is the 6 value in STRU; \"1 2 3\" means [1,2,3,0,0,0]; \"1 2 3 1 0 0\" means [1,2,3,1,0,0]).\
+Please enter 1/3/6 values seperated by space (such as \"2\" means [2,2,2,0,0,0], which is 3 K ponits and the shift of mesh in K space; \"1 2 3\" means [1,2,3,0,0,0]; \"1 2 3 1 0 0\" means [1,2,3,1,0,0]).\
 You can set multiple values (separated by comma), which will generate a set of ABACUS inputs for each value. (Scuch as: \"3, 1 2 3\")")
 
-def parse_prepare_input_stru_kpt_template(templatesource,template_local,work_path, download_path,config,logs,template_name):
-    tmp = comm_class_exampleSource.parse_source(templatesource,
-                                                template_local,
-                                                download_path,
-                                                config,
-                                                logs)
-    if tmp:
-        allfiles = os.listdir(download_path)
-        if len(allfiles) == 1:
-            inputf = allfiles[0]
-        elif len(allfiles) > 1 and template_name in allfiles:
-            inputf = template_name
-        else:
-            inputf = None
-            logs(f"ERROR: The {template_name} template file is not valid!")
-        
-        if inputf :
-            # copy template file to work_path
-            if os.path.isfile(os.path.join(work_path,inputf)):
-                os.remove(os.path.join(work_path,inputf))
-            os.rename(os.path.join(download_path,inputf),os.path.join(work_path,inputf))
-            comm_func.clean_dictorys(download_path)
-            return inputf
-    return None
     
 def parse_prepare(prepare_set,work_path,download_path,logs):
     prepare = {}
@@ -177,56 +130,33 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
     dataset_work_path = comm_class_exampleSource.get_dataset_work_path(prepare_set)
             
     # parse INPUT template
-    if hasattr(prepare_set,"PrepareInputTemplateSource"):
-        input_template = parse_prepare_input_stru_kpt_template(prepare_set.PrepareInputTemplateSource,
-                                                               prepare_set.PrepareInputTemplate_local,
-                                                               work_path, download_path,
-                                                               prepare_set,
-                                                               logs,
-                                                               "INPUT")
-        if input_template:
-            prepare["input_template"] = input_template
+    if hasattr(prepare_set,"PrepareInputTemplate_local") and getattr(prepare_set,"PrepareInputTemplate_local") \
+        and os.path.isfile(prepare_set.PrepareInputTemplate_local.get_path()):
+            prepare["input_template"] = prepare_set.PrepareInputTemplate_local.get_path()
     elif dataset_work_path and hasattr(prepare_set,"PrepareInputTemplatePath") and getattr(prepare_set,"PrepareInputTemplatePath") and \
         os.path.isfile(os.path.join(dataset_work_path,prepare_set.PrepareInputTemplatePath)):
-            prepare["input_template"] = os.path.join(dataset_work_path,prepare_set.PrepareInputTemplatePath)
-        
+            prepare["input_template"] = os.path.join(dataset_work_path,prepare_set.PrepareInputTemplatePath)  
     
     # parse STRU template
-    if hasattr(prepare_set,"PrepareStruTemplateSource"):
-        stru_template = parse_prepare_input_stru_kpt_template(prepare_set.PrepareStruTemplateSource,
-                                                               prepare_set.PrepareStruTemplate_local,
-                                                               work_path, download_path,
-                                                               prepare_set,
-                                                               logs,
-                                                               "STRU")
-        if stru_template:
-            prepare["stru_template"] = stru_template
+    if hasattr(prepare_set,"PrepareStruTemplate_local") and getattr(prepare_set,"PrepareStruTemplate_local") and \
+        os.path.isfile(prepare_set.PrepareStruTemplate_local.get_path()):
+            prepare["stru_template"] = prepare_set.PrepareStruTemplate_local.get_path()
     elif dataset_work_path and hasattr(prepare_set,"PrepareStruTemplatePath") and getattr(prepare_set,"PrepareStruTemplatePath") and \
         os.path.isfile(os.path.join(dataset_work_path,prepare_set.PrepareStruTemplatePath)):
             prepare["stru_template"] = os.path.join(dataset_work_path,prepare_set.PrepareStruTemplatePath)
     
     # parse KPT template
-    if hasattr(prepare_set,"PrepareKptTemplateSource"):
-        kpt_template = parse_prepare_input_stru_kpt_template(prepare_set.PrepareKptTemplateSource,
-                                                               prepare_set.PrepareKptTemplate_local,
-                                                               work_path, download_path,
-                                                               prepare_set,
-                                                               logs,
-                                                               "KPT")
-        if kpt_template:
-            prepare["kpt_template"] = kpt_template
+    if hasattr(prepare_set,"PrepareKptTemplate_local") and getattr(prepare_set,"PrepareKptTemplate_local") and \
+        os.path.isfile(prepare_set.PrepareKptTemplate_local.get_path()):
+            prepare["kpt_template"] = prepare_set.PrepareKptTemplate_local.get_path()
     elif dataset_work_path and hasattr(prepare_set,"PrepareKptTemplatePath") and getattr(prepare_set,"PrepareKptTemplatePath") and \
         os.path.isfile(os.path.join(dataset_work_path,prepare_set.PrepareKptTemplatePath)):
             prepare["kpt_template"] = os.path.join(dataset_work_path,prepare_set.PrepareKptTemplatePath)
     
     # parse DPKS descriptor
-    if hasattr(prepare_set,"PrepareDPKSDescriptor"):
-        dpks_template = parse_prepare_input_stru_kpt_template(prepare_set.PrepareDPKSDescriptor,
-                                                              prepare_set.PrepareDPKSDescriptor_local,
-                                                              work_path, download_path,
-                                                              prepare_set, logs, "jle.orb")
-        if dpks_template:
-            prepare["dpks_descriptor"] = dpks_template
+    if hasattr(prepare_set,"PrepareDPKSDescriptor_local") and getattr(prepare_set,"PrepareDPKSDescriptor_local") and \
+        os.path.isfile(prepare_set.PrepareDPKSDescriptor_local.get_path()):
+            prepare["dpks_descriptor"] = prepare_set.PrepareDPKSDescriptor_local.get_path()
     elif dataset_work_path and hasattr(prepare_set,"PrepareDPKSDescriptorPath") and getattr(prepare_set,"PrepareDPKSDescriptorPath") and \
         os.path.isfile(os.path.join(dataset_work_path,prepare_set.PrepareDPKSDescriptorPath)):
             prepare["dpks_descriptor"] = os.path.join(dataset_work_path,prepare_set.PrepareDPKSDescriptorPath)
@@ -273,10 +203,10 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
         if isinstance(prepare_set.PreparePPLib,PPFromDatasets):
             tmp = None
             try:
-                if prepare_set.PreparePPLib.dataset_unrecorded != None and prepare_set.PreparePPLib.dataset_unrecorded.strip() != "":
-                    url = prepare_set.PreparePPLib.dataset_unrecorded.strip()
-                else:
-                    url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PreparePPLib.dataset,dataset="pporb")
+                #if prepare_set.PreparePPLib.dataset_unrecorded != None and prepare_set.PreparePPLib.dataset_unrecorded.strip() != "":
+                #    url = prepare_set.PreparePPLib.dataset_unrecorded.strip()
+                #else:
+                url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PreparePPLib.dataset,dataset="pporb")
                 package = comm_func.download_url(url, download_path)
                 if package == None:
                     logs(f"ERROR: download dataset failed!\n\turl:{url}")
@@ -308,10 +238,10 @@ def parse_prepare(prepare_set,work_path,download_path,logs):
         if isinstance(prepare_set.PrepareOrbLib,OrbFromDatasets):
             tmp = None
             try:
-                if prepare_set.PrepareOrbLib.dataset_unrecorded != None and prepare_set.PrepareOrbLib.dataset_unrecorded.strip() != "":
-                    url = prepare_set.PrepareOrbLib.dataset_unrecorded.strip()
-                else:
-                    url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PrepareOrbLib.dataset,dataset="pporb")
+                #if prepare_set.PrepareOrbLib.dataset_unrecorded != None and prepare_set.PrepareOrbLib.dataset_unrecorded.strip() != "":
+                #    url = prepare_set.PrepareOrbLib.dataset_unrecorded.strip()
+                #else:
+                url = comm_class_exampleSource.GetDatasetAddress(prepare_set.PrepareOrbLib.dataset,dataset="pporb")
                 package = comm_func.download_url(url, download_path)
                 if package == None:
                     logs(f"ERROR: download dataset failed!\n\turl:{url}")

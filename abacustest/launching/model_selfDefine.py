@@ -1,24 +1,33 @@
 from dp.launching.typing.basic import BaseModel, Int, String, Float,List,Optional,Union,Dict
 from dp.launching.typing import InputFilePath, OutputDirectory
 from dp.launching.typing import (
-    Field
+    Field,
+    DataSet,
 )
 from dp.launching.report import Report,AutoReportElement,ReportSection
 
 from . import comm_class,comm_func,comm_class_exampleSource
 import json,traceback,os
 
+import dp.launching.typing.addon.ui as ui
+from dp.launching.typing.addon.sysmbol import Equal,NotEqual,Exists,NotExists
+
 class SelfDefine(BaseModel):
-    IO_input_path:InputFilePath = Field(default = None,
-                                        title="Upload setting file",
-                                        st_kwargs_type = ["json"], 
-                                        description="Please upload the setting file or enter the setting information in latter 'setting' section.",
-                                        description_type="markdown")
-    setting: String = Field(default = "",
-                            description="Please enter the setting information in json format. If you fill in this field, the previous file will be ignored!")
-    setting_file: String = Field(default = "",
-                            description="Please enter the file name of setting json file in dataset set work path. This is valid only when preupload setting fiel and setting value is empty!")     
-    
+    setting_upload: InputFilePath = Field(default=None,
+                                          title="Upload setting file",
+                                          st_kwargs_type=["json"],
+                                          description="Use setting file by uploading. (priority: setting string > setting upload > setting dataset)",
+                                          description_type="markdown")
+
+    setting_dataset: DataSet = Field(title="setting dataset",
+                                     default=None,
+                                     description="Use setting file from dataset. (priority: setting string > setting upload > setting dataset)",)
+
+    setting_string: String = Field(
+        title="setting string",
+        default="",
+        description="Use setting by enter string. (priority: setting string > setting upload > setting dataset)",)
+  
 
 class SelfDefineModel(comm_class.TrackingSet,
                       SelfDefine,
@@ -28,7 +37,7 @@ class SelfDefineModel(comm_class.TrackingSet,
                       comm_class.OutputSet,
                       BaseModel):
     ...
-    
+
 class SelfDefineDatasetsModel(comm_class.TrackingSet,
                       SelfDefine,
                       comm_class_exampleSource.ExampleSet,
@@ -55,38 +64,23 @@ def SelfDefineModelRunner(opts):
     # setting inputs is prefered
     # and then the uploaded file
     # and then the file in dataset or examples
-    if opts.setting.strip() != "":
+    if opts.setting_string.strip() != "":
         try:
-            setting = json.loads(opts.setting)
+            setting = json.loads(opts.setting_string)
         except:
             traceback.print_exc()
             return 1
-    elif opts.IO_input_path != None:
+    elif opts.setting_upload != None:
         try:
-            setting = json.load(open(opts.IO_input_path.get_path()))
+            setting = json.load(open(opts.setting_upload.get_path()))
         except:
             traceback.print_exc()
             return 1
-    elif opts.setting_file:
-        if hasattr(opts,"dataset") and getattr(opts,"dataset"):
-            try:
-                dataset_work_path = comm_class_exampleSource.get_dataset_work_path(opts)
-                if dataset_work_path:
-                    setting = json.load(open(os.path.join(dataset_work_path,opts.setting_file)))
-            except:
-                traceback.print_exc()
-                return 1
-        elif hasattr(opts,"ExampleSource"):
-            # if has ExampleSource, then the files should have been downloaded to work_path
-            # check if the setting file is in work_path
-            try:
-                setting = json.load(open(os.path.join(work_path,opts.setting_file)))
-            except:
-                traceback.print_exc()
-                print("Try to read setting file from 'Examples', but failed.\nPlease supply the setting information")
-                return 1
-        else:
-            print("Has set setting file, but not set dataset or ExampleSource.")
+    elif opts.setting_dataset:
+        try:
+            setting = json.load(open(opts.setting_dataset.get_full_path()))
+        except:
+            traceback.print_exc()
             return 1
     else:
         print("Please supply the setting information")
@@ -104,8 +98,8 @@ def SelfDefineModelRunner(opts):
             
     tracking_set = comm_class.TrackingSet.parse_obj(opts)
     if tracking_set:
-        if "AIM_ACCESS_TOKEN" not in allparams["config"]:
-            allparams["config"]["AIM_ACCESS_TOKEN"] = str(tracking_set.get("token"))
+        if "aim_access_token" not in allparams["config"]:
+            allparams["config"]["aim_access_token"] = str(tracking_set.get("token"))
         if "post_dft" not in allparams:
             allparams["post_dft"] = {}
         if "upload_tracking" not in allparams["post_dft"]:
@@ -136,16 +130,6 @@ def SelfDefineModelRunner(opts):
         
     #move results to output_path
     comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
-    
-    cwd = os.getcwd()
-    os.chdir(os.path.join(output_path,allparams.get("save_path","results")))
-    allfiles = os.listdir(".")
-    alldirs = []
-    for f in allfiles:
-        if os.path.isdir(f):
-            alldirs.append(f)
-    packed_file_name = "results.zip"
-    comm_func.pack(alldirs,packed_file_name,"zip")
-    os.chdir(cwd)
+    comm_func.pack_results(output_path,allparams.get("save_path","results"))
     
     return 0
