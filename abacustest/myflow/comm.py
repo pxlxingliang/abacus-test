@@ -25,6 +25,12 @@ def CopyFiles(path1,path2,move = False):
     abspath1 = os.path.abspath(path1)
     abspath2 = os.path.abspath(path2)
     
+    if not os.path.isdir(abspath2):
+        os.makedirs(abspath2)
+    if not os.path.isdir(abspath1):
+        print(f"{abspath1} is not a exist path")
+        return
+    
     def CopyFile(old_path,new_path):
         for ifile in os.listdir(old_path):
             iold_path = os.path.join(old_path,ifile)
@@ -50,29 +56,25 @@ def CopyFiles(path1,path2,move = False):
         else:
             #shutil.copytree(abspath1,tmp_path,dirs_exist_ok=True)
             CopyFile(abspath1,tmp_path)
-        
-        if not os.path.isdir(abspath2):
-                os.makedirs(abspath2)                
+               
         #shutil.copytree(tmp_path,abspath2,dirs_exist_ok=True)
         CopyFile(tmp_path,abspath2)
         shutil.rmtree(tmp_path)
         
     else:
-        if not os.path.isdir(abspath2):
-                os.makedirs(abspath2)
-        
         if os.path.isfile(abspath1):
             if move:
                 shutil.move(abspath1,abspath2)
             else:
                 shutil.copy(abspath1,abspath2)
             return
-        if move:
-            for i in os.listdir(abspath1):
-                shutil.move(os.path.join(abspath1,i),abspath2)
-        else:
-            #shutil.copytree(abspath1,abspath2,dirs_exist_ok=True)
-            CopyFile(abspath1,abspath2)
+        elif os.path.isdir(abspath1):
+            if move:
+                for i in os.listdir(abspath1):
+                    shutil.move(os.path.join(abspath1,i),abspath2)
+            else:
+                #shutil.copytree(abspath1,abspath2,dirs_exist_ok=True)
+                CopyFile(abspath1,abspath2)
 
 def CollectFileName(paths):
     #Recursively find all files under the paths
