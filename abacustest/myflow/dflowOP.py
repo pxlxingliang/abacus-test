@@ -53,6 +53,8 @@ def SetConfig(private_set,debug=False):
         comm.printinfo("set config info...")
         if private_set.get("dflow_host","").strip() != "":
             config["host"] = private_set.get("dflow_host","").strip()
+        else:
+            config["host"] = "https://workflows.deepmodeling.com"
             
         host = config["host"]
         
@@ -60,9 +62,11 @@ def SetConfig(private_set,debug=False):
             s3_config["endpoint"] =  private_set.get("dflow_s3_config_endpoint","").strip()
             comm.printinfo("set s3_config_endpoint ... ")
         
+        comm.printinfo("set k8s_api_server ... ")    
         if private_set.get("dflow_k8s_api_server","").strip() != "":
             config["k8s_api_server"] = private_set.get("dflow_k8s_api_server","").strip()
-            comm.printinfo("set k8s_api_server ... ")
+        else:
+            config["k8s_api_server"] = "https://workflows.deepmodeling.com"
             
         if private_set.get("dflow_token","").strip() != "":
             config["token"] = private_set.get("dflow_token","").strip()
