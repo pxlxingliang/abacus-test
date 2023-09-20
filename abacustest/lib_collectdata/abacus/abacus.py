@@ -198,6 +198,7 @@ class Abacus(ResultAbacus):
         self['stress'] = stress
         self['force'] = force
     
+    '''
     @ResultAbacus.register(band_gap = "band gap of the system")
     def GetBandGapFromLog(self):
         def ErrorReturn(strinfo):
@@ -248,6 +249,69 @@ class Abacus(ResultAbacus):
                     if totalcb == None or (cb != None and totalcb < cb): totalcb = cb
                     if totalvb == None or (vb != None and totalvb > vb): totalvb = vb
                 band_gap = None if totalvb == None or totalcb == None else totalvb-totalcb
+                break
+                
+        self['band_gap'] = band_gap
+    '''
+        
+    @ResultAbacus.register(band_gap = "band gap of the system")
+    def GetBandGapFromLog(self):
+        def ErrorReturn(strinfo):
+            print("WARNING: %s, skip the catch of band gap info" % strinfo)
+            self['band_gap'] = None
+            return
+        
+        nband = self['nbands']  
+        if self["ibzk"] != None:    
+            nk = self['ibzk']
+        elif self["nkstot"] != None:
+            nk = self["nkstot"]
+        else:
+            nk = None
+            
+        if nband == None or nk == None:
+            ErrorReturn("no nbands or ibzk")
+            return
+        nelec = self['nelec']
+        if nelec == None:
+            ErrorReturn("no nelec")
+            return
+        occu_band = int(nelec/2)
+        if occu_band == 0:
+            ErrorReturn("no occu_band")
+            return
+        if occu_band >= nband:
+            ErrorReturn("occu_band >= nband")
+            return
+                
+        band_gap = None
+        for i,line in enumerate(self.LOG):
+            if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
+                nspin = int(line.split()[-1])
+                if nspin not in [1,2]:
+                    ErrorReturn("NOT SUPPORT FOR NSPIN=%d now" % nspin)
+                    return
+
+                totalcb = None
+                totalvb = None
+                for ispin in range(nspin):
+                    cb = None
+                    vb = None
+                    for k in range(nk):
+                        eband1 = float(self.LOG[((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + occu_band + 1 + i].split()[1])  # the highest occupied band
+                        eband2 = float(self.LOG[((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + occu_band + 2 + i].split()[1])  # the lowest unoccupied band
+                        if cb == None or eband1 > cb:
+                            cb = eband1
+                        if vb == None or eband2 < vb:
+                            vb = eband2
+
+                    if totalcb == None or (cb != None and totalcb < cb): totalcb = cb
+                    if totalvb == None or (vb != None and totalvb > vb): totalvb = vb
+                if totalcb == None or totalvb == None:
+                    band_gap = None
+                else:
+                    band_gap = totalvb-totalcb
+                    if band_gap < 0: band_gap = 0
                 break
                 
         self['band_gap'] = band_gap
