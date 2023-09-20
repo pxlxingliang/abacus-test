@@ -230,7 +230,7 @@ class Vasp(ResultVasp):
         self['atom_type'] = comm.XmlGetText(self.XMLROOT.findall("./atominfo/array[@name='atomtypes']/set/rc/c[2]"))
         self['efermi'] = comm.XmlGetText(self.XMLROOT.findall("./calculation/dos/i[@name='efermi'][last()]"),func=float,idx = -1)
 
-    @ResultVasp.register(band = '[[[]]], list with three dimension.dimension1: band, dimension2: kpoint, dimension3: spin')
+    @ResultVasp.register(band = '[[[]]], list with three dimension spin*kpoint*band')
     def GetBandInfo(self):
         if self.XMLROOT != None:
             band = []
@@ -247,6 +247,7 @@ class Vasp(ResultVasp):
                             band[-1][-1].append(float(iband.text.split()[0]))
                 self['band'] = band
 
+    '''
     @ResultVasp.register(band_gap = 'eV, the band gap')
     def GetBandGap(self):
         if self['band'] == None or self['efermi'] == None:
@@ -264,4 +265,39 @@ class Vasp(ResultVasp):
                             break
             #print("cb=%.5f, vb=%.5f" % (cb,vb))
             self['band_gap'] = None if vb == None or cb == None else vb - cb
-
+    '''
+    @ResultVasp.register(band_gap = 'eV, the band gap')
+    def GetBandGap(self):
+        if self['band'] == None or self['nelec'] == None:
+            self['band_gap'] = None
+        else:
+            occu_band = int(self['nelec'] / 2)
+            band_num = len(self['band'][0][0])
+            if occu_band <= 0:
+                self['band_gap'] = None
+                return
+            if occu_band >= band_num:
+                self['band_gap'] = None
+                return
+             
+            vb = None
+            cb = None
+            for ispin in self['band']:
+                for ik in ispin:
+                    eband1 = ik[occu_band-1]
+                    eband2 = ik[occu_band]
+                    if cb == None or cb < eband1:
+                        cb = eband1
+                    if vb == None or vb > eband2:
+                        vb = eband2 
+            #print("cb=%.5f, vb=%.5f" % (cb,vb))
+            if vb == None or cb == None:
+                self['band_gap'] = None
+                return
+            else:
+                band_gap = vb - cb
+                if band_gap < 0:
+                    band_gap = 0
+                self['band_gap'] = band_gap
+                return
+    
