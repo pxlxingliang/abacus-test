@@ -285,6 +285,7 @@ class Abacus(ResultAbacus):
             return
                 
         band_gap = None
+        #print("nelec:",nelec,"occu_band:",occu_band,"nband:",nband,"nk:",nk)
         for i,line in enumerate(self.LOG):
             if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
                 nspin = int(line.split()[-1])
@@ -298,15 +299,16 @@ class Abacus(ResultAbacus):
                     cb = None
                     vb = None
                     for k in range(nk):
-                        eband1 = float(self.LOG[((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + occu_band + 1 + i].split()[1])  # the highest occupied band
-                        eband2 = float(self.LOG[((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + occu_band + 2 + i].split()[1])  # the lowest unoccupied band
+                        eband1 = float(self.LOG[((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + occu_band + i].split()[1])  # the highest occupied band
+                        eband2 = float(self.LOG[((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + occu_band + 1 + i].split()[1])  # the lowest unoccupied band
                         if cb == None or eband1 > cb:
                             cb = eband1
                         if vb == None or eband2 < vb:
                             vb = eband2
-
+                        #print("k:",k,"eband1:",eband1,"eband2:",eband2,"cb:",cb,"vb:",vb)
                     if totalcb == None or (cb != None and totalcb < cb): totalcb = cb
                     if totalvb == None or (vb != None and totalvb > vb): totalvb = vb
+                    #print("ispin:",ispin,"totalcb:",totalcb,"totalvb:",totalvb)
                 if totalcb == None or totalvb == None:
                     band_gap = None
                 else:
