@@ -390,7 +390,14 @@ class Abacus(ResultAbacus):
             if line[:5] == "STEP:":
                 atom_mag.append([])
             elif "Total Magnetism on atom" in line:
-                atom_mag[-1].append(float(line.split()[-1]))
+                if "(" in line and ")" in line:
+                    # for nspin = 4
+                    sline = line.split("(")[1].split(")")[0].split(",")
+                    if len(sline) == 3:
+                        atom_mag[-1].append([float(sline[0]),float(sline[1]),float(sline[2])])
+                else:
+                    atom_mag[-1].append(float(line.split()[-1]))
+                    
         self['atom_mag'] = None if len(atom_mag) == 0 else atom_mag
     
     @ResultAbacus.register(drho="[], drho of each scf step")
