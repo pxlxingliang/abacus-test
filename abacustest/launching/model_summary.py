@@ -293,7 +293,9 @@ def produce_html(outtable,comment):
     description_set = "<div class=\"description\"><pre>" + comment + "\nClick profile to check the detail launching run.</pre></div>"
 
     html = "<html>"  + head_set + "<body>" + table_set + description_set + '</body></html>'
-    html_nolink = "<html>"  + head_set + "<body>" + table_set_nolink + '</body></html>'
+    #html_nolink = "<html>"  + head_set + "<body>" + table_set_nolink + '</body></html>'
+    # As the results are on labs, which can be accessed by everyone, we do not need to hide the link, only remove the description
+    html_nolink = "<html>"  + head_set + "<body>" + table_set + '</body></html>'
 
     return html,html_nolink
 
