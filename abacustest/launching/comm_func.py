@@ -835,6 +835,7 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
                 supermetrics_special_section.append(tmp_special_section)
             #print("tmp_smetrics:",tmp_smetrics)
             if tmp_smetrics:
+                failcount = 0
                 for ik,iv in tmp_smetrics.items():
                     sm_summary.append([ik,iv,criterias.get(ik,None)])
                     cri_tmp = criterias.get(ik,None)
@@ -845,6 +846,7 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
                     elif sm_pass == False:
                         # if False, set the iv to red
                         sm_summary[-1][1] = "<font color=\"red\">"+str(iv)+"</font>"
+                        failcount += 1
                             
                     if not isinstance(iv,(int,float,bool)):
                         continue
@@ -856,6 +858,7 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
                         supermetrics_save[sname+":int"] = 1 if iv else 0
                     else:
                         supermetrics_save[sname+":float"] = iv
+                supermetrics_save["abacustest_TEST_PASS_ratio:float"] = 1 - failcount/len(tmp_smetrics)
         except:
             traceback.print_exc()
             print(
