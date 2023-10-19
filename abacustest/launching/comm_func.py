@@ -858,7 +858,9 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
                         supermetrics_save[sname+":int"] = 1 if iv else 0
                     else:
                         supermetrics_save[sname+":float"] = iv
-                supermetrics_save["abacustest_TEST_PASS_ratio:float"] = 1 - failcount/len(tmp_smetrics)
+                if supermetrics_save:
+                    supermetrics_save["abacustest_TEST_PASS_ratio:float"] = 1 - failcount/len(tmp_smetrics)
+                    print(supermetrics_save)
         except:
             traceback.print_exc()
             print(
