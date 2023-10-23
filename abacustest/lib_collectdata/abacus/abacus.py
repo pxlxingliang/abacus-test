@@ -94,10 +94,14 @@ class Abacus(ResultAbacus):
                            ibzk = "irreducible K point number",
                            natom ="total atom number",
                            nelec = "total electron number",
-                           fft_grid = "fft grid for charge/potential",)
+                           fft_grid = "fft grid for charge/potential",
+                           point_group="point group",
+                           point_group_in_space_group="point group in space group")
     def GetLogParam(self):       
         natom = 0
         nelec = 0
+        point_group = None
+        point_group_in_space_group = None
         for i,line in enumerate(self.LOG):
             if "NBANDS =" in line:
                 self['nbands'] = int(line.split()[2])
@@ -111,7 +115,13 @@ class Abacus(ResultAbacus):
                 nelec += float(line.split()[-1])
             elif "[fft grid for charge/potential] =" in line:
                 self['fft_grid'] = [float(i.strip()) for i in line.split('=')[1].split(',')]
+            elif "POINT GROUP =" in line:
+                point_group = line.split("=")[1].strip()
+            elif "POINT GROUP IN SPACE GROUP =" in line:
+                point_group_in_space_group = line.split("=")[1].strip()
 
+        self["point_group"] = point_group
+        self["point_group_in_space_group"] = point_group_in_space_group
         if natom > 0:
             self["natom"] = natom 
         if nelec > 0:

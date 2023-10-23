@@ -54,6 +54,8 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric39 = 'relax_steps'
     AbacusMetric_metric40 = 'bda_mag_moment'
     AbacusMetric_metric41 = 'bda_bond_length'
+    AbacusMetric_metric42 = 'point_group'
+    AbacusMetric_metric43 = 'point_group_in_space_group'
 
 class SuperMetricMethodEnum(String, Enum):
     SuperMetricMethod_method1 = "iGM"
