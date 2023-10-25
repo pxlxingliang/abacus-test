@@ -51,6 +51,7 @@ def SetConfig(private_set,debug=False):
         client = "LOCAL"
     else:
         comm.printinfo("set config info...")
+        config["save_keys_in_global_outputs"] = False
         if private_set.get("dflow_host","").strip() != "":
             config["host"] = private_set.get("dflow_host","").strip()
         else:

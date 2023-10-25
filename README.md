@@ -76,6 +76,7 @@ An example is like:
                 "extra_files": [],
                 "image":   "python:3.8",
                 "metrics":{
+                    "before_command":false,
 			        "dft_type":"abacus",
 			        "metrics_name": [],
 			        "save_file": "result.json",
@@ -92,13 +93,14 @@ An example is like:
 - `run_dft`: define the detail of the running of your jobs. The value is a list of dictionaries. You can set any number of dictionaries.
   - `ifrun`: if set it to be `false`, will skip this part. 
   - `sub_save_path`: the path to save the results of this part in `save_path`, which means the real save path will be "save_path/sub_save_path". If this key is not defined, or is defined to be "" ornull, the real save path will be "save_path".
-  - `iamge`: define the image name. Also you can use the name defined in `ABBREVIATION`. Progrma will firstly check if the image name is defined in `ABBREVIATION`, if yes, the name will be replacedby the value in `ABBREVIATION`, and if no, the iamge name will be kept to be value of `iamge`.
+  - `image`: define the image name. Also you can use the name defined in `ABBREVIATION`. Progrma will firstly check if the image name is defined in `ABBREVIATION`, if yes, the name will be replacedby the value in `ABBREVIATION`, and if no, the image name will be kept to be value of `image`.
   - `example`: The folder names of your jobs. Here assume that you have 5 jobs and the folder names are 000, 001, 002, ..., 004. You can write as ["000", "001", "002", "003", "004"], and also you can write as ["00[0-4]"] that can be recongnized by `glob.glob`. Besides, you can put some folders in a list, and they will be set as one group and run the jobs serially. Such as: [["00[0-1]"],"0[2-4]"], "000" and "001" is one group, each of "002", "003" and "004" is one group and total 4 groups.
   - `group_size`: define how many example groups to run on a single machine.
   - `bohrium`: if you want to submit the job to Bohrium, you need set this key, and if you do not want to use Bohrium, please remove this key or set it to be `false`.
   - `command`: the command to run the job. It is same for all jobs defined in `example`.
   - `extra_files`: if you need extra files (such as "collectdata-abacus.json"), you can defined them at here. Before run the command, these files will be copied to each example folder.
   - `metrics`: define the metrics information.
+    - `before_command`: if generate the metrics before run the command. Sometimes, you may need the metrics file in your script.
     - `dft_type`: the job type, can be one of: "abacus", "qe", "vasp", and also 0/1/2 is ok, which refers to "abacus"/"qe"/"vasp" respectively.
     - `metrics_name`: a list of your metric name. Can find all names by `abacustest collectdata --outparam -t 0`. If is a null list, will catch all registered metrics.
     - `save_file`: the file name to store the values of metrics, which is a json file type.
