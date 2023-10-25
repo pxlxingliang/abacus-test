@@ -179,34 +179,49 @@ class Abacus(ResultAbacus):
         if self["natom"] != None and self['energy'] != None:
             self["energy_per_atom"] = self['energy']/self["natom"]
     
-    @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one",
-                           force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one")
-    def GetForceStessFromLog(self):
-        getforce = getstress = False
-        stress = force = None
+    @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one")
+    def GetForceFromLog(self):
+        force = None
         for i in range(len(self.LOG)):
-            if getforce and getstress:
-                break
             i = -1*i - 1
             line = self.LOG[i]
-            if not getstress and 'TOTAL-STRESS (KBAR)' in line:
-                j = i + 4
-                stress = []
-                for k in range(3):
-                    for m in self.LOG[j+k].split():
-                        stress.append(float(m))
-                getstress = True
-            elif not getforce and 'TOTAL-FORCE (eV/Angstrom)' in line:
-                j = i + 5
-                force = []
-                while len(self.LOG[j].split()) == 4:
-                    for k in self.LOG[j].split()[1:4]:
-                        force.append(float(k))
+            if 'TOTAL-FORCE (eV/Angstrom)' in line:
+                #head_pattern = re.compile(r'^\s*atom\s+x\s+y\s+z\s*$')
+                value_pattern = re.compile(r'^\s*[A-Z][a-z]?[1-9][0-9]*\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$')
+                j = i + 1
+                #while not head_pattern.match(self.LOG[j]):
+                #    j += 1
+                #j += 1
+                # find the first line of force
+                while not value_pattern.match(self.LOG[j]):
                     j += 1
-                getforce = True
-
-        self['stress'] = stress
+                while value_pattern.match(self.LOG[j]):
+                    if force == None:
+                        force = []
+                    force += [float(ii) for ii in self.LOG[j].split()[1:4]]
+                    j += 1
+                break
         self['force'] = force
+    
+    @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one")
+    def GetStessFromLog(self):
+        stress = None
+        for i in range(len(self.LOG)):
+            i = -1*i - 1
+            line = self.LOG[i]
+            if 'TOTAL-STRESS (KBAR)' in line:
+                value_pattern = re.compile(r'^\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$')
+                j = i 
+                # find the first line of stress
+                while not value_pattern.match(self.LOG[j]):
+                    j += 1
+                while value_pattern.match(self.LOG[j]):
+                    if stress == None:
+                        stress = []
+                    stress += [float(ii) for ii in self.LOG[j].split()[:3]]
+                    j += 1
+                break
+        self['stress'] = stress
     
     '''
     @ResultAbacus.register(band_gap = "band gap of the system")
