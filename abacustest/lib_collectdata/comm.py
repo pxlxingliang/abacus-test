@@ -45,8 +45,13 @@ def ReadXmlFile(ifile,warn=True):
         return None
 
     if os.path.isfile(ifile):
-        tree = ET.parse(ifile)
-        return tree.getroot()
+        try:
+            tree = ET.parse(ifile)
+            return tree.getroot()
+        except:
+            traceback.print_exc()
+            if warn: print("WARNING: can not parse file %s" % ifile)
+            return None
     else:
         if warn: print("WARNING: can not find file %s" % ifile)
         return None

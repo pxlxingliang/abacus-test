@@ -301,3 +301,19 @@ class Vasp(ResultVasp):
                 self['band_gap'] = band_gap
                 return
     
+    @ResultVasp.register(point_group = 'point group',
+                         point_group_in_space_group = "point group in space group")
+    def GetPointGroup(self):
+        pg = None
+        pgsg = None
+        for i in self.OUTCAR:
+            if pg != None and pgsg != None:
+                break
+            
+            if "The dynamic configuration has the point symmetry" in i:
+                pg = i.strip()[48:-1].strip()
+            elif " The point group associated with its full space group is" in i:
+                pgsg = i.strip()[56:-1].strip()
+        self['point_group'] = pg
+        self['point_group_in_space_group'] = pgsg
+        

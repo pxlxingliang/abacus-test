@@ -188,13 +188,17 @@ class Abacus(ResultAbacus):
             if 'TOTAL-FORCE (eV/Angstrom)' in line:
                 #head_pattern = re.compile(r'^\s*atom\s+x\s+y\s+z\s*$')
                 value_pattern = re.compile(r'^\s*[A-Z][a-z]?[1-9][0-9]*\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$')
-                j = i + 1
-                #while not head_pattern.match(self.LOG[j]):
-                #    j += 1
-                #j += 1
-                # find the first line of force
+                j = i
+                noforce = False
                 while not value_pattern.match(self.LOG[j]):
                     j += 1
+                    if j >= i + 10:
+                        print("Warning: can not find the first line of force")
+                        noforce = True
+                        break
+                if noforce:
+                    break
+                
                 while value_pattern.match(self.LOG[j]):
                     if force == None:
                         force = []
@@ -212,9 +216,17 @@ class Abacus(ResultAbacus):
             if 'TOTAL-STRESS (KBAR)' in line:
                 value_pattern = re.compile(r'^\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$')
                 j = i 
+                nostress = False
                 # find the first line of stress
                 while not value_pattern.match(self.LOG[j]):
                     j += 1
+                    if j >= i + 10: # if can not find the first line of force in 10 lines, then stop
+                        print("Warning: can not find the first line of force")
+                        nostress = True
+                        break
+                if nostress:
+                    break
+                
                 while value_pattern.match(self.LOG[j]):
                     if stress == None:
                         stress = []
