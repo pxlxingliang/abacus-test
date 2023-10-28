@@ -56,6 +56,7 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric41 = 'bda_bond_length'
     AbacusMetric_metric42 = 'point_group'
     AbacusMetric_metric43 = 'point_group_in_space_group'
+    AbacusMetric_metric44 = 'largest_gradient'
 
 class SuperMetricMethodEnum(String, Enum):
     SuperMetricMethod_method1 = "iGM"

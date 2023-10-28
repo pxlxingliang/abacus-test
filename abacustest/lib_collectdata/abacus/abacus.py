@@ -234,7 +234,17 @@ class Abacus(ResultAbacus):
                     j += 1
                 break
         self['stress'] = stress
-    
+        
+    @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
+    def GetLargestGradientFromLog(self):
+        lg = None
+        for line in self.LOG:
+            if "Largest gradient is =" in line:
+                if lg == None:
+                    lg = []
+                lg.append(float(line.split()[-1]))
+        self['largest_gradient'] = lg
+        
     '''
     @ResultAbacus.register(band_gap = "band gap of the system")
     def GetBandGapFromLog(self):
