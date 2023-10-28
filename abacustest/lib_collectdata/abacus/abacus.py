@@ -239,7 +239,7 @@ class Abacus(ResultAbacus):
     def GetLargestGradientFromLog(self):
         lg = None
         for line in self.LOG:
-            if "Largest gradient is =" in line:
+            if "Largest gradient is" in line:
                 if lg == None:
                     lg = []
                 lg.append(float(line.split()[-1]))
