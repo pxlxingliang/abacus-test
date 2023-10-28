@@ -179,11 +179,12 @@ class Abacus(ResultAbacus):
         if self["natom"] != None and self['energy'] != None:
             self["energy_per_atom"] = self['energy']/self["natom"]
     
-    @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one")
+    @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one",
+                           largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
     def GetForceFromLog(self):
-        force = None
+        forces = []
         for i in range(len(self.LOG)):
-            i = -1*i - 1
+            #i = -1*i - 1
             line = self.LOG[i]
             if 'TOTAL-FORCE (eV/Angstrom)' in line:
                 #head_pattern = re.compile(r'^\s*atom\s+x\s+y\s+z\s*$')
@@ -197,15 +198,18 @@ class Abacus(ResultAbacus):
                         noforce = True
                         break
                 if noforce:
-                    break
-                
+                    continue
+                forces.append([])
                 while value_pattern.match(self.LOG[j]):
-                    if force == None:
-                        force = []
-                    force += [float(ii) for ii in self.LOG[j].split()[1:4]]
+                    forces[-1] += [float(ii) for ii in self.LOG[j].split()[1:4]]
                     j += 1
-                break
-        self['force'] = force
+                    
+        if len(forces) > 0:  
+            self['force'] = forces[-1]
+            self["largest_gradient"] = [max([abs(ii) for ii in i]) for i in forces]
+        else:
+            self['force'] = None
+            self["largest_gradient"] = None
     
     @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one")
     def GetStessFromLog(self):
@@ -234,7 +238,7 @@ class Abacus(ResultAbacus):
                     j += 1
                 break
         self['stress'] = stress
-        
+    '''    
     @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
     def GetLargestGradientFromLog(self):
         lg = None
@@ -244,6 +248,7 @@ class Abacus(ResultAbacus):
                     lg = []
                 lg.append(float(line.split()[-1]))
         self['largest_gradient'] = lg
+    '''
         
     '''
     @ResultAbacus.register(band_gap = "band gap of the system")
