@@ -210,7 +210,8 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
     allstepname = []
     all_sub_save_path = []
     
-    postdft_stepname = flowname + f"-postdft"
+    dflow_stepname = "postdft"
+    bohri_stepname = flowname + f"/postdft"
     
     extrafiles, extrafiles_name = comm.transfer_source_to_artifact(
         setting.get("extra_files", []),
@@ -246,14 +247,14 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
         else:
             comm.printinfo("No example for post-dft")
             return None,None,None
-        space = "\n" + (len(postdft_stepname)+2)*" "
-        comm.printinfo("%s: %s" % (postdft_stepname,space.join(examples_name[0])))
+        space = "\n" + (len(bohri_stepname)+2)*" "
+        comm.printinfo("%s: %s" % (bohri_stepname,space.join(examples_name[0])))
         example_path_list = examples_name[0]
     else:
         artifact_example = prestep_output
         example_path_list = example_path     
         
-    executor, bohrium_set = comm.ProduceExecutor(setting, group_name=flowname + f"/postdft")
+    executor, bohrium_set = comm.ProduceExecutor(setting, group_name=bohri_stepname)
     image = globV.get_value("ABBREVIATION").get(setting.get("image"), setting.get("image"))
     parameters = {
         "command": setting.get("command", ""),
@@ -267,15 +268,15 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
     artifacts={"examples": artifact_example }
     if extrafiles:
         artifacts["extra_files"]=extrafiles[0][0]
-    step = Step(name=postdft_stepname, template=pt,
+    step = Step(name=dflow_stepname, template=pt,
                 parameters=parameters,
                 artifacts=artifacts,
-                key=postdft_stepname
+                key=dflow_stepname
                 )
     if executor != None:
         step.executor = executor
 
-    allstepname.append(postdft_stepname)
+    allstepname.append(dflow_stepname)
     all_sub_save_path.append("")
     allsteps.append(step)
     comm.printinfo("image: %s" % image)

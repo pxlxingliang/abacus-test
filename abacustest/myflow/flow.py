@@ -38,10 +38,16 @@ def ParamParser(param):
     if param.get("bohrium_group_name","") != "":
         alljobs["bohrium_group_name"] = param.get("bohrium_group_name")
     elif param.get("config",{}).get("dflow_labels",{}).get("launching-job"):
-        alljobs["bohrium_group_name"] = param.get("config",{}).get("dflow_labels",{}).get("launching-job")
+        bohriu_name = param.get("config",{}).get("dflow_labels",{}).get("launching-job")
+        if bohrium_name.startswith("sched-abacustest-"):
+            alljobs["bohrium_group_name"] = "s-" + bohriu_name[17:]
+        elif bohrium_name.startswith("job-abacustest-"):
+            alljobs["bohrium_group_name"] = "j-" + bohriu_name[15:]
+        else:
+            alljobs["bohrium_group_name"] = bohriu_name
+        
     alljobs["ABBREVIATION"] = param.get("ABBREVIATION",{})
 
-   
     #print(alljobs)
     #sys.exit(1)
     globV.set_value("ABBREVIATION",alljobs.get('ABBREVIATION',{}))
