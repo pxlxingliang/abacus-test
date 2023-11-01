@@ -173,7 +173,7 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
     if not examples:
         comm.printinfo("No examples found!")
     
-    executor, bohrium_set = comm.ProduceExecutor(predft_set, group_name=stepname + "-predft")
+    executor, bohrium_set = comm.ProduceExecutor(predft_set, group_name=stepname + "/predft")
     image = globV.get_value("ABBREVIATION").get(predft_set.get("image"), predft_set.get("image"))
     model_output_artifact = S3Artifact(key="{{workflow.name}}/%s/predft" % stepname)
     

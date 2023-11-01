@@ -34,7 +34,11 @@ def ParamParser(param):
 #    alljobs["upload_datahub"] = param.get("upload_datahub",None)  #used to upload local files to datahub
 #    alljobs["upload_tracking"] = param.get("upload_tracking",None)  #used to upload tracking
     alljobs["report"] = param.get("report",None)
-    alljobs["bohrium_group_name"] = param.get("bohrium_group_name","abacustesting")
+    alljobs["bohrium_group_name"] = "abacustesting"
+    if param.get("bohrium_group_name","") != "":
+        alljobs["bohrium_group_name"] = param.get("bohrium_group_name")
+    elif param.get("config",{}).get("dflow_labels",{}).get("launching-job"):
+        alljobs["bohrium_group_name"] = param.get("config",{}).get("dflow_labels",{}).get("launching-job")
     alljobs["ABBREVIATION"] = param.get("ABBREVIATION",{})
 
    

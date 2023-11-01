@@ -210,7 +210,7 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
     allstepname = []
     all_sub_save_path = []
     
-    postdft_stepname = flowname + f"-postdft"
+    postdft_stepname = flowname + f"/postdft"
     
     extrafiles, extrafiles_name = comm.transfer_source_to_artifact(
         setting.get("extra_files", []),

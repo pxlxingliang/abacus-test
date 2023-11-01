@@ -286,7 +286,7 @@ def gen_multiple_y(x, ys, legend_list, example_name_prefix, example_name_number,
         for i in legend_list:
             for j in example_name_number:
                 legend_tmp.append(i + "_" + j)
-    print(len(legend_tmp),len(x_tmp),len(y_tmp),len(ys),len(example_name_number),example_name_number)
+    #print(len(legend_tmp),len(x_tmp),len(y_tmp),len(ys),len(example_name_number),example_name_number)
     return legend_tmp, x_tmp, y_tmp                
     
 def plot_delta_Y(y_list, legend_list, example_name, imetric,example_name_prefix, example_name_number):
