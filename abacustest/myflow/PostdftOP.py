@@ -210,7 +210,7 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
     allstepname = []
     all_sub_save_path = []
     
-    postdft_stepname = flowname + f"/postdft"
+    postdft_stepname = flowname + f"-postdft"
     
     extrafiles, extrafiles_name = comm.transfer_source_to_artifact(
         setting.get("extra_files", []),
@@ -253,7 +253,7 @@ def produce_postdft(setting,prestep_output,flowname,example_path):
         artifact_example = prestep_output
         example_path_list = example_path     
         
-    executor, bohrium_set = comm.ProduceExecutor(setting, group_name=postdft_stepname)
+    executor, bohrium_set = comm.ProduceExecutor(setting, group_name=flowname + f"/postdft")
     image = globV.get_value("ABBREVIATION").get(setting.get("image"), setting.get("image"))
     parameters = {
         "command": setting.get("command", ""),

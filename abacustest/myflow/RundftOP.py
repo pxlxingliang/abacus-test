@@ -202,7 +202,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
     output_artifact = None
     for rundft_set in rundft_sets:
         rundft_idx += 1
-        rundft_stepname = stepname + f"/rundft-group{rundft_idx}"
+        rundft_stepname = stepname + f"-rundft-group{rundft_idx}"
         sub_savepath = comm.ParseSubSavePath(rundft_set.get("sub_save_path"))
         
         #get extra files
@@ -213,7 +213,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
             only_folder=False,
             oneartifact=True)
         
-        executor, bohrium_set = comm.ProduceExecutor(rundft_set, group_name=rundft_stepname)
+        executor, bohrium_set = comm.ProduceExecutor(rundft_set, group_name=stepname + f"/rundft-group{rundft_idx}")
         image = globV.get_value("ABBREVIATION").get(rundft_set.get("image"), rundft_set.get("image"))
         group_size = int(rundft_set.get("group_size",1))
         parameters = {
@@ -371,7 +371,7 @@ def produce_step(setting,
             only_folder=False,
             oneartifact=True)
         
-        executor, bohrium_set = comm.ProduceExecutor(iset, group_name=group_name)
+        executor, bohrium_set = comm.ProduceExecutor(iset, group_name=flowname + f"/{stepname}")
         image = globV.get_value("ABBREVIATION").get(iset.get("image"), iset.get("image"))
         group_size = int(iset.get("group_size",default_group_size))
         parameters = {
