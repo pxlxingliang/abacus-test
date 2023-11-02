@@ -203,7 +203,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
     for rundft_set in rundft_sets:
         rundft_idx += 1
         dflow_stepname = f"rundft-{rundft_idx}"
-        bohri_stepname = stepname + f"-rundft-{rundft_idx}"
+        bohri_stepname = stepname + f"/rundft-{rundft_idx}"
         sub_savepath = comm.ParseSubSavePath(rundft_set.get("sub_save_path"))
         
         #get extra files
