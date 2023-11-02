@@ -181,7 +181,7 @@ def ParseProcess(param):
 def ProduceOneSteps(stepname,param):
     prepare_example,pre_dft,run_dft,post_dft = ParseProcess(param)
     save_path = comm.ParseSavePath(param.get("save_path",None))
-    steps = Steps(name=stepname+"-steps",
+    steps = Steps(name="abacustesting-steps",
                   outputs=Outputs(artifacts={"outputs" : OutputArtifact()}))
     allstepname, all_save_path = [], []
     has_step = False
@@ -270,7 +270,7 @@ def ProduceOneSteps(stepname,param):
     
     step = None
     if has_step:
-        step = Step(name=stepname,template=steps,key=stepname) 
+        step = Step(name="abacustesting",template=steps,key="abacustesting") 
     if all_save_path != None:
         all_save_path = [[save_path,i] for i in all_save_path]
     return step,allstepname,all_save_path
