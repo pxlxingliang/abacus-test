@@ -799,7 +799,7 @@ class PrepareAbacus:
                 return ii
         
         for i,iline in enumerate(input_lines):
-            if iline.strip() == 'INPUT_PARAMETERS':
+            if iline.strip()[:16] == 'INPUT_PARAMETERS':
                 readinput = True
             elif iline.strip() == '' or iline.strip()[0] in ['#']:
                 continue
