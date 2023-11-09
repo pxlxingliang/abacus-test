@@ -26,8 +26,15 @@ def FindOutput(path,keyinfo):
     allfiles = os.listdir(".")
     for ifile in allfiles:
         if os.path.isfile(ifile):
-            with open(ifile) as f1: lines = f1.read()
-            if keyinfo in lines:
+            find = False
+            try:
+                with open(ifile) as f1: lines = f1.read()
+                if keyinfo in lines:
+                    find = True
+            except:
+                pass
+                
+            if find:
                 os.chdir(cwd)
                 return os.path.join(path,ifile)
     os.chdir(cwd)
@@ -38,8 +45,13 @@ def ReadXmlFile(ifile,warn=True):
         return None
 
     if os.path.isfile(ifile):
-        tree = ET.parse(ifile)
-        return tree.getroot()
+        try:
+            tree = ET.parse(ifile)
+            return tree.getroot()
+        except:
+            traceback.print_exc()
+            if warn: print("WARNING: can not parse file %s" % ifile)
+            return None
     else:
         if warn: print("WARNING: can not find file %s" % ifile)
         return None

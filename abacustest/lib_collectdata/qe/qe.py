@@ -99,10 +99,10 @@ class Qe(ResultQe):
             if nk1 and nk2 and nk3: 
                 self['nkstot'] = nk1 * nk2 * nk3
                 self['kpt'] = [nk1, nk2, nk3]
-                
-        if output.find('forces'):
+       
+        if output.find('forces') != None:
             self['force'] = [float(i) for i in output.find('forces').text.split()]
-        if output.find('stress'):
+        if output.find('stress') != None:
             self['stress'] = [float(i) for i in output.find('stress').text.split()]
     
         self['total_mag'] = comm.ifloat(xfmlt(output,['magnetization','total']))

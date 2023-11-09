@@ -198,11 +198,12 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
     all_save_path = []
     
     rundft_idx = 0
-    model_output_artifact = S3Artifact(key="{{workflow.name}}/%s/rundft" % stepname)
+    model_output_artifact = S3Artifact(key="{{workflow.name}}/rundft")
     output_artifact = None
     for rundft_set in rundft_sets:
         rundft_idx += 1
-        rundft_stepname = stepname + f"-rundft-group{rundft_idx}"
+        dflow_stepname = f"rundft-{rundft_idx}"
+        bohri_stepname = stepname + f"/rundft-{rundft_idx}"
         sub_savepath = comm.ParseSubSavePath(rundft_set.get("sub_save_path"))
         
         #get extra files
@@ -213,7 +214,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
             only_folder=False,
             oneartifact=True)
         
-        executor, bohrium_set = comm.ProduceExecutor(rundft_set, group_name=rundft_stepname)
+        executor, bohrium_set = comm.ProduceExecutor(rundft_set, group_name=bohri_stepname)
         image = globV.get_value("ABBREVIATION").get(rundft_set.get("image"), rundft_set.get("image"))
         group_size = int(rundft_set.get("group_size",1))
         parameters = {
@@ -247,18 +248,20 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
             pt = PythonOPTemplate(RunDFT,image=image,envs=comm.SetEnvs())
             for iexample_name in new_examples_name:
                 istep += 1
-                rundft_stepname_istep = rundft_stepname + f"-{istep}"
-                space = "\n" + (len(rundft_stepname_istep)+2)*" "
-                comm.printinfo("%s: %s" % (rundft_stepname_istep,space.join(iexample_name)))
+                dflow_stepname_istep = dflow_stepname + f"-{istep}"
+                bohri_stepname_istep = bohri_stepname + f"-{istep}"
+                space = "\n" + (len(bohri_stepname_istep)+2)*" "
+                comm.printinfo("%s: %s" % (bohri_stepname_istep,space.join(iexample_name)))
                 artifact_example = upload_artifact(iexample_name,archive=None)
                 artifacts={"examples": artifact_example }
                 if extrafiles:
                     artifacts["extra_files"]=extrafiles[0][0]
 
-                step = Step(name=rundft_stepname_istep, template=pt,
+                step = Step(name=dflow_stepname_istep, template=pt,
                             parameters=parameters,
                             artifacts=artifacts,
-                            key=rundft_stepname_istep,
+                            continue_on_failed=True,
+                            key=dflow_stepname_istep,
                             )
                 if executor != None:
                     step.executor = executor
@@ -267,7 +270,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
                     step.template.outputs.artifacts["outputs"].save = [model_output_artifact]
                     step.template.outputs.artifacts["outputs"].archive = None
 
-                allstepname.append(rundft_stepname_istep)
+                allstepname.append(dflow_stepname_istep)
                 all_save_path.append(sub_savepath)
                 allsteps.append(step)   
         else:
@@ -284,11 +287,12 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
             artifacts={"examples": artifacts_example }
             if extrafiles:
                 artifacts["extra_files"]=extrafiles[0][0]
-            step = Step(name=rundft_stepname, template=pt,
+            step = Step(name=dflow_stepname, template=pt,
                         parameters=parameters,
                         artifacts=artifacts,
+                        continue_on_failed=True,
                         with_sequence=argo_sequence(argo_len(predft_step.outputs.parameters['work_directories']), format='%03d'),
-                        key=rundft_stepname+"-{{item}}"
+                        key=dflow_stepname+"-{{item}}"
                         )
             if executor != None:
                 step.executor = executor
@@ -297,7 +301,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
                 step.template.outputs.artifacts["outputs"].save = [model_output_artifact]
                 step.template.outputs.artifacts["outputs"].archive = None    
 
-            allstepname.append(rundft_stepname)
+            allstepname.append(dflow_stepname)
             all_save_path.append(sub_savepath)
             allsteps.append(step)
         
@@ -308,181 +312,4 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
         output_artifact = model_output_artifact
     return allsteps, allstepname, all_save_path, output_artifact
 
-def produce_step(setting,
-                 flowname,
-                 stepname,
-                 prestep_artifact,
-                 doslice_parameter,
-                 default_group_size=1,
-                 example_only_folder=True,
-                 example_oneartifact=False,
-                 gather_result=False):
-    '''
-    {
-        "examples",
-        "group_size",
-        "image",
-        "command",
-        "extra_files",
-        "outputs",
-        "metrics",
-        "super_metrics",
-        "upload_tracking",
-    }
-    '''
-    # if pre_step is not None, then the input is the output of predft,
-    # and the example invalid, and slices is used as parallel computing scheme.
-    # if pr_step is None, then the input of rundft is examples, 
-    # and the settings of examples can be read to perform parallel computing flexibly.
-    # that is, serial tasks can be placed in the settings of a list.
-    #rundft_set is a list of dict, each dict is a rundft setting
-    # the returned output_artifact is None if not gather_result, else is model_output_artifact
-    comm.printinfo(f"\nPreparing {stepname}")
-    
-    #replace _ to - in flowname and stepname
-    flowname = flowname.replace("_","-")
-    stepname = stepname.replace("_","-")
-    
-    allsteps = []
-    allstepname = []
-    all_sub_save_path = []
-    
-    idx = 0
-    model_output_artifact = S3Artifact(key="{{workflow.name}}/%s/%s" % (flowname,stepname))
-    output_artifact = None
-    if isinstance(setting,dict):
-        setting_tmp = [setting]
-    else:
-        setting_tmp = setting
-    for iset in setting_tmp:
-        idx += 1
-        group_name = flowname + f"-{stepname}"
-        if isinstance(setting,list):
-            group_name = group_name + f"-group{idx}"
-        sub_savepath = comm.ParseSubSavePath(iset.get("sub_save_path"))
-        
-        #get extrafiles
-        extrafiles, extrafiles_name = comm.transfer_source_to_artifact(
-            iset.get("extra_files", []),
-            source=iset.get("extra_files_source"),
-            source_type=iset.get("extra_files_source_type", "local"),
-            only_folder=False,
-            oneartifact=True)
-        
-        executor, bohrium_set = comm.ProduceExecutor(iset, group_name=group_name)
-        image = globV.get_value("ABBREVIATION").get(iset.get("image"), iset.get("image"))
-        group_size = int(iset.get("group_size",default_group_size))
-        parameters = {
-            "command": iset.get("command", ""),
-            "outputfiles": iset.get("outputs", []),
-            "sub_save_path": sub_savepath,
-            "metrics": iset.get("metrics", []),
-            "super_metrics": iset.get("super_metrics", {}),
-            "upload_tracking": iset.get("upload_tracking", {}),
-        }
-        
-        if prestep_artifact == None:
-            #get examples
-            # if predft_step is none, then the input of rundft is examples,
-            assert iset.get("example") != None, "example in rundft is not defined"
-            examples, examples_name = comm.transfer_source_to_artifact(
-                iset["example"],
-                source=iset.get("example_source"),
-                source_type=iset.get("example_source_type", "local"),
-                only_folder=example_only_folder,
-                oneartifact=example_oneartifact)
-            
-            new_examples,new_examples_name = comm.SplitGroupSize(examples,examples_name,group_size)
-            istep = 0
-            for iexample_name in new_examples_name:
-                istep += 1
-                group_name_istep = group_name + f"-{istep}"
-                space = "\n" + (len(group_name_istep)+2)*" "
-                comm.printinfo("%s: %s" % (group_name_istep,space.join(iexample_name)))
-                artifact_example = upload_artifact(iexample_name,archive=None)
-                pt = PythonOPTemplate(RunDFT,image=image)
-                artifacts={"examples": artifact_example }
-                if extrafiles:
-                    artifacts["extra_files"]=extrafiles[0][0]
-                else:
-                    pt.inputs.artifacts["extra_files"].optional = True
-                parameters_tmp = parameters.copy()
-                #parameters_tmp["examples_name"] = "{{item}}"
-                step = Step(name=group_name_istep, template=pt,
-                            parameters=parameters_tmp,
-                            artifacts=artifacts,
-                            key=group_name_istep,
-                            )
-                if executor != None:
-                    step.executor = executor
 
-                if gather_result:
-                    step.template.outputs.artifacts["outputs"].save = [model_output_artifact]
-                    step.template.outputs.artifacts["outputs"].archive = None
-                allstepname.append(group_name_istep)
-                all_sub_save_path.append(sub_savepath)
-                allsteps.append(step)  
-            
-        elif doslice_parameter:
-            #produce step
-            pt = PythonOPTemplate(RunDFT,image=image,slices=Slices(
-                        "int('{{item}}')",
-                        input_artifact = ["examples"],
-                        output_artifact = ["outputs"],
-                        group_size=group_size
-                        ))
-            artifacts={"examples": prestep_artifact}
-            if extrafiles:
-                artifacts["extra_files"]=extrafiles[0]
-            else:
-                pt.inputs.artifacts["extra_files"].optional = True
-            step = Step(name=group_name, template=pt,
-                        parameters=parameters,
-                        artifacts=artifacts,
-                        with_sequence=argo_sequence(argo_len(doslice_parameter), format='%03d'),
-                        key=group_name+"-{{item}}"
-                        )
-            if executor != None:
-                step.executor = executor
-                
-            if gather_result:
-                step.template.outputs.artifacts["outputs"].save = [model_output_artifact]
-                step.template.outputs.artifacts["outputs"].archive = None    
-
-            allstepname.append(group_name)
-            all_sub_save_path.append(sub_savepath)
-            allsteps.append(step)
-        
-        else:
-            #produce step
-            pt = PythonOPTemplate(RunDFT,image=image)
-            artifacts={"examples": prestep_artifact}
-            if extrafiles:
-                artifacts["extra_files"]=extrafiles[0]
-            else:
-                pt.inputs.artifacts["extra_files"].optional = True
-            step = Step(name=group_name, template=pt,
-                        parameters=parameters,
-                        artifacts=artifacts,
-                        key=group_name
-                        )
-            if executor != None:
-                step.executor = executor
-                
-            if gather_result:
-                step.template.outputs.artifacts["outputs"].save = [model_output_artifact]
-                step.template.outputs.artifacts["outputs"].archive = None    
-
-            allstepname.append(group_name)
-            all_sub_save_path.append(sub_savepath)
-            allsteps.append(step)
-            
-        comm.printinfo(f"{stepname} group{idx}")
-        comm.printinfo("image: %s" % image)
-        comm.printinfo("set bohrium: %s" % str(bohrium_set))
-        comm.printinfo("command: %s" % str(iset.get("command"))) 
-            
-    if gather_result:
-        output_artifact = model_output_artifact
-        
-    return allsteps, allstepname, all_sub_save_path, output_artifact

@@ -32,7 +32,7 @@ def ReadSetting(logs:comm_class.myLog,opts,work_path,download_path):
         "post_dft":{
             "command":,
             "extra_files":,
-            "iamge":,
+            "image":,
             "bohrium":,
             "metrics":{
                 "path":,

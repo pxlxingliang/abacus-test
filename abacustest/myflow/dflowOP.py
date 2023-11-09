@@ -51,31 +51,43 @@ def SetConfig(private_set,debug=False):
         client = "LOCAL"
     else:
         comm.printinfo("set config info...")
+        config["save_keys_in_global_outputs"] = False
         if private_set.get("dflow_host","").strip() != "":
             config["host"] = private_set.get("dflow_host","").strip()
+        else:
+            config["host"] = "https://workflows.deepmodeling.com"
             
         host = config["host"]
         
         if private_set.get("dflow_s3_config_endpoint","").strip() != "": 
             s3_config["endpoint"] =  private_set.get("dflow_s3_config_endpoint","").strip()
+            comm.printinfo("set s3_config_endpoint ... ")
         
+        comm.printinfo("set k8s_api_server ... ")    
         if private_set.get("dflow_k8s_api_server","").strip() != "":
             config["k8s_api_server"] = private_set.get("dflow_k8s_api_server","").strip()
+        else:
+            config["k8s_api_server"] = "https://workflows.deepmodeling.com"
             
         if private_set.get("dflow_token","").strip() != "":
             config["token"] = private_set.get("dflow_token","").strip()
+            comm.printinfo("set token ... ")
 
         if "bohrium_username" in private_set:
             bohrium.config["username"] = private_set.get('bohrium_username')
+            comm.printinfo("set bohrium_username ... ")
             
         if "bohrium_password" in private_set:
             bohrium.config["password"] = private_set.get('bohrium_password','')
+            comm.printinfo("set bohrium_password ... ")
         
         if "bohrium_ticket" in private_set:
             bohrium.config["ticket"] = private_set.get('bohrium_ticket')
+            comm.printinfo("set bohrium_ticket ... ")
                 
         if "bohrium_project_id" in private_set:
             bohrium.config["project_id"] = private_set.get('bohrium_project_id','')
+            comm.printinfo("set bohrium_project_id ... ")
 
         s3_config["repo_key"] = "oss-bohrium"
         s3_config["storage_client"] = TiefblueClient()
@@ -169,7 +181,7 @@ def ParseProcess(param):
 def ProduceOneSteps(stepname,param):
     prepare_example,pre_dft,run_dft,post_dft = ParseProcess(param)
     save_path = comm.ParseSavePath(param.get("save_path",None))
-    steps = Steps(name=stepname+"-steps",
+    steps = Steps(name="abacustesting-steps",
                   outputs=Outputs(artifacts={"outputs" : OutputArtifact()}))
     allstepname, all_save_path = [], []
     has_step = False
@@ -258,7 +270,7 @@ def ProduceOneSteps(stepname,param):
     
     step = None
     if has_step:
-        step = Step(name=stepname,template=steps,key=stepname) 
+        step = Step(name="abacustesting",template=steps,key="abacustesting") 
     if all_save_path != None:
         all_save_path = [[save_path,i] for i in all_save_path]
     return step,allstepname,all_save_path

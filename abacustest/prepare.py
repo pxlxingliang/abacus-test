@@ -87,7 +87,11 @@ class AbacusStru:
         return self._orb    
 
     def get_label(self):
-        return self._label
+        '''return the label name of each atom'''
+        label = []
+        for idx,i in enumerate(self._atom_number):
+            label += [self._label[idx]] * i
+        return label
     
     def get_dpks(self):
         return self._dpks
@@ -95,14 +99,39 @@ class AbacusStru:
     def get_mass(self):
         return self._mass
     
-    def get_element(self):
-        return self._element
+    def get_element(self,number=True):
+        '''return the element name of each atom'''
+        element = []
+        for idx,i in enumerate(self._atom_number):
+            element += [self._element[idx]] * i
+        if not number:
+            return element
+        else:
+            return [constant.PERIOD_DICT_NUMBER[i] for i in element]
     
     def get_cell(self,bohr = False):
         "return the cell matrix, in unit of Angstrom"
         transfer_unit = 1 if bohr else constant.BOHR2A
         cell = np.array(self._cell) * self._lattice_constant * transfer_unit
         return cell.tolist()
+    
+    def get_coord(self,bohr = False, direct=False):
+        '''return the coordinate matrix, in cartesian or direct type, in unit of Angstrom or Bohr.
+        If direct is True, then return the direct type coordinate, and bohr will be ignored.'''
+        transfer_unit = 1 if bohr else constant.BOHR2A
+        if self._cartesian:
+            if not direct:
+                coord = np.array(self._coord) * transfer_unit * self._lattice_constant
+                return coord.tolist()
+            else:
+                coord = np.array(self._coord)
+                return coord.dot(np.linalg.inv(np.array(self._cell))).tolist()
+        else:
+            if not direct:
+                coord = np.array(self._coord) * transfer_unit * self._lattice_constant
+                return coord.dot(np.array(self._cell)).tolist()
+            else:
+                return self._coord
     
     def set_pp(self,pplist):
         self._pp = pplist
@@ -273,7 +302,8 @@ class PrepareAbacus:
                  orb_path:str = None,
                  dpks_descriptor:str=None,
                  extra_files: List[str] = [],
-                 bak_file = True):
+                 bak_file = True,
+                 no_link = False,):
         """To prepare the inputs of abacus
 
         Parameters
@@ -342,6 +372,9 @@ class PrepareAbacus:
             
         bak_file: bool, optional
             when save path is exist, if bak_file is True, then bak the old files,
+            
+        no_link: bool, optional
+            if True, then will not link the files in example_template to save_path,
         """        
         self.save_path = save_path
         self.example_template = example_template
@@ -366,6 +399,7 @@ class PrepareAbacus:
         self.stru_list = self.Construct_stru_list()
         
         self.bak_file = bak_file
+        self.no_link = no_link
         
         # when read the template file, will check if the template file folder is same with save_path
         # if same and final structures only one, then will not bak the template folder
@@ -617,6 +651,7 @@ class PrepareAbacus:
             stru_path = os.path.split(istru)[0]
             if stru_path == "": stru_path = os.getcwd()
             labels = stru_data.get_label()
+            labels = list(set(labels))
             linkstru = True
             skipstru = False
             allfiles = self.extra_files  #files that will be linked
@@ -741,7 +776,10 @@ class PrepareAbacus:
                                 os.unlink(kptf)
                             
                             if not os.path.isfile(kptf):
-                                os.symlink(os.path.abspath(ikpt),kptf)
+                                if self.no_link:
+                                    shutil.copy(os.path.abspath(ikpt),kptf)
+                                else:
+                                    os.symlink(os.path.abspath(ikpt),kptf)
                         elif isinstance(ikpt,list):
                             PrepareAbacus.WriteKpt(ikpt,kptf)
                     
@@ -752,7 +790,10 @@ class PrepareAbacus:
                             os.unlink(struf)
                                 
                         if not os.path.isfile(struf):
-                            os.symlink(os.path.abspath(istru),struf)
+                            if self.no_link:
+                                shutil.copy(os.path.abspath(istru),struf)
+                            else:
+                                os.symlink(os.path.abspath(istru),struf)
                     else:
                         stru_data.write(struf)
                     
@@ -764,7 +805,10 @@ class PrepareAbacus:
                         if os.path.isfile(target_file) and not Path(ifile).samefile(Path(target_file)):
                             os.unlink(target_file)
                         if not os.path.isfile(target_file):
-                            os.symlink(ifile,target_file)         
+                            if self.no_link:
+                                shutil.copy(ifile,target_file)
+                            else:
+                                os.symlink(ifile,target_file)         
         
         return param_setting
 
@@ -799,7 +843,7 @@ class PrepareAbacus:
                 return ii
         
         for i,iline in enumerate(input_lines):
-            if iline.strip() == 'INPUT_PARAMETERS':
+            if iline.strip()[:16] == 'INPUT_PARAMETERS':
                 readinput = True
             elif iline.strip() == '' or iline.strip()[0] in ['#']:
                 continue
@@ -912,7 +956,7 @@ def CommPath(pathlist):
         length = 0
     return commpath,[i[length:] for i in pathlist]
 
-def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str, dict]]:  
+def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = False) -> List[Dict[str, dict]]:  
     """
     param_setting is a dictionary like:
     {
@@ -982,7 +1026,8 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str) -> List[Dict[str,
                                   orb_path=param_setting.get("orb_path",None),
                                   dpks_descriptor=param_setting.get("dpks_descriptor",None),
                                   extra_files=param_setting.get("extra_files",[]),
-                                  bak_file = param_setting.get("bak_file",True)
+                                  bak_file = param_setting.get("bak_file",True),
+                                  no_link=no_link
                                   )
         all_path_setting.append(prepareabacus.prepare())
 
@@ -999,7 +1044,7 @@ def PrepareInput(param):
     if "prepare" in param_setting:
         param_setting = param_setting["prepare"]
     
-    all_path_setting = DoPrepare(param_setting,save_folder)
+    all_path_setting = DoPrepare(param_setting,save_folder,param.nolink)
     for path_setting in all_path_setting:
         if path_setting:
             for k,v in path_setting.items():
@@ -1009,6 +1054,7 @@ def PrepareArgs(parser):
     parser.description = "This script is used to prepare the INPUTS OF ABACUS JOB"
     parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type',required=True)
     parser.add_argument('-s', '--save', type=str,  default="abacustest",help='where to store the inputs, default is abacustest ')
+    parser.add_argument('--nolink', type=int,  default=0,help='if link the files in the example folder, default is 0')
     return parser
 
 def main():

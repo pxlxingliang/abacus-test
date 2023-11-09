@@ -94,10 +94,14 @@ class Abacus(ResultAbacus):
                            ibzk = "irreducible K point number",
                            natom ="total atom number",
                            nelec = "total electron number",
-                           fft_grid = "fft grid for charge/potential",)
+                           fft_grid = "fft grid for charge/potential",
+                           point_group="point group",
+                           point_group_in_space_group="point group in space group")
     def GetLogParam(self):       
         natom = 0
         nelec = 0
+        point_group = None
+        point_group_in_space_group = None
         for i,line in enumerate(self.LOG):
             if "NBANDS =" in line:
                 self['nbands'] = int(line.split()[2])
@@ -111,7 +115,13 @@ class Abacus(ResultAbacus):
                 nelec += float(line.split()[-1])
             elif "[fft grid for charge/potential] =" in line:
                 self['fft_grid'] = [float(i.strip()) for i in line.split('=')[1].split(',')]
+            elif "POINT GROUP =" in line:
+                point_group = line.split("=")[1].strip()
+            elif "POINT GROUP IN SPACE GROUP =" in line:
+                point_group_in_space_group = line.split("=")[1].strip()
 
+        self["point_group"] = point_group
+        self["point_group_in_space_group"] = point_group_in_space_group
         if natom > 0:
             self["natom"] = natom 
         if nelec > 0:
@@ -169,35 +179,73 @@ class Abacus(ResultAbacus):
         if self["natom"] != None and self['energy'] != None:
             self["energy_per_atom"] = self['energy']/self["natom"]
     
-    @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one",
-                           force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one")
-    def GetForceStessFromLog(self):
-        getforce = getstress = False
-        stress = force = None
+    @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one")
+    def GetForceFromLog(self):
+        force = None
         for i in range(len(self.LOG)):
-            if getforce and getstress:
-                break
             i = -1*i - 1
             line = self.LOG[i]
-            if not getstress and 'TOTAL-STRESS (KBAR)' in line:
-                j = i + 4
-                stress = []
-                for k in range(3):
-                    for m in self.LOG[j+k].split():
-                        stress.append(float(m))
-                getstress = True
-            elif not getforce and 'TOTAL-FORCE (eV/Angstrom)' in line:
-                j = i + 5
-                force = []
-                while len(self.LOG[j].split()) == 4:
-                    for k in self.LOG[j].split()[1:4]:
-                        force.append(float(k))
+            if 'TOTAL-FORCE (eV/Angstrom)' in line:
+                #head_pattern = re.compile(r'^\s*atom\s+x\s+y\s+z\s*$')
+                value_pattern = re.compile(r'^\s*[A-Z][a-z]?[1-9][0-9]*\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$')
+                j = i
+                noforce = False
+                while not value_pattern.match(self.LOG[j]):
                     j += 1
-                getforce = True
-
-        self['stress'] = stress
+                    if j >= i + 10:
+                        print("Warning: can not find the first line of force")
+                        noforce = True
+                        break
+                if noforce:
+                    break
+                
+                while value_pattern.match(self.LOG[j]):
+                    if force == None:
+                        force = []
+                    force += [float(ii) for ii in self.LOG[j].split()[1:4]]
+                    j += 1
+                break
         self['force'] = force
     
+    @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one")
+    def GetStessFromLog(self):
+        stress = None
+        for i in range(len(self.LOG)):
+            i = -1*i - 1
+            line = self.LOG[i]
+            if 'TOTAL-STRESS (KBAR)' in line:
+                value_pattern = re.compile(r'^\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$')
+                j = i 
+                nostress = False
+                # find the first line of stress
+                while not value_pattern.match(self.LOG[j]):
+                    j += 1
+                    if j >= i + 10: # if can not find the first line of force in 10 lines, then stop
+                        print("Warning: can not find the first line of force")
+                        nostress = True
+                        break
+                if nostress:
+                    break
+                
+                while value_pattern.match(self.LOG[j]):
+                    if stress == None:
+                        stress = []
+                    stress += [float(ii) for ii in self.LOG[j].split()[:3]]
+                    j += 1
+                break
+        self['stress'] = stress
+        
+    @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
+    def GetLargestGradientFromLog(self):
+        lg = None
+        for line in self.LOG:
+            if "Largest gradient is" in line:
+                if lg == None:
+                    lg = []
+                lg.append(float(line.split()[-1]))
+        self['largest_gradient'] = lg
+        
+    '''
     @ResultAbacus.register(band_gap = "band gap of the system")
     def GetBandGapFromLog(self):
         def ErrorReturn(strinfo):
@@ -248,6 +296,71 @@ class Abacus(ResultAbacus):
                     if totalcb == None or (cb != None and totalcb < cb): totalcb = cb
                     if totalvb == None or (vb != None and totalvb > vb): totalvb = vb
                 band_gap = None if totalvb == None or totalcb == None else totalvb-totalcb
+                break
+                
+        self['band_gap'] = band_gap
+    '''
+        
+    @ResultAbacus.register(band_gap = "band gap of the system")
+    def GetBandGapFromLog(self):
+        def ErrorReturn(strinfo):
+            print("WARNING: %s, skip the catch of band gap info" % strinfo)
+            self['band_gap'] = None
+            return
+        
+        nband = self['nbands']  
+        if self["ibzk"] != None:    
+            nk = self['ibzk']
+        elif self["nkstot"] != None:
+            nk = self["nkstot"]
+        else:
+            nk = None
+            
+        if nband == None or nk == None:
+            ErrorReturn("no nbands or ibzk")
+            return
+        nelec = self['nelec']
+        if nelec == None:
+            ErrorReturn("no nelec")
+            return
+        occu_band = int(nelec/2)
+        if occu_band == 0:
+            ErrorReturn("no occu_band")
+            return
+        if occu_band >= nband:
+            ErrorReturn("occu_band >= nband")
+            return
+                
+        band_gap = None
+        #print("nelec:",nelec,"occu_band:",occu_band,"nband:",nband,"nk:",nk)
+        for i,line in enumerate(self.LOG):
+            if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
+                nspin = int(line.split()[-1])
+                if nspin not in [1,2]:
+                    ErrorReturn("NOT SUPPORT FOR NSPIN=%d now" % nspin)
+                    return
+
+                totalcb = None
+                totalvb = None
+                for ispin in range(nspin):
+                    cb = None
+                    vb = None
+                    for k in range(nk):
+                        eband1 = float(self.LOG[((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + occu_band + i].split()[1])  # the highest occupied band
+                        eband2 = float(self.LOG[((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + occu_band + 1 + i].split()[1])  # the lowest unoccupied band
+                        if cb == None or eband1 > cb:
+                            cb = eband1
+                        if vb == None or eband2 < vb:
+                            vb = eband2
+                        #print("k:",k,"eband1:",eband1,"eband2:",eband2,"cb:",cb,"vb:",vb)
+                    if totalcb == None or (cb != None and totalcb < cb): totalcb = cb
+                    if totalvb == None or (vb != None and totalvb > vb): totalvb = vb
+                    #print("ispin:",ispin,"totalcb:",totalcb,"totalvb:",totalvb)
+                if totalcb == None or totalvb == None:
+                    band_gap = None
+                else:
+                    band_gap = totalvb-totalcb
+                    if band_gap < 0: band_gap = 0
                 break
                 
         self['band_gap'] = band_gap
@@ -324,7 +437,14 @@ class Abacus(ResultAbacus):
             if line[:5] == "STEP:":
                 atom_mag.append([])
             elif "Total Magnetism on atom" in line:
-                atom_mag[-1].append(float(line.split()[-1]))
+                if "(" in line and ")" in line:
+                    # for nspin = 4
+                    sline = line.split("(")[1].split(")")[0].split(",")
+                    if len(sline) == 3:
+                        atom_mag[-1].append([float(sline[0]),float(sline[1]),float(sline[2])])
+                else:
+                    atom_mag[-1].append(float(line.split()[-1]))
+                    
         self['atom_mag'] = None if len(atom_mag) == 0 else atom_mag
     
     @ResultAbacus.register(drho="[], drho of each scf step")

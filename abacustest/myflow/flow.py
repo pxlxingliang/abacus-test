@@ -34,10 +34,20 @@ def ParamParser(param):
 #    alljobs["upload_datahub"] = param.get("upload_datahub",None)  #used to upload local files to datahub
 #    alljobs["upload_tracking"] = param.get("upload_tracking",None)  #used to upload tracking
     alljobs["report"] = param.get("report",None)
-    alljobs["bohrium_group_name"] = param.get("bohrium_group_name","abacustesting")
+    alljobs["bohrium_group_name"] = "abacustesting"
+    if param.get("bohrium_group_name","") != "":
+        alljobs["bohrium_group_name"] = param.get("bohrium_group_name")
+    elif param.get("config",{}).get("dflow_labels",{}).get("launching-job"):
+        bohriu_name = param.get("config",{}).get("dflow_labels",{}).get("launching-job")
+        if bohriu_name.startswith("sched-abacustest-"):
+            alljobs["bohrium_group_name"] = "s-" + bohriu_name[17:]
+        elif bohriu_name.startswith("job-abacustest-"):
+            alljobs["bohrium_group_name"] = "j-" + bohriu_name[15:]
+        else:
+            alljobs["bohrium_group_name"] = bohriu_name
+        
     alljobs["ABBREVIATION"] = param.get("ABBREVIATION",{})
 
-   
     #print(alljobs)
     #sys.exit(1)
     globV.set_value("ABBREVIATION",alljobs.get('ABBREVIATION',{}))

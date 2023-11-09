@@ -204,13 +204,92 @@ def add_ref(allresults, ref_data):
             else:
                 # check if path in iref is a father path of ikey
                 for iref_example in ref_data[iref]:
-                    if ikey.startswith(iref_example):
+                    if ikey.startswith(iref_example) and ikey[len(iref_example)] == "/":
                         for imetric in ref_metric_name:
                             new_results[ikey][f"{imetric}_ref_{iref}"] = ref_data[iref][iref_example].get(imetric,None)
                         break
     return new_results,[f"{imetric}_ref_{iref}" for imetric in ref_metric_name for iref in ref_name]   
+def check_example_name(example_name):
+    '''
+    Check if the example name is a/00000, a/00001, ..., b/00000, b/00001
+    If yes will return the prefix and the number list.
+    If not will return None and None
+    '''
+    example_name_prefix = []
+    example_name_number = []
+    has_prefix = True
+    is_number = True
+    for i in example_name:
+        if not "/" in i:
+            has_prefix = False
+            break
+        tmp = i.split("/")
+        if len(tmp) != 2:
+            has_prefix = False
+            break
+        try:
+            _ = int(tmp[1])
+        except:
+            is_number = False
+            break
+        example_name_prefix.append(tmp[0])
+        example_name_number.append(tmp[1])
+    if has_prefix and is_number:
+        example_name_prefix = list(set(example_name_prefix))
+        example_name_number = list(set(example_name_number))
+        example_name_prefix.sort()
+        example_name_number.sort()
+        return example_name_prefix,example_name_number
+    else:
+        return None,None
 
-def plot_delta_Y(y_list, legend_list, example_name, imetric):
+def gen_multiple_y(x, ys, legend_list, example_name_prefix, example_name_number, has_yref = True):
+    '''
+    split x, ys and legend_list to several parts according to example_name_prefix and example_name_number
+    if ys has more than 2 lists, the 1st list is the value of this job, and the other lists are the values of different reference
+    And, there may has some same value in ys[1:], because for different example_name_number, the reference are same.
+    
+    if has_yref = False, then all ys are the values that needed to be ploted, and the legend_list is the legend of ys
+    the new legend will be the mix of example_name_number and legend_list.
+    '''
+    if example_name_prefix == None or example_name_number == None:
+        return legend_list, x, ys
+    
+    x_tmp = copy.deepcopy(example_name_prefix)
+    y_tmp = []
+    for i in range(len(legend_list) * len(example_name_number)):
+        y_tmp.append([])
+  
+    for idx,iexample in enumerate(example_name_prefix):
+        for jdx, jnumber in enumerate(example_name_number):
+            example_name_complete = iexample + "/" + jnumber
+            if example_name_complete in x:
+                iidx = x.index(example_name_complete)
+                for iy in range(len(ys)):
+                    # y_tmp = [legend1_example_name_number1_legend1,legend1_example_name_number2,..., legend2_example_name_number1,... ]
+                    y_tmp[iy*len(example_name_number) + jdx].append(ys[iy][iidx])
+            else:
+                for iy in range(len(ys)):
+                    y_tmp[iy*len(example_name_number) + jdx].append(None)
+    
+    if has_yref:
+        legend_tmp = copy.deepcopy(example_name_number )
+        if len(legend_list) > 1:
+            legend_tmp += legend_list[1:]
+        new_ytmp = y_tmp[0:len(example_name_number)]
+        # only need legend1_example_name_number1,..,legend1_example_name_numbern, legend2_example_name_number1,lengend3_example_name_number1,...legendn_example_name_number1
+        for iy in range(1,len(ys)):
+            new_ytmp.append(y_tmp[iy*len(example_name_number)])
+        y_tmp = new_ytmp
+    else:
+        legend_tmp = []
+        for i in legend_list:
+            for j in example_name_number:
+                legend_tmp.append(i + "_" + j)
+    #print(len(legend_tmp),len(x_tmp),len(y_tmp),len(ys),len(example_name_number),example_name_number)
+    return legend_tmp, x_tmp, y_tmp                
+    
+def plot_delta_Y(y_list, legend_list, example_name, imetric,example_name_prefix, example_name_number):
     # y_list is a list of list
     # y_list = [[y1,y2,...],[y1,y2,...],...]
     # return the delta y_list and percentage delta y_list
@@ -291,7 +370,8 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
         
         if len(max_abs) > 0:
             tmp_ = sort_lists([example_name]+max_abs)
-            options = comm_echarts.produce_multiple_y(f"{imetric}(max(abs(this job - reference)))", tmp_[0], tmp_[1:], legend_abs, x_type="category", y_type="value")
+            legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], legend_abs, example_name_prefix, example_name_number, has_yref = False)
+            options = comm_echarts.produce_multiple_y(f"{imetric}(max(abs(this job - reference)))", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
@@ -300,7 +380,8 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
                     options=options, title=f"{imetric}(max(abs(this job - reference)))"))
         if len(norm) > 0:
             tmp_ = sort_lists([example_name]+norm)
-            options = comm_echarts.produce_multiple_y(f"{imetric}(Norm(this job - reference))", tmp_[0], tmp_[1:], legend_norm, x_type="category", y_type="value")
+            legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], legend_norm, example_name_prefix, example_name_number, has_yref = False)
+            options = comm_echarts.produce_multiple_y(f"{imetric}(Norm(this job - reference))", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
@@ -337,7 +418,8 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
                 delta_legend_list2.append(legend_list[iy])
         if len(delta_y_list) > 0:  
             tmp_ = sort_lists([example_name]+delta_y_list)
-            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta = this job - reference)", tmp_[0], tmp_[1:], delta_legend_list1, x_type="category", y_type="value")
+            legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], delta_legend_list1, example_name_prefix, example_name_number, has_yref = False)
+            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta = this job - reference)", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
@@ -346,7 +428,8 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric):
                     options=options, title=f"{imetric}(Delta = this job - reference)"))
         if len(percentage_delta_y_list) > 0:
             tmp_ = sort_lists([example_name]+percentage_delta_y_list)
-            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta/Reference)", tmp_[0], tmp_[1:], delta_legend_list2, x_type="category", y_type="value")
+            legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], delta_legend_list2, example_name_prefix, example_name_number, has_yref = False)
+            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta/Reference)", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
@@ -553,6 +636,9 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
     example_name = pddata.columns.to_list()  # get the column name
     metric_name = pddata.index.to_list()  # get the row/index name
     type_set = (int, float, type(None), bool,list)
+    
+    # check if the example_name has more than 2 levels, and is end with number
+    example_name_prefix, example_name_number = check_example_name(example_name)
     print("ref_metric_name",ref_metric_name)
     for imetric in metric_name:
         if imetric in ref_metric_name:
@@ -579,19 +665,30 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
                 # do not plot a list
                 #print(y_list,legend_list)
                 tmp_ = sort_lists([example_name]+y_list)
-                options = comm_echarts.produce_multiple_y(imetric, tmp_[0], tmp_[1:], legend_list, x_type="category", y_type="value")
-                options["xAxis"][0]["axisLabel"] = {
-                        "rotate": 15,
-                        "interval": int(len(example_name)/15)
-                    } 
-                chart_elements.append(ChartReportElement(
-                        options=options, title=imetric))
-            
+                
+                # if the example_name has more than 2 levels, and is end with number
+                # we need to plot the chart with multiple Y with each number as a legend
+                if example_name_prefix != None and example_name_number != None:
+                    legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], legend_list, example_name_prefix, example_name_number)
+                else:
+                    legend_tmp, x_tmp, y_tmp = legend_list, tmp_[0], tmp_[1:] 
+                
+                try:    
+                    options = comm_echarts.produce_multiple_y(imetric, x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
+                    options["xAxis"][0]["axisLabel"] = {
+                            "rotate": 15,
+                            "interval": int(len(x_tmp)/15)
+                        } 
+                    chart_elements.append(ChartReportElement(
+                            options=options, title=imetric))
+                except:
+                    traceback.print_exc()
+                    print("Error: produce multiple y failed!")
             
             if len(ref_type) > 0:
                 # plot the delta Y and percentage delta Y
                 try:
-                    delta_y_elements = plot_delta_Y(y_list, legend_list, example_name, imetric)
+                    delta_y_elements = plot_delta_Y(y_list, legend_list, example_name, imetric,example_name_prefix, example_name_number )
                     chart_elements += delta_y_elements
                 except:
                     traceback.print_exc()
@@ -835,6 +932,7 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
                 supermetrics_special_section.append(tmp_special_section)
             #print("tmp_smetrics:",tmp_smetrics)
             if tmp_smetrics:
+                failcount = 0
                 for ik,iv in tmp_smetrics.items():
                     sm_summary.append([ik,iv,criterias.get(ik,None)])
                     cri_tmp = criterias.get(ik,None)
@@ -845,6 +943,7 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
                     elif sm_pass == False:
                         # if False, set the iv to red
                         sm_summary[-1][1] = "<font color=\"red\">"+str(iv)+"</font>"
+                        failcount += 1
                             
                     if not isinstance(iv,(int,float,bool)):
                         continue
@@ -856,6 +955,9 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
                         supermetrics_save[sname+":int"] = 1 if iv else 0
                     else:
                         supermetrics_save[sname+":float"] = iv
+                if supermetrics_save:
+                    supermetrics_save["abacustest_TEST_PASS_ratio:float"] = 1.0 - float(failcount)/len(tmp_smetrics)
+                    print(supermetrics_save)
         except:
             traceback.print_exc()
             print(

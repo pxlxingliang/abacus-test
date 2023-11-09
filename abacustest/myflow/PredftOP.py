@@ -173,9 +173,9 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
     if not examples:
         comm.printinfo("No examples found!")
     
-    executor, bohrium_set = comm.ProduceExecutor(predft_set, group_name=stepname + "-predft")
+    executor, bohrium_set = comm.ProduceExecutor(predft_set, group_name=stepname + "/predft")
     image = globV.get_value("ABBREVIATION").get(predft_set.get("image"), predft_set.get("image"))
-    model_output_artifact = S3Artifact(key="{{workflow.name}}/%s/predft" % stepname)
+    model_output_artifact = S3Artifact(key="{{workflow.name}}/predft" )
     
     #ngroup = predft_set.get("ngroup",1)
     #if ngroup != None and ngroup < 1:
@@ -192,9 +192,10 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
         new_examples_name = [[]]
     for iexample_name in new_examples_name:
         igroup += 1
-        stepname_tmp = stepname+f"-predft-{igroup}"
-        space = "\n" + (len(stepname_tmp)+2)*" "
-        comm.printinfo("%s: %s" % (stepname_tmp,space.join(iexample_name)))
+        dflow_stepname = f"predft-{igroup}"
+        bohri_stepname = stepname+f"/predft-{igroup}"
+        space = "\n" + (len(bohri_stepname)+2)*" "
+        comm.printinfo("%s: %s" % (bohri_stepname,space.join(iexample_name)))
         pt = PythonOPTemplate(PreDFT,image=image,envs=comm.SetEnvs())
         artifacts={}
         if iexample_name:
@@ -206,7 +207,7 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
         if extrafiles:
             artifacts["extra_files"]=extrafiles[0][0]
 
-        step = Step(name=stepname_tmp, template=pt,
+        step = Step(name=dflow_stepname, template=pt,
                     parameters={
                         "command": predft_set.get("command",""),
                         "predft_setting" : {"work_directories_filename":predft_set.get("work_directories_filename")}
@@ -218,7 +219,7 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
             step.outputs.artifacts["outputs"].save = [model_output_artifact]
             step.template.outputs.artifacts["outputs"].archive = None
         allsteps.append(step)
-        allstepname.append(stepname_tmp)
+        allstepname.append(dflow_stepname)
         all_save_path.append("")
     
     '''
