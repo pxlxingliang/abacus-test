@@ -70,7 +70,7 @@ def parse_image_set(image_set):
                 "scass_type": image_set.bohrium_machine_type,
                 "job_type": image_set.bohrium_job_type,
                 "platform": image_set.bohrium_plat_form,
-                "on_demand": image_set.on_demand
+                "on_demand": 1 if image_set.on_demand else 0
             }
         }
     elif isinstance(image_set, Image):
