@@ -43,6 +43,7 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric28 = 'scf_steps'
     AbacusMetric_metric29 = 'atom_mag'
     AbacusMetric_metric30 = 'drho'
+    AbacusMetric_metric30_1 = 'drho_last'
     AbacusMetric_metric31 = 'lattice_constant'
     AbacusMetric_metric32 = 'cell'
     AbacusMetric_metric33 = 'coordinate'

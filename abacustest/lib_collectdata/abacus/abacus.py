@@ -447,7 +447,8 @@ class Abacus(ResultAbacus):
                     
         self['atom_mag'] = None if len(atom_mag) == 0 else atom_mag
     
-    @ResultAbacus.register(drho="[], drho of each scf step")
+    @ResultAbacus.register(drho="[], drho of each scf step",
+                           drho_last="drho of the last scf step")
     def GetDrho(self):
         drho = []
         for line in self.LOG:
@@ -458,6 +459,7 @@ class Abacus(ResultAbacus):
             self['drho'] = None
         else:
             self['drho'] = drho
+            self["drho_last"] = drho[-1]
     
     
     @ResultAbacus.register(lattice_constant="unit in angstrom",
