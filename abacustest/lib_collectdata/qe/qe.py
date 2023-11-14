@@ -13,7 +13,7 @@ class Qe(ResultQe):
                        ncore = "the mpi cores")
     def GetGeneralInfo(self):
         if self.XMLROOT != None:
-            self['version'] = self.XMLROOT.find("general_info/creator[@name='PWSCF']").attrib['VERSION']
+            self['version'] = self.XMLROOT.find("general_info/creator").attrib['VERSION']
             self['ncore'] = self.XMLROOT.find("parallel_info/nprocs").text
     
     @ResultQe.register(natom="total atom number",
@@ -130,5 +130,18 @@ class Qe(ResultQe):
             elif itime.get('label') == 'stress':
                 self['stress_time'] = comm.ifloat(itime.find('wall').text)
 
+    @ResultQe.register(relax_converge="if the relax is converged")
+    def GetRelaxConverge(self):
+        if self.XMLROOT == None:
+            return
+        
+        output = self.XMLROOT.find('output')
+        self["relax_converge"] = comm.ibool(xfmlt(output,['convergence_info','opt_conv','convergence_achieved']))
 
+    @ResultQe.register(relax_steps="the total ION steps")
+    def GetRelaxStepsFromXml(self):
+        if self.XMLROOT == None:
+            return
+
+        self["relax_steps"] = len(self.XMLROOT.findall('step'))
 

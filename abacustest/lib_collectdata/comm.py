@@ -110,7 +110,12 @@ def ifloat(x):
 
 def ibool(x):
     try:
-        return bool(x)
+        if x.lower() == "true":
+            return True
+        elif x.lower() == "false":
+            return False
+        else:
+            return bool(int(x))
     except:
         return None
 
