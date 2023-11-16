@@ -8,7 +8,21 @@ xfmlt = comm.XmlFindMultiLayerText
 xfml = comm.XmlFindMultiLayer
 
 class Qe(ResultQe):
-
+    @ResultQe.register(normal_end="if the job is normal ending")
+    def GetNormalEnd(self):
+        if self.XMLROOT == None:
+            self["normal_end"] = None
+            return
+        
+        exit_status = self.XMLROOT.find('exit_status')
+        if exit_status != None:
+            if exit_status.text == '0':
+                self["normal_end"] = True
+            else:
+                self["normal_end"] = False
+            return   
+        self["normal_end"] = None
+            
     @ResultQe.register(version="the version of QE",
                        ncore = "the mpi cores")
     def GetGeneralInfo(self):
