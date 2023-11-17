@@ -1,5 +1,6 @@
 import os,sys,glob,re
 from ..resultAbacus import ResultAbacus
+from .. import comm
 
 class Abacus(ResultAbacus):
     
@@ -207,7 +208,8 @@ class Abacus(ResultAbacus):
                 break
         self['force'] = force
     
-    @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one")
+    @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one",
+                           virial="list[9], virial of the system,  = stress * volume, which is the last one.")
     def GetStessFromLog(self):
         stress = None
         for i in range(len(self.LOG)):
@@ -234,6 +236,10 @@ class Abacus(ResultAbacus):
                     j += 1
                 break
         self['stress'] = stress
+        if stress != None and self["volume"] != None:
+            self['virial'] = [i * self["volume"] * comm.KBAR2EVPERANGSTROM3 for i in stress]
+        else:
+            self['virial'] = None
         
     @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
     def GetLargestGradientFromLog(self):
@@ -464,7 +470,7 @@ class Abacus(ResultAbacus):
     
     @ResultAbacus.register(lattice_constant="unit in angstrom",
                            cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will output the last one",
-                           coordinate = "[[],..], two dimension list, is a cartesian type, unit in angstrom. If is relax or md, will output the last one",
+                           coordinate = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. If is relax or md, will output the last one",
                            element_list = "list[], a list of the element name of all atoms",
                            atomlabel_list = "list[], a list of atom label of all atoms")
     def GetCell(self):    

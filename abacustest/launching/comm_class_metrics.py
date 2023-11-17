@@ -32,6 +32,7 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric17 = 'efermi'
     AbacusMetric_metric18 = 'energy_per_atom'
     AbacusMetric_metric19 = 'stress'
+    AbacusMetric_metric19_1 = 'virial'
     AbacusMetric_metric20 = 'force'
     AbacusMetric_metric21 = 'band_gap'
     AbacusMetric_metric22 = 'total_time'
