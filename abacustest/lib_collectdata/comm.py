@@ -5,6 +5,8 @@ from xml.etree.ElementTree import Element
 HARTREE2EV = 27.211396132
 EV2RY = 2.0 / HARTREE2EV
 RY2EV = HARTREE2EV / 2.0
+BOHR2A = 0.52917721092
+KBAR2HARTREEPERBOHR3 = 3.398927420868445E-6
 
 def ReadFile(ifile,warn=True):
     if ifile == None:

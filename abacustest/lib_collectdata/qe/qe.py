@@ -84,8 +84,12 @@ class Qe(ResultQe):
                        ibzk="irreducible K point number",
                        nkstot="the total k points",
                        kpt="list, the K POINTS setting",
-                       force="list, the force of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]",
-                       stress="list, the stress, [xx,xy,xz,yx,yy,yz,zx,zy,zz]",
+                       force="list, the force of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]. Unit in eV/Angstrom",
+                       stress="list, the stress, [xx,xy,xz,yx,yy,yz,zx,zy,zz]. Unit in kbar.",
+                       virial="list, the virial, [xx,xy,xz,yx,yy,yz,zx,zy,zz]. Unit in eV.",
+                       cell = "list, the cell, [a1,a2,a3,b1,b2,b3,c1,c2,c3]. Unit in Angstrom",
+                       volume = "the volume of cell, unit in Angstrom^3",
+                       coord = "list, the coordinate of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]. Unit in Angstrom",
                        total_mag="total magnization",
                        absolute_mag="total absolute magnization",
                        nelec="total electron number",
@@ -94,7 +98,10 @@ class Qe(ResultQe):
         if self.XMLROOT == None:
             return
 
-        output = self.XMLROOT.find('output')
+        output = self.XMLROOT.findall('output')
+        if len(output) == 0:
+            return
+        output = output[-1]
 
         self['converge'] = comm.ibool(xfmlt(output,['convergence_info','scf_conv','convergence_achieved']))
         self['scf_steps'] = comm.iint(xfmlt(output,['convergence_info','scf_conv','n_scf_steps']))
@@ -113,11 +120,40 @@ class Qe(ResultQe):
             if nk1 and nk2 and nk3: 
                 self['nkstot'] = nk1 * nk2 * nk3
                 self['kpt'] = [nk1, nk2, nk3]
-       
+
+        # structure
+        structure = output.find('atomic_structure')
+        volume = None
+        if structure != None:
+            cell_a = xfmlt(structure,['cell','a1'])
+            cell_b = xfmlt(structure,['cell','a2'])
+            cell_c = xfmlt(structure,['cell','a3'])
+            if cell_a and cell_b and cell_c:
+                self['cell'] = cell = [float(i)* comm.BOHR2A for i in cell_a.split() + cell_b.split() + cell_c.split()]
+                # calculate the volume by cell
+                import numpy as np
+                self["volume"] = volume = np.linalg.det(np.array(cell).reshape(3,3))
+            coord = []
+            for icoord in structure.findall('atomic_positions/atom'):
+                coord.append([float(i) * comm.BOHR2A for i in icoord.text.split()])
+            if len(coord) == self['natom']:
+                self['coord'] = coord
+            else:
+                self['coord'] = None
+                print("ERROR: the length of coord is not equal to natom")
+        else:
+            self['cell'] = None
+            self['coord'] = None
+        
         if output.find('forces') != None:
-            self['force'] = [float(i) for i in output.find('forces').text.split()]
+            self['force'] = [float(i) * comm.HARTREE2EV / comm.BOHR2A for i in output.find('forces').text.split()]
         if output.find('stress') != None:
-            self['stress'] = [float(i) for i in output.find('stress').text.split()]
+            # the read in stress is in Hartree/Bohr^3, convert to kbar
+            # 1 kbar = 1e8 Pa = 1e8 N/m^2 = 1e8 J/m^3 = 1e8 * 2.2937126583579E17 Hartree/m^3 = 2.2937126583579E25 * 5.29177E-11**3 Hartree/Bohr^3 = 3.398927420868445E-6 Hartree/Bohr^3
+            self['stress'] = [ float(i)/comm.KBAR2HARTREEPERBOHR3 for i in output.find('stress').text.split()]
+            # calculate the virial, unit in eV
+            if volume != None:
+                self['virial'] = [ float(i) * volume * comm.HARTREE2EV / comm.BOHR2A ** 3   for i in output.find('stress').text.split()]
     
         self['total_mag'] = comm.ifloat(xfmlt(output,['magnetization','total']))
         self['absolute_mag'] = comm.ifloat(xfmlt(output,['magnetization','absolute']))
