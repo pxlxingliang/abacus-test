@@ -6,7 +6,7 @@ from dp.launching.typing import (
 )
 from dp.launching.report import Report,AutoReportElement,ReportSection
 
-from . import comm_class,comm_func,comm_class_exampleSource
+from . import comm_class,comm_func,comm_class_exampleSource,comm_pmetrics
 import json,traceback,os
 
 import dp.launching.typing.addon.ui as ui
@@ -114,7 +114,7 @@ def SelfDefineModelRunner(opts):
     #execut
     stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
     logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
-    reports = comm_func.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
+    reports = comm_pmetrics.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
     
     logfname = "output.log"
     logs.write(os.path.join(str(opts.IO_output_path),logfname))
