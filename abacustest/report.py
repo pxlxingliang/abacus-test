@@ -222,13 +222,10 @@ def text2html(text_set):
     return html   
 
 def get_job_address():
-    try:
-        import ast
-        jobid = ast.literal_eval(os.environ["DFLOW_LABELS"])["launching-job"]
-        job_address = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + jobid
-    except:
-        job_address = ""
-    return job_address
+    job = globV.get_value("JOB_ADDRESS","")
+    if job != "":
+        job = f'''<a href="{job}">link</a>'''
+    return job
 
 def get_version():
     if os.path.isfile("version.dat"):

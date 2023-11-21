@@ -163,6 +163,10 @@ def set_config(param_context,debug):
             
     globV.set_value("PRIVATE_SET", configs)
     
+    if configs.get("dflow_labels",None) != None:
+        job_address = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + configs["dflow_labels"]["launching-job"]
+        globV.set_value("JOB_ADDRESS",job_address)
+    
     dflowOP.SetConfig(configs,debug=debug)
     return 
     
