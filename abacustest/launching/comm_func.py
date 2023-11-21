@@ -302,11 +302,15 @@ def pack_results(output_path,result_path):
     os.chdir(os.path.join(output_path,result_path))
     allfiles = os.listdir(".")
     alldirs = []
+    allfile = []
     for f in allfiles:
         if os.path.isdir(f):
             alldirs.append(f)
+        elif os.path.isfile(f) and not f.endswith(".zip") and not f.startswith("."):
+            allfile.append(f)
     packed_file_name = "results.zip"
     pack(alldirs,packed_file_name,"zip")
+    pack(allfile,"files.zip","zip")
     os.chdir(cwd)
 
 def gen_dir(dir1):

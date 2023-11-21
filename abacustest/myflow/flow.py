@@ -197,12 +197,11 @@ def set_env(param):
         save_path = param.save
     SetSaveFolder(save_path)
     
-    
+    #report = param_context.get("report",{})
+    #globV.set_value("REPORT", report)
+
     report = param_context.get("report",{})
     globV.set_value("REPORT", report)
-    
-    from datetime import datetime
-    globV.set_value("BEGIN", str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
 
 def waitrun(wf,stepnames,allsave_path):
     '''
@@ -274,7 +273,7 @@ def ReportMetrics():
     from datetime import datetime
     param_context = globV.get_value("PARAM")
     report  = """\n\n\t\tABACUS TESTING REPORT\n"""
-    report += "testing begin: %s\n" % globV.get_value("BEGIN")
+    report += "testing begin: %s\n" % globV.get_value("START_TIME").strftime("%d/%m/%Y %H:%M:%S")
     report += "testing   end: %s\n" % str(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
     report += "run_dft setting:\n"
     for irun in param_context.get("run_dft",[]):
@@ -316,8 +315,20 @@ def RunJobs(param):
 
         waitrun(wf,stepname,allsave_path)
     
+    #if globV.get_value("REPORT"):
+    #    ReportMetrics()
+    
     if globV.get_value("REPORT"):
-        ReportMetrics()
+        comm.printinfo("\nGenerate html report ...")
+        pwd = os.getcwd()
+        if os.path.isdir(globV.get_value("RESULT")):
+            os.chdir(globV.get_value("RESULT"))
+
+        from abacustest import report
+        filename = "abacustest.html"
+        report.gen_html(globV.get_value("REPORT"),filename)
+        
+        os.chdir(pwd)
         
 def CheckStatus(param):
     if os.path.isfile(param.param):

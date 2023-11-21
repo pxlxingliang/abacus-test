@@ -23,6 +23,13 @@ class Metrics:
                     if len(self.metrics_name) == 0:
                         self.metrics_name = result.AllMethod().keys()
                     allvalue[iipath] = parse_value(result,self.metrics_name) 
+                    
+                    #write version.dat, this file is used by report section
+                    if not os.path.isfile("version.dat"):
+                        version = result["version"]
+                        version = "unknow" if version == None else version
+                        with open("version.dat",'w') as f:
+                            f.write(version)
                 except:
                     traceback.print_exc()
         if save_file != None:

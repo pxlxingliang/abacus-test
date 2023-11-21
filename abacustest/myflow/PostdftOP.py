@@ -189,6 +189,8 @@ class PostDFT(OP):
             outpath.append(logfile)
             if cpuinfo_log:
                 outpath.append(Path(cpuinfo_log))
+            if os.path.isfile("version.dat"):
+                outpath.append(Path("version.dat"))
         #print("log:",log,file=sys.stderr)
         logfile.write_text(log)
 

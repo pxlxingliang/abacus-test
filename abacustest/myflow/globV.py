@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-
+from datetime import datetime
 def _init():
     global _global_dict
-    _global_dict = {}
+    _global_dict = {"START_TIME":datetime.now()}
 
 def set_value(key,value):
     if key in _global_dict:
