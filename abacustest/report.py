@@ -67,6 +67,7 @@ HTML_HEAD = """
           border: none;
           padding: 5px;
           text-align: left;
+          line-height: 0.8;
         }
         
         img {

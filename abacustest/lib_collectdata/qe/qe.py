@@ -31,7 +31,6 @@ class Qe(ResultQe):
             self['ncore'] = self.XMLROOT.find("parallel_info/nprocs").text
     
     @ResultQe.register(natom="total atom number",
-                       nbands="band number",
                        ecutwfc="energy cutoff in Ry",
                        ks_solver="the diagonalization method",
                        mixing_type="the charge mixing method in SCF",
@@ -44,7 +43,7 @@ class Qe(ResultQe):
         input_param = self.XMLROOT.find('input')        
 
         self['natom'] = comm.iint(input_param.find('atomic_structure').attrib['nat'])
-        self['nbands'] = comm.iint(xfmlt(input_param,['bands','nbnd']))
+        
 
         ecutwfc = comm.ifloat(xfmlt(input_param,['basis','ecutwfc']))
         if ecutwfc != None: ecutwfc *= 2
@@ -81,6 +80,7 @@ class Qe(ResultQe):
     @ResultQe.register(converge="if SCF is converged",
                        scf_steps="the steps of SCF",
                        energy="total energy, unit in eV",
+                       nbands="band number",
                        ibzk="irreducible K point number",
                        nkstot="the total k points",
                        kpt="list, the K POINTS setting",
@@ -107,6 +107,7 @@ class Qe(ResultQe):
         self['scf_steps'] = comm.iint(xfmlt(output,['convergence_info','scf_conv','n_scf_steps']))
         self['ibzk'] = comm.iint(xfmlt(output,['band_structure','nks']))
         self['nelec'] = comm.ifloat(xfmlt(output,['band_structure','nelec']))
+        self['nbands'] = comm.iint(xfmlt(output,['band_structure','nbnd']))
         
         total_energy = comm.ifloat(xfmlt(output,['total_energy','etot']))
         if total_energy != None: total_energy *= comm.HARTREE2EV
