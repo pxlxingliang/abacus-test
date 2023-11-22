@@ -139,7 +139,7 @@ def judge_metric(x, criteria):
     except:
         return None
     
-def format_table(table,metrics_name=None, sort=None, criteria=None, color={"True":"green","False":"red"}):
+def format_table(table,metrics_name=None, sort=None, criteria=None, color={True:"green",False:"red"}):
     '''
     table: a list of list, each list is a row of the table. The first row is the head of the table
     metrics_name: a list of metrics name, which will be output in the table
@@ -163,6 +163,8 @@ def format_table(table,metrics_name=None, sort=None, criteria=None, color={"True
         "all": {"pass": 3, "total": 4}
     }
     '''
+    print("criteria:",criteria)
+    print("table head:",table[0])
     
     if metrics_name in [[],None]:
         metrics_name = table[0]
@@ -187,9 +189,9 @@ def format_table(table,metrics_name=None, sort=None, criteria=None, color={"True
     pass_num = {k:{"pass":0,"notpass":0} for k in criteria.keys()}
     pass_num["all"] = {"pass":0,"total":len(table)-1}
     for i in range(1,len(table)):
-        metric_name = table[i][0]
         allpass = True
         for j in range(len(table[i])):
+            metric_name = table[0][j]
             if metric_name in criteria:
                 metric_pass = judge_metric(table[i][j], criteria[metric_name])
                 if metric_pass == True:
@@ -206,3 +208,28 @@ def format_table(table,metrics_name=None, sort=None, criteria=None, color={"True
             pass_num["all"]["pass"] += 1
                     
     return table, pass_num
+
+def gen_criteria(criteria,pass_num):
+    html =  f'''
+    <table border="2px">
+        <tbody>
+            <tr>
+                <td>Key</td>
+                <td>Pass/Total</td>
+                <td>Criteria</td>
+            </tr>
+        '''
+    for key in criteria.keys():
+        if key not in pass_num:
+            continue
+        icolor = "green" if pass_num[key]["pass"] == pass_num[key]["pass"]+pass_num[key]["notpass"] else "red"
+        html += f'''<tr>
+                <td>{key}</td>
+                <td style="color:{icolor}">{pass_num[key]["pass"]}/{pass_num[key]["pass"]+pass_num[key]["notpass"]}</td> 
+                <td>{criteria[key]}</td>
+            </tr>
+        '''
+        
+    html += '''</tbody>
+    </table>\n\n'''
+    return html

@@ -101,11 +101,10 @@ HTML_HEAD = """
 </head>
 """
 
-def _table2html(table,title=None,has_head=True):    
+def _table2html(table,has_head=True):    
     # add title
     html = "\n"
-    if title:
-        html += f'''\t<div class="tabletitle">{title}</div>\n'''
+    
     html += '''\t<table border="2px">\n'''
 
     # add table head
@@ -128,6 +127,7 @@ def _table2html(table,title=None,has_head=True):
     html += '\t</table>\n\n'
     
     return html
+    
 
 def metrics2html(metrics_set):
     metric_file = metrics_set.get("content","")
@@ -143,9 +143,21 @@ def metrics2html(metrics_set):
     table = tb.file2table(metric_file)
     if table in [[],None]:
         return ""
-    table, passs_num = tb.format_table(table, metrics, sort, criteria)
+    table, pass_num = tb.format_table(table, metrics, sort, criteria)
     
-    html = _table2html(table,title,has_head=True)
+    html = ""
+    if title:
+        html += f'''\t<div class="tabletitle">{title}</div>\n'''
+        
+    if criteria:
+        passnum = pass_num["all"]["pass"]
+        totalnum = pass_num["all"]["total"]
+        icolor = "green" if passnum == totalnum else "red"
+        # if all passed, then color the number to green, else red
+        html += f'''<div class="head2">Pass/Total: <font color="{icolor}">{passnum}/{totalnum} ({passnum/totalnum*100:.2f}%)</font></div>\n'''
+        html += tb.gen_criteria(criteria,pass_num)
+    html += _table2html(table,has_head=True)
+    
     return html
 
 def supermetrics2html(supermetrics_set):
@@ -167,7 +179,10 @@ def supermetrics2html(supermetrics_set):
         return ""
     table, passs_num = tb.format_table(tb.rotate_table(table),criteria)
     
-    html = _table2html(tb.rotate_table(table),title,has_head=False)
+    html = ""
+    if title:
+        html += f'''\t<div class="tabletitle">{title}</div>\n'''
+    html += _table2html(tb.rotate_table(table),has_head=False)
     return html
 
 def table2html(table_set):
@@ -243,7 +258,7 @@ def get_test_date():
 def keys2html(keys):
     html = ""
     html += """\t<table id="keys">\n"""
-    comm_keys = ["test_date","version","datasets","job_address"]
+    comm_keys = ["test_date","version","job_address"]
     if not keys.get("job_address",""):
         keys["job_address"] = get_job_address()
     if not keys.get("version",""):

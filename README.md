@@ -76,7 +76,7 @@ An example is like:
                 "extra_files": [],
                 "image":   "python:3.8",
                 "metrics":{
-                    "before_command":false,
+                    "before_command":true,
 			        "dft_type":"abacus",
 			        "metrics_name": [],
 			        "save_file": "result.json",
@@ -100,7 +100,7 @@ An example is like:
   - `command`: the command to run the job. It is same for all jobs defined in `example`.
   - `extra_files`: if you need extra files (such as "collectdata-abacus.json"), you can defined them at here. Before run the command, these files will be copied to each example folder.
   - `metrics`: define the metrics information.
-    - `before_command`: if generate the metrics before run the command. Sometimes, you may need the metrics file in your script.
+    - `before_command`: if generate the metrics before run the command. Default is True.
     - `dft_type`: the job type, can be one of: "abacus", "qe", "vasp", and also 0/1/2 is ok, which refers to "abacus"/"qe"/"vasp" respectively.
     - `metrics_name`: a list of your metric name. Can find all names by `abacustest collectdata --outparam -t 0`. If is a null list, will catch all registered metrics.
     - `save_file`: the file name to store the values of metrics, which is a json file type.
