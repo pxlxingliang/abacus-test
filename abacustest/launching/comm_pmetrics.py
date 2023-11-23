@@ -854,6 +854,12 @@ def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
         # add the summary to the report at the first position
         supermetrics_report = [] # only keep the summary
         supermetrics_report.insert(0,AutoReportElement(title="supermetrics summary",path="supermetrics_summary.html",description=""))
+    
+    # write report
+    # report abacustest.html
+    if os.path.isfile(os.path.join(work_path, save_path, "abacustest.html")):
+        reports.append(ReportSection(title="abacustest report",
+                       elements=[AutoReportElement(title="abacustest report", path=os.path.join(save_path,"abacustest.html"), description="")], ncols=1,)) 
         
     # 2. supermetrics report
     #print("supermetrics_save:",supermetrics_save)
