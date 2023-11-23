@@ -252,7 +252,7 @@ def waitrun(wf,stepnames,allsave_path):
                     except:
                         traceback.print_exc()
             if wf.query_status().strip() == "Failed":
-                job_address = globV.get_value("HOST") + "/workflows/argo/%s?tab=workflow" % wf.id
+                job_address = globV.get_value("HOST") + "/workflows/deepmodeling/%s?tab=workflow" % wf.id
                 comm.printinfo(f"The workflow is failed, please check on: {job_address}")  
                 return
                     
@@ -314,7 +314,7 @@ def RunJobs(param):
         if param.command == 'mlops-submit':
             return
         comm.printinfo("job ID: %s, UID: %s" % (wf.id,wf.uid))
-        job_address = globV.get_value("HOST") + "/workflows/argo/%s?tab=workflow" % wf.id
+        job_address = globV.get_value("HOST") + "/workflows/deepmodeling/%s?tab=workflow" % wf.id
         comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % job_address)
 
         waitrun(wf,stepname,allsave_path)

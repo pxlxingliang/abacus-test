@@ -2,6 +2,47 @@ import os,sys,json,copy,traceback,glob
 from . import comm_echarts,comm_func
 from dp.launching.report import Report, AutoReportElement, ReportSection, ChartReportElement
 
+# the unit of some metrics
+METRICS_UNIT = {
+    "energy": "eV",
+    "energy_per_atom": "eV/atom",
+    "force": "eV/A",
+    "stress": "kbar",
+    "volume": "A^3",
+    "efermi": "eV",
+    "band_gap": "eV",
+    "virial": "eV",
+    "total_time": "s",
+    "largest_gradient": "eV/A",
+    "stress_time": "s",
+    "force_time": "s",
+    "scf_time": "s",
+    "step1_time": "s",
+    "lattice_constant": "A",
+}
+
+def add_unit_metrics(metrics):
+    # metrics = {"example1": {"metric1": value1, "metric2": value2, ...}, "example2": {"metric1": value1, "metric2": value2, ...}, ...}
+    # modify the name of metrics to metric(unit)
+    # return the new metrics
+    new_metrics = {}
+    for iexample, ivalue in metrics.items():
+        new_metrics[iexample] = {}
+        for imetric, iv in ivalue.items():
+            if imetric in METRICS_UNIT:
+                new_metrics[iexample][f"{imetric}({METRICS_UNIT[imetric]})"] = iv
+            else:
+                new_metrics[iexample][imetric] = iv
+    return new_metrics
+
+def add_unit(metric_name):
+    # metric_name is a string
+    # return the new metric_name with unit
+    if metric_name in METRICS_UNIT:
+        return f"{metric_name}({METRICS_UNIT[metric_name]})"
+    else:
+        return metric_name
+
 def sort_lists(lists):
     # lists is a list of list
     # lists = [[x1,x2,...],[y1,y2,...],...]
@@ -239,23 +280,23 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric,example_name_prefix,
         if len(max_abs) > 0:
             tmp_ = sort_lists([example_name]+max_abs)
             legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], legend_abs, example_name_prefix, example_name_number, has_yref = False)
-            options = comm_echarts.produce_multiple_y(f"{imetric}(max(abs(this job - reference)))", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
+            options = comm_echarts.produce_multiple_y(f"{add_unit(imetric)}(max(abs(this job - reference)))", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
                 } 
             chart_elements.append(ChartReportElement(
-                    options=options, title=f"{imetric}(max(abs(this job - reference)))"))
+                    options=options, title=f"{add_unit(imetric)}(max(abs(this job - reference)))"))
         if len(norm) > 0:
             tmp_ = sort_lists([example_name]+norm)
             legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], legend_norm, example_name_prefix, example_name_number, has_yref = False)
-            options = comm_echarts.produce_multiple_y(f"{imetric}(Norm(this job - reference))", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
+            options = comm_echarts.produce_multiple_y(f"{add_unit(imetric)}(Norm(this job - reference))", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
                 } 
             chart_elements.append(ChartReportElement(
-                    options=options, title=f"{imetric}(Norm(this job - reference))"))      
+                    options=options, title=f"{add_unit(imetric)}(Norm(this job - reference))"))      
     else:
         delta_y_list = []
         percentage_delta_y_list = []
@@ -287,23 +328,23 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric,example_name_prefix,
         if len(delta_y_list) > 0:  
             tmp_ = sort_lists([example_name]+delta_y_list)
             legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], delta_legend_list1, example_name_prefix, example_name_number, has_yref = False)
-            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta = this job - reference)", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
+            options = comm_echarts.produce_multiple_y(f"{add_unit(imetric)}(Delta = this job - reference)", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
                 } 
             chart_elements.append(ChartReportElement(
-                    options=options, title=f"{imetric}(Delta = this job - reference)"))
+                    options=options, title=f"{add_unit(imetric)}(Delta = this job - reference)"))
         if len(percentage_delta_y_list) > 0:
             tmp_ = sort_lists([example_name]+percentage_delta_y_list)
             legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], delta_legend_list2, example_name_prefix, example_name_number, has_yref = False)
-            options = comm_echarts.produce_multiple_y(f"{imetric}(Delta/Reference)", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
+            options = comm_echarts.produce_multiple_y(f"{add_unit(imetric)}(Delta/Reference)", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
                 } 
             chart_elements.append(ChartReportElement(
-                    options=options, title=f"{imetric}(Delta/Reference)"))
+                    options=options, title=f"{add_unit(imetric)}(Delta/Reference)"))
     return chart_elements
 
 def plot_two_metrics(pddata,
@@ -397,7 +438,7 @@ def plot_two_metrics(pddata,
         y = [ivalue[1]]
         for iref in range(len(ref_names)):
             y.append(ivalue[iref+3])
-        title_full = title = ivalue[2]
+        title_full = title = add_unit(ivalue[2])
 
         # need shift the y
         y_real = [i for i in y[0] if i != None]  # get the none-none value of y[0]
@@ -490,7 +531,7 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
     allresults,ref_metric_name = add_ref(allresults, ref_data)
     csv_filename = os.path.splitext(metric_filename)[0] + ".csv"
     _, _, savefile_names = outresult.pandas_out(
-        allresults, os.path.join(output_path, csv_filename),print_result=False)
+        add_unit_metrics(allresults), os.path.join(output_path, csv_filename),print_result=False)
     report_elements = []
     for ifilename in savefile_names:
         ifilename = os.path.split(ifilename)[-1]
@@ -542,13 +583,13 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
                     legend_tmp, x_tmp, y_tmp = legend_list, tmp_[0], tmp_[1:] 
                 
                 try:    
-                    options = comm_echarts.produce_multiple_y(imetric, x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
+                    options = comm_echarts.produce_multiple_y(add_unit(imetric), x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
                     options["xAxis"][0]["axisLabel"] = {
                             "rotate": 15,
                             "interval": int(len(x_tmp)/15)
                         } 
                     chart_elements.append(ChartReportElement(
-                            options=options, title=imetric))
+                            options=options, title=add_unit(imetric)))
                 except:
                     traceback.print_exc()
                     print("Error: produce multiple y failed!")
