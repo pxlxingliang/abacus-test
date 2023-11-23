@@ -650,8 +650,10 @@ class PrepareAbacus:
             stru_data = AbacusStru.ReadStru(istru)
             stru_path = os.path.split(istru)[0]
             if stru_path == "": stru_path = os.getcwd()
-            labels = stru_data.get_label()
-            labels = list(set(labels))
+            labels = []
+            for ilabel in stru_data.get_label():
+                if ilabel not in labels:
+                    labels.append(ilabel)
             linkstru = True
             skipstru = False
             allfiles = self.extra_files  #files that will be linked

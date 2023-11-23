@@ -6,6 +6,7 @@ from dp.launching.report import Report,AutoReportElement,ReportSection,ChartRepo
 
 from . import (comm_class,
                comm_func,
+               comm_pmetrics,
                comm_class_exampleSource,
                comm_class_prepare,
                comm_class_predft,
@@ -58,7 +59,7 @@ def DatasetsModelRunner(opts: DatasetsModel) -> int:
 
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
         logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
-        reports = comm_func.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
+        reports = comm_pmetrics.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
 
         logfname = "output.log"
         logs.write(os.path.join(str(opts.IO_output_path),logfname))

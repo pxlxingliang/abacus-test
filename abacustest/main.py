@@ -1,5 +1,5 @@
 import argparse
-from . import abacustest,collectdata,outresult,prepare
+from . import abacustest,collectdata,outresult,prepare,report
 
 def parser():
     my_parser = argparse.ArgumentParser(description="abacustest")
@@ -11,6 +11,7 @@ def parser():
     collectdata.CollectDataArgs(subparser.add_parser("collectdata"))
     outresult.OutResultArgs(subparser.add_parser("outresult"))
     prepare.PrepareArgs(subparser.add_parser("prepare"))
+    report.ReportArgs(subparser.add_parser("report"))
     
     return my_parser
     
@@ -27,6 +28,8 @@ def main():
         outresult.outresult(param)
     elif param.command == 'prepare':
         prepare.PrepareInput(param)
+    elif param.command == "report":
+        report.Report(param)
     else:
         print(my_parser.parse_args(['-h']))
     

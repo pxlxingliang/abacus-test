@@ -702,8 +702,8 @@ def outresult(param):
         report_part = json.load(open(param.param))
         if "allresults" in report_part:
             report_part = report_part["allresults"]
-        elif "report" in report_part:
-            report_part = report_part["report"]
+        #elif "report" in report_part:
+        #    report_part = report_part["report"]
         allresults = GetAllResults(report_part)
         if len(allresults['type_name']) == 1: split_example = None
         else: split_example = "----"

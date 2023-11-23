@@ -171,7 +171,7 @@ class RunDFT(OP):
                 outpath.append(logfile)
                 if cpuinfo_log:
                     outpath.append(Path(os.path.join(work_path_name,cpuinfo_log)))
-            print("log:",log,file=sys.stderr)
+            #print("log:",log,file=sys.stderr)
             logfile.write_text(log)
             #os.chdir(cwd)
 

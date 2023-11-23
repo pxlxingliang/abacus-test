@@ -104,7 +104,7 @@ class PostDFT(OP):
         metrics_setting_list_before_command = []
         metrics_setting_list_after_command = []
         for imetric in metrics_setting_list:
-            if imetric.get("before_command",False):
+            if imetric.get("before_command",True):
                 metrics_setting_list_before_command.append(imetric)
             else:
                 metrics_setting_list_after_command.append(imetric)
@@ -189,7 +189,9 @@ class PostDFT(OP):
             outpath.append(logfile)
             if cpuinfo_log:
                 outpath.append(Path(cpuinfo_log))
-        print("log:",log,file=sys.stderr)
+            if os.path.isfile("version.dat"):
+                outpath.append(Path("version.dat"))
+        #print("log:",log,file=sys.stderr)
         logfile.write_text(log)
 
         print("outpath:",str(outpath),file=sys.stderr)

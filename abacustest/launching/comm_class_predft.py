@@ -43,6 +43,7 @@ class ImageBohrium(BaseModel):
         default=BohriumMachineType("c2_m4_cpu"))
     bohrium_job_type: BohriumJobType = Field(default=BohriumJobType.CONTAINER)
     bohrium_plat_form: BohriumPlatform = Field(default=BohriumPlatform.ALI)
+    on_demand: Boolean = Field(default=False)
     
     #bohrium_machine_type: String = Field(default="c2_m4_cpu")
     #bohrium_job_type: String = Field(default="container")
@@ -77,7 +78,8 @@ def parse_image_set(image_set):
             "bohrium": {
                 "scass_type": image_set.bohrium_machine_type,
                 "job_type": image_set.bohrium_job_type,
-                "platform": image_set.bohrium_plat_form
+                "platform": image_set.bohrium_plat_form,
+                "on_demand": 1 if image_set.on_demand else 0
             }
         }
     elif isinstance(image_set, Image):
