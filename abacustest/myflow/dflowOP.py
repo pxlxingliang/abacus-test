@@ -56,8 +56,8 @@ def SetConfig(private_set,debug=False):
             config["host"] = private_set.get("dflow_host","").strip()
         else:
             config["host"] = "https://lbg-workflow-deepmodeling.dp.tech"
-            
-        host = config["host"]
+    
+        host = config["host"] + "/workflows/argo"
         
         if private_set.get("dflow_s3_config_endpoint","").strip() != "": 
             s3_config["endpoint"] =  private_set.get("dflow_s3_config_endpoint","").strip()
@@ -70,11 +70,13 @@ def SetConfig(private_set,debug=False):
             config["k8s_api_server"] = "https://lbg-workflow-deepmodeling.dp.tech"
             
         if private_set.get("dflow_token","").strip() != "":
-            #config["token"] = private_set.get("dflow_token","").strip()
-            #comm.printinfo("set token ... ")
+            config["token"] = private_set.get("dflow_token","").strip()
+            comm.printinfo("set token ... ")
+            
+        if host == "https://lbg-workflow-deepmodeling.dp.tech/workflows/argo":
             config["token"] = ""
-        
-        config["namespace"] = "deepmodeling"
+            config["namespace"] = "deepmodeling"
+            host = "https://lbg-workflow-deepmodeling.dp.tech/workflows/deepmodeling"
 
         if "bohrium_username" in private_set:
             bohrium.config["username"] = private_set.get('bohrium_username')
