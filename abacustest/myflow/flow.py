@@ -205,7 +205,8 @@ def set_env(param):
     #globV.set_value("REPORT", report)
 
     report = param_context.get("report",{})
-    globV.set_value("REPORT", report)
+    if "report" in param_context and report.get("ifrun",True):
+        globV.set_value("REPORT", report)
 
 def waitrun(wf,stepnames,allsave_path):
     '''

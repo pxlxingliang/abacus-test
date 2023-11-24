@@ -1,7 +1,16 @@
 import setuptools
+import os
+
+if os.path.isfile("version"):
+    with open("version") as f:
+        version = f.read().strip()
+else:
+    version = "0.0.0"
+
 
 setuptools.setup(
     name = "abacustest",
+    version= version,
     description = "abacus test system",
     packages=["abacustest"],
     package_dir={"abacustest":"abacustest"},
