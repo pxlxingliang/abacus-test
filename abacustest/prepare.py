@@ -65,7 +65,7 @@ class AbacusStru:
         self._lattice_constant = lattice_constant
         self._dpks = dpks if dpks else None
         self._cartesian = cartesian
-        self._magmom = magmom if magmom else []
+        self._magmom = magmom if magmom else [0]*len(label)
         
         if element != None:
             self._element = element
@@ -98,6 +98,9 @@ class AbacusStru:
     
     def get_mass(self):
         return self._mass
+
+    def get_mag(self):
+        return self._magmom
     
     def get_element(self,number=True):
         '''return the element name of each atom'''

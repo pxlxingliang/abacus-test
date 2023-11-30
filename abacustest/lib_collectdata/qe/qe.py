@@ -130,10 +130,10 @@ class Qe(ResultQe):
             cell_b = xfmlt(structure,['cell','a2'])
             cell_c = xfmlt(structure,['cell','a3'])
             if cell_a and cell_b and cell_c:
-                self['cell'] = cell = [float(i)* comm.BOHR2A for i in cell_a.split() + cell_b.split() + cell_c.split()]
+                self['cell'] = cell = [[float(i)* comm.BOHR2A for i in j.split()]  for j in [cell_a,cell_b,cell_c]]
                 # calculate the volume by cell
                 import numpy as np
-                self["volume"] = volume = np.linalg.det(np.array(cell).reshape(3,3))
+                self["volume"] = volume = np.linalg.det(cell)
             coord = []
             for icoord in structure.findall('atomic_positions/atom'):
                 coord.append([float(i) * comm.BOHR2A for i in icoord.text.split()])
