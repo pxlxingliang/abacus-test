@@ -165,11 +165,14 @@ class Vasp(ResultVasp):
     
     @ResultVasp.register(force = 'list, eV/angstrom, the force of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]',
                          stress = 'list, kBar, the stress, [xx,xy,xz,yx,yy,yz,zx,zy,zz]',
-                         virial='list, eV, the virial, [xx,xy,xz,yx,yy,yz,zx,zy,zz]',)
+                         virial='list, eV, the virial, [xx,xy,xz,yx,yy,yz,zx,zy,zz]',
+                         cell = 'list[list], Angstrom, the vector of cell. If is RELAX or MD job, will output the last cell.',
+                         )
     def GetForceStress(self):
         force = None
         stress = None
         virial = None
+        cell = None
         for i,line in enumerate(self.OUTCAR):
             if 'TOTAL-FORCE (eV/Angst)' in line:
                 j = i+2
@@ -182,9 +185,14 @@ class Vasp(ResultVasp):
                 stress = [s[0],s[3],s[5],s[3],s[1],s[4],s[5],s[4],s[2]]
                 v = [float(i) for i in self.OUTCAR[i-1].split()[1:7]]
                 virial = [v[0],v[3],v[5],v[3],v[1],v[4],v[5],v[4],v[2]]
+            elif "VOLUME and BASIS-vectors are now :" in line:
+                cell = []
+                for j in range(3):
+                    cell.append([float(k) for k in self.OUTCAR[i+j+5].split()[0:3]])
         self['force'] = force
         self['stress']  = stress
         self['virial'] = virial
+        self["cell"] = cell
         
     @ResultVasp.register(total_time = 'Total CPU time (s)',
                          scf_time = 'the total SCF times, s',
@@ -322,3 +330,17 @@ class Vasp(ResultVasp):
         self['point_group'] = pg
         self['point_group_in_space_group'] = pgsg
         
+    @ResultVasp.register(relax_steps = 'the steps of ION',
+                         relax_converge = 'if the relax is converged',)
+    def GetRelaxInfo(self):
+        if self.XMLROOT != None:
+            self["relax_steps"] = len(self.XMLROOT.findall("calculation"))
+            
+            max_ion = comm.iint(self.XMLROOT.findtext("./parameters/ionic[@name='NSW']",default=64))
+            if max_ion != None and self["relax_steps"] != None:
+                if max_ion > self["relax_steps"]:
+                    self["relax_converge"] = True
+                else:
+                    self["relax_converge"] = False
+            else:
+                self["relax_converge"] = None

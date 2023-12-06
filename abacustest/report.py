@@ -57,6 +57,7 @@ HTML_HEAD = """
             word-wrap: break-word;
             white-space: pre-wrap;
             line-height: 1.5;
+            margin-bottom: 0.5rem;
         }
         
         #keys table {
@@ -155,7 +156,7 @@ def metrics2html(metrics_set):
         totalnum = pass_num["all"]["total"]
         icolor = "green" if passnum == totalnum else "red"
         # if all passed, then color the number to green, else red
-        html += f'''<div class="head2">Pass/Total: <font color="{icolor}">{passnum}/{totalnum} ({passnum/totalnum*100:.2f}%)</font></div>\n'''
+        html += f'''\t<div class="head2">Pass/Total: <font color="{icolor}">{passnum}/{totalnum} ({passnum/totalnum*100:.2f}%)</font></div>\n'''
         html += tb.gen_criteria(criteria,pass_num)
     html += _table2html(table,has_head=True)
     
