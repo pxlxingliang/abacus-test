@@ -90,6 +90,7 @@ class Qe(ResultQe):
                        cell = "list, the cell, [a1,a2,a3,b1,b2,b3,c1,c2,c3]. Unit in Angstrom",
                        volume = "the volume of cell, unit in Angstrom^3",
                        coord = "list, the coordinate of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]. Unit in Angstrom",
+                       label = "the label of each atom",
                        total_mag="total magnization",
                        absolute_mag="total absolute magnization",
                        nelec="total electron number",
@@ -123,7 +124,11 @@ class Qe(ResultQe):
                 self['kpt'] = [nk1, nk2, nk3]
 
         # structure
-        structure = output.find('atomic_structure')
+        structure = output.findall('atomic_structure')
+        if len(structure) == 0:
+            structure = None
+        else:
+            structure = structure[-1]
         volume = None
         if structure != None:
             cell_a = xfmlt(structure,['cell','a1'])
@@ -135,12 +140,16 @@ class Qe(ResultQe):
                 import numpy as np
                 self["volume"] = volume = np.linalg.det(cell)
             coord = []
+            label = []
             for icoord in structure.findall('atomic_positions/atom'):
                 coord.append([float(i) * comm.BOHR2A for i in icoord.text.split()])
+                label.append(icoord.attrib['name'])
             if len(coord) == self['natom']:
                 self['coord'] = coord
+                self["label"] = label
             else:
                 self['coord'] = None
+                self["label"] = None
                 print("ERROR: the length of coord is not equal to natom")
         else:
             self['cell'] = None
@@ -183,11 +192,31 @@ class Qe(ResultQe):
 
     @ResultQe.register(relax_converge="if the relax is converged")
     def GetRelaxConverge(self):
-        if self.XMLROOT == None:
-            return
-        
-        output = self.XMLROOT.find('output')
-        self["relax_converge"] = comm.ibool(xfmlt(output,['convergence_info','opt_conv','convergence_achieved']))
+        if self.OUTPUT:
+            for line in self.OUTPUT[::-1]:
+                if "The maximum number of steps has been reached." in line:
+                    self["relax_converge"] = False
+                    return
+                elif "bfgs converged in" in line:
+                    self["relax_converge"] = True
+                    return
+            self["relax_converge"] = None
+            
+        elif self.XMLROOT != None:
+            output = self.XMLROOT.find('output')
+            rlx_conv = comm.ibool(xfmlt(output,['convergence_info','opt_conv','convergence_achieved']))
+            # in QE, after the rlx is converged, it will do another SCF, but in some case the scf is not done, and this value will be false
+            # we need to check if the ION steps is less than input/control_variables/nstep, if yes, we should set this value to True
+            if not rlx_conv:
+                nstep = comm.iint(xfmlt(self.XMLROOT,["input",'control_variables','nstep']))
+                if nstep == None:
+                    nstep = 50
+                if self["relax_steps"] != None and self["relax_steps"] < nstep:
+                    rlx_conv = True
+            
+            self["relax_converge"] = rlx_conv
+        else:
+            self["relax_converge"] = None
 
     @ResultQe.register(relax_steps="the total ION steps")
     def GetRelaxStepsFromXml(self):

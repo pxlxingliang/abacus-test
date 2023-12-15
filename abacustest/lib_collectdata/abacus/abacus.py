@@ -471,8 +471,10 @@ class Abacus(ResultAbacus):
     @ResultAbacus.register(lattice_constant="unit in angstrom",
                            cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will output the last one",
                            coordinate = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. If is relax or md, will output the last one",
-                           element_list = "list[], a list of the element name of all atoms",
-                           atomlabel_list = "list[], a list of atom label of all atoms")
+                           element = "list[], a list of the element name of all atoms",
+                           label = "list[], a list of atom label of all atoms",
+                           element_list = "same as element",
+                           atomlabel_list = "same as label")
     def GetCell(self):    
         for line in self.LOG:
             if "lattice constant (Angstrom)" in line:
@@ -525,6 +527,8 @@ class Abacus(ResultAbacus):
                 element_list += natom * [element]
                 if len(atomlabel_list) >= self['natom']:
                     break
+        self["element"] = element_list
+        self["label"] = atomlabel_list
         self['element_list'] = element_list
         self['atomlabel_list'] = atomlabel_list
             

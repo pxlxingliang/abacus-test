@@ -2,9 +2,11 @@ import traceback,json,sys
 from dp.launching.typing.basic import BaseModel,String
 from dp.launching.typing import Field,DataSet
 import os
+from enum import Enum
 
 from dp.launching.report import Report,AutoReportElement,ReportSection,ChartReportElement
-
+import dp.launching.typing.addon.ui as ui
+from dp.launching.typing.addon.sysmbol import Equal
 
 from . import (comm_class,
                comm_func,
@@ -12,11 +14,44 @@ from . import (comm_class,
                comm_class_exampleSource,
                readsetting) 
 
+
+
+class Models(String, Enum):
+    model00 = " "
+    model0 = "000-abacus-branch"
+    model1 = "001-abacus-dailytest"
+    #model3 = 
+    model4 = "004-lcao004_unstable_elpa"
+    model4_1 = "004-lcao004_unstable_scalapack"
+    model5 = "005-finite_diff_stress"
+    model5_1 = "005-finite_diff_force"  
+
+class MyModel(BaseModel):
+    model: Models = Field(default=None,description="The model you want to use. If you have entered the dataset information in the previous step, here will be ignored.")
+
 class RundftImage(BaseModel):
+    predft_command: String = Field(default="",
+                            title="Predft Command",
+                            description="If you do not want to use the default command, please enter the new command here.",)
     rundft_image: String = Field(default="",
                           title="Rundft Image",
-                          description="If you do not want to use the rundft image defined in setting file, please fill in the image address here",)
-    
+                          description="If you do not want to use the default image, please enter the new image here.",)
+    rundft_command: String = Field(default="",
+                            title="Rundft Command",
+                            description="If you do not want to use the default command, please enter the new command here.",)
+    postdft_command: String = Field(default="",
+                            title="Postdft Command",
+                            description="If you do not want to use the default command, please enter the new command here.",)
+
+group1 = ui.Group("if_use_reuse_dataset","test")
+
+@group1
+@ui.Visible(MyModel,("model"),Equal,(True))
+class ReuseDataset(BaseModel):
+    reuse_dataset: DataSet = Field(title=None,
+                             default="launching+datasets://reuse.abacustest@latest",
+                            description="the reuse dataset")
+        
 class ReuseModel(
     comm_class.TrackingSet,
     RundftImage,
@@ -26,6 +61,8 @@ class ReuseModel(
     comm_class_exampleSource.ExampleSet,
     comm_class_exampleSource.ExampleSourceSet,
     comm_class_exampleSource.DatasetSet,
+    MyModel,
+    ReuseDataset,
                     comm_class.OutputSet,
                     comm_class.ConfigSet,
                     BaseModel):
@@ -78,17 +115,44 @@ def ReuseModelRunner(opts:ReuseModel) -> int:
             if "tags" not in allparams["post_dft"]["upload_tracking"]:
                 allparams["post_dft"]["upload_tracking"]["tags"] = tracking_set.get("tags")
 
-        # modify the image of rundft
+        # modify the command and image
+        if opts.predft_command != None and opts.predft_command.strip() != "":
+            new_predft_command = opts.predft_command.strip()
+        else:
+            new_predft_command = None
         if opts.rundft_image != None and opts.rundft_image.strip() != "":
-            new_image = opts.rundft_image.strip()
-            if "run_dft" in allparams:
-                if isinstance(allparams["run_dft"],list):
-                    for idx in range(len(allparams["run_dft"])):
-                        if "image" in allparams["run_dft"][idx]:
-                            allparams["run_dft"][idx]["image"] = new_image
-                elif isinstance(allparams["run_dft"],dict):
-                    if "image" in allparams["run_dft"]:
-                        allparams["run_dft"]["image"] = new_image
+            new_rundft_image = opts.rundft_image.strip()
+        else:
+            new_rundft_image = None
+        if opts.rundft_command != None and opts.rundft_command.strip() != "":
+            new_rundft_command = opts.rundft_command.strip()
+        else:
+            new_rundft_command = None
+        if opts.postdft_command != None and opts.postdft_command.strip() != "":
+            new_postdft_command = opts.postdft_command.strip()
+        else:
+            new_postdft_command = None
+        
+        if "pre_dft" in allparams:
+            if new_predft_command:
+                allparams["pre_dft"]["command"] = new_predft_command
+        
+        if "run_dft" in allparams:
+            if isinstance(allparams["run_dft"],list):
+                for idx in range(len(allparams["run_dft"])):
+                    if new_rundft_image:
+                        allparams["run_dft"][idx]["image"] = new_rundft_image
+                    if new_rundft_command:
+                        allparams["run_dft"][idx]["command"] = new_rundft_command
+            elif isinstance(allparams["run_dft"],dict):
+                if new_rundft_image:
+                    allparams["run_dft"]["image"] = new_rundft_image
+                if new_rundft_command:
+                    allparams["run_dft"]["command"] = new_rundft_command
+        
+        if "post_dft" in allparams:
+            if new_postdft_command:
+                allparams["post_dft"]["command"] = new_postdft_command
                 
         #execut
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
