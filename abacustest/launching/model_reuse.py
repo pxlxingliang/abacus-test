@@ -14,8 +14,6 @@ from . import (comm_class,
                comm_class_exampleSource,
                readsetting) 
 
-
-
 class Models(String, Enum):
     model00 = " "
     model0 = "000-abacus-branch"
@@ -27,7 +25,9 @@ class Models(String, Enum):
     model5_1 = "005-finite_diff_force"  
 
 class MyModel(BaseModel):
-    model: Models = Field(default=None,description="The model you want to use. If you have entered the dataset information in the previous step, here will be ignored.")
+    my_model: Models = Field(
+        title="Model",
+        default="",description="The model you want to use. If you have entered the dataset information in the previous step, here will be ignored.")
 
 class RundftImage(BaseModel):
     predft_command: String = Field(default="",
@@ -46,10 +46,10 @@ class RundftImage(BaseModel):
 group1 = ui.Group("if_use_reuse_dataset","test")
 
 @group1
-@ui.Visible(MyModel,("model"),Equal,(True))
+@ui.Visible(MyModel,("my_model"),Equal,("do not show this group"))
 class ReuseDataset(BaseModel):
     reuse_dataset: DataSet = Field(title=None,
-                             default="launching+datasets://reuse.abacustest@latest",
+                             default="launching+datasets://reuse.abacustest@draft",
                             description="the reuse dataset")
         
 class ReuseModel(

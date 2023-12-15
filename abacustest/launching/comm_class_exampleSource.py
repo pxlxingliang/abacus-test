@@ -391,12 +391,12 @@ def get_dataset_work_path(opts,dataset_name="dataset"):
                     return os.path.dirname(dataset_work_path)
             except:
                 return None
-    # for reuse model, if dataset_name == "dataset" and has "model" in opts, then use "model" as dataset
+    # for reuse my_model, if dataset_name == "dataset" and has "my_model" in opts, then use "my_model" as dataset
     # if the origin dataset has enetered infoamtion, then it will be returned in previous step.
-    # here, we only judge if model is not " "
-    if dataset_name=="dataset" and hasattr(opts,"model") and hasattr(opts,"reuse_dataset"):
-        my_model = getattr(opts,"model")
-        print("model:",my_model)
+    # here, we only judge if my_model is not " "
+    if dataset_name=="dataset" and hasattr(opts,"my_model") and hasattr(opts,"reuse_dataset"):
+        my_model = getattr(opts,"my_model")
+        print("my_model:",my_model)
         if my_model and my_model.strip() != "":
             print("reuse_dataset:",getattr(opts,"reuse_dataset"))
             dataset_work_path = getattr(opts,"reuse_dataset").get_full_path()
