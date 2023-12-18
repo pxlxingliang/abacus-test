@@ -228,7 +228,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
         
         if not predft_step:
             # if predft_step is none, then the input of rundft is examples,
-            assert example_path or rundft_set.get("example") != None, "example in rundft is not defined"
+            assert example_path or rundft_set.get("example") != None, "example in run_dft is not defined"
             if "example" not in rundft_set:
                 example_list = example_path
                 example_source = None
@@ -243,6 +243,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
                 source_type=example_source_type,
                 only_folder=True,
                 oneartifact=False)
+            assert len(examples) > 0, "example in run_dft is not defined or the defined example is not exist!!!"
             new_examples,new_examples_name = comm.SplitGroupSize(examples,examples_name,group_size)
             istep = 0
             pt = PythonOPTemplate(RunDFT,image=image,envs=comm.SetEnvs())
