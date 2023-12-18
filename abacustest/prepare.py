@@ -264,7 +264,7 @@ class AbacusStru:
                  label:List[str],
                  cell:List[List[float]] ,
                  coord:List[List[float]] ,
-                 pp:List[str],
+                 pp:List[str] = None,
                  atom_number:List[int] = None,
                  orb:List[str] = None,
                  paw:List[str] = None,
@@ -288,6 +288,8 @@ class AbacusStru:
             pseudopotential file of each type
         orb : List[str], optional
             orbital file of each type, by default None
+        paw: List[str], optional
+            paw file of each type, by default None. Should has pp or paw.
         mass : List[float], optional
             mass of each type, by default None
         element : List[str], optional
@@ -326,20 +328,26 @@ class AbacusStru:
             self._atom_number = atom_number
             self._coord = coord
 
-        assert(len(self._label) == len(pp)), "ERROR: label number is not equal to pp number"
-        
-        if orb != None:
-            assert(len(self._label) == len(orb))
         total_atom = np.array(self._atom_number).sum()
-        assert(total_atom == len(coord)), f"ERROR: the total atom number is not equal to coord number, {total_atom} != {len(coord)}"
-        
-        if paw != None:
-            assert len(self._label) == len(paw), "ERROR: label number is not equal to paw number"
-        
+        assert(total_atom == len(self._coord)), f"ERROR: the total atom number is not equal to coord number, {total_atom} != {len(coord)}"
         self._cell = cell
-        self._pp = pp
-        self._orb = orb if orb else []
+        
+        # check pp orb paw
+        self._pp = pp if pp else None
+        self._orb = orb if orb else None
         self._paw = paw if paw else None
+        
+        if (not self._pp) and (not self._paw):
+            print("ERROR: Please define the pseudopotential or paw file")
+            sys.exit(1)
+        if self._pp:
+            assert(len(self._label) == len(self._pp)), "ERROR: label number is not equal to pp number"
+        if self._paw:
+            assert(len(self._label) == len(self._paw)), "ERROR: label number is not equal to paw number"
+        if self._orb:
+            assert(len(self._label) == len(self._orb)), "ERROR: label number is not equal to orb number"
+            
+        
         self._lattice_constant = lattice_constant
         self._dpks = dpks if dpks else None
         self._cartesian = cartesian
@@ -418,25 +426,25 @@ class AbacusStru:
                 return self._coord
     
     def set_pp(self,pplist):
-        if len(pplist) != len(self._label):
+        if pplist and len(pplist) != len(self._label):
             print("ERROR: the length of pplist is not equal to label number")
             sys.exit(1)
-        self._pp = pplist
+        self._pp = pplist if pplist else None
     
     def set_orb(self,orblist):
         if orblist and len(orblist) != len(self._label):
             print("ERROR: the length of orblist is not equal to label number")
             sys.exit(1)
-        self._orb = orblist
+        self._orb = orblist if orblist else None
     
     def set_paw(self,pawlist):
         if pawlist and len(pawlist) != len(self._label):
             print("ERROR: the length of pawlist is not equal to label number")
             sys.exit(1)
-        self._paw = pawlist
+        self._paw = pawlist if pawlist else None
 
     def set_dpks(self,descriptor):
-        self._dpks = descriptor
+        self._dpks = descriptor if descriptor else None
     
     def set_mass(self,mass):
         if len(mass) != len(self._label):
@@ -452,7 +460,10 @@ class AbacusStru:
         #write species
         cc += "ATOMIC_SPECIES\n"
         for i,ilabel in enumerate(self._label):
-            cc += "%s %f %s\n" % (ilabel,self._mass[i],self._pp[i])
+            if self._pp :
+                cc += "%s %f %s\n" % (ilabel,self._mass[i],self._pp[i])
+            else:
+                cc += "%s %f\n" % (ilabel,self._mass[i])
         
         #write orb
         if self._orb:
@@ -535,8 +546,11 @@ class AbacusStru:
         for line in atomic_species:
             sline = line.split()
             labels.append(sline[0])
-            pp.append(sline[2])
             mass.append(float(sline[1]))
+            if len(sline) > 2: 
+                pp.append(sline[2])
+        if len(pp) == 0:
+            pp = None
             
         #read orbital
         if numerical_orbital == None:
@@ -613,6 +627,7 @@ class PrepareAbacus:
                  mix_stru: List[str]=[],
                  pp_dict: Dict[str,str]= {},
                  orb_dict: Dict[str,str]= {},
+                 paw_dict: Dict[str,str]= {},
                  pp_path:str = None,
                  orb_path:str = None,
                  dpks_descriptor:str=None,
@@ -668,6 +683,9 @@ class PrepareAbacus:
 
         orb_dict : Dict, optional
             a dictionary specify the orbital files, by default {}
+        
+        paw_dict: Dict, optional
+            a dictionary specify the paw files, by default {}
 
         pp_path : str, optional
             the path of your pseudopotential lib, by default None. 
@@ -699,6 +717,7 @@ class PrepareAbacus:
         self.mix_input = mix_input
         self.pp_dict = pp_dict
         self.orb_dict = orb_dict
+        self.paw_dict = paw_dict
         self.extra_files = self.CheckExtrafile(extra_files)
         self.mix_kpt = mix_kpt
         self.mix_stru = mix_stru
@@ -805,7 +824,31 @@ class PrepareAbacus:
                         self.orb_dict[element_name] = os.path.join(self.orb_path,ifile)
         else:
             print("Not find orb dir: %s" % self.orb_path)
-
+            
+            
+    def CollectPaw(self):
+        if not self.paw_path:
+            return
+        if os.path.isdir(self.paw_path):
+            if os.path.isfile(os.path.join(self.paw_path,"element.json")):
+                try:
+                    for key,value in json.load(open(os.path.join(self.paw_path,"element.json"))).items():
+                        if key not in self.paw_dict:
+                            if os.path.isfile(os.path.join(self.paw_path,value)):
+                                self.paw_dict[key] = os.path.join(self.paw_path,value)
+                except:
+                    traceback.print_exc()
+            else:
+                allfiles = os.listdir(self.paw_path)
+                for ifile in allfiles:
+                    if not os.path.isfile(os.path.join(self.paw_path,ifile)): continue
+                    element_name = self.GetElementNameFromFileName(ifile)
+                    if element_name and element_name not in self.paw_dict:
+                        self.paw_dict[element_name] = os.path.join(self.paw_path,ifile)
+        else:
+            print("Not find paw dir: %s" % self.paw_path) 
+            
+            
     def Construct_input_list(self):
         all_inputs = []
         inputf = None
@@ -974,30 +1017,32 @@ class PrepareAbacus:
             allfiles = self.extra_files  #files that will be linked
             pp_list = []   #pp file name
             orb_list = []  #orb file name
+            paw_list = [] #paw file name
             dpks = None    #dpks file name
             for i,ilabel in enumerate(labels):
                 #check pp file 
                 if ilabel not in self.pp_dict:
                     #print("label '%s' is found in '%s', but not defined in pp_dict." % (ilabel,istru))
-                    os.chdir(stru_path)
-                    pp_in_stru = stru_data.get_pp()[i]
-                    if os.path.isfile(pp_in_stru):
-                        print("label '%s': link the pseudopotential file '%s' defined in %s" % (ilabel,pp_in_stru,istru))
-                        pp_list.append(os.path.split(pp_in_stru)[1])
-                        allfiles.append(os.path.abspath(pp_in_stru))
-                    else:
-                        print("label '%s': the pseudopotential file '%s' defined in %s is not found, skip this structure" % (ilabel,pp_in_stru,istru))
-                        skipstru = True
+                    if stru_data.get_pp():
+                        os.chdir(stru_path)
+                        pp_in_stru = stru_data.get_pp()[i]
+                        if os.path.isfile(pp_in_stru):
+                            print("label '%s': link the pseudopotential file '%s' defined in %s" % (ilabel,pp_in_stru,istru))
+                            pp_list.append(os.path.split(pp_in_stru)[1])
+                            allfiles.append(os.path.abspath(pp_in_stru))
+                        else:
+                            print("label '%s': the pseudopotential file '%s' defined in %s is not found" % (ilabel,pp_in_stru,istru))
+                            #skipstru = True
+                            #os.chdir(cwd)
+                            #break
                         os.chdir(cwd)
-                        break
-                    os.chdir(cwd)
                 else:
                     pp_list.append(os.path.split(self.pp_dict[ilabel])[1])  #only store the file name to pp_list
                     allfiles.append(self.pp_dict[ilabel]) #store the whole pp file to allfiles                    
-                if not stru_data.get_pp() or pp_list[-1] != stru_data.get_pp()[i]:
-                    linkstru = False
+                    if not stru_data.get_pp() or pp_list[-1] != stru_data.get_pp()[i]:
+                        linkstru = False
 
-                #check orbital file    
+                #check orbital file
                 if ilabel not in self.orb_dict:
                     if stru_data.get_orb():
                         #print("label '%s' is found in '%s', but not defined in orb_dict." % (ilabel,istru))
@@ -1016,6 +1061,26 @@ class PrepareAbacus:
                     orb_list.append(os.path.split(self.orb_dict[ilabel])[1]) 
                     allfiles.append(self.orb_dict[ilabel])
                     if not stru_data.get_orb() or orb_list[-1] != stru_data.get_orb()[i]:  
+                        linkstru = False
+                
+                #check paw file
+                if ilabel not in self.paw_dict:
+                    if stru_data.get_paw():
+                        os.chdir(stru_path)
+                        paw_in_stru = stru_data.get_paw()[i]
+                        if os.path.isfile(paw_in_stru):
+                            print("label '%s': link the paw file '%s' defined in %s" % (ilabel,paw_in_stru,istru))
+                            paw_list.append(os.path.split(paw_in_stru)[1])
+                            allfiles.append(os.path.abspath(paw_in_stru))
+                            if paw_list[-1] != stru_data.get_paw()[i]:  
+                                linkstru = False
+                        else:
+                            print("label '%s': the paw file '%s' defined in %s is not found." % (ilabel,paw_in_stru,istru))
+                        os.chdir(cwd)
+                else:
+                    paw_list.append(os.path.split(self.paw_dict[ilabel])[1]) 
+                    allfiles.append(self.paw_dict[ilabel])
+                    if not stru_data.get_paw() or paw_list[-1] != stru_data.get_paw()[i]:  
                         linkstru = False
 
             if skipstru:
@@ -1048,6 +1113,7 @@ class PrepareAbacus:
             #stru_data will be writen in new folder
             stru_data.set_pp(pp_list)
             stru_data.set_orb(orb_list)
+            stru_data.set_paw(paw_list)
             stru_data.set_dpks(dpks)
             
             for ikpt in kpt_list:  #iteration of KPT 
@@ -1197,6 +1263,12 @@ def CheckExample(example_path,description:str=""):
     iinput = PrepareAbacus.ReadInput(os.path.join(example_path,"INPUT"))
     pp_path = iinput.get("pseudo_dir","")
     orb_path = iinput.get("orbital_dir","")
+    paw_path = iinput.get("paw_dir","")
+    use_paw = iinput.get("use_paw",False)
+    if use_paw and use_paw.isdigit() and int(use_paw):
+        use_paw = True
+    else:
+        use_paw = False
     istru = AbacusStru.ReadStru(os.path.join(example_path,"STRU"))
     if not istru:
         print("Read STRU file failed in %s" % example_path)
@@ -1206,16 +1278,28 @@ def CheckExample(example_path,description:str=""):
     allpass = True
     os.chdir(example_path)
     #check pp
-    ppfiles = istru.get_pp()
-    if not ppfiles:
-        print("Can not find PP in %s" % example_path)
-        allpass = False
+    if not use_paw:
+        ppfiles = istru.get_pp()
+        if not ppfiles:
+            print("Can not find PP in %s" % example_path)
+            allpass = False
+        else:
+            for ppfile in ppfiles:
+                real_ppfile = os.path.join(pp_path,ppfile)
+                if not os.path.isfile(real_ppfile):
+                    print("Can not find PP file %s in %s" % (real_ppfile,example_path))
+                    allpass = False
     else:
-        for ppfile in ppfiles:
-            real_ppfile = os.path.join(pp_path,ppfile)
-            if not os.path.isfile(real_ppfile):
-                print("Can not find PP file %s in %s" % (real_ppfile,example_path))
-                allpass = False
+        pawfiles = istru.get_paw()
+        if not pawfiles:
+            print("Can not find PAW in %s" % example_path)
+            allpass = False
+        else:
+            for pawfile in pawfiles:
+                real_pawfile = os.path.join(paw_path,pawfile)
+                if not os.path.isfile(real_pawfile):
+                    print("Can not find PAW file %s in %s" % (real_pawfile,example_path))
+                    allpass = False
     
     #check orb
     basis = iinput.get("basis_type","pw").lower()
