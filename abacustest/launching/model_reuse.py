@@ -49,7 +49,7 @@ group1 = ui.Group("if_use_reuse_dataset","test")
 @ui.Visible(MyModel,("my_model"),Equal,("do not show this group"))
 class ReuseDataset(BaseModel):
     reuse_dataset: DataSet = Field(title=None,
-                             default="launching+datasets://reuse.abacustest@draft",
+                             default="launching+datasets://reuse.abacustest@latest",
                             description="the reuse dataset")
         
 class ReuseModel(
