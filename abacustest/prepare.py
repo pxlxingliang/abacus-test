@@ -267,6 +267,7 @@ class AbacusStru:
                  pp:List[str],
                  atom_number:List[int] = None,
                  orb:List[str] = None,
+                 paw:List[str] = None,
                  mass:List[float] = None,
                  element:List[str] = None,
                  lattice_constant:float = 1,
@@ -332,9 +333,13 @@ class AbacusStru:
         total_atom = np.array(self._atom_number).sum()
         assert(total_atom == len(coord)), f"ERROR: the total atom number is not equal to coord number, {total_atom} != {len(coord)}"
         
+        if paw != None:
+            assert len(self._label) == len(paw), "ERROR: label number is not equal to paw number"
+        
         self._cell = cell
         self._pp = pp
         self._orb = orb if orb else []
+        self._paw = paw if paw else None
         self._lattice_constant = lattice_constant
         self._dpks = dpks if dpks else None
         self._cartesian = cartesian
@@ -357,7 +362,10 @@ class AbacusStru:
         return self._pp
 
     def get_orb(self):
-        return self._orb    
+        return self._orb  
+    
+    def get_paw(self):
+        return self._paw  
 
     def get_label(self):
         '''return the label name of each atom'''
@@ -420,6 +428,12 @@ class AbacusStru:
             print("ERROR: the length of orblist is not equal to label number")
             sys.exit(1)
         self._orb = orblist
+    
+    def set_paw(self,pawlist):
+        if pawlist and len(pawlist) != len(self._label):
+            print("ERROR: the length of pawlist is not equal to label number")
+            sys.exit(1)
+        self._paw = pawlist
 
     def set_dpks(self,descriptor):
         self._dpks = descriptor
@@ -444,6 +458,12 @@ class AbacusStru:
         if self._orb:
             cc += "\nNUMERICAL_ORBITAL\n"
             for i in self._orb:
+                cc += i + "\n"
+        
+        # write pawfile
+        if self._paw:
+            cc += "\nPAW_FILES\n"
+            for i in self._paw:
                 cc += i + "\n"
         
         #write  LATTICE_CONSTANT
@@ -504,6 +524,7 @@ class AbacusStru:
         lattice_vector = get_block("LATTICE_VECTORS")
         atom_positions = get_block("ATOMIC_POSITIONS")
         dpks = get_block("NUMERICAL_DESCRIPTOR")
+        pawf = get_block("PAW_FILES")
         lattice_constant = 1.0 if lattice_constant == None else float(lattice_constant[0].split()[0]) 
         dpks = None if dpks == None else dpks[0].strip()
         
@@ -524,7 +545,15 @@ class AbacusStru:
             orb = []
             for line in numerical_orbital:
                 orb.append(line.split()[0])
-
+        
+        # read paw files
+        if pawf == None:
+            paw = None
+        else:
+            paw = []
+            for line in pawf:
+                paw.append(line.split("#")[0].strip())
+        
         #read cell
         cell = []
         try:
@@ -565,6 +594,7 @@ class AbacusStru:
                           coord=coords,
                           pp=pp,
                           orb=orb,
+                          paw = paw,
                           lattice_constant=lattice_constant,
                           magmom=magmom,
                           dpks=dpks,
