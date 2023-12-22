@@ -53,6 +53,7 @@ class ReuseDataset(BaseModel):
                             description="the reuse dataset")
         
 class ReuseModel(
+    comm_class.ConfigSetGithub,
     comm_class.TrackingSet,
     RundftImage,
     comm_class_exampleSource.ScriptExampleSet,

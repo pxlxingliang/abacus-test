@@ -43,6 +43,11 @@ class ConfigSet(BaseModel):
     Config_dflow_token: DflowAccessToken
     Config_dflow_labels: DflowLabels
 
+class ConfigSetGithub(BaseModel):
+    Config_github_username: String = Field(default="",title="github_username",description="github username")
+    Config_github_email: String = Field(default="",title="github_email",description="github email")
+    Config_github_token: String = Field(default="",title="github_token",description="github token")
+
 class ImageDispatcher(BaseModel):
     type: Literal["Use dp-dispatcher"]
 

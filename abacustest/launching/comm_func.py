@@ -42,7 +42,7 @@ def read_config(opts):
     # parse config
     CONFIG_KEYS = ["bohrium_username", "bohrium_password", "bohrium_ticket", "bohrium_project_id",
                    "dflow_host", "dflow_s3_config_endpoint", "dflow_k8s_api_server", "dflow_token",
-                   "aim_access_token", "dflow_labels"]
+                   "aim_access_token", "dflow_labels", "github_username", "github_email", "github_token"]
     my_config = {}
     for ikey in CONFIG_KEYS:
         config_key = "Config_" + ikey
@@ -53,7 +53,6 @@ def read_config(opts):
                 my_config[ikey] = getattr(opts, config_key).strip()
     register_dflow(my_config)
     return my_config
-
 
 def run_command(
         cmd,
