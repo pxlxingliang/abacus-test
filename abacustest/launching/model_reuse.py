@@ -23,6 +23,7 @@ class Models(String, Enum):
     model4_1 = "004-lcao004_unstable_scalapack"
     model5 = "005-finite_diff_stress"
     model5_1 = "005-finite_diff_force"  
+    model6 = "006_eos"
 
 class MyModel(BaseModel):
     my_model: Models = Field(
