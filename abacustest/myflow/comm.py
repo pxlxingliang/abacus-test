@@ -145,8 +145,8 @@ def ProduceExecutor(param,group_name="abacustesting"):
         resources_dict: resources config for dispatcher
         task_dict: task config for dispatcher
         json_file: JSON file containing machine and resources config
-        '''
-        
+
+
         dispatcher_executor = DispatcherExecutor(
             host = param["dispatcher"].get("host",None),
             queue_name = param["dispatcher"].get("queue_name",None),
@@ -162,6 +162,8 @@ def ProduceExecutor(param,group_name="abacustesting"):
             task_dict = param["dispatcher"].get("task_dict",None),
             json_file = param["dispatcher"].get("json_file",None)
             )
+        '''
+        dispatcher_executor = DispatcherExecutor(**param["dispatcher"])
         import copy
         tmp_param = copy.deepcopy(param["dispatcher"])
         hide_config_in_dispatcher(tmp_param)

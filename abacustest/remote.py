@@ -73,7 +73,7 @@ def push_to_github(remote_path,github_setting,config_setting):
     os.mkdir(github_path)
     
     # gen bash script
-    repo_url_with_token=f"https://oauth2:{token}@github.com/{username}/{repo}.git"    
+    repo_url_with_token=f"https://oauth2:{token}@github.com/{repo}.git"    
     bash_script = f'''#!/bin/bash
 cd {github_path}
 git init
