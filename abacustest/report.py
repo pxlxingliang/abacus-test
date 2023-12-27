@@ -145,6 +145,7 @@ def metrics2html(metrics_set):
     table = tb.file2table(metric_file)
     if table in [[],None]:
         return ""
+    if not sort: sort = [table[0][0]]
     table, pass_num = tb.format_table(table, metrics, sort, criteria)
     
     html = ""
