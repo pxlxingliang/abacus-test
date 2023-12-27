@@ -635,6 +635,7 @@ class LoadData(BaseModel):
     if_load_data: Boolean = Field(default = False)
 
 class SummaryModel(LoadData,
+                   comm_class.ConfigSetGithub,
                    Summary,
                    comm_class_exampleSource.DatasetSet,
                    comm_class.OutputSet,
@@ -805,6 +806,7 @@ def SummaryModelRunner(opts:SummaryModel):
     comment = setting.get("comment","")
     value_range = setting.get("value_range",{})
     chart_setting = setting.get("chart_setting",[])
+    remote_setting = setting.get("remote",{})
     
     json.dump(setting,open(os.path.join(output_path,"setting.json"),'w'),indent=4)
 
@@ -842,9 +844,21 @@ def SummaryModelRunner(opts:SummaryModel):
 
     report = Report(title="abacus test report",
                         sections=[html_section,echart_html_section],
-                        description="a report of abacustest")
+                        description="a report of abacustest") 
     report.save(output_path)
-
+    
+    pwd = os.getcwd()
+    os.chdir(output_path)
+    if remote_setting:
+        from abacustest import remote
+        if "github" in remote_setting and "token_file" in remote_setting["github"] and remote_setting["github"]["token_file"].strip() != "":
+            remote_setting["github"]["token"] = open(remote_setting["github"]["token_file"]).read().strip()
+        remote_path = remote.prepare_files(remote_setting)
+        if remote_path:
+            remote.push_to_remote(remote_path,remote_setting,{"github_username": getattr(opts,"Config_github_username"),
+                                                              "github_email": getattr(opts,"Config_github_email"),
+                                                              "github_token": getattr(opts,"Config_github_token")})
+    os.chdir(pwd)
     #parse inputs  
     return 0
 

@@ -356,7 +356,7 @@ def RunJobs(param):
         from abacustest import remote
         remote_setting = globV.get_value("REMOTE")
         if "github" in remote_setting and "token_file" in remote_setting["github"] and remote_setting["github"]["token_file"].strip() != "":
-            remote_setting["github"]["token_file"] = os.path.join(pwd,remote_setting["github"]["token_file"].strip())
+            remote_setting["github"]["token"] = open(os.path.join(pwd,remote_setting["github"]["token_file"].strip())).read().strip()
         remote_path = remote.prepare_files(remote_setting)
         if remote_path:
             remote.push_to_remote(remote_path,remote_setting,globV.get_value("PRIVATE_SET",{}))
