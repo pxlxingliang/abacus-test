@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from cProfile import label
 import os,sys,glob,time,shutil,argparse,json,traceback,re
 import numpy as np
 
@@ -230,7 +229,7 @@ def waitrun(wf,stepnames,allsave_path):
     makedfolder = []
     for i,istep in enumerate(stepnames):
         finishtest.append(len(istep)*[False])
-    finishtest = np.array(finishtest)  
+    finishtest = np.array(finishtest) 
           
     wfid = wf.id
 
@@ -241,9 +240,16 @@ def waitrun(wf,stepnames,allsave_path):
                     continue
                 steps = wf.query_step(name = istep[j])
                 if len(steps) > 0: 
-                    step = steps[0]
-                    if step.phase in ["Pending","Running"]:
+                    allfinished = True
+                    for step in steps:
+                        #print(len(steps),step.name,step.phase)
+                        if step.phase in ["Pending","Running"]:
+                            allfinished = False
+                            time.sleep(4)
+                            break
+                    if not allfinished:
                         continue
+                    step = steps[0]
                     finishtest[i][j] = True
 
                     save_path = allsave_path[i][j][0]

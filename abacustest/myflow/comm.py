@@ -252,7 +252,7 @@ def transfer_source_to_artifact(example,source=None,source_type="local",only_fol
     if source_type == "local":
         examples,examples_name = FindLocalExamples_new(example,only_folder=only_folder,oneartifact=oneartifact)
     
-    # examples = [artifact1,artifact2,...]
+    # examples = [[artifact1,artifact2,...],[artifact3,artifact4,...],...]
     # examples_name = [[example1,example2,...],[example3,example4,...],...]
     return examples,examples_name
 
