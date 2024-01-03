@@ -1,5 +1,5 @@
 from . import globV
-import os,shutil,glob
+import os,shutil,glob,json
 from pathlib import Path
 
 def printinfo(istr,*args):
@@ -324,7 +324,10 @@ def SetEnvs():
     from dflow import Secret
     envs = {}
     for k,v in globV.get_value("PRIVATE_SET").items():
-        envs[k.upper()] = Secret(str(v))
+        if isinstance(v,dict):
+            envs[k.upper()] = Secret("'" + json.dumps(v) + "'")
+        else:
+            envs[k.upper()] = Secret(str(v))
     return envs
 
 def run_command(
