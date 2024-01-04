@@ -420,7 +420,7 @@ class Abacus(ResultAbacus):
         for i,line in enumerate(self.OUTPUT):
             if line[1:5] == 'ITER':
                 for j in range(i+1,len(self.OUTPUT)):
-                    if self.OUTPUT[j][1:3] in ['CG','DA','GE','GV']:
+                    if self.OUTPUT[j][1:3] in ['CG','DA','GE','GV','BP']:
                         scftime.append(float(self.OUTPUT[j].split()[-1]))
                 break
         if len(scftime) > 0:
