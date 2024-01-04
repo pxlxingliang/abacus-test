@@ -326,7 +326,7 @@ Only key "prepare" is recongnized by `abacustest prepare`.
 - `orb_path`: the path of orbital files. There should has an extra "element.json" file that defines the element name and the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}, or abacustest will read the first two letters of the orbital file name as the element name. If one element has been defined in both `orb_dict` and `orb_path`, the value in `orb_dict` will be used. 
 - `dpks_descriptor`: the descriptor of dpks. If is not null, will link the dpks file for each example. 
 - `extra_files`: the extra files that will be lniked to each example folder. Such as: ["abc.py","def.json"]. 
-- `abacus2qe`: if convert the ABACUS input to QE input. Default is false.
+- `abacus2qe`: if convert the ABACUS input to QE input. Default is false. Now support the convert of cell, coordinate, kpt, pp, and normal scf/relax/cell-relax calculation, and settings of symmetry/smearing/mixing/scf_thr/force_thr/stress_thr, and the magnetic setting of atom type.
 
 If there has more than two types of mixing, will put inputs in a subfolder named by 00000, 00001, 00002, ...
 
