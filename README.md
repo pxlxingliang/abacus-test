@@ -332,5 +332,5 @@ If there has more than two types of mixing, will put inputs in a subfolder named
 
 
 ## 6. example
-some exmaples
+[examples](https://github.com/pxlxingliang/abacus-test/tree/develop/example)
 
