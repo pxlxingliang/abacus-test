@@ -166,6 +166,7 @@ class Vasp(ResultVasp):
     @ResultVasp.register(force = 'list, eV/angstrom, the force of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]',
                          stress = 'list, kBar, the stress, [xx,xy,xz,yx,yy,yz,zx,zy,zz]',
                          virial='list, eV, the virial, [xx,xy,xz,yx,yy,yz,zx,zy,zz]',
+                         pressure="kBar, the pressure, 1/3*trace(stress)",
                          cell = 'list[list], Angstrom, the vector of cell. If is RELAX or MD job, will output the last cell.',
                          )
     def GetForceStress(self):
@@ -193,6 +194,10 @@ class Vasp(ResultVasp):
         self['stress']  = stress
         self['virial'] = virial
         self["cell"] = cell
+        if stress:
+            self['pressure'] = 1.0/3.0*(stress[0]+stress[4]+stress[8])
+        else:
+            self['pressure'] = None
         
     @ResultVasp.register(total_time = 'Total CPU time (s)',
                          scf_time = 'the total SCF times, s',

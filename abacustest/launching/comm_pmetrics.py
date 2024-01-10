@@ -12,6 +12,7 @@ METRICS_UNIT = {
     "efermi": "eV",
     "band_gap": "eV",
     "virial": "eV",
+    "pressure": "kbar",
     "total_time": "s",
     "largest_gradient": "eV/A",
     "stress_time": "s",

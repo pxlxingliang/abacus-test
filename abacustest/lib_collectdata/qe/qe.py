@@ -87,6 +87,7 @@ class Qe(ResultQe):
                        force="list, the force of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]. Unit in eV/Angstrom",
                        stress="list, the stress, [xx,xy,xz,yx,yy,yz,zx,zy,zz]. Unit in kbar.",
                        virial="list, the virial, [xx,xy,xz,yx,yy,yz,zx,zy,zz]. Unit in eV.",
+                       pressure="the pressure, unit in kbar",
                        cell = "list, the cell, [a1,a2,a3,b1,b2,b3,c1,c2,c3]. Unit in Angstrom",
                        volume = "the volume of cell, unit in Angstrom^3",
                        coord = "list, the coordinate of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]. Unit in Angstrom",
@@ -161,6 +162,7 @@ class Qe(ResultQe):
             # the read in stress is in Hartree/Bohr^3, convert to kbar
             # 1 kbar = 1e8 Pa = 1e8 N/m^2 = 1e8 J/m^3 = 1e8 * 2.2937126583579E17 Hartree/m^3 = 2.2937126583579E25 * 5.29177E-11**3 Hartree/Bohr^3 = 3.398927420868445E-6 Hartree/Bohr^3
             self['stress'] = [ float(i)/comm.KBAR2HARTREEPERBOHR3 for i in output.find('stress').text.split()]
+            self["pressure"] = (self['stress'][0] + self['stress'][4] + self['stress'][8]) / 3.0
             # calculate the virial, unit in eV
             if volume != None:
                 self['virial'] = [ float(i) * volume * comm.HARTREE2EV / comm.BOHR2A ** 3   for i in output.find('stress').text.split()]

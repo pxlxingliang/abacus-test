@@ -209,7 +209,8 @@ class Abacus(ResultAbacus):
         self['force'] = force
     
     @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one",
-                           virial="list[9], virial of the system,  = stress * volume, which is the last one.")
+                           virial="list[9], virial of the system,  = stress * volume, which is the last one.",
+                           pressure="the pressure of the system, unit in kbar.")
     def GetStessFromLog(self):
         stress = None
         for i in range(len(self.LOG)):
@@ -238,8 +239,10 @@ class Abacus(ResultAbacus):
         self['stress'] = stress
         if stress != None and self["volume"] != None:
             self['virial'] = [i * self["volume"] * comm.KBAR2EVPERANGSTROM3 for i in stress]
+            self["pressure"] = (stress[0] + stress[4] + stress[8]) / 3.0
         else:
             self['virial'] = None
+            self["pressure"] = None
         
     @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
     def GetLargestGradientFromLog(self):

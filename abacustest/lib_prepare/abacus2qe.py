@@ -95,7 +95,7 @@ def ParamAbacus2Qe(param:Dict[str,any]):
         print("WARNING: mixing_type %s is not supported now, will not set mixing_mode in QE." % mixing)
         
     # these paramters will be ignored    
-    for ip in ["suffix","kspacing","basis_type","gamma_only","kpt_file"]:
+    for ip in ["suffix","basis_type","gamma_only","kpt_file"]:
         param.pop(ip,None)
     
     # print out warning for the left parameters
