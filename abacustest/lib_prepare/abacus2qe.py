@@ -3,6 +3,7 @@ import os
 import numpy as np
 from . import abacus as MyAbacus
 from . import qe as MyQe
+from . import comm
 
 
 def ParamAbacus2Qe(param:Dict[str,any]):
@@ -190,11 +191,8 @@ def Abacus2Qe(path: str= ".", save_path: str = None):
         else:
             print("ERROR: kspacing should be a float or three floats")
             return None
-        V = abs(np.linalg.det(np.array(cell)))
-        kpt = [int(np.linalg.norm(np.cross(cell[1],cell[2])) * 2 * np.pi / V / kspacing[0] + 1),
-               int(np.linalg.norm(np.cross(cell[2],cell[0])) * 2 * np.pi / V / kspacing[1] + 1),
-               int(np.linalg.norm(np.cross(cell[0],cell[1])) * 2 * np.pi / V / kspacing[2] + 1),
-               0,0,0]
+        kpt = comm.kspacing2kpt(kspacing,cell)
+        kpt.extend([0,0,0])
     else:
         kptf = abacus_input.get("kpt_file","KPT")
         if not os.path.isfile(os.path.join(path,kptf)):

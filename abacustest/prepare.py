@@ -6,8 +6,8 @@ from pathlib import Path
 from abacustest import constant
 from abacustest.myflow import comm
 from abacustest.lib_prepare import abacus as MyAbacus
-from abacustest.lib_prepare import qe as MyQe
 from abacustest.lib_prepare import abacus2qe as Aba2Qe
+from abacustest.lib_prepare import abacus2vasp as Aba2Vasp
 
 def Direct2Cartesian(coord:List[List[float]],cell:List[List[float]]):
     return np.array(coord).dot(np.array(cell)).tolist()
@@ -597,8 +597,8 @@ class PrepareAbacus:
         return param_setting
 
     @staticmethod
-    def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT"):
-        MyAbacus.WriteKpt(kpoint_list,file_name)
+    def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT", model:str = "gamma"):
+        MyAbacus.WriteKpt(kpoint_list,file_name,model)
     
     @staticmethod
     def ReadInput(INPUTf: str = None, input_lines: str = None) -> Dict[str,any]:
@@ -795,13 +795,26 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
         all_path_setting.append(prepareabacus.prepare())
 
     if param_setting.get("abacus2qe",False):
-        print("Convert ABACUS inputs to QE inputs")
+        print("\nConvert ABACUS inputs to QE inputs")
         for isetting in all_path_setting:
             if isetting:
                 ipath = list(isetting.keys())[0]
                 print(ipath)
                 try:
                     Aba2Qe.Abacus2Qe(ipath,save_path=os.path.join(ipath,"input"))
+                except:
+                    traceback.print_exc()
+    
+    if param_setting.get("abacus2vasp",False):
+        print("\nConvert ABACUS inputs to VASP inputs")
+        potcar = param_setting.get("potcar",None)
+        vasp_setting = param_setting.get("vasp_setting",{})
+        for isetting in all_path_setting:
+            if isetting:
+                ipath = list(isetting.keys())[0]
+                print(ipath)
+                try:
+                    Aba2Vasp.Abacus2Vasp(ipath,save_path=ipath,potcar=potcar,vasp_setting=vasp_setting)
                 except:
                     traceback.print_exc()
                       

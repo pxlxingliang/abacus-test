@@ -1,4 +1,7 @@
 
+from abacustest.lib_collectdata.comm import EV2RY
+
+
 MASS_DICT = {
     "H": 1.0079,
     "He": 4.0026,
@@ -234,6 +237,9 @@ ABACUS_STRU_KEY_WORD = [
 
 BOHR2A = 0.5291875321107901
 A2BOHR = 1 / BOHR2A
+
+EV2RY = 0.5 / 13.605698066
+RY2EV = 1 / EV2RY
 
 
 PERIOD_DICT_ELEMENT = {1: 'H', 2: 'He', 3: 'Li', 4: 'Be', 5: 'B', 6: 'C', 7: 'N', 8: 'O', 9: 'F', 10: 'Ne',\

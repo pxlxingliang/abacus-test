@@ -1,3 +1,4 @@
+from turtle import pos
 from typing import List, Dict
 import os,sys,traceback, re
 import numpy as np
@@ -105,9 +106,11 @@ class AbacusStru:
         else:
             print("WARNING: element is not defined, will use the first one/two letter of label as element name")
             self._element = []
-            for i in label:
-                while i[-1].isdigit(): i = i[:-1]
-                self._element.append(i)
+            for i in self._label:
+                ele = i[0]
+                if len(i) > 1 and i[1].islower():
+                    ele += i[1]
+                self._element.append(ele)
         
         if mass != None:
             self._mass = mass
@@ -123,12 +126,15 @@ class AbacusStru:
     def get_paw(self):
         return self._paw  
 
-    def get_label(self):
+    def get_label(self,total=True):
         '''return the label name of each atom'''
-        label = []
-        for idx,i in enumerate(self._atom_number):
-            label += [self._label[idx]] * i
-        return label
+        if total:
+            label = []
+            for idx,i in enumerate(self._atom_number):
+                label += [self._label[idx]] * i
+            return label
+        else:
+            return self._label
     
     def get_dpks(self):
         return self._dpks
@@ -139,11 +145,15 @@ class AbacusStru:
     def get_mag(self):
         return self._magmom
     
-    def get_element(self,number=True):
+    def get_element(self,number=True,total=True):
         '''return the element name of each atom'''
-        element = []
-        for idx,i in enumerate(self._atom_number):
-            element += [self._element[idx]] * i
+        if total:
+            element = []
+            for idx,i in enumerate(self._atom_number):
+                element += [self._element[idx]] * i
+        else:
+            element = self._element
+            
         if not number:
             return element
         else:
@@ -181,6 +191,106 @@ class AbacusStru:
             "cartesian": self._cartesian,
         }
     
+    def get_kline(self,orig_cell=False,
+                  new_stru_file=None,
+                  kpt_file=None,
+                  point_number=20,
+                  with_time_reversal=True,
+                  recipe="hpkot", 
+                  threshold=1e-7, 
+                  symprec=1e-5, 
+                  angle_tolerance=-1.0,):
+        '''
+        Use seekpath to generate the k-line: https://github.com/giovannipizzi/seekpath
+        orig_cell: if True, then use the input cell to generate the k-line, else use primitive cell
+        return a dict:
+        {
+            "cell": cell, # unit: Bohr
+            "coord": coord, # direct type
+            "atom_label": label, # a list of the label of each atom
+            "point_coords": {"Gamma": [0,0,0], "X": [0.5,0,0], ...}, # a dict of the coordinate of each high symmetry point
+            "path": [("Gamma","X"),("X","M"),...], # a list of the k-line, each element is a tuple of two high symmetry point
+        }
+        
+        If orig_cell = False, then the cell and coord is the primitive cell, else the input cell.
+        
+        Point_number: the number of k-point between two high symmetry point, 
+        And if the high symmetry of previous and next point is not same, then the number will be 1.
+        
+        with_time_reversal/recipe/threshold/symprec/angle_tolerance: the parameter of seekpath
+        '''
+        import seekpath
+        cell = self.get_cell(bohr=True)
+        coord = self.get_coord(bohr=True,direct=True)
+        labels = self.get_label()
+        label = []
+        for i in labels: 
+            if i not in label:
+                label.append(i)
+        number = [label.index(i) for i in labels]
+        stru = (cell,coord,number)
+        
+        if orig_cell:
+            kpath = seekpath.get_path_orig_cell(stru,with_time_reversal=with_time_reversal,recipe=recipe,threshold=threshold,symprec=symprec,angle_tolerance=angle_tolerance)
+            new_cell = cell
+            new_coord = coord
+            new_label = labels
+        else:
+            kpath = seekpath.get_path(stru,with_time_reversal=with_time_reversal,recipe=recipe,threshold=threshold,symprec=symprec,angle_tolerance=angle_tolerance)
+            new_cell = kpath["primitive_lattice"]
+            # resort the new_coord and new_label to the order of label
+            new_label = []
+            new_coord = []
+            for i in range(len(label)):
+                for j in range(len(kpath["primitive_types"])):
+                    if kpath["primitive_types"][j] == i:
+                        new_label.append(label[i])
+                        new_coord.append(kpath["primitive_positions"][j])
+        
+        point_coords = kpath["point_coords"]
+        path = kpath["path"]
+        
+        # transfer GAMMA to G
+        if "G" not in point_coords:
+            if "GAMMA" in point_coords:
+                point_coords["G"] = point_coords["GAMMA"]
+                del point_coords["GAMMA"]
+                
+                for idx,ipath in enumerate(path):
+                    if ipath[0] == "GAMMA":
+                        path[idx] = ("G",ipath[1])
+                    if ipath[1] == "GAMMA":
+                        path[idx] = (ipath[0],"G")
+        
+        # generate the k-line
+        if kpt_file != None:
+            kpt = [point_coords[path[0][0]] + [point_number,path[0][0]]]
+            for idx,ipath in enumerate(path[:-1]):
+                if ipath[1] == path[idx+1][0]:
+                    kpt.append(point_coords[ipath[1]] + [point_number,ipath[1]])
+                else:
+                    kpt.append(point_coords[ipath[1]] + [1,ipath[1]])
+                    kpt.append(point_coords[path[idx+1][0]] + [point_number,path[idx+1][0]])
+            kpt.append(point_coords[path[-1][1]] + [1,path[-1][1]])        
+            WriteKpt(kpt,kpt_file,model="line")
+        
+        # write the new stru file
+        if new_stru_file != None and not orig_cell:
+            new_stru = AbacusStru(label=new_label,
+                                  cell=new_cell,
+                                  coord=new_coord,
+                                  pp=self._pp,
+                                  orb=self._orb,
+                                  paw = self._paw,
+                                  lattice_constant=1.0,
+                                  magmom=self._magmom,
+                                  cartesian=False)
+            new_stru.write(new_stru_file)
+        else:
+            new_stru = self
+        
+        return new_stru,point_coords,path,kpath   
+
     def set_pp(self,pplist):
         if pplist and len(pplist) != len(self._label):
             print("ERROR: the length of pplist is not equal to label number")
@@ -260,6 +370,28 @@ class AbacusStru:
             cc += self._dpks    
 
         Path(struf).write_text(cc)  
+    
+    def write2poscar(self,poscar="POSCAR"):
+        '''
+        write to POSCAR file for VASP
+        '''
+        cc = "STRUCTURE translated by abacustest\n"
+        cc += f"{self._lattice_constant * constant.BOHR2A}\n"
+        for i in self._cell:
+            cc += "%17.11f %17.11f %17.11f\n" % tuple(i)
+        cc += " ".join(self._label)+"\n"
+        cc += " ".join([str(i) for i in self._atom_number])+"\n"
+        if self._cartesian:
+            cc += "Cartesian\n"
+        else:
+            cc += "Direct\n"
+        for i in self._coord:
+            cc += "%17.11f %17.11f %17.11f\n" % tuple(i)
+            
+        if poscar != None:
+            Path(poscar).write_text(cc)
+        return cc
+        
         
     @staticmethod
     def ReadStru(stru:str = "STRU"):
@@ -371,10 +503,76 @@ class AbacusStru:
                           cartesian=cartesian)
         
 
-def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT"):
-    with open(file_name,'w') as f1:
-        f1.write("K_POINTS\n0\nGamma\n")
-        f1.write(" ".join([str(i) for i in kpoint_list]))
+def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT", model="gamma"):
+    '''
+    Docs for KPT file: https://abacus.deepmodeling.com/en/latest/advanced/input_files/kpt.html
+    ABACUS KPT support three models:
+    - gamma/mp: is the Monkhorst-Pack method, such as:
+    
+        K_POINTS //keyword for start
+        0 //total number of k-point, `0' means generate automatically
+        Gamma //which kind of Monkhorst-Pack method, `Gamma' or `MP'
+        2 2 2 0 0 0 //first three number: subdivisions along recpri. vectors
+                    //last three number: shift of the mesh
+        
+    - direct/cartessian: set the k-point explicitly, such as:
+        
+            K_POINTS
+            1
+            Direct
+            0.0 0.0 0.0 1.0  // the last number is the weight of this k-point
+            
+    - line: set the k-point along a line, such as:
+            
+                K_POINTS
+                2  // number of high symmetry k-points along the
+                Line
+                0.0 0.0 0.0 10  // Gamma the last number is number of k-points between this and next k-point
+                0.5 0.0 0.0 1 
+    
+    For gamma/mp model, the k-point_list should be a list of 6 values, such as:
+    [2,2,2,0,0,0]
+    
+    For explicitly model, the k-point_list should be a list of list of 3 or 4 values, such as:
+    [[0.0,0.0,0.0,1.0],[0.5,0.0,0.0,1.0]]
+    
+    For line model, the k-point_list should be a list of list of 4 or 5 values (the last value is a string of comment), such as:
+    [[0.0,0.0,0.0,10],[0.5,0.0,0.0,1]] or
+    [[0.0,0.0,0.0,10 "#Gamma"],[0.5,0.0,0.0,1,"//"],[0.5,0.5,0.0,1,"//"]]         
+    '''
+    if model.lower() in ["gamma","mp"]:
+        with open(file_name,'w') as f1:
+            f1.write("K_POINTS\n0\nGamma\n")
+            f1.write(" ".join([str(i) for i in kpoint_list]))
+    elif model.lower() in ["direct","cartessian"]:
+        # normalize the weight
+        kpt = []
+        if len(kpoint_list[0]) == 3:
+            kpt = [i+[1.0/len(kpoint_list)] for i in kpoint_list]
+        elif len(kpoint_list[0]) == 4:
+            total_weight = sum([i[3] for i in kpoint_list])
+            kpt = [i[:3]+[i[3]/total_weight] for i in kpoint_list]
+        else:
+            print(f"ERROR: model is {model}, the kpoint_list is not correct!!!\n{kpoint_list}")
+            sys.exit(1)
+            
+        with open(file_name,'w') as f1:
+            f1.write(f"K_POINTS\n{len(kpoint_list)}\n{model.capitalize()}\n")
+            for i in kpt:
+                f1.write("%17.11f %17.11f %17.11f %17.11f\n" % tuple(i))
+    elif model.lower() in ["line"]:
+        with open(file_name,'w') as f1:
+            f1.write(f"K_POINTS\n{len(kpoint_list)}\nLine\n")
+            for i in kpoint_list:
+                if len(i) == 4:
+                    f1.write("%17.11f %17.11f %17.11f %4d\n" % tuple(i))
+                elif len(i) == 5:
+                    if not (i[-1].startswith("#") or i[-1].startswith("//")):
+                        i[-1] = "#"+i[-1]
+                    f1.write("%17.11f %17.11f %17.11f %4d %s\n" % tuple(i))
+    else:
+        print(f"ERROR: model is {model}, not support now!!!")
+        sys.exit(1)
 
 
 def ReadInput(INPUTf: str = None, input_lines: str = None) -> Dict[str,any]:
