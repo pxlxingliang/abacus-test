@@ -158,6 +158,7 @@ def Abacus2Qe(path: str= ".", save_path: str = None):
     cell = stru["cell"]
     coord = stru["coord"]
     cartesian = stru["cartesian"]
+    
     mag = abacus_stru.get_mag()
     pp = abacus_stru.get_pp()
     
@@ -191,7 +192,7 @@ def Abacus2Qe(path: str= ".", save_path: str = None):
         else:
             print("ERROR: kspacing should be a float or three floats")
             return None
-        kpt = comm.kspacing2kpt(kspacing,cell)
+        kpt = comm.kspacing2kpt(kspacing,[[i*stru["lat"] for i in j] for j in cell])
         kpt.extend([0,0,0])
     else:
         kptf = abacus_input.get("kpt_file","KPT")
