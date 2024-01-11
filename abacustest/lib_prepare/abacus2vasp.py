@@ -319,7 +319,7 @@ def Abacus2Vasp(abacus_path:str, save_path:str=None, potcar=None, vasp_setting={
         atom_number = [labels.count(i) for i in label]
         vasp_input["MAGMOM"] = " ".join([f"{atom_number[i]}*{mag[i]}" for i in range(len(mag))])
         
-    # update the vasp_input by vasp_setting    
+    # 4.4 update the vasp_input by vasp_setting    
     if vasp_setting:
         vasp_input.update(vasp_setting)
     if save_path != None:

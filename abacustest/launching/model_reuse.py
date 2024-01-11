@@ -24,6 +24,10 @@ class Models(String, Enum):
     model5 = "005-finite_diff_stress"
     model5_1 = "005-finite_diff_force"  
     model6 = "006_eos"
+    model7 = "007_bandstru"
+    model7_1 = "007_bandstru_abacusVSvasp"
+    model8 = "008_dos"
+    
 
 class MyModel(BaseModel):
     my_model: Models = Field(
