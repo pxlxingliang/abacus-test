@@ -50,3 +50,23 @@ def kpt2kspacing(kpt,cell):
     # remain 6 digits,
     kspacing = [round(i,6)+1e-5 for i in kspacing]
     return kspacing
+
+def IsTrue(param):
+    '''
+    judge if a parameter is True
+    
+    If param is a string, then judge if it is "True" or "true" or "T" or "t" or "1", if yes return True, elif is "False" or "false" or "F" or "f" or "0", return False, else return None.
+    If param is int or bool, return True if param is True, else return False.
+    
+    '''
+    if isinstance(param,str):
+        if param.lower() in ["true","t","1"]:
+            return True
+        elif param.lower() in ["false","f","0"]:
+            return False
+        else:
+            return None
+    elif isinstance(param,(int,bool)):
+        return True if param else False
+    else:
+        return None

@@ -1,6 +1,7 @@
 import os,sys
 from . import abacus as MyAbacus
 from abacustest import constant
+from . import comm
 
 def ParamAbacus2Vasp(abacus_input,incar= None):
     '''
@@ -121,17 +122,7 @@ def ParamAbacus2Vasp(abacus_input,incar= None):
         vasp_input["ISPIN"] = abacus_input["nspin"]
     
     if "dft_plus_u" in abacus_input:
-        if isinstance(abacus_input["dft_plus_u"],str):
-            u = abacus_input["dft_plus_u"].strip().lower()
-            if u not in ["false","0"]:
-                u = True
-            else:
-                u = False
-        elif isinstance(abacus_input["dft_plus_u"],(int,bool)):
-            u = bool(abacus_input["dft_plus_u"])
-        else:
-            u = False
-        if u:
+        if comm.IsTrue(abacus_input["dft_plus_u"]):
             vasp_input["LDAU"] = ".TRUE."
             vasp_input["LDAUTYPE"] = 2
             if "orbital_corr" in abacus_input:
@@ -142,8 +133,13 @@ def ParamAbacus2Vasp(abacus_input,incar= None):
     
     if "nupdown" in abacus_input:
         vasp_input["NUPDOWN"] = abacus_input["nupdown"]
-            
     
+    # lspinorb and nonclinear
+    if "lspinorb" in abacus_input and comm.IsTrue(abacus_input["lspinorb"]):
+        vasp_input["LSORBIT"] = ".TRUE."
+    if "noncolin" in abacus_input and comm.IsTrue(abacus_input["noncolin"]):
+        vasp_input["LNONCOLLINEAR"] = ".TRUE."
+
     if incar != None:
         with open(incar,"w") as f:
             for key,value in vasp_input.items():
