@@ -32,7 +32,7 @@ class Models(String, Enum):
 class MyModel(BaseModel):
     my_model: Models = Field(
         title="Model",
-        default="",description="The model you want to use. If you have entered the dataset information in the previous step, here will be ignored.")
+        default="",description="The model you want to use. If you have entered the dataset information in the previous step, here will be ignored. DOCs: https://dptechnology.feishu.cn/docx/I7NKdmURHosJSMxn7NCc5RsEnxb")
 
 class RundftImage(BaseModel):
     predft_command: String = Field(default="",
