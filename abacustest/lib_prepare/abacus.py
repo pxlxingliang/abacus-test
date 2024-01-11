@@ -1,11 +1,8 @@
-from turtle import pos
 from typing import List, Dict
 import os,sys,traceback, re
 import numpy as np
 from pathlib import Path
 from .. import constant
-
-
 
 class AbacusStru:
     def __init__(self,
