@@ -38,7 +38,7 @@ class ImageBohrium(BaseModel):
     image: String = Field(default=BohriumMachineType("registry.dp.tech/deepmodeling/abacus-intel:latest"),
                           title="Bohrium Image Address",
                           description="",)
-    bohrium_machine_type: BohriumMachineType = Field(default=BohriumMachineType("c32_m128_cpu"))
+    bohrium_machine_type: BohriumMachineType = Field(default=BohriumMachineType("c32_m64_cpu"))
     bohrium_job_type: BohriumJobType = Field(default=BohriumJobType.CONTAINER)
     bohrium_plat_form: BohriumPlatform = Field(default=BohriumPlatform.ALI)
     on_demand: Boolean = Field(default=False)
