@@ -196,18 +196,15 @@ class AbacusStru:
                   recipe="hpkot", 
                   threshold=1e-7, 
                   symprec=1e-5, 
-                  angle_tolerance=-1.0,):
+                  angle_tolerance=-1.0):
         '''
         Use seekpath to generate the k-line: https://github.com/giovannipizzi/seekpath
         orig_cell: if True, then use the input cell to generate the k-line, else use primitive cell
-        return a dict:
-        {
-            "cell": cell, # unit: Bohr
-            "coord": coord, # direct type
+        return a new_stru, point_coords, path, kpath
+
             "atom_label": label, # a list of the label of each atom
             "point_coords": {"Gamma": [0,0,0], "X": [0.5,0,0], ...}, # a dict of the coordinate of each high symmetry point
             "path": [("Gamma","X"),("X","M"),...], # a list of the k-line, each element is a tuple of two high symmetry point
-        }
         
         If orig_cell = False, then the cell and coord is the primitive cell, else the input cell.
         
@@ -227,13 +224,27 @@ class AbacusStru:
         number = [label.index(i) for i in labels]
         stru = (cell,coord,number)
         
+        while symprec <= 1e-2:
+            try:
+                if orig_cell:
+                    kpath = seekpath.get_path_orig_cell(stru,with_time_reversal=with_time_reversal,recipe=recipe,threshold=threshold,symprec=symprec,angle_tolerance=angle_tolerance)
+                else:
+                    kpath = seekpath.get_path(stru,with_time_reversal=with_time_reversal,recipe=recipe,threshold=threshold,symprec=symprec,angle_tolerance=angle_tolerance)
+                break
+            except:
+                traceback.print_exc()
+                print("WARNING: get_path failed, increase symprec to %e" % (symprec*10))
+                symprec *= 10
+        
+        if symprec > 1e-2:
+            print("ERROR: get_path failed, please check the structure")
+            sys.exit(1)
+            
         if orig_cell:
-            kpath = seekpath.get_path_orig_cell(stru,with_time_reversal=with_time_reversal,recipe=recipe,threshold=threshold,symprec=symprec,angle_tolerance=angle_tolerance)
             new_cell = cell
             new_coord = coord
             new_label = labels
         else:
-            kpath = seekpath.get_path(stru,with_time_reversal=with_time_reversal,recipe=recipe,threshold=threshold,symprec=symprec,angle_tolerance=angle_tolerance)
             new_cell = kpath["primitive_lattice"]
             # resort the new_coord and new_label to the order of label
             new_label = []
