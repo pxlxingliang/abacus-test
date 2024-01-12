@@ -801,7 +801,7 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
                 ipath = list(isetting.keys())[0]
                 print(ipath)
                 try:
-                    Aba2Qe.Abacus2Qe(ipath,save_path=os.path.join(ipath,"input"))
+                    Aba2Qe.Abacus2Qe(ipath,save_path=os.path.join(ipath,"input"),qe_param=param_setting.get("qe_setting",{}))
                 except:
                     traceback.print_exc()
     

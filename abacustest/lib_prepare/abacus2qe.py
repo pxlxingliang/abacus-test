@@ -1,12 +1,12 @@
 from typing import Dict
-import os
+import os,copy
 import numpy as np
 from . import abacus as MyAbacus
 from . import qe as MyQe
 from . import comm
 
 
-def ParamAbacus2Qe(param:Dict[str,any]):
+def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
     '''transfer the abacus input to qe input
     
     Parameters
@@ -21,6 +21,7 @@ def ParamAbacus2Qe(param:Dict[str,any]):
     
     '''
     print("Transfer abacus input to qe input")
+    param = copy.deepcopy(input_param)
     qp = {"control":{},
           "system":{},
           "electrons":{},
@@ -93,11 +94,11 @@ def ParamAbacus2Qe(param:Dict[str,any]):
         qp["electrons"]["mixing_beta"] = param.pop("mixing_beta","0.7")
     else:
         print("WARNING: mixing_type %s is not supported now, will not set mixing_mode in QE." % mixing)
-        
-    # these paramters will be ignored    
-    for ip in ["suffix","basis_type","gamma_only","kpt_file"]:
-        param.pop(ip,None)
     
+    # these paramters will be ignored    
+    for ip in ["suffix","basis_type","gamma_only","kpt_file","dft_plus_u","orbital_corr","hubbard_u"]:
+        param.pop(ip,None)
+        
     # print out warning for the left parameters
     left_param = []
     for ip in param:
@@ -108,9 +109,18 @@ def ParamAbacus2Qe(param:Dict[str,any]):
         print("WARNING: The following parameters are not supported in QE, will be ignored:")
         for ip in left_param:
             print("         %s" % ip)
+    
+    if qe_param:
+        for ik,iv in qe_param.items():
+            if ik.lower() in ["system","control","electrons","ions","cell"]:
+                for ikk,ivv in iv.items():
+                    qp[ik.lower()][ikk] = ivv
+            else:
+                qp[ik] = iv
+                
     return qp 
 
-def Abacus2Qe(path: str= ".", save_path: str = None):
+def Abacus2Qe(path: str= ".", save_path: str = None, qe_param:Dict[str,any] = {}):
     '''transfer the abacus input to qe input
     
     Parameters
@@ -142,7 +152,9 @@ def Abacus2Qe(path: str= ".", save_path: str = None):
         print("ERROR: Read STRU file failed in %s" % path)
         return None
     
-    param = ParamAbacus2Qe(abacus_input)
+    qe_param_input = copy.deepcopy(qe_param)
+    version = qe_param_input.pop("version",7.0)
+    param = ParamAbacus2Qe(abacus_input,version,qe_param_input)
     if not param:
         print("ERROR: Transfer abacus input to qe input failed in %s" % path)
         return None
@@ -207,6 +219,27 @@ def Abacus2Qe(path: str= ".", save_path: str = None):
             print("ERROR: Not support KPT type: %s now!!!" % lines[2].strip())
             return None
 
+    # set plus U
+    if "dft_plus_u" in abacus_input:
+        if comm.IsTrue(abacus_input.pop("dft_plus_u")):
+            if version <= 7.0:
+                param["system"]["lda_plus_u"] = ".TRUE."
+                if "hubbard_u" in abacus_input:
+                    us = abacus_input.pop("hubbard_u").split()
+                    for i in range(len(us)):
+                        param["system"][" Hubbard_U(%d)" % (i+1)] = us[i]
+            else:
+                pdf = {"1":"p","2":"d","3":"f"}
+                labels = abacus_stru.get_label(total=False)
+                elements = abacus_stru.get_element(number=False,total=False)
+                orbital_corr = abacus_input.pop("orbital_corr").split()
+                us = abacus_input.pop("hubbard_u").split()
+                
+                param["HUBBARD (ortho-atomic)"] = [
+                    "U %s-%d%s %s" % (elements[i],comm.get_period(elements[i])-int(orbital_corr[i])+1,pdf[orbital_corr[i]],us[i]) for i in range(len(labels)) if orbital_corr[i] in ["1","2","3"]
+                ]
+                    
+    
     qe = MyQe.QeInputs(param=param,
                     label=label,
                     atom_number=atom_number,

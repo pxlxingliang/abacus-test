@@ -63,9 +63,13 @@ class QeInputs:
         self.kpt_type = kpt_type
         
         self.param = {}
+        comm_cards = ["control","system","electrons","ions","cell"]
         for ik,iv in param.items():
-            self.param[ik.lower()] = iv if iv != None else {}
-        for ikey in ["control","system","electrons","ions","cell"]:
+            if ik.lower() in comm_cards:
+                self.param[ik.lower()] = iv if iv != None else {}
+            else:
+                self.param[ik] = iv if iv != None else []
+        for ikey in comm_cards:
             if ikey not in self.param:
                 self.param[ikey] = {}
                 
@@ -186,6 +190,24 @@ class QeInputs:
             else:
                 print("ERROR: kpt_type is not defined")
                 sys.exit(1)
+            
+            # write special card
+            for key,value in self.param.items():
+                if key.lower() not in ["control","system","electrons","ions","cell"]:
+                    if isinstance(value,dict):
+                        f.write("\n&%s\n" % key)
+                        for ik,iv in value.items():
+                            f.write("%17s = %s\n" % (ik,str(iv)))
+                        f.write("/\n\n")
+                    elif isinstance(value,list):
+                        f.write("\n%s\n" % key)
+                        for iv in value:
+                            f.write("%s\n" % str(iv))
+                        f.write("\n")
+                    else:
+                        print("ERROR: special card '%s' is not defined" % key)
+                        sys.exit(1)
+            
         
     @staticmethod
     def ReadInput(filename="input"):

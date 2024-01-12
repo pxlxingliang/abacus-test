@@ -70,3 +70,30 @@ def IsTrue(param):
         return True if param else False
     else:
         return None
+
+def get_period(element):
+    if isinstance(element,str):
+        from abacustest import constant
+        element = constant.PERIOD_DICT_NUMBER.get(element,0)
+    if not isinstance(element,int):
+        print("ERROR: element should be a str or int, but not %s" % str(element))
+        return None
+    
+    if element in [1,2]:
+        return 1
+    elif element <= 10:
+        return 2
+    elif element <= 18:
+        return 3
+    elif element <= 36:
+        return 4
+    elif element <= 54:
+        return 5
+    elif element <= 86:
+        return 6
+    elif element <= 118:
+        return 7
+    else:
+        print("ERROR: element should be in [1,118], but not %d" % element)
+        return None
+        
