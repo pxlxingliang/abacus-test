@@ -218,8 +218,14 @@ def ProduceOneSteps(stepname,param):
         elif post_dft:
             # check the path of metrics, if no path, then use example_path as input
             if "metrics" in post_dft:
-                if "path" not in post_dft["metrics"]:
-                    post_dft["metrics"]["path"] = example_path
+                if isinstance(post_dft["metrics"],dict):
+                    if "path" not in post_dft["metrics"]:
+                        post_dft["metrics"]["path"] = example_path
+                elif isinstance(post_dft["metrics"],list):
+                    for imetric in range(len(post_dft["metrics"])):
+                        if isinstance(post_dft["metrics"][imetric],dict):
+                            if "path" not in post_dft["metrics"][imetric]:
+                                post_dft["metrics"][imetric]["path"] = example_path
     else:
         example_path = None  
     
