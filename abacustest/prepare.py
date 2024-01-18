@@ -752,12 +752,22 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
     example_template = param_setting.get("example_template",None)
     if isinstance(example_template,str):
         example_template = glob.glob(example_template)
+        # if __MACOSX folder is exist, then remove it
+        if "__MACOSX" in example_template:
+            example_template.remove("__MACOSX")
+        if "__MACOSX/" in example_template:
+            example_template.remove("__MACOSX/")
         example_template.sort()
     elif isinstance(example_template,list):
         tmp = copy.deepcopy(example_template)
         example_template = []
         for i in tmp:
             alli = glob.glob(i)
+            # if __MACOSX folder is exist, then remove it
+            if "__MACOSX" in alli:
+                alli.remove("__MACOSX")
+            if "__MACOSX/" in alli:
+                alli.remove("__MACOSX/")
             alli.sort()
             example_template += alli
     else:

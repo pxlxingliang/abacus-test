@@ -206,6 +206,9 @@ def FindLocalExamples_new(example,only_folder=False,oneartifact=False):
                 example_tmp.sort()
                 tmp = []
                 for ii in example_tmp:
+                    # if ii is __MACOSX, skip it
+                    if os.path.split(ii)[-1].startswith("__MACOSX"):
+                        continue
                     if only_folder and not os.path.isdir(ii):
                         continue
                     tmp.append(ii)
@@ -215,6 +218,8 @@ def FindLocalExamples_new(example,only_folder=False,oneartifact=False):
                     examples_name.append(tmp)
         elif isinstance(i,str):
             for ii in glob.glob(i):
+                if os.path.split(ii)[-1].startswith("__MACOSX"):
+                    continue
                 if only_folder and not os.path.isdir(ii):
                         continue
                 examples_name.append([ii])

@@ -75,6 +75,7 @@ def push_to_github(remote_path,github_setting,config_setting):
     # gen bash script
     repo_url_with_token=f"https://oauth2:{token}@github.com/{repo}.git"    
     bash_script = f'''#!/bin/bash
+wget --no-proxy https://dp-public.oss-cn-beijing.aliyuncs.com/k8s/speedUp.sh -O speedUp.sh && bash speedUp.sh >> start.log
 cd {github_path}
 git init
 git remote add origin "{repo_url_with_token}"
