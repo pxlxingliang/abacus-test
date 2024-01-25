@@ -48,7 +48,7 @@ def ParamAbacus2Vasp(abacus_input,incar= None):
             vasp_input["ISIF"] = 2
         else:
             vasp_input["ISIF"] = 0
-    elif calculation in ["relax","cell_relax"]:
+    elif calculation in ["relax","cell-relax"]:
         vasp_input["IBRION"] = 2
         if calculation == "relax":
             vasp_input["ISIF"] = 2
