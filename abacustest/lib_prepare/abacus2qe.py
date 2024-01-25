@@ -27,9 +27,9 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
           "electrons":{},
           "ions":{},
           "cell":{}}
-    
-    if param.pop("basis_type","pw") != "pw":
-        print("WARNING: The basis_type is not pw, is %s" % param.get("basis_type","pw"))
+    basis_type = param.pop("basis_type","pw") 
+    if basis_type != "pw":
+        print("WARNING: The basis_type is not pw, is %s" % basis_type)
     
     calculation = param.pop("calculation","scf").lower()
     if calculation == "scf":
@@ -51,7 +51,7 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
             qp["control"]["forc_conv_thr"] = param.get("force_thr")
             param.pop("force_thr")
     if qp["control"]["calculation"] == "vc-relax":
-        qp["calculation"]["press_conv_thr"] = param.pop("press_conv_thr",0.5)
+        qp["control"]["press_conv_thr"] = param.pop("press_conv_thr",0.5)
     
     # set common parameters
     qp["control"]["pseudo_dir"] = param.pop("pseudo_dir",".")
