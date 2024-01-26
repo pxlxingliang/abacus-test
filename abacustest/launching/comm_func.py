@@ -225,9 +225,12 @@ def pack(packfile_list, packfile_name, pack_type="zip"):
         import zipfile
         with zipfile.ZipFile(packfile_name, 'w') as zip_ref:
             for ifile in packfile_list:
-                for root, __, ifile in os.walk(ifile):
-                    for i in ifile:
-                        zip_ref.write(os.path.join(root, i))
+                if os.path.isfile(ifile):
+                    zip_ref.write(ifile)
+                else:
+                    for root, __, ifile in os.walk(ifile):
+                        for i in ifile:
+                            zip_ref.write(os.path.join(root, i))
     elif pack_type == "tar":
         import tarfile
         with tarfile.open(packfile_name, "w") as tar_ref:
@@ -235,14 +238,16 @@ def pack(packfile_list, packfile_name, pack_type="zip"):
                 tar_ref.add(ifile)
     elif pack_type == "gz":
         import gzip
-        with open(packfile_name, 'wb') as out_ref:
-            with gzip.open(packfile_name, 'wb') as gz_ref:
-                gz_ref.write(out_ref.read())
+        with gzip.open(packfile_name, 'wb') as gz_ref:
+            for ifile in packfile_list:
+                with open(ifile, 'rb') as in_ref:
+                    gz_ref.write(in_ref.read())
     elif pack_type == "bz2":
         import bz2
-        with open(packfile_name, 'wb') as out_ref:
-            with bz2.open(packfile_name, 'wb') as bz2_ref:
-                bz2_ref.write(out_ref.read())
+        with bz2.open(packfile_name, 'wb') as bz2_ref:
+            for ifile in packfile_list:
+                with open(ifile, 'rb') as in_ref:
+                    bz2_ref.write(in_ref.read())
     elif pack_type == "tgz":
         import tarfile
         with tarfile.open(packfile_name, "w:gz") as tar_ref:

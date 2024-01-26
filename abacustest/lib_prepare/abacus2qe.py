@@ -42,7 +42,10 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
         print("ERROR: calculation %s is not supported now!" % calculation)
         return None
     
-    if qp["control"]["calculation"] in ["relax","cell-relax"]:
+    if "relax_nmax" in param and calculation in ["relax","cell-relax","md"]:
+        qp["control"]["nstep"] = param.pop("relax_nmax")
+
+    if qp["control"]["calculation"] in ["relax","vc-relax"]:
         qp["control"]["forc_conv_thr"] = 0.001
         if param.get("force_thr_ev"):
             qp["control"]["forc_conv_thr"] = float(param.get("force_thr_ev")) / 25.7112
@@ -51,7 +54,7 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
             qp["control"]["forc_conv_thr"] = param.get("force_thr")
             param.pop("force_thr")
     if qp["control"]["calculation"] == "vc-relax":
-        qp["control"]["press_conv_thr"] = param.pop("press_conv_thr",0.5)
+        qp["cell"]["press_conv_thr"] = param.pop("press_conv_thr",0.5)
     
     # set common parameters
     qp["control"]["pseudo_dir"] = param.pop("pseudo_dir",".")
@@ -181,7 +184,7 @@ def Abacus2Qe(path: str= ".", save_path: str = None, qe_param:Dict[str,any] = {}
     param["system"]["celldm(1)"] = stru["lat"]
     if param["system"].get("nspin") == 2:
         for i in range(len(mag)):
-            if mag[i] != 0:
+            #if mag[i] != 0:
                 param["system"]["starting_magnetization(%d)" % (i+1)] = mag[i]
     
     # analysis the K_POINTS
