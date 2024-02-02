@@ -299,6 +299,64 @@ class AbacusStru:
         
         return new_stru,point_coords,path,kpath   
 
+    def get_kline_ase(self, point_number=10, kpt_file=None):
+        from ase import Atoms
+        from ase.cell import Cell
+        from ase.geometry.dimensionality import (analyze_dimensionality,isolate_components)
+        cell = self.get_cell(bohr=False)
+        coord =[tuple(i) for i in self.get_coord(bohr=False,direct=True)]
+        labels = self.get_label()
+        atoms = Atoms(symbols=labels, scaled_positions=coord, cell=cell, pbc=True)
+        intervals = analyze_dimensionality(atoms,method='RDA')
+        kpath = None
+        if intervals[0].dimtype == "3D":
+            kpath = atoms.cell.bandpath(npoints=100)
+        elif intervals[0].dimtype == "2D":
+            lat_length0 = atoms.cell.lengths()
+            lat_length1 = []
+            result = isolate_components(atoms,kcutoff=1.5)
+            for dim,components in result.items():
+                for atoms in components:
+                    lat_length1 = atoms.cell.lengths()
+            for i in range(len(lat_length0)):
+                lat_length0[i] = round(lat_length0[i],5)
+                lat_length1[i] = round(lat_length1[i],5)
+            pbc = []
+            for i in range(len(lat_length0)):
+                if lat_length0[i] in lat_length1:
+                    pbc.append(1)
+                else:
+                    pbc.append(0)
+            kpath = lat2d_pbc.bandpath(npoints=100)
+
+        if kpath:
+            pattern = '([A-Za-z]\\d?|,)'  # pattern to match points of form like 'A' or 'B1'
+            kpt_new = []
+            # Split path by high symmetry point names allowing for points like 'B1'
+            path_elements = re.findall(pattern, kpath.path)
+            #print(path_elements)
+            insert_details = []
+            for i, point in enumerate(path_elements):
+                if point == ',':
+                    continue
+                elif point not in kpath.special_points:
+                    raise ValueError(f"The point {point} is not defined in your special_points dictionary.")
+                else:
+                    #print(path_elements[i])
+                    #print(kpath.special_points[point])
+                    kpt_new.append(kpath.special_points[point])
+                    if i == len(path_elements) - 1 or path_elements[i+1] == ',':
+                        insert_details.append(str(1)+" # "+path_elements[i])
+                    else:
+                        insert_details.append(str(point_number)+" # "+path_elements[i])
+
+            lines = ['K_POINTS\n', str(len(kpt_new))+'\n', 'Line\n']
+            lines.extend(f"{k[0]:.12f} {k[1]:.12f} {k[2]:.12f} {mult}\n" for k, mult in zip(kpt_new, insert_details))
+            with open(kpt_file, 'w') as f:
+                f.write(''.join(lines))
+        else:
+            raise ValueError(f"kpath not found")
+
     def set_pp(self,pplist):
         if pplist and len(pplist) != len(self._label):
             print("ERROR: the length of pplist is not equal to label number")
