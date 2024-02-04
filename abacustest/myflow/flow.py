@@ -163,7 +163,10 @@ def set_config(param_context,debug):
     if "dflow_labels" in configs and isinstance(configs["dflow_labels"],str):
         if configs["dflow_labels"].strip() != "":
             import ast
+            print("dflow_labels:",configs["dflow_labels"].strip())
             configs["dflow_labels"] = ast.literal_eval(configs["dflow_labels"].strip())
+            print("dflow_labels literal_eval:",configs["dflow_labels"])
+            
         else:
             del configs["dflow_labels"]
     
@@ -173,8 +176,9 @@ def set_config(param_context,debug):
     globV.set_value("PRIVATE_SET", configs)
     
     if configs.get("dflow_labels",None) != None:
-        job_address = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + configs["dflow_labels"]["launching-job"]
-        globV.set_value("JOB_ADDRESS",job_address)
+        if isinstance(configs["dflow_labels"],dict) and configs["dflow_labels"].get("launching-job"):
+            job_address = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + configs["dflow_labels"].get("launching-job")
+            globV.set_value("JOB_ADDRESS",job_address)
     
     dflowOP.SetConfig(configs,debug=debug)
     return 
