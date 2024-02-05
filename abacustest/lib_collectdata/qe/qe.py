@@ -87,9 +87,11 @@ class Qe(ResultQe):
                        force="list, the force of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]. Unit in eV/Angstrom",
                        stress="list, the stress, [xx,xy,xz,yx,yy,yz,zx,zy,zz]. Unit in kbar.",
                        virial="list, the virial, [xx,xy,xz,yx,yy,yz,zx,zy,zz]. Unit in eV.",
+                       pressure="the pressure, unit in kbar",
                        cell = "list, the cell, [a1,a2,a3,b1,b2,b3,c1,c2,c3]. Unit in Angstrom",
                        volume = "the volume of cell, unit in Angstrom^3",
                        coord = "list, the coordinate of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]. Unit in Angstrom",
+                       label = "the label of each atom",
                        total_mag="total magnization",
                        absolute_mag="total absolute magnization",
                        nelec="total electron number",
@@ -123,24 +125,32 @@ class Qe(ResultQe):
                 self['kpt'] = [nk1, nk2, nk3]
 
         # structure
-        structure = output.find('atomic_structure')
+        structure = output.findall('atomic_structure')
+        if len(structure) == 0:
+            structure = None
+        else:
+            structure = structure[-1]
         volume = None
         if structure != None:
             cell_a = xfmlt(structure,['cell','a1'])
             cell_b = xfmlt(structure,['cell','a2'])
             cell_c = xfmlt(structure,['cell','a3'])
             if cell_a and cell_b and cell_c:
-                self['cell'] = cell = [float(i)* comm.BOHR2A for i in cell_a.split() + cell_b.split() + cell_c.split()]
+                self['cell'] = cell = [[float(i)* comm.BOHR2A for i in j.split()]  for j in [cell_a,cell_b,cell_c]]
                 # calculate the volume by cell
                 import numpy as np
-                self["volume"] = volume = np.linalg.det(np.array(cell).reshape(3,3))
+                self["volume"] = volume = np.linalg.det(cell)
             coord = []
+            label = []
             for icoord in structure.findall('atomic_positions/atom'):
                 coord.append([float(i) * comm.BOHR2A for i in icoord.text.split()])
+                label.append(icoord.attrib['name'])
             if len(coord) == self['natom']:
                 self['coord'] = coord
+                self["label"] = label
             else:
                 self['coord'] = None
+                self["label"] = None
                 print("ERROR: the length of coord is not equal to natom")
         else:
             self['cell'] = None
@@ -152,6 +162,7 @@ class Qe(ResultQe):
             # the read in stress is in Hartree/Bohr^3, convert to kbar
             # 1 kbar = 1e8 Pa = 1e8 N/m^2 = 1e8 J/m^3 = 1e8 * 2.2937126583579E17 Hartree/m^3 = 2.2937126583579E25 * 5.29177E-11**3 Hartree/Bohr^3 = 3.398927420868445E-6 Hartree/Bohr^3
             self['stress'] = [ float(i)/comm.KBAR2HARTREEPERBOHR3 for i in output.find('stress').text.split()]
+            self["pressure"] = (self['stress'][0] + self['stress'][4] + self['stress'][8]) / 3.0
             # calculate the virial, unit in eV
             if volume != None:
                 self['virial'] = [ float(i) * volume * comm.HARTREE2EV / comm.BOHR2A ** 3   for i in output.find('stress').text.split()]
@@ -183,11 +194,31 @@ class Qe(ResultQe):
 
     @ResultQe.register(relax_converge="if the relax is converged")
     def GetRelaxConverge(self):
-        if self.XMLROOT == None:
-            return
-        
-        output = self.XMLROOT.find('output')
-        self["relax_converge"] = comm.ibool(xfmlt(output,['convergence_info','opt_conv','convergence_achieved']))
+        if self.OUTPUT:
+            for line in self.OUTPUT[::-1]:
+                if "The maximum number of steps has been reached." in line:
+                    self["relax_converge"] = False
+                    return
+                elif "bfgs converged in" in line:
+                    self["relax_converge"] = True
+                    return
+            self["relax_converge"] = None
+            
+        elif self.XMLROOT != None:
+            output = self.XMLROOT.find('output')
+            rlx_conv = comm.ibool(xfmlt(output,['convergence_info','opt_conv','convergence_achieved']))
+            # in QE, after the rlx is converged, it will do another SCF, but in some case the scf is not done, and this value will be false
+            # we need to check if the ION steps is less than input/control_variables/nstep, if yes, we should set this value to True
+            if not rlx_conv:
+                nstep = comm.iint(xfmlt(self.XMLROOT,["input",'control_variables','nstep']))
+                if nstep == None:
+                    nstep = 50
+                if self["relax_steps"] != None and self["relax_steps"] < nstep:
+                    rlx_conv = True
+            
+            self["relax_converge"] = rlx_conv
+        else:
+            self["relax_converge"] = None
 
     @ResultQe.register(relax_steps="the total ION steps")
     def GetRelaxStepsFromXml(self):

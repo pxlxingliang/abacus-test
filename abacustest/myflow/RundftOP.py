@@ -228,7 +228,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
         
         if not predft_step:
             # if predft_step is none, then the input of rundft is examples,
-            assert example_path or rundft_set.get("example") != None, "example in rundft is not defined"
+            assert example_path or rundft_set.get("example") != None, "example in run_dft is not defined"
             if "example" not in rundft_set:
                 example_list = example_path
                 example_source = None
@@ -237,12 +237,15 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
                 example_list = rundft_set["example"]
                 example_source = rundft_set.get("example_source")
                 example_source_type = rundft_set.get("example_source_type", "local")
+            
             examples, examples_name = comm.transfer_source_to_artifact(
                 example_list,
                 source=example_source,
                 source_type=example_source_type,
                 only_folder=True,
                 oneartifact=False)
+            assert len(examples) > 0, "example in run_dft is not defined or the defined example is not exist!!!"
+            '''
             new_examples,new_examples_name = comm.SplitGroupSize(examples,examples_name,group_size)
             istep = 0
             pt = PythonOPTemplate(RunDFT,image=image,envs=comm.SetEnvs())
@@ -272,7 +275,47 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
 
                 allstepname.append(dflow_stepname_istep)
                 all_save_path.append(sub_savepath)
-                allsteps.append(step)   
+                allsteps.append(step) 
+            '''
+            examples, examples_name = comm.transfer_source_to_artifact(
+                example_list,
+                source=example_source,
+                source_type=example_source_type,
+                only_folder=True,
+                oneartifact=True)
+            print("example_name:",examples_name)
+            assert len(examples) > 0, "example in run_dft is not defined or the defined example is not exist!!!"
+            pt = PythonOPTemplate(RunDFT,image=image,envs=comm.SetEnvs(),
+                    slices=Slices(
+                        "{{item}}",
+                        #sub_path=True,
+                        input_artifact = ["examples"],
+                        output_artifact = ["outputs"],
+                        group_size=group_size,
+                        )
+                    )
+            artifacts={"examples": examples[0][0]}
+            if extrafiles:
+                artifacts["extra_files"]=extrafiles[0][0]
+            nexample = len(examples_name[0])
+            step = Step(name=dflow_stepname, template=pt,
+                        parameters=parameters,
+                        artifacts=artifacts,
+                        continue_on_failed=True,
+                        with_param=argo_range(nexample),
+                        key=dflow_stepname+"-{{item}}"
+                        )
+            if executor != None:
+                step.executor = executor
+                
+            if gather_result:
+                step.template.outputs.artifacts["outputs"].save = [model_output_artifact]
+                step.template.outputs.artifacts["outputs"].archive = None    
+
+            allstepname.append(dflow_stepname)
+            all_save_path.append(sub_savepath)
+            allsteps.append(step)  
+            
         else:
             artifacts_example = predft_step.outputs.artifacts['outputs']
             #produce step

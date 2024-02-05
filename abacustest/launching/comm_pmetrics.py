@@ -12,6 +12,7 @@ METRICS_UNIT = {
     "efermi": "eV",
     "band_gap": "eV",
     "virial": "eV",
+    "pressure": "kbar",
     "total_time": "s",
     "largest_gradient": "eV/A",
     "stress_time": "s",
@@ -264,7 +265,7 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric,example_name_prefix,
                     ivalue = None
                 iabs.append(ivalue)
                 try:
-                    ivalue = sum([i**2 for i in delta_y[iy][jy]])**0.5
+                    ivalue = sum([i**2 for i in delta_y[iy][jy]])**0.5/len(delta_y[iy][jy])
                 except:
                     ivalue = None
                 inorm.append(ivalue)
@@ -290,13 +291,13 @@ def plot_delta_Y(y_list, legend_list, example_name, imetric,example_name_prefix,
         if len(norm) > 0:
             tmp_ = sort_lists([example_name]+norm)
             legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], legend_norm, example_name_prefix, example_name_number, has_yref = False)
-            options = comm_echarts.produce_multiple_y(f"{add_unit(imetric)}(Norm(this job - reference))", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
+            options = comm_echarts.produce_multiple_y(f"{add_unit(imetric)}(Norm(this job - reference)/N)", x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
             options["xAxis"][0]["axisLabel"] = {
                 "rotate": 15,
                 "interval": int(len(example_name)/15)
                 } 
             chart_elements.append(ChartReportElement(
-                    options=options, title=f"{add_unit(imetric)}(Norm(this job - reference))"))      
+                    options=options, title=f"{add_unit(imetric)}(Norm(this job - reference)/N)"))      
     else:
         delta_y_list = []
         percentage_delta_y_list = []

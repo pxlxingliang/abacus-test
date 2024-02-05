@@ -1,5 +1,5 @@
 from . import globV
-import os,shutil,glob
+import os,shutil,glob,json
 from pathlib import Path
 
 def printinfo(istr,*args):
@@ -145,8 +145,8 @@ def ProduceExecutor(param,group_name="abacustesting"):
         resources_dict: resources config for dispatcher
         task_dict: task config for dispatcher
         json_file: JSON file containing machine and resources config
-        '''
-        
+
+
         dispatcher_executor = DispatcherExecutor(
             host = param["dispatcher"].get("host",None),
             queue_name = param["dispatcher"].get("queue_name",None),
@@ -162,6 +162,8 @@ def ProduceExecutor(param,group_name="abacustesting"):
             task_dict = param["dispatcher"].get("task_dict",None),
             json_file = param["dispatcher"].get("json_file",None)
             )
+        '''
+        dispatcher_executor = DispatcherExecutor(**param["dispatcher"])
         import copy
         tmp_param = copy.deepcopy(param["dispatcher"])
         hide_config_in_dispatcher(tmp_param)
@@ -204,6 +206,9 @@ def FindLocalExamples_new(example,only_folder=False,oneartifact=False):
                 example_tmp.sort()
                 tmp = []
                 for ii in example_tmp:
+                    # if ii is __MACOSX, skip it
+                    if os.path.split(ii)[-1].startswith("__MACOSX"):
+                        continue
                     if only_folder and not os.path.isdir(ii):
                         continue
                     tmp.append(ii)
@@ -213,6 +218,8 @@ def FindLocalExamples_new(example,only_folder=False,oneartifact=False):
                     examples_name.append(tmp)
         elif isinstance(i,str):
             for ii in glob.glob(i):
+                if os.path.split(ii)[-1].startswith("__MACOSX"):
+                    continue
                 if only_folder and not os.path.isdir(ii):
                         continue
                 examples_name.append([ii])
@@ -250,7 +257,7 @@ def transfer_source_to_artifact(example,source=None,source_type="local",only_fol
     if source_type == "local":
         examples,examples_name = FindLocalExamples_new(example,only_folder=only_folder,oneartifact=oneartifact)
     
-    # examples = [artifact1,artifact2,...]
+    # examples = [[artifact1,artifact2,...],[artifact3,artifact4,...],...]
     # examples_name = [[example1,example2,...],[example3,example4,...],...]
     return examples,examples_name
 
@@ -322,7 +329,10 @@ def SetEnvs():
     from dflow import Secret
     envs = {}
     for k,v in globV.get_value("PRIVATE_SET").items():
-        envs[k.upper()] = Secret(str(v))
+        if isinstance(v,dict):
+            envs[k.upper()] = Secret("'" + json.dumps(v) + "'")
+        else:
+            envs[k.upper()] = Secret(str(v))
     return envs
 
 def run_command(

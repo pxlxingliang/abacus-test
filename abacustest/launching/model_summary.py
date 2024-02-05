@@ -128,7 +128,63 @@ def get_profile_value(allruninfos,profile,aim_tag,metrics,metrics_coef,metrics_n
                 i[-1] = None
     return allvalues
 
-def produce_outtable(allvalues,profile,metrics,digit):
+def color_value(value,allvalues,color_method,color_list=["green","red"]):
+    '''
+    if value is not float or int, then return None
+    
+    allvalues should be a list of history value.
+    
+    metrics_color define how to color the value, should be a dict, where key is the metric name, value is color stragegy: 
+    1. a string, which is a python format string that can be eval to a bool value. For example: "x >= 1.0" means if x >= 1.0, then color it to green else red.
+    2. a list of a list of two string, each sublist has two string,the first one is the color method, the second one is the color value. 
+        And if the value not meet all the color method, then use the last color value in color_list.
+    such as: "x>=1.0" or [["x>=1.0","green"],["x>=0.5","yellow"],["x>=0.0","red"]]
+        
+    The string can be some special case: 
+        "SIGMA 10 1" means use the last 10 values to calculate the mean and std, then color the value to green if it is in the range of mean -1*std to 1*std, else red.
+        "SIGMAU 10 1" means use the last 10 values to calculate the mean and std, then color the value to green if it is larger than mean to 1*std, else red.
+        "SIGMAD 10 1" means use the last 10 values to calculate the mean and std, then color the value to green if it is smaller than mean to 1*std, else red.
+    
+    color_list has two values, the first one is the color for True, the second one is the color for False.
+    '''
+    if not isinstance(value,(int,float)):
+        return None
+    if color_method == None:
+        return None
+    if isinstance(color_method,str):
+        color_method = [[color_method,color_list[0]]]
+    print("value,color_method: ",value,color_method)       
+    for icolor,color in enumerate(color_method):
+        if color[0].startswith("SIGMA"):
+            sigma = color[0].split()
+            sigma_method = sigma[0]
+            sigma_number = int(sigma[1])
+            sigma_range = float(sigma[2])
+            if len(allvalues) < sigma_number:
+                real_allvalues = [j for j in allvalues if j != None]
+            else:
+                real_allvalues = []
+                for i in range(sigma_number):
+                    if allvalues[-1-i] != None:
+                        real_allvalues.append(allvalues[-1-i])
+                    if len(real_allvalues) == sigma_number:
+                        break
+            if len(real_allvalues) == 0:
+                return color[1]  
+            mean = sum(real_allvalues)/len(real_allvalues)
+            std = (sum([(i-mean)**2 for i in real_allvalues])/len(real_allvalues))**0.5
+            print("value,mean,std,sigma: ",value,mean,std,sigma)
+            if (sigma_method == "SIGMA" and (mean - sigma_range*std <= value and value <= mean + sigma_range*std)) or \
+                (sigma_method == "SIGMAU" and value >= mean + sigma_range*std) or \
+                (sigma_method == "SIGMAD" and value <= mean - sigma_range*std):
+                    return color[1]
+        else:
+            x = value
+            if eval(color[0]):
+                return color[1]
+    return color_list[-1]
+
+def produce_outtable(allvalues,profile,metrics,digit,metrics_color,color_list=["green","red"]):
     '''
     outtable = [
         ["profile","date","profile_link",metrics_value],
@@ -141,6 +197,15 @@ def produce_outtable(allvalues,profile,metrics,digit):
     profile = [{"title":,"profiles":[]},...]
     metrics_value = a string for the final display
     This function will collect the last value, which may not be today
+    
+    metrics_color is a dict, which key is the metrics name and value is the color method, or the value is a dict that key is profile name and value is color method.
+    for a dict case, can use "000" as the key to define the default color method.
+    such as:
+    {
+        "NormalEnd_ratio": "x>=1.0",
+        "Converge_ratio": "x>=1.0",
+        "SCFConverge Score": {"intel-cg": "x>=100", "intel-dav": "x>=100", "intel-elpa": "x>=100", "intel-scalapack": "x>=100", "000": "x>=100"},
+    }
     '''
     
     outtable = [["profile","date","profile_link","version(commit)"]]
@@ -157,7 +222,18 @@ def produce_outtable(allvalues,profile,metrics,digit):
             outtable.append([iprofile,None,None,None])
             not_set_date = True
             for ik in metrics:
-                value = "--"
+                
+                color_method = None
+                
+                if ik in metrics_color:
+                    if isinstance(metrics_color[ik],dict):
+                        if iprofile in metrics_color[ik]:
+                            color_method = metrics_color[ik][iprofile]
+                        elif "000" in metrics_color[ik]:
+                            color_method = metrics_color[ik][0]
+                    else:
+                        color_method = metrics_color[ik]
+                        
                 ivalue = profile_value.get(ik)
                 if ivalue:
                     if not_set_date:
@@ -179,10 +255,19 @@ def produce_outtable(allvalues,profile,metrics,digit):
                                 if (value0 - value1) >= 0:
                                     value_rel = "+" + value_rel
                                 value = value_abs + f"[{value_rel}]"
-                                if (value0 - value1) > 0:
-                                    value = "<font color='green'>" + value + "</font>"
-                                elif (value0 - value1) < 0:
-                                    value = "<font color='red'>" + value + "</font>"
+                                
+                    allvalue = [i[1] for i in ivalue[:-1] if i[1] != None]
+                else:
+                    allvalue = []
+                    value = "--"
+                    value0 = None
+                print("iprofile,ik,color_method,value:",iprofile,ik,color_method,value)    
+                if color_method != None and value != "--":
+                    color = color_value(value0,allvalue,color_method,color_list)
+                    if color == None:
+                        color = color_list[-1]
+                    value = "<font color='%s'>" % color + value + "</font>"
+
                 outtable[-1].append(value)
     return outtable
         
@@ -635,6 +720,7 @@ class LoadData(BaseModel):
     if_load_data: Boolean = Field(default = False)
 
 class SummaryModel(LoadData,
+                   comm_class.ConfigSetGithub,
                    Summary,
                    comm_class_exampleSource.DatasetSet,
                    comm_class.OutputSet,
@@ -805,6 +891,9 @@ def SummaryModelRunner(opts:SummaryModel):
     comment = setting.get("comment","")
     value_range = setting.get("value_range",{})
     chart_setting = setting.get("chart_setting",[])
+    remote_setting = setting.get("remote",{})
+    metrics_color = setting.get("metrics_color",{})
+    color_list = setting.get("color_list",["green","red"])
     
     json.dump(setting,open(os.path.join(output_path,"setting.json"),'w'),indent=4)
 
@@ -822,7 +911,7 @@ def SummaryModelRunner(opts:SummaryModel):
         allvalues = pickle.load(open("tracking.pkl",'rb'))
     
     #send to feishu and produce html file
-    outtable = produce_outtable(allvalues,profile,metrics,digit)
+    outtable = produce_outtable(allvalues,profile,metrics,digit,metrics_color,color_list)
     if opts.feishu_webhook:
         current_job = opts.Config_dflow_labels["launching-job"]
         current_url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + current_job
@@ -842,9 +931,21 @@ def SummaryModelRunner(opts:SummaryModel):
 
     report = Report(title="abacus test report",
                         sections=[html_section,echart_html_section],
-                        description="a report of abacustest")
+                        description="a report of abacustest") 
     report.save(output_path)
-
+    
+    pwd = os.getcwd()
+    os.chdir(output_path)
+    if remote_setting:
+        from abacustest import remote
+        if "github" in remote_setting and "token_file" in remote_setting["github"] and remote_setting["github"]["token_file"].strip() != "":
+            remote_setting["github"]["token"] = open(remote_setting["github"]["token_file"]).read().strip()
+        remote_path = remote.prepare_files(remote_setting)
+        if remote_path:
+            remote.push_to_remote(remote_path,remote_setting,{"github_username": getattr(opts,"Config_github_username"),
+                                                              "github_email": getattr(opts,"Config_github_email"),
+                                                              "github_token": getattr(opts,"Config_github_token")})
+    os.chdir(pwd)
     #parse inputs  
     return 0
 

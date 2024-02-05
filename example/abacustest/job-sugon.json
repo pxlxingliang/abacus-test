@@ -1,0 +1,37 @@
+{
+    "comments": ["An example to submit to Sugon platform",
+                "1. prepare the key file, and add the path to \"private_key_file\"",
+                "2. prepare the run.sh script, which is the command to run the calculation, and usally containing some module load command to load the environment,",
+                "3. modify the resources_dict to set the node name, and if you need use dcu, add \"#SBATCH --gres=dcu:4\" to the custom_flags, and if use cpu, please remove custom_flags"
+            ],
+    "save_path": "result",
+    "run_dft": [
+        {
+            "ifrun": true,
+            "example": [
+                "00*"
+            ],
+            "dispatcher": {
+                "private_key_file": "key_file_name_downloaded_from_the_platform",
+                "machine_dict": {
+                    "remote_root": "/the/root/path/on/the/remote/machine/to/run",
+                    "remote_profile": {
+                        "hostname": "xxx",
+                        "username": "xxx",
+                        "port": 111
+                    }
+                },
+                "resources_dict": {
+                    "number_node": 1,
+                    "cpu_per_node": 32,
+                    "queue_name": "kshdnormal",
+                    "custom_flags": [
+                        "#SBATCH --gres=dcu:4"
+                    ]
+                }
+            },
+            "command": "bash run.sh",
+            "outputs": []
+        }
+    ]
+}

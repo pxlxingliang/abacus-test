@@ -209,7 +209,8 @@ class Abacus(ResultAbacus):
         self['force'] = force
     
     @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one",
-                           virial="list[9], virial of the system,  = stress * volume, which is the last one.")
+                           virial="list[9], virial of the system,  = stress * volume, which is the last one.",
+                           pressure="the pressure of the system, unit in kbar.")
     def GetStessFromLog(self):
         stress = None
         for i in range(len(self.LOG)):
@@ -238,8 +239,10 @@ class Abacus(ResultAbacus):
         self['stress'] = stress
         if stress != None and self["volume"] != None:
             self['virial'] = [i * self["volume"] * comm.KBAR2EVPERANGSTROM3 for i in stress]
+            self["pressure"] = (stress[0] + stress[4] + stress[8]) / 3.0
         else:
             self['virial'] = None
+            self["pressure"] = None
         
     @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
     def GetLargestGradientFromLog(self):
@@ -420,7 +423,7 @@ class Abacus(ResultAbacus):
         for i,line in enumerate(self.OUTPUT):
             if line[1:5] == 'ITER':
                 for j in range(i+1,len(self.OUTPUT)):
-                    if self.OUTPUT[j][1:3] in ['CG','DA','GE','GV']:
+                    if self.OUTPUT[j][1:3] in ['CG','DA','GE','GV','BP']:
                         scftime.append(float(self.OUTPUT[j].split()[-1]))
                 break
         if len(scftime) > 0:
@@ -471,8 +474,10 @@ class Abacus(ResultAbacus):
     @ResultAbacus.register(lattice_constant="unit in angstrom",
                            cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will output the last one",
                            coordinate = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. If is relax or md, will output the last one",
-                           element_list = "list[], a list of the element name of all atoms",
-                           atomlabel_list = "list[], a list of atom label of all atoms")
+                           element = "list[], a list of the element name of all atoms",
+                           label = "list[], a list of atom label of all atoms",
+                           element_list = "same as element",
+                           atomlabel_list = "same as label")
     def GetCell(self):    
         for line in self.LOG:
             if "lattice constant (Angstrom)" in line:
@@ -525,6 +530,8 @@ class Abacus(ResultAbacus):
                 element_list += natom * [element]
                 if len(atomlabel_list) >= self['natom']:
                     break
+        self["element"] = element_list
+        self["label"] = atomlabel_list
         self['element_list'] = element_list
         self['atomlabel_list'] = atomlabel_list
             

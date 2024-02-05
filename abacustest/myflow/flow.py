@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from cProfile import label
 import os,sys,glob,time,shutil,argparse,json,traceback,re
 import numpy as np
 
@@ -20,7 +19,8 @@ def ParamParser(param):
         "pre_dft":{},
         "run_dft" : {},
         "post_dft": {},
-        "report":{}
+        "report":{},
+        "remote": {}
     }
     """
     
@@ -34,6 +34,7 @@ def ParamParser(param):
 #    alljobs["upload_datahub"] = param.get("upload_datahub",None)  #used to upload local files to datahub
 #    alljobs["upload_tracking"] = param.get("upload_tracking",None)  #used to upload tracking
     alljobs["report"] = param.get("report",None)
+    alljobs["remote"] = param.get("remote",None)
     alljobs["bohrium_group_name"] = "abacustesting"
     if param.get("bohrium_group_name","") != "":
         alljobs["bohrium_group_name"] = param.get("bohrium_group_name")
@@ -108,6 +109,11 @@ def WriteParamUserFile(storefolder=None,override=False):
                 if isinstance(v[i],dict):
                     if "dispatcher" in v[i]:
                         comm.hide_config_in_dispatcher(v[i]["dispatcher"])
+        
+        # hide remote/github/token information
+        if k == "remote":
+            if "github" in v and "token" in v["github"] and v["github"]["token"].strip() != "":
+                v["github"]["token"] = "******"
         save_cotext[k] = v
     json.dump(save_cotext,open(paraf,'w'),indent=4)
     #with open(paraf,'w') as f1: f1.write(globV.get_value("PARAM_CONTEXT")) 
@@ -141,6 +147,9 @@ def set_config(param_context,debug):
                             ["dflow_token","config_token"],
                             ["dflow_labels","dflow_labels"],   # dflow_labels is a dict
                             ["aim_access_token","AIM_ACCESS_TOKEN"],
+                            ["github_username","github_username"],
+                            ["github_password","github_password"],
+                            ["github_token","github_token"]
     ]:
         if new_key in user_context:
             configs[new_key] = user_context.pop(new_key)
@@ -154,18 +163,22 @@ def set_config(param_context,debug):
     if "dflow_labels" in configs and isinstance(configs["dflow_labels"],str):
         if configs["dflow_labels"].strip() != "":
             import ast
+            print("dflow_labels:",configs["dflow_labels"].strip())
             configs["dflow_labels"] = ast.literal_eval(configs["dflow_labels"].strip())
+            print("dflow_labels literal_eval:",configs["dflow_labels"])
+            
         else:
             del configs["dflow_labels"]
     
     for ik,iv in user_context.items():
-        configs[ik] = iv    
+        configs[ik] = iv
             
     globV.set_value("PRIVATE_SET", configs)
     
     if configs.get("dflow_labels",None) != None:
-        job_address = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + configs["dflow_labels"]["launching-job"]
-        globV.set_value("JOB_ADDRESS",job_address)
+        if isinstance(configs["dflow_labels"],dict) and configs["dflow_labels"].get("launching-job"):
+            job_address = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + configs["dflow_labels"].get("launching-job")
+            globV.set_value("JOB_ADDRESS",job_address)
     
     dflowOP.SetConfig(configs,debug=debug)
     return 
@@ -200,12 +213,15 @@ def set_env(param):
     else:
         save_path = param.save
     SetSaveFolder(save_path)
-    
-    #report = param_context.get("report",{})
-    #globV.set_value("REPORT", report)
 
     report = param_context.get("report",{})
-    globV.set_value("REPORT", report)
+    if "report" in param_context and report.get("ifrun",True):
+        globV.set_value("REPORT", report)
+        
+    remote = param_context.get("remote",{})
+    if "remote" in param_context and remote.get("ifrun",True):
+        globV.set_value("REMOTE", remote)
+
 
 def waitrun(wf,stepnames,allsave_path):
     '''
@@ -217,7 +233,7 @@ def waitrun(wf,stepnames,allsave_path):
     makedfolder = []
     for i,istep in enumerate(stepnames):
         finishtest.append(len(istep)*[False])
-    finishtest = np.array(finishtest)  
+    finishtest = np.array(finishtest) 
           
     wfid = wf.id
 
@@ -228,9 +244,16 @@ def waitrun(wf,stepnames,allsave_path):
                     continue
                 steps = wf.query_step(name = istep[j])
                 if len(steps) > 0: 
-                    step = steps[0]
-                    if step.phase in ["Pending","Running"]:
+                    allfinished = True
+                    for step in steps:
+                        #print(len(steps),step.name,step.phase)
+                        if step.phase in ["Pending","Running"]:
+                            allfinished = False
+                            time.sleep(4)
+                            break
+                    if not allfinished:
                         continue
+                    step = steps[0]
                     finishtest[i][j] = True
 
                     save_path = allsave_path[i][j][0]
@@ -331,6 +354,22 @@ def RunJobs(param):
         from abacustest import report
         filename = "abacustest.html"
         report.gen_html(globV.get_value("REPORT"),filename)
+        
+        os.chdir(pwd)
+    
+    if globV.get_value("REMOTE"):
+        comm.printinfo("\nPush the results to remote ...")
+        pwd = os.getcwd()
+        if os.path.isdir(globV.get_value("RESULT")):
+            os.chdir(globV.get_value("RESULT"))
+        
+        from abacustest import remote
+        remote_setting = globV.get_value("REMOTE")
+        if "github" in remote_setting and "token_file" in remote_setting["github"] and remote_setting["github"]["token_file"].strip() != "":
+            remote_setting["github"]["token"] = open(os.path.join(pwd,remote_setting["github"]["token_file"].strip())).read().strip()
+        remote_path = remote.prepare_files(remote_setting)
+        if remote_path:
+            remote.push_to_remote(remote_path,remote_setting,globV.get_value("PRIVATE_SET",{}))
         
         os.chdir(pwd)
         

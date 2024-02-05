@@ -1,8 +1,11 @@
 {
+    "comments": ["An example to submit to supercomputer",
+                "1. the command is the commands in your slurm script, and if there are multiple commands, you can use && to connect them",
+                "or you can write a bash script like: run.sh, and type bash run.sh in command, and add an item \"extra_files\": [\"run.sh\"]"
+            ],
     "save_path": "result",
     "run_dft": [
         {
-            "ifrun": true,
             "example": [
                 "00*"
             ],

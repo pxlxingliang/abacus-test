@@ -17,7 +17,8 @@ HTML_HEAD = """
             font-size: 20px;
             font-weight: bold;
             white-space: pre-wrap;
-            line-height: 2;
+            line-height: 2; 
+            margin-top: 1rem;   
         }
         
         .head2{
@@ -57,6 +58,7 @@ HTML_HEAD = """
             word-wrap: break-word;
             white-space: pre-wrap;
             line-height: 1.5;
+            margin-bottom: 0.5rem;
         }
         
         #keys table {
@@ -72,6 +74,7 @@ HTML_HEAD = """
         
         img {
             max-width: 600px;
+            max-height: 600px;
             height: auto;
             cursor: zoom-in;
         }
@@ -104,9 +107,7 @@ HTML_HEAD = """
 
 def _table2html(table,has_head=True):    
     # add title
-    html = "\n"
-    
-    html += '''\t<table border="2px">\n'''
+    html = '''\t<table border="2px">\n'''
 
     # add table head
     start_row = 0
@@ -125,7 +126,7 @@ def _table2html(table,has_head=True):
             html += '<td>%s</td>' % table[i][j]
         html += '</tr>\n'
     html += '\t\t</tbody>\n'
-    html += '\t</table>\n\n'
+    html += '\t</table>\n'
     
     return html
     
@@ -136,6 +137,7 @@ def metrics2html(metrics_set):
     title = metrics_set.get("title","")
     metrics = metrics_set.get("metrics",[])
     sort = metrics_set.get("sort",[])
+    center = metrics_set.get("center",True)
     
     if not os.path.exists(metric_file):
         print(f"Error: {metric_file} does not exist!")
@@ -144,6 +146,7 @@ def metrics2html(metrics_set):
     table = tb.file2table(metric_file)
     if table in [[],None]:
         return ""
+    if not sort: sort = [table[0][0]]
     table, pass_num = tb.format_table(table, metrics, sort, criteria)
     
     html = ""
@@ -155,10 +158,12 @@ def metrics2html(metrics_set):
         totalnum = pass_num["all"]["total"]
         icolor = "green" if passnum == totalnum else "red"
         # if all passed, then color the number to green, else red
-        html += f'''<div class="head2">Pass/Total: <font color="{icolor}">{passnum}/{totalnum} ({passnum/totalnum*100:.2f}%)</font></div>\n'''
+        html += f'''\t<div class="head2">Pass/Total: <font color="{icolor}">{passnum}/{totalnum} ({passnum/totalnum*100:.2f}%)</font></div>\n'''
         html += tb.gen_criteria(criteria,pass_num)
     html += _table2html(table,has_head=True)
     
+    if center:
+        html = "\t<center>\n" + html + "\t</center>\n"
     return html
 
 def supermetrics2html(supermetrics_set):
@@ -189,35 +194,47 @@ def supermetrics2html(supermetrics_set):
 def table2html(table_set):
     filename = table_set.get("content","")
     title = table_set.get("title","")
+    center = table_set.get("center",True)
     
     if not os.path.exists(filename):
         print(f"Error: {filename} does not exist!")
         return ""
     
+    html = ""
+    if title:
+        html += f'''\t<div class="tabletitle\">{title}</div>\n'''
+        
     filetype = os.path.splitext(filename)[1]
     if filetype == ".csv":
         table = tb.csv2table(filename)
     else:
         print(f"Error: file type '{filetype}' of table is not supported!")
         return ""
-    
-    return _table2html(table,title)
+
+    html += _table2html(table,has_head=True)
+    if center:
+        html = "\t<center>\n" + html + "\t</center>\n"
+    return html
 
 def image2html(image_set):
     image_file = image_set.get("content","")
     title = image_set.get("title","")
-    if not os.path.exists(image_file):
-        print(f"Error: {image_file} does not exist!")
-        return ""
+    center = image_set.get("center",True)
     
-    html = f"""
-    <img id="myImage" src="{image_file}" onclick="openFullscreen()">
-    <div class="overlay" id="overlay" onclick="closeFullscreen()">
-        <img id="fullscreenImage" src="{image_file}">
-    </div>
-    """
+    if isinstance(image_file,str):
+        image_file = [image_file]
+        
+    html = ""
+
+    for ifile in image_file:
+        if not os.path.exists(ifile):
+            print(f"Error: image '{ifile}' does not exist!")
+        html += f"""\t<img class="thumbnail" src="{ifile}" onclick="openFullscreen(this)">\n"""
+    
     if title != "":
-        html += f'''<div class="imagetitle">{title}</div>\n'''
+        html += f'''\t<div class="imagetitle">{title}</div>\n'''
+    if center:
+        html = "\t<center>\n" + html + "\t</center>\n"
     return html
     
 def text2html(text_set):
@@ -281,20 +298,31 @@ def gen_script(has_image=False):
     if not has_image:
         return ""
     
-    html = '''
-    <script>
+    html = ""
+    
+    if has_image:
+        # add script for image zoom
+        html += '''
+    <div class="overlay" id="overlay" onclick="closeFullscreen()">
+        <img id="fullscreenImage" src="">
+    </div>
     '''
+    
+    html += '''\t<script>\n'''
     
     if has_image:
         html += '''
-        function openFullscreen() {
-            let overlay = document.getElementById("overlay");
+        var overlay = document.getElementById("overlay");
+        var fullscreenImage = document.getElementById("fullscreenImage");
+        
+        function openFullscreen(imgElement) {
+            fullscreenImage.src = imgElement.src; 
             overlay.style.display = "block";
         }
-
+        
         function closeFullscreen() {
-            let overlay = document.getElementById("overlay");
             overlay.style.display = "none";
+            fullscreenImage.src = ""
         }
         '''
         
@@ -404,7 +432,8 @@ def gen_html(report_setting, output):
         elif itype == "supermetrics":
             html += supermetrics2html(item)
         else:
-            pass
+            continue
+        html += "\n"
     
     # add script for image zoom
     html += gen_script(has_image)

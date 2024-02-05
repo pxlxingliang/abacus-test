@@ -5,285 +5,15 @@ import copy
 from pathlib import Path
 from abacustest import constant
 from abacustest.myflow import comm
+from abacustest.lib_prepare import abacus as MyAbacus
+from abacustest.lib_prepare import abacus2qe as Aba2Qe
+from abacustest.lib_prepare import abacus2vasp as Aba2Vasp
 
-class AbacusStru:
-    def __init__(self,
-                 label:List[str],
-                 atom_number:List[int],
-                 cell:List[List[float]] ,
-                 coord:List[List[float]] ,
-                 pp:List[str],
-                 orb:List[str] = None,
-                 mass:List[float] = None,
-                 element:List[str] = None,
-                 lattice_constant:float = 1,
-                 magmom: List[float] = None,
-                 dpks:str = None,
-                 cartesian: bool = False):    
-        """ABACUS STRU class, the unit is Bohr
+def Direct2Cartesian(coord:List[List[float]],cell:List[List[float]]):
+    return np.array(coord).dot(np.array(cell)).tolist()
 
-        Parameters
-        ----------
-        label : List[str]
-            the label name of each type
-        atom_number : List[int]
-            the atom number of each type
-        pp : List[str]
-            pseudopotential file of each type
-        orb : List[str], optional
-            orbital file of each type, by default None
-        mass : List[float], optional
-            mass of each type, by default None
-        element : List[str], optional
-            element name of each type, by default None
-        cell : List[List[float]]
-            cell of a, b, c
-        coord : List[List[float]]
-            coordinate of each atom
-        lattice_constant : float, optional
-            the lattice constance, by default 1
-        magmom : float, optional
-            magmom setting of each type, by default None
-        dpks : str, optional
-            the deepks descriptor file name, by default None
-        cartesian : bool, optional
-            if the coordinate is cartesian type, default is direct type, by default False
-        """        
-        #check if label number is equal to pp number and orb number
-        assert(len(label) == len(pp))
-        if orb != None:
-            assert(len(label) == len(orb))
-        total_atom = np.array(atom_number).sum()
-        assert(total_atom == len(coord))
-        
-        self._label = label
-        self._atom_number = atom_number
-        self._cell = cell
-        self._coord = coord
-        self._pp = pp
-        self._orb = orb if orb else []
-        self._lattice_constant = lattice_constant
-        self._dpks = dpks if dpks else None
-        self._cartesian = cartesian
-        self._magmom = magmom if magmom else []
-        
-        if element != None:
-            self._element = element
-        else:
-            self._element = []
-            for i in label:
-                while i[-1].isdigit(): i = i[:-1]
-                self._element.append(i)
-        
-        if mass != None:
-            self._mass = mass
-        else:
-            self._mass = [constant.MASS_DICT.get(i,1.0) for i in self._element]
-    
-    def get_pp(self):
-        return self._pp
-
-    def get_orb(self):
-        return self._orb    
-
-    def get_label(self):
-        '''return the label name of each atom'''
-        label = []
-        for idx,i in enumerate(self._atom_number):
-            label += [self._label[idx]] * i
-        return label
-    
-    def get_dpks(self):
-        return self._dpks
-    
-    def get_mass(self):
-        return self._mass
-    
-    def get_element(self,number=True):
-        '''return the element name of each atom'''
-        element = []
-        for idx,i in enumerate(self._atom_number):
-            element += [self._element[idx]] * i
-        if not number:
-            return element
-        else:
-            return [constant.PERIOD_DICT_NUMBER[i] for i in element]
-    
-    def get_cell(self,bohr = False):
-        "return the cell matrix, in unit of Angstrom"
-        transfer_unit = 1 if bohr else constant.BOHR2A
-        cell = np.array(self._cell) * self._lattice_constant * transfer_unit
-        return cell.tolist()
-    
-    def get_coord(self,bohr = False, direct=False):
-        '''return the coordinate matrix, in cartesian or direct type, in unit of Angstrom or Bohr.
-        If direct is True, then return the direct type coordinate, and bohr will be ignored.'''
-        transfer_unit = 1 if bohr else constant.BOHR2A
-        if self._cartesian:
-            if not direct:
-                coord = np.array(self._coord) * transfer_unit * self._lattice_constant
-                return coord.tolist()
-            else:
-                coord = np.array(self._coord)
-                return coord.dot(np.linalg.inv(np.array(self._cell))).tolist()
-        else:
-            if not direct:
-                coord = np.array(self._coord) * transfer_unit * self._lattice_constant
-                return coord.dot(np.array(self._cell)).tolist()
-            else:
-                return self._coord
-    
-    def set_pp(self,pplist):
-        self._pp = pplist
-    
-    def set_orb(self,orblist):
-        self._orb = orblist
-
-    def set_dpks(self,descriptor):
-        self._dpks = descriptor
-    
-    def set_mass(self,mass):
-        self._mass = mass
-        
-    def set_element(self,element):
-        self._element = element
-        
-    def write(self,struf="STRU"):
-        cc = ""
-        #write species
-        cc += "ATOMIC_SPECIES\n"
-        for i,ilabel in enumerate(self._label):
-            cc += "%s %f %s\n" % (ilabel,self._mass[i],self._pp[i])
-        
-        #write orb
-        if self._orb:
-            cc += "\nNUMERICAL_ORBITAL\n"
-            for i in self._orb:
-                cc += i + "\n"
-        
-        #write  LATTICE_CONSTANT
-        cc += "\nLATTICE_CONSTANT\n%f\n" % self._lattice_constant
-
-        #write LATTICE_VECTORS
-        cc += "\nLATTICE_VECTORS\n"
-        for i in self._cell:
-            cc += "%17.11f %17.11f %17.11f\n" % tuple(i)
-        
-        #write ATOMIC_POSITIONS
-        cc += "\nATOMIC_POSITIONS\n"
-        if self._cartesian:
-            cc += "Cartesian\n"
-        else:
-            cc += "Direct\n"
-        icoord = 0
-        for i,ilabel in enumerate(self._label):
-            cc += "\n%s\n%f\n%d\n" % (ilabel,self._magmom[i],self._atom_number[i])
-            for j in range(self._atom_number[i]):
-                cc += "%17.11f %17.11f %17.11f 1 1 1\n" % tuple(self._coord[icoord + j])
-            icoord += self._atom_number[i]
-        
-        #write dpks
-        if self._dpks:
-            cc += "\nNUMERICAL_DESCRIPTOR\n"
-            cc += self._dpks    
-
-        Path(struf).write_text(cc)
-
-    @staticmethod
-    def ReadStru(stru:str = "STRU"):
-        "read the label, pp, orb, cell, coord, deepks-descriptor"
-        def get_block(keyname):
-            block = []
-            for i,line in enumerate(lines):
-                if line.strip() == "": continue
-                elif line.split('#')[0].strip() == keyname:
-                    for ij in range(i+1,len(lines)):
-                        if lines[ij].strip() == "" or \
-                            lines[ij].strip()[0] in ["#"] or\
-                            ("//" in lines[ij] and lines[ij].strip()[:2] in ["//"]): continue
-                        elif lines[ij].strip() in constant.ABACUS_STRU_KEY_WORD:
-                            return block
-                        else:
-                            block.append(lines[ij].split("#")[0].split("//")[0].strip())
-                    return block
-            return None
-        
-        if not os.path.isfile(stru):
-            return None
-
-        with open(stru) as f1: lines = f1.readlines()  
-
-        atomic_species = get_block("ATOMIC_SPECIES")
-        numerical_orbital = get_block("NUMERICAL_ORBITAL")
-        lattice_constant = get_block("LATTICE_CONSTANT")
-        lattice_vector = get_block("LATTICE_VECTORS")
-        atom_positions = get_block("ATOMIC_POSITIONS")
-        dpks = get_block("NUMERICAL_DESCRIPTOR")
-        lattice_constant = 1.0 if lattice_constant == None else float(lattice_constant[0].split()[0]) 
-        dpks = None if dpks == None else dpks[0].strip()
-        
-        #read species
-        pp = []
-        labels = []
-        mass = []
-        for line in atomic_species:
-            sline = line.split()
-            labels.append(sline[0])
-            pp.append(sline[2])
-            mass.append(float(sline[1]))
-            
-        #read orbital
-        if numerical_orbital == None:
-            orb = None
-        else:
-            orb = []
-            for line in numerical_orbital:
-                orb.append(line.split()[0])
-
-        #read cell
-        cell = []
-        try:
-            for line in lattice_vector:
-                cell.append([float(i) for i in line.split()[:3]])
-        except:
-            traceback.print_exc()
-            print("WARNING: LATTICE_VECTORS is not correct !!!!!!")
-
-        #read coordinate and coordinate type and atom number of each type
-        atom_number = []
-        coords = []
-        magmom = []
-        coord_type = atom_positions[0].split("#")[0].strip().lower()
-        if coord_type.startswith("dire"):
-            cartesian = False
-        elif coord_type.startswith("cart"):
-            cartesian = True
-        else:
-            print("Not support coordinate type %s now." % atom_positions[0].strip())
-            sys.exit(1)
-        i = 1
-        while i < len(atom_positions):
-            label = atom_positions[i].strip()
-            if label not in labels:
-                print("label '%s' is not matched that in ATOMIC_SPECIES" % label)
-                sys.exit(1)
-            magmom.append(float(atom_positions[i+1].split()[0]))
-            atom_number.append(int(atom_positions[i+2].split()[0]))
-            i += 3
-            for j in range(atom_number[-1]):
-                coords.append([float(k) for k in atom_positions[i+j].split()[:3]])
-            i += atom_number[-1]
-        
-        return AbacusStru(label=labels,
-                          atom_number=atom_number,
-                          cell=cell,
-                          coord=coords,
-                          pp=pp,
-                          orb=orb,
-                          lattice_constant=lattice_constant,
-                          magmom=magmom,
-                          dpks=dpks,
-                          cartesian=cartesian)
+def Cartesian2Direct(coord:List[List[float]],cell:List[List[float]]):
+    return np.array(coord).dot(np.linalg.inv(np.array(cell))).tolist()
     
         
 class PrepareAbacus:
@@ -298,12 +28,13 @@ class PrepareAbacus:
                  mix_stru: List[str]=[],
                  pp_dict: Dict[str,str]= {},
                  orb_dict: Dict[str,str]= {},
+                 paw_dict: Dict[str,str]= {},
                  pp_path:str = None,
                  orb_path:str = None,
                  dpks_descriptor:str=None,
                  extra_files: List[str] = [],
                  bak_file = True,
-                 no_link = False,):
+                 no_link = False):
         """To prepare the inputs of abacus
 
         Parameters
@@ -353,6 +84,9 @@ class PrepareAbacus:
 
         orb_dict : Dict, optional
             a dictionary specify the orbital files, by default {}
+        
+        paw_dict: Dict, optional
+            a dictionary specify the paw files, by default {}
 
         pp_path : str, optional
             the path of your pseudopotential lib, by default None. 
@@ -384,6 +118,7 @@ class PrepareAbacus:
         self.mix_input = mix_input
         self.pp_dict = pp_dict
         self.orb_dict = orb_dict
+        self.paw_dict = paw_dict
         self.extra_files = self.CheckExtrafile(extra_files)
         self.mix_kpt = mix_kpt
         self.mix_stru = mix_stru
@@ -490,7 +225,31 @@ class PrepareAbacus:
                         self.orb_dict[element_name] = os.path.join(self.orb_path,ifile)
         else:
             print("Not find orb dir: %s" % self.orb_path)
-
+            
+            
+    def CollectPaw(self):
+        if not self.paw_path:
+            return
+        if os.path.isdir(self.paw_path):
+            if os.path.isfile(os.path.join(self.paw_path,"element.json")):
+                try:
+                    for key,value in json.load(open(os.path.join(self.paw_path,"element.json"))).items():
+                        if key not in self.paw_dict:
+                            if os.path.isfile(os.path.join(self.paw_path,value)):
+                                self.paw_dict[key] = os.path.join(self.paw_path,value)
+                except:
+                    traceback.print_exc()
+            else:
+                allfiles = os.listdir(self.paw_path)
+                for ifile in allfiles:
+                    if not os.path.isfile(os.path.join(self.paw_path,ifile)): continue
+                    element_name = self.GetElementNameFromFileName(ifile)
+                    if element_name and element_name not in self.paw_dict:
+                        self.paw_dict[element_name] = os.path.join(self.paw_path,ifile)
+        else:
+            print("Not find paw dir: %s" % self.paw_path) 
+            
+            
     def Construct_input_list(self):
         all_inputs = []
         inputf = None
@@ -647,7 +406,7 @@ class PrepareAbacus:
         cwd = os.getcwd()
         stru_num = len(self.stru_list) * len(kpt_list) * len(input_list)
         for istru in self.stru_list:  #iteration of STRU
-            stru_data = AbacusStru.ReadStru(istru)
+            stru_data = MyAbacus.AbacusStru.ReadStru(istru)
             stru_path = os.path.split(istru)[0]
             if stru_path == "": stru_path = os.getcwd()
             labels = []
@@ -659,30 +418,32 @@ class PrepareAbacus:
             allfiles = self.extra_files  #files that will be linked
             pp_list = []   #pp file name
             orb_list = []  #orb file name
+            paw_list = [] #paw file name
             dpks = None    #dpks file name
             for i,ilabel in enumerate(labels):
                 #check pp file 
                 if ilabel not in self.pp_dict:
                     #print("label '%s' is found in '%s', but not defined in pp_dict." % (ilabel,istru))
-                    os.chdir(stru_path)
-                    pp_in_stru = stru_data.get_pp()[i]
-                    if os.path.isfile(pp_in_stru):
-                        print("label '%s': link the pseudopotential file '%s' defined in %s" % (ilabel,pp_in_stru,istru))
-                        pp_list.append(os.path.split(pp_in_stru)[1])
-                        allfiles.append(os.path.abspath(pp_in_stru))
-                    else:
-                        print("label '%s': the pseudopotential file '%s' defined in %s is not found, skip this structure" % (ilabel,pp_in_stru,istru))
-                        skipstru = True
+                    if stru_data.get_pp():
+                        os.chdir(stru_path)
+                        pp_in_stru = stru_data.get_pp()[i]
+                        if os.path.isfile(pp_in_stru):
+                            print("label '%s': link the pseudopotential file '%s' defined in %s" % (ilabel,pp_in_stru,istru))
+                            pp_list.append(os.path.split(pp_in_stru)[1])
+                            allfiles.append(os.path.abspath(pp_in_stru))
+                        else:
+                            print("label '%s': the pseudopotential file '%s' defined in %s is not found" % (ilabel,pp_in_stru,istru))
+                            #skipstru = True
+                            #os.chdir(cwd)
+                            #break
                         os.chdir(cwd)
-                        break
-                    os.chdir(cwd)
                 else:
                     pp_list.append(os.path.split(self.pp_dict[ilabel])[1])  #only store the file name to pp_list
                     allfiles.append(self.pp_dict[ilabel]) #store the whole pp file to allfiles                    
-                if not stru_data.get_pp() or pp_list[-1] != stru_data.get_pp()[i]:
-                    linkstru = False
+                    if not stru_data.get_pp() or pp_list[-1] != stru_data.get_pp()[i]:
+                        linkstru = False
 
-                #check orbital file    
+                #check orbital file
                 if ilabel not in self.orb_dict:
                     if stru_data.get_orb():
                         #print("label '%s' is found in '%s', but not defined in orb_dict." % (ilabel,istru))
@@ -701,6 +462,26 @@ class PrepareAbacus:
                     orb_list.append(os.path.split(self.orb_dict[ilabel])[1]) 
                     allfiles.append(self.orb_dict[ilabel])
                     if not stru_data.get_orb() or orb_list[-1] != stru_data.get_orb()[i]:  
+                        linkstru = False
+                
+                #check paw file
+                if ilabel not in self.paw_dict:
+                    if stru_data.get_paw():
+                        os.chdir(stru_path)
+                        paw_in_stru = stru_data.get_paw()[i]
+                        if os.path.isfile(paw_in_stru):
+                            print("label '%s': link the paw file '%s' defined in %s" % (ilabel,paw_in_stru,istru))
+                            paw_list.append(os.path.split(paw_in_stru)[1])
+                            allfiles.append(os.path.abspath(paw_in_stru))
+                            if paw_list[-1] != stru_data.get_paw()[i]:  
+                                linkstru = False
+                        else:
+                            print("label '%s': the paw file '%s' defined in %s is not found." % (ilabel,paw_in_stru,istru))
+                        os.chdir(cwd)
+                else:
+                    paw_list.append(os.path.split(self.paw_dict[ilabel])[1]) 
+                    allfiles.append(self.paw_dict[ilabel])
+                    if not stru_data.get_paw() or paw_list[-1] != stru_data.get_paw()[i]:  
                         linkstru = False
 
             if skipstru:
@@ -733,6 +514,7 @@ class PrepareAbacus:
             #stru_data will be writen in new folder
             stru_data.set_pp(pp_list)
             stru_data.set_orb(orb_list)
+            stru_data.set_paw(paw_list)
             stru_data.set_dpks(dpks)
             
             for ikpt in kpt_list:  #iteration of KPT 
@@ -815,57 +597,17 @@ class PrepareAbacus:
         return param_setting
 
     @staticmethod
-    def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT"):
-        with open(file_name,'w') as f1:
-            f1.write("K_POINTS\n0\nGamma\n")
-            f1.write(" ".join([str(i) for i in kpoint_list]))
+    def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT", model:str = "gamma"):
+        MyAbacus.WriteKpt(kpoint_list,file_name,model)
     
     @staticmethod
     def ReadInput(INPUTf: str = None, input_lines: str = None) -> Dict[str,any]:
-        #read the INPUT file
-        input_context = {}
-        if INPUTf != None:
-            if not os.path.isfile(INPUTf):
-                print("Can not find the file '%s'" % INPUTf)
-                return input_context
-            with open(INPUTf) as f1: input_lines = f1.readlines()
-        if input_lines == None:
-            print(INPUTf)
-            print("Please provide the INPUT file name of INPUT lines")
-            return input_context
-        
-        def str2intfloat(ii):
-            try:
-                return int(ii)
-            except:
-                pass
-            try:
-                return float(ii)
-            except:
-                return ii
-        
-        for i,iline in enumerate(input_lines):
-            if iline.strip()[:16] == 'INPUT_PARAMETERS':
-                readinput = True
-            elif iline.strip() == '' or iline.strip()[0] in ['#']:
-                continue
-            elif readinput:
-                sline = re.split('[ \t]',iline.split("#")[0].strip(),maxsplit=1)
-                if len(sline) == 2:
-                    input_context[sline[0].lower().strip()] = str2intfloat(sline[1].strip())
-        return input_context
+        return MyAbacus.ReadInput(INPUTf,input_lines)
 
     @staticmethod
     def WriteInput(input_context:Dict[str,any],
                    INPUTf: str = "INPUT"):
-        out = "INPUT_PARAMETERS\n"
-        for k,v in input_context.items():
-            if v != None:
-                out += "%s\t%s\n" % (str(k),str(v))
-            else:
-                out += "#%s\t \n" % (str(k))
-
-        with open(INPUTf,'w') as f1: f1.write(out)            
+        MyAbacus.WriteInput(input_context,INPUTf)           
 
 def CheckExample(example_path,description:str=""):
     print(f"Check ABACUS inputs: {example_path} {description}")
@@ -881,7 +623,13 @@ def CheckExample(example_path,description:str=""):
     iinput = PrepareAbacus.ReadInput(os.path.join(example_path,"INPUT"))
     pp_path = iinput.get("pseudo_dir","")
     orb_path = iinput.get("orbital_dir","")
-    istru = AbacusStru.ReadStru(os.path.join(example_path,"STRU"))
+    paw_path = iinput.get("paw_dir","")
+    use_paw = iinput.get("use_paw",False)
+    if use_paw and use_paw.isdigit() and int(use_paw):
+        use_paw = True
+    else:
+        use_paw = False
+    istru = MyAbacus.AbacusStru.ReadStru(os.path.join(example_path,"STRU"))
     if not istru:
         print("Read STRU file failed in %s" % example_path)
         return False
@@ -890,16 +638,28 @@ def CheckExample(example_path,description:str=""):
     allpass = True
     os.chdir(example_path)
     #check pp
-    ppfiles = istru.get_pp()
-    if not ppfiles:
-        print("Can not find PP in %s" % example_path)
-        allpass = False
+    if not use_paw:
+        ppfiles = istru.get_pp()
+        if not ppfiles:
+            print("Can not find PP in %s" % example_path)
+            allpass = False
+        else:
+            for ppfile in ppfiles:
+                real_ppfile = os.path.join(pp_path,ppfile)
+                if not os.path.isfile(real_ppfile):
+                    print("Can not find PP file %s in %s" % (real_ppfile,example_path))
+                    allpass = False
     else:
-        for ppfile in ppfiles:
-            real_ppfile = os.path.join(pp_path,ppfile)
-            if not os.path.isfile(real_ppfile):
-                print("Can not find PP file %s in %s" % (real_ppfile,example_path))
-                allpass = False
+        pawfiles = istru.get_paw()
+        if not pawfiles:
+            print("Can not find PAW in %s" % example_path)
+            allpass = False
+        else:
+            for pawfile in pawfiles:
+                real_pawfile = os.path.join(paw_path,pawfile)
+                if not os.path.isfile(real_pawfile):
+                    print("Can not find PAW file %s in %s" % (real_pawfile,example_path))
+                    allpass = False
     
     #check orb
     basis = iinput.get("basis_type","pw").lower()
@@ -978,9 +738,10 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
         "orb_path": str,
         "dpks_descriptor":"",
         "extra_files":[],
+        "abacus2qe": bool,
         "mix_input_comment":"Do mixing for several input parameters. The diffrent values of one parameter should put in a list.",
         "mix_kpt_comment":"If need the mixing of several kpt setting. The element should be an int (eg 2 means [2,2,2,0,0,0]), or a list of 3 or 6 elements (eg [2,2,2] or [2,2,2,0,0,0]).",
-        "mix_stru_commnet":"If need the mixing of several stru files. Like: ["a/stru","b/stru"],
+        "mix_stru_commnet":"If need the mixing of several stru files. Like: ["a/stru","b/stru"],       
     },
 
     save_folder specifies the destination of the new created examples.
@@ -991,12 +752,22 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
     example_template = param_setting.get("example_template",None)
     if isinstance(example_template,str):
         example_template = glob.glob(example_template)
+        # if __MACOSX folder is exist, then remove it
+        if "__MACOSX" in example_template:
+            example_template.remove("__MACOSX")
+        if "__MACOSX/" in example_template:
+            example_template.remove("__MACOSX/")
         example_template.sort()
     elif isinstance(example_template,list):
         tmp = copy.deepcopy(example_template)
         example_template = []
         for i in tmp:
             alli = glob.glob(i)
+            # if __MACOSX folder is exist, then remove it
+            if "__MACOSX" in alli:
+                alli.remove("__MACOSX")
+            if "__MACOSX/" in alli:
+                alli.remove("__MACOSX/")
             alli.sort()
             example_template += alli
     else:
@@ -1033,6 +804,30 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
                                   )
         all_path_setting.append(prepareabacus.prepare())
 
+    if param_setting.get("abacus2qe",False):
+        print("\nConvert ABACUS inputs to QE inputs")
+        for isetting in all_path_setting:
+            if isetting:
+                ipath = list(isetting.keys())[0]
+                print(ipath)
+                try:
+                    Aba2Qe.Abacus2Qe(ipath,save_path=os.path.join(ipath,"input"),qe_param=param_setting.get("qe_setting",{}))
+                except:
+                    traceback.print_exc()
+    
+    if param_setting.get("abacus2vasp",False):
+        print("\nConvert ABACUS inputs to VASP inputs")
+        potcar = param_setting.get("potcar",None)
+        vasp_setting = param_setting.get("vasp_setting",{})
+        for isetting in all_path_setting:
+            if isetting:
+                ipath = list(isetting.keys())[0]
+                print(ipath)
+                try:
+                    Aba2Vasp.Abacus2Vasp(ipath,save_path=ipath,potcar=potcar,vasp_setting=vasp_setting)
+                except:
+                    traceback.print_exc()
+                      
     return all_path_setting
 
 def PrepareInput(param):
