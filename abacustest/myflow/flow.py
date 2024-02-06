@@ -61,7 +61,7 @@ def SetSaveFolder(storefolder=None):
         #today = datetime.datetime.now()
         #today = today.strftime("%Y%m%d")
         #storefolder = os.path.join("result",today)
-        storefolder = "result"
+        storefolder = "results"
     globV.set_value("RESULT",storefolder)
     comm.printinfo("set save floder: %s" % storefolder)
 
