@@ -82,9 +82,9 @@ class AbacusStru:
         self._orb = orb if orb else None
         self._paw = paw if paw else None
         
-        if (not self._pp) and (not self._paw):
-            print("ERROR: Please define the pseudopotential or paw file")
-            sys.exit(1)
+        if (not self._pp):
+            print("WARNING: pp is not defined!!!")
+            self._pp = ["" for i in range(len(self._label))]
         if self._pp:
             assert(len(self._label) == len(self._pp)), "ERROR: label number is not equal to pp number"
         if self._paw:

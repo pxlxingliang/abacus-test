@@ -6,25 +6,31 @@ class Abacus(ResultAbacus):
     
     @ResultAbacus.register(version="the version of ABACUS")
     def GetVersion(self):
-        if len(self.LOG) > 0:
-            for line_idx,line in enumerate(self.LOG):
-                if "WELCOME TO ABACUS" in line:
-                    version = line.split()[-1]
-                    if version[0].lower() != 'v':
-                        print("Unknow version of '%s'" % version)
-                    self['version'] = version
-                    return
-                elif line[30:36] == "ABACUS":
-                    version = line[36:].strip()
-                    commit = "unknown"
-                    for ii in range(30):
-                        if line_idx + ii >= len(self.LOG):
-                            break
-                        if "Commit:" in self.LOG[line_idx + ii]:
-                            commit = re.split(":",self.LOG[line_idx + ii].strip(),maxsplit=1)[-1].strip()
-                            break
-                    self['version'] = version + "(" + commit + ")"
-                    return
+        version = "unknown"
+        commit = "unknown"
+        if self.JSON:
+            version = self.JSON.get("general_info",{}).get("version","unknown")
+            commit = self.JSON.get("general_info",{}).get("commit","unknown")
+        else:
+            if len(self.LOG) > 0:
+                for line_idx,line in enumerate(self.LOG):
+                    if "WELCOME TO ABACUS" in line:
+                        version = line.split()[-1]
+                        if version[0].lower() != 'v':
+                            print("Unknow version of '%s'" % version)
+                        self['version'] = version
+                        return
+                    elif line[30:36] == "ABACUS":
+                        version = line[36:].strip()
+                        commit = "unknown"
+                        for ii in range(30):
+                            if line_idx + ii >= len(self.LOG):
+                                break
+                            if "Commit:" in self.LOG[line_idx + ii]:
+                                commit = re.split(":",self.LOG[line_idx + ii].strip(),maxsplit=1)[-1].strip()
+                                break
+        self['version'] = version + "(" + commit + ")"
+        return
                                               
     @ResultAbacus.register(ncore="the mpi cores")
     def GetNcore(self):
@@ -133,7 +139,7 @@ class Abacus(ResultAbacus):
                            absolute_mag="absolute magnetism (Bohr mag/cell)",
                            energy = "the total energy (eV)",
                            volume = "the volume of cell, in A^3",
-                           efermi = "the fermi energy (eV)",
+                           efermi = "the fermi energy (eV). If has set nupdown, this will be a list of two values. The first is up, the second is down.",
                            energy_per_atom="the total energy divided by natom, (eV)")
     def GetLogResult(self):       
         total_mag = None
@@ -157,12 +163,14 @@ class Abacus(ResultAbacus):
             elif "Volume (A^3) =" in line:
                 volume = float(line.split()[-1])
             elif 'E_Fermi' in line:
-                if 'E_Fermi_dw' in line:
+                if 'E_Fermi_up' in line:
                     if efermi == None:
-                        efermi = float(line.split()[-1])
-                        continue
-                    if float(line.split()[-1]) > efermi:
-                        efermi = float(line.split()[-1])
+                        efermi = [None,None]
+                    efermi[0] = float(line.split()[-1])
+                elif 'E_Fermi_dw' in line:
+                    if efermi == None:
+                        efermi = [None,None]
+                    efermi[1] = float(line.split()[-1])
                 else:
                     efermi = float(line.split()[-1])
 
@@ -170,12 +178,12 @@ class Abacus(ResultAbacus):
         self["converge"] = converge
         self["volume"] = volume
         
-        if total_mag != None:
-            self['total_mag'] = total_mag
-        if absolute_mag != None:
-            self['absolute_mag'] = absolute_mag
-        if efermi != None:
-            self["efermi"] = efermi
+        self['total_mag'] = total_mag
+        self['absolute_mag'] = absolute_mag
+        if efermi != None and isinstance(efermi,list):
+            if abs(efermi[0] - efermi[1]) < 1e-6:
+                efermi = efermi[0]
+        self["efermi"] = efermi
 
         if self["natom"] != None and self['energy'] != None:
             self["energy_per_atom"] = self['energy']/self["natom"]
@@ -253,15 +261,11 @@ class Abacus(ResultAbacus):
                     lg = []
                 lg.append(float(line.split()[-1]))
         self['largest_gradient'] = lg
-        
-    '''
-    @ResultAbacus.register(band_gap = "band gap of the system")
-    def GetBandGapFromLog(self):
-        def ErrorReturn(strinfo):
-            print("WARNING: %s, skip the catch of band gap info")
-            self['band_gap'] = None
-            return
-        
+
+    
+    @ResultAbacus.register(band = "Band of system. Dimension is [nspin,nk,nband].",
+                           band_weight = "Band weight of system. Dimension is [nspin,nk,nband].")
+    def GetBandFromLog(self): 
         nband = self['nbands']  
         if self["ibzk"] != None:    
             nk = self['ibzk']
@@ -271,42 +275,82 @@ class Abacus(ResultAbacus):
             nk = None
             
         if nband == None or nk == None:
-            ErrorReturn("no nbands or ibzk")
+            print("no nbands or ibzk, and skip the catch of band info")
             return
-                
-        band_gap = None
+        
+        band = None
+        band_weight = None
         for i,line in enumerate(self.LOG):
             if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
                 nspin = int(line.split()[-1])
-                if nspin not in [1,2]:
-                    ErrorReturn("NOT SUPPORT FOR NSPIN=%d now" % nspin)
-                    return
-
-                totalcb = None
-                totalvb = None
+                band = []
+                band_weight = []
                 for ispin in range(nspin):
-                    cb = None
-                    vb = None
-                    fermi = self['efermi']
-                    if fermi == None:
-                        ErrorReturn("can not get efermi")
-                        return
-
+                    band.append([])
+                    band_weight.append([])
                     for k in range(nk):
+                        band[-1].append([])
+                        band_weight[-1].append([])
                         for m in range(nband):
                             ni = ((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + m + 1 + i
                             eband = float(self.LOG[ni].split()[1])
-                            if eband > fermi:
-                                if vb == None or eband < vb:
-                                    vb = eband
-                                if cb == None or float(self.LOG[ni-1].split()[1]) > cb:
-                                    cb = float(self.LOG[ni-1].split()[1])
-                                break
-                    if totalcb == None or (cb != None and totalcb < cb): totalcb = cb
-                    if totalvb == None or (vb != None and totalvb > vb): totalvb = vb
-                band_gap = None if totalvb == None or totalcb == None else totalvb-totalcb
+                            wband = float(self.LOG[ni].split()[2])
+                            band[-1][-1].append(eband)
+                            band_weight[-1][-1].append(wband)
                 break
-                
+        self['band'] = band
+        self['band_weight'] = band_weight
+        
+    
+    @ResultAbacus.register(band_gap = "band gap of the system")
+    def GetBandGapFromLog(self):
+        def ErrorReturn(strinfo):
+            print("WARNING: %s, skip the catch of band gap info")
+            self['band_gap'] = None
+            return
+        
+        band = self['band']
+        band_weight = self['band_weight']
+        if band == None or band_weight == None:
+            ErrorReturn("no band")
+            return
+        
+        efermi = self['efermi']
+        if efermi == None:
+            ErrorReturn("no efermi")
+            return
+            
+        if isinstance(efermi,float):
+            efermi = [efermi,efermi]
+        
+        cb = None
+        vb = None
+        
+        for ispin in range(len(band)):
+            nband_below_fermi = None
+            for ik in range(len(band[ispin])):
+                for ib in range(len(band[ispin][ik])):
+                    if band[ispin][ik][ib] > efermi[ispin]:
+                        if nband_below_fermi == None:
+                            nband_below_fermi = ib
+                        elif nband_below_fermi != ib:
+                            # should be metal
+                            self["band_gap"] = 0
+                            return
+                        icb = band[ispin][ik][ib-1] - efermi[ispin]
+                        ivb = band[ispin][ik][ib] - efermi[ispin]
+                        if cb == None or icb > cb:
+                            cb = icb
+                        if vb == None or ivb < vb:
+                            vb = ivb
+                        break
+        
+        if cb == None or vb == None:
+            band_gap = None
+        else:
+            band_gap = vb - cb
+            if band_gap < 0: band_gap = 0            
+     
         self['band_gap'] = band_gap
     '''
         
@@ -373,7 +417,8 @@ class Abacus(ResultAbacus):
                 break
                 
         self['band_gap'] = band_gap
-
+    '''
+    
     @ResultAbacus.register(total_time="the total time of the job",
                            stress_time="the time to do the calculation of stress",
                            force_time = "the time to do the calculation of force",
@@ -433,7 +478,7 @@ class Abacus(ResultAbacus):
             self['scf_steps'] = len(scftime)
             self['scf_time_each_step'] = scftime
 
-    @ResultAbacus.register(atom_mag="list, the magnization of each atom")
+    @ResultAbacus.register(atom_mag="list, the magnization of each atom of each ion step.")
     def GetAtomMag(self):
         mullikenf = os.path.join(os.path.split(self.LOGf)[0],"mulliken.txt")
         if not os.path.isfile(mullikenf):

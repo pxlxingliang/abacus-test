@@ -41,6 +41,9 @@ class ResultAbacus(Result):
         
         # time.json
         self.TIME = self.ReadTime()
+        
+        # read from abacus.json file
+        self.JSON = self.ReadJson()
 
     def SuffixCalculation(self,INPUT):
         suffix = "ABACUS"
@@ -72,6 +75,16 @@ class ResultAbacus(Result):
         else:
             return None
 
+    def ReadJson(self):
+        if os.path.isfile(os.path.join(self.PATH,"abacus.json")):
+            try:
+                jsons = json.load(open(os.path.join(self.PATH,"abacus.json")))
+                return jsons
+            except:
+                print("WARNING: can not read abacus.json")
+                traceback.print_exc()
+                return None
+    
     def GetTime(self,class_name,func_name):
         # return the cpu_second of the function, and the calls of the function
         # if tunc_name is None, return the cpu_second of the class and the number of functions in the class
