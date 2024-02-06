@@ -111,6 +111,7 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
     if len(left_param) > 0:    
         print("WARNING: The following parameters are not supported in QE, will be ignored:")
         for ip in left_param:
+            if ip in ["kspacing"]: continue
             print("         %s" % ip)
     
     if qe_param:
