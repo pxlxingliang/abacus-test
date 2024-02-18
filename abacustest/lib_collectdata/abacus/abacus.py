@@ -1,4 +1,4 @@
-import os,sys,glob,re
+import os,sys,glob,re,traceback
 from ..resultAbacus import ResultAbacus
 from .. import comm
 
@@ -501,6 +501,26 @@ class Abacus(ResultAbacus):
                     
         self['atom_mag'] = None if len(atom_mag) == 0 else atom_mag
     
+    @ResultAbacus.register(atom_mag_occ="list, the magnization of each atom calculated by occupation number. Only last ION step.")
+    def GetAtomMag(self):
+        natom = self['natom']
+        if natom == None:
+            self['atom_mag_occ'] = None
+            return
+        # read from the end to the start
+        atom_mag = []
+        for i in range(len(self.LOG)):
+            line = self.LOG[-i-1]
+            if "atomic mag:" in line:
+                atom_mag.append(float(line.split()[-1]))
+            if len(atom_mag) >= natom:
+                break
+        if len(atom_mag) < natom:
+            self['atom_mag_occ'] = None
+        else:
+            # reverse the list
+            self['atom_mag_occ'] = atom_mag[::-1]
+    
     @ResultAbacus.register(drho="[], drho of each scf step",
                            drho_last="drho of the last scf step")
     def GetDrho(self):
@@ -517,16 +537,19 @@ class Abacus(ResultAbacus):
     
     
     @ResultAbacus.register(lattice_constant="unit in angstrom",
-                           cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will output the last one",
+                           cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will output the last one.",
+                           cell_init = "[[],[],[]], two-dimension list, unit in Angstrom. The initial cell",
                            coordinate = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. If is relax or md, will output the last one",
+                           coordinate_init = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. The initial coordinate",
                            element = "list[], a list of the element name of all atoms",
                            label = "list[], a list of atom label of all atoms",
                            element_list = "same as element",
                            atomlabel_list = "same as label")
-    def GetCell(self):    
+    def GetCell(self): 
+        lc = 1   
         for line in self.LOG:
             if "lattice constant (Angstrom)" in line:
-                self["lattice_constant"] = float(line.split()[-1])
+                self["lattice_constant"] = lc = float(line.split()[-1])
                 break
         
         cell = None
@@ -536,28 +559,72 @@ class Abacus(ResultAbacus):
             if "Lattice vectors: (Cartesian coordinate: in unit of a_0)" in line:
                 cell = []
                 for k in range(1, 4):
-                    cell.append([float(x) * self["lattice_constant"] for x in self.LOG[iline + k].split()[0:3]])
+                    cell.append([float(x) * lc for x in self.LOG[iline + k].split()[0:3]])
                 break
         self['cell'] = cell
         
-        coordinate = None
+        cell_init = None
         for i in range(len(self.LOG)): 
-            iline = -i - 1 
+            iline = i 
             line = self.LOG[iline]
-            if len(line.split()) >= 2 and line.split()[1] == "COORDINATES":  
-                coordinate = []
-                if line.split()[0] == "DIRECT":
-                    for k in range(2, 2 + self["natom"]):
-                        coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                    import numpy as np
-                    coordinate = np.array(coordinate).dot(np.array(self["cell"])).tolist()
-                elif line.split()[0] == "CARTESIAN":
-                    for k in range(2, 2 + self["natom"]):
-                        coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                else:
-                    print("Unrecongnized coordinate type: %s" % (line))   
+            if "Lattice vectors: (Cartesian coordinate: in unit of a_0)" in line:
+                cell_init = []
+                for k in range(1, 4):
+                    cell_init.append([float(x) * lc for x in self.LOG[iline + k].split()[0:3]])
                 break
-        self['coordinate'] = coordinate   
+        self['cell_init'] = cell_init
+        
+        coordinate = None
+        coordinate_init = None
+        natom = self['natom']
+        if cell != None and natom != None:
+            try:
+                for i in range(len(self.LOG)): 
+                    iline = -i - 1 
+                    line = self.LOG[iline]
+                    if len(line.split()) >= 2 and line.split()[1] == "COORDINATES":  
+                        coordinate = []
+                        if line.split()[0] == "DIRECT":
+                            for k in range(2, 2 + natom):
+                                coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
+                            import numpy as np
+                            coordinate = np.array(coordinate).dot(np.array(cell)).tolist()
+                        elif line.split()[0] == "CARTESIAN":
+                            for k in range(2, 2 + natom):
+                                coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
+                        else:
+                            print("Unrecongnized coordinate type: %s" % (line))   
+                        break
+                self['coordinate'] = coordinate  
+            except:
+                traceback.print_exc()
+                self['coordinate'] = None 
+            
+            try:
+                for i in range(len(self.LOG)): 
+                    iline = i
+                    line = self.LOG[iline]
+                    if len(line.split()) >= 2 and line.split()[1] == "COORDINATES":  
+                        coordinate_init = []
+                        if line.split()[0] == "DIRECT":
+                            for k in range(2, 2 + natom):
+                                coordinate_init.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
+                            import numpy as np
+                            coordinate_init = np.array(coordinate_init).dot(np.array(cell)).tolist()
+                        elif line.split()[0] == "CARTESIAN":
+                            for k in range(2, 2 + natom):
+                                coordinate_init.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
+                        else:
+                            print("Unrecongnized coordinate type: %s" % (line))   
+                        break
+                self['coordinate_init'] = coordinate_init 
+            except:
+                traceback.print_exc()
+                self['coordinate_init'] = None   
+        else:
+            print("No cell or natom, skip the catch of coordinate info")
+            self['coordinate'] = None
+            self['coordinate_init'] = None
               
         element_list = None
         atomlabel_list = None

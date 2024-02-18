@@ -418,7 +418,8 @@ class Vasp(ResultVasp):
         if self.XMLROOT != None:
             self["relax_steps"] = len(self.XMLROOT.findall("calculation"))
             
-            max_ion = comm.iint(self.XMLROOT.findtext("./parameters/ionic[@name='NSW']",default=64))
+            #max_ion = comm.iint(self.XMLROOT.findtext("./parameters/ionic[@name='NSW']",default=64))
+            max_ion = comm.iint(self.XMLROOT.findtext("./parameters/separator[@name='ionic']/i[@name='NSW']",default=64))
             if max_ion != None and self["relax_steps"] != None:
                 if max_ion > self["relax_steps"]:
                     self["relax_converge"] = True
