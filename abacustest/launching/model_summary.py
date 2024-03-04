@@ -83,7 +83,8 @@ def get_profile_value(allruninfos,profile,aim_tag,metrics,metrics_coef,metrics_n
         #    url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
         #else:
         #    url = "https://benchmark.mlops.dp.tech/?request=GET%3A%2Fprojects%2Fabacustest%2Fruns%2F" + runname
-        url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
+        # url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
+        url = "https://app.bohrium.dp.tech/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + runname
         tags = run["tags"] # tags in AIM
         create_time = datetime.datetime.utcfromtimestamp(run["creation_time"]+8*3600)
 
@@ -914,7 +915,7 @@ def SummaryModelRunner(opts:SummaryModel):
     outtable = produce_outtable(allvalues,profile,metrics,digit,metrics_color,color_list)
     if opts.feishu_webhook:
         current_job = opts.Config_dflow_labels["launching-job"]
-        current_url = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + current_job
+        current_url = "https://app.bohrium.dp.tech/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + current_job
         comment_add = f"\nClick profile to check the detail Benchmark run.\n\nClick [here]({current_url}) to view detailed reports and historical trend graphs."
         send_to_feishu(outtable,opts.feishu_webhook,comment+comment_add)
     html_content,html_content_nolink = produce_html(outtable,comment)

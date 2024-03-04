@@ -578,22 +578,27 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
                 
                 # if the example_name has more than 2 levels, and is end with number
                 # we need to plot the chart with multiple Y with each number as a legend
+                legend_tmp, x_tmp, y_tmp = legend_list, tmp_[0], tmp_[1:]
+                legend_tmps = [legend_tmp]
+                x_tmps = [x_tmp]
+                y_tmps = [y_tmp]
                 if example_name_prefix != None and example_name_number != None:
                     legend_tmp, x_tmp, y_tmp = gen_multiple_y(tmp_[0], tmp_[1:], legend_list, example_name_prefix, example_name_number)
-                else:
-                    legend_tmp, x_tmp, y_tmp = legend_list, tmp_[0], tmp_[1:] 
-                
-                try:    
-                    options = comm_echarts.produce_multiple_y(add_unit(imetric), x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
-                    options["xAxis"][0]["axisLabel"] = {
-                            "rotate": 15,
-                            "interval": int(len(x_tmp)/15)
-                        } 
-                    chart_elements.append(ChartReportElement(
-                            options=options, title=add_unit(imetric)))
-                except:
-                    traceback.print_exc()
-                    print("Error: produce multiple y failed!")
+                    legend_tmps.append(legend_tmp)
+                    x_tmps.append(x_tmp)
+                    y_tmps.append(y_tmp)
+                for legend_tmp, x_tmp, y_tmp in zip(legend_tmps, x_tmps, y_tmps):
+                    try:    
+                        options = comm_echarts.produce_multiple_y(add_unit(imetric), x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
+                        options["xAxis"][0]["axisLabel"] = {
+                                "rotate": 15,
+                                "interval": int(len(x_tmp)/15)
+                            } 
+                        chart_elements.append(ChartReportElement(
+                                options=options, title=add_unit(imetric)))
+                    except:
+                        traceback.print_exc()
+                        print("Error: produce multiple y failed!")
             
             if len(ref_type) > 0:
                 # plot the delta Y and percentage delta Y
@@ -612,7 +617,9 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
         ["INPUT/ecutwfc", "energy_per_atom","value",1],
         ["INPUT/kspacing", "energy_per_atom","value",1],
         ["INPUT/lcao_ecut", "energy_per_atom","log",2],
-        ["INPUT/lcao_ecut", "band_gap","value",0]]:
+        ["INPUT/lcao_ecut", "band_gap","value",0],
+        ["INPUT/smearing_sigma", "energy_per_atom","value",1],
+        ]:
         '''
         shift_type: the type to shift the y value
         0: do not shift

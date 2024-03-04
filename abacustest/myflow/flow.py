@@ -177,7 +177,7 @@ def set_config(param_context,debug):
     
     if configs.get("dflow_labels",None) != None:
         if isinstance(configs["dflow_labels"],dict) and configs["dflow_labels"].get("launching-job"):
-            job_address = "https://labs.dp.tech/projects/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + configs["dflow_labels"].get("launching-job")
+            job_address = "https://app.bohrium.dp.tech/abacustest/?request=GET%3A%2Fapplications%2Fabacustest%2Fjobs%2F" + configs["dflow_labels"].get("launching-job")
             globV.set_value("JOB_ADDRESS",job_address)
     
     dflowOP.SetConfig(configs,debug=debug)
