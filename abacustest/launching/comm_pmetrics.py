@@ -722,7 +722,7 @@ def judge_sm(x,criteria):
 
 def produce_metrics_superMetrics_reports(allparams, work_path, output_path):
 
-    save_path = allparams.get("save_path", "result")
+    save_path = allparams.get("save_path", "results")
     reports = []
     allmetrics_files = []
     allsupermetrics_files = []
