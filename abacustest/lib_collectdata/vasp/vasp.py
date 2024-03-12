@@ -345,21 +345,7 @@ class Vasp(ResultVasp):
             vb = None
             cb = None
             fermi = self['efermi']
-            for ispin in self['band']:
-                nbnd_below_fermi = None
-                for ik in ispin:
-                    for i,iband in enumerate(ik):
-                        if iband > fermi:
-                            if nbnd_below_fermi == None:
-                                nbnd_below_fermi = i
-                            elif i != nbnd_below_fermi:
-                                self["band_gap"] = 0
-                                return
-                            vb = iband if vb == None or vb > iband else vb
-                            cb = ik[i-1] if cb == None or cb < ik[i-1] else cb
-                            break
-            #print("cb=%.5f, vb=%.5f" % (cb,vb))
-            self['band_gap'] = None if vb == None or cb == None else vb - cb
+            self["band_gap"] = comm.cal_band_gap(self['band'],fermi)
     '''
     @ResultVasp.register(band_gap = 'eV, the band gap')
     def GetBandGap(self):

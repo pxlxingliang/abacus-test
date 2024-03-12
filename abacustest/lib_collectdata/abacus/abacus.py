@@ -319,39 +319,8 @@ class Abacus(ResultAbacus):
         if efermi == None:
             ErrorReturn("no efermi")
             return
-            
-        if isinstance(efermi,float):
-            efermi = [efermi,efermi]
         
-        cb = None
-        vb = None
-        
-        for ispin in range(len(band)):
-            nband_below_fermi = None
-            for ik in range(len(band[ispin])):
-                for ib in range(len(band[ispin][ik])):
-                    if band[ispin][ik][ib] > efermi[ispin]:
-                        if nband_below_fermi == None:
-                            nband_below_fermi = ib
-                        elif nband_below_fermi != ib:
-                            # should be metal
-                            self["band_gap"] = 0
-                            return
-                        icb = band[ispin][ik][ib-1] - efermi[ispin]
-                        ivb = band[ispin][ik][ib] - efermi[ispin]
-                        if cb == None or icb > cb:
-                            cb = icb
-                        if vb == None or ivb < vb:
-                            vb = ivb
-                        break
-        
-        if cb == None or vb == None:
-            band_gap = None
-        else:
-            band_gap = vb - cb
-            if band_gap < 0: band_gap = 0            
-     
-        self['band_gap'] = band_gap
+        self['band_gap'] = comm.cal_band_gap(band,efermi)
     '''
         
     @ResultAbacus.register(band_gap = "band gap of the system")
@@ -478,11 +447,13 @@ class Abacus(ResultAbacus):
             self['scf_steps'] = len(scftime)
             self['scf_time_each_step'] = scftime
 
-    @ResultAbacus.register(atom_mag="list, the magnization of each atom of each ion step.")
+    @ResultAbacus.register(atom_mags="list of list, the magnization of each atom of each ion step.",
+                           atom_mag = "list, the magnization of each atom. Only the last ION step.")
     def GetAtomMag(self):
         mullikenf = os.path.join(os.path.split(self.LOGf)[0],"mulliken.txt")
         if not os.path.isfile(mullikenf):
             self['atom_mag'] = None
+            self["atom_mags"] = None
             return
         
         atom_mag = []
@@ -498,8 +469,13 @@ class Abacus(ResultAbacus):
                         atom_mag[-1].append([float(sline[0]),float(sline[1]),float(sline[2])])
                 else:
                     atom_mag[-1].append(float(line.split()[-1]))
-                    
-        self['atom_mag'] = None if len(atom_mag) == 0 else atom_mag
+        
+        if len(atom_mag) == 0:
+            self['atom_mags'] = None
+            self["atom_mag"] = None
+        else:
+            self['atom_mags'] = atom_mag
+            self["atom_mag"] = atom_mag[-1]
     
     @ResultAbacus.register(atom_mag_occ="list, the magnization of each atom calculated by occupation number. Only last ION step.")
     def GetAtomMag(self):

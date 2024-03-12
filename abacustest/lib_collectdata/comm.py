@@ -137,3 +137,56 @@ def imath(a,b,symbol):
         print("Not support '%s' now" % symbol)
         return None
 
+def strtime2sec(stim_str):
+    # time_str: 1d2h3m4s
+    
+    day = 0
+    hour = 0
+    minute = 0
+    second = 0
+    time_str = stim_str.lower()
+    if 'd' in time_str:
+        day = int(time_str.split('d')[0])
+        time_str = time_str.split('d')[1]
+    if 'h' in time_str:
+        hour = int(time_str.split('h')[0])
+        time_str = time_str.split('h')[1]
+    if 'm' in time_str:
+        minute = int(time_str.split('m')[0])
+        time_str = time_str.split('m')[1]
+    if 's' in time_str:
+        second = float(time_str.split('s')[0])
+    return day*24*3600 + hour*3600 + minute*60 + second
+
+def cal_band_gap(band,efermi):
+    # band: [[spin1],[spin2],...]
+    # efermi: [efermi_spin1,efermi_spin2]
+    if isinstance(efermi,float):
+        efermi = [efermi,efermi]
+            
+    cb = None
+    vb = None
+    
+    for ispin in range(len(band)):
+        nband_below_fermi = None
+        for ik in range(len(band[ispin])):
+            for ib in range(len(band[ispin][ik])):
+                if band[ispin][ik][ib] > efermi[ispin]:
+                    if nband_below_fermi == None:
+                        nband_below_fermi = ib
+                    elif nband_below_fermi != ib:
+                        return 0
+                    icb = band[ispin][ik][ib-1] - efermi[ispin]
+                    ivb = band[ispin][ik][ib] - efermi[ispin]
+                    if cb == None or icb > cb:
+                        cb = icb
+                    if vb == None or ivb < vb:
+                        vb = ivb
+                    break
+    
+    if cb == None or vb == None:
+        band_gap = None
+    else:
+        band_gap = vb - cb
+        if band_gap < 0: band_gap = 0 
+    return band_gap
