@@ -71,19 +71,24 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
             qp[para_qe[0]][para_qe[1]] = param.pop(para_aba)
     
     # set smearing  
-    smearing = param.pop("smearing_method","gauss").lower()
-    if smearing == "fixed":
+    smearing = param.pop("smearing_method").lower()
+    if not smearing:
+        pass
+    elif smearing == "fixed":
         qp["system"]["occupations"] = "fixed"
     elif smearing.startswith("gauss"):
         qp["system"]["occupations"] = "smearing"
         qp["system"]["smearing"] = "gauss"
-        qp["system"]["degauss"] = param.pop("smearing_sigma","0.015")
+        if "smearing_sigma" in param:
+            qp["system"]["degauss"] = param.pop("smearing_sigma")
     else:
         print("WARNING: smearing_method %s is not supported now! Will not set occupations in QE." % smearing)
     
     # set ks_solver
-    kssolver = param.pop("ks_solver","cg").lower()
-    if kssolver == "cg":
+    kssolver = param.pop("ks_solver").lower()
+    if not kssolver:
+        pass
+    elif kssolver == "cg":
         qp["electrons"]["diagonalization"] = "cg"
     elif kssolver == "dav":
         qp["electrons"]["diagonalization"] = "david"
@@ -91,10 +96,13 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
         print("WARNING: ks_solver %s is not supported now, will not set diagonalization is QE." % kssolver)
     
     # set mixing_type
-    mixing = param.pop("mixing_type","broyden").lower()
-    if mixing == "broyden":
+    mixing = param.pop("mixing_type","").lower()
+    if not mixing:
+        pass
+    elif mixing == "broyden":
         qp["electrons"]["mixing_mode"] = "plain"
-        qp["electrons"]["mixing_beta"] = param.pop("mixing_beta","0.7")
+        if "mixing_beta" in param:
+            qp["electrons"]["mixing_beta"] = param.pop("mixing_beta")
     else:
         print("WARNING: mixing_type %s is not supported now, will not set mixing_mode in QE." % mixing)
     
