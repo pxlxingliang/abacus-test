@@ -144,6 +144,9 @@ def metrics2html(metrics_set):
         return ""
     
     table = tb.file2table(metric_file)
+    if not table:
+        print(f"Error: transfer {metric_file} to table failed!")
+        return ""
     if table in [[],None]:
         return ""
     if not sort: sort = [table[0][0]]
