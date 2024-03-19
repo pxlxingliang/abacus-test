@@ -101,7 +101,7 @@ class AbacusStru:
         if element != None:
             self._element = element
         else:
-            print("WARNING: element is not defined, will use the first one/two letter of label as element name")
+            #print("WARNING: element is not defined, will use the first one/two letter of label as element name")
             self._element = []
             for i in self._label:
                 ele = i[0]

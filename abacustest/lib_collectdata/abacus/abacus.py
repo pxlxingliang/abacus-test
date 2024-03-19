@@ -511,7 +511,31 @@ class Abacus(ResultAbacus):
             self['drho'] = drho
             self["drho_last"] = drho[-1]
     
-    
+    @ResultAbacus.register(denergy="[], denergy of each scf step",
+                           denergy_last="denergy of the last scf step")
+    def GetDenergy(self):
+        denergy = None
+        
+        if self.OUTPUT:
+            for i,line in enumerate(self.OUTPUT):
+                if "ITER" in line and "ETOT(eV)" in line and "EDIFF(eV)" in line and "DRHO" in line and "TIME(s)" in line:
+                    denergy = []
+                    ncol = len(line.split())
+                    ediff_idx = line.split().index("EDIFF(eV)")
+                    j = i + 1
+                    while j < len(self.OUTPUT):
+                        if "----------------------------" in self.OUTPUT[j]:
+                            break
+                        if self.OUTPUT[j][1:3] in ['CG','DA','GE','GV','BP'] and len(self.OUTPUT[j].split()) == ncol:
+                            denergy.append(float(self.OUTPUT[j].split()[ediff_idx]))
+                        j += 1
+                    break
+        self["denergy"] = denergy
+        if denergy != None:
+            self["denergy_last"] = denergy[-1]
+        else:
+            self["denergy_last"] = None
+
     @ResultAbacus.register(lattice_constant="unit in angstrom",
                            cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will output the last one.",
                            cell_init = "[[],[],[]], two-dimension list, unit in Angstrom. The initial cell",
