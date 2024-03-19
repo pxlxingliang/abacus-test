@@ -266,8 +266,16 @@ class Vasp(ResultVasp):
                          efermi     = 'the fermi energy, eV')
     def GetXMLInfo(self):
         if self.XMLROOT != None:
-            self['atom_name'] = comm.XmlGetText(self.XMLROOT.findall("./atominfo/array[@name='atoms']/set/rc/c[1]"))
-            self['atom_type'] = comm.XmlGetText(self.XMLROOT.findall("./atominfo/array[@name='atomtypes']/set/rc/c[2]"))
+            atom_name = comm.XmlGetText(self.XMLROOT.findall("./atominfo/array[@name='atoms']/set/rc/c[1]"))
+            if isinstance(atom_name,list):
+                atom_name = [i.strip() for i in atom_name]
+            self["atom_name"] = atom_name
+            
+            atom_type = comm.XmlGetText(self.XMLROOT.findall("./atominfo/array[@name='atomtypes']/set/rc/c[2]"))
+            if isinstance(atom_type,list):
+                atom_type = [i.strip() for i in atom_type]
+            self["atom_type"] = atom_type
+            
             self['efermi'] = comm.XmlGetText(self.XMLROOT.findall("./calculation/dos/i[@name='efermi'][last()]"),func=float,idx = -1)
             element = []
             for i in self.XMLROOT.findall("./atominfo/array[@name='atoms']/set/rc/c[1]"):
