@@ -101,12 +101,14 @@ class Abacus(ResultAbacus):
                            ibzk = "irreducible K point number",
                            natom ="total atom number",
                            nelec = "total electron number",
+                           nelec_dict = "dict of electron number of each species",
                            fft_grid = "fft grid for charge/potential",
                            point_group="point group",
                            point_group_in_space_group="point group in space group")
     def GetLogParam(self):       
         natom = 0
         nelec = 0
+        elec_dict = {}
         point_group = None
         point_group_in_space_group = None
         for i,line in enumerate(self.LOG):
@@ -116,6 +118,8 @@ class Abacus(ResultAbacus):
                 self['nkstot'] = int(line.split()[-1])
             elif 'nkstot_ibz =' in line:
                 self['ibzk'] = int(line.split()[-1])
+            elif "            electron number of element" in line:
+                elec_dict[line.split()[4]] = float(line.split()[-1])
             elif 'number of atom for this type =' in line:
                 natom += int(line.split()[-1])
             elif 'total electron number of element' in line:
@@ -133,6 +137,13 @@ class Abacus(ResultAbacus):
             self["natom"] = natom 
         if nelec > 0:
             self["nelec"] = nelec 
+        else:
+            self["nelec"] = None
+        
+        if elec_dict:
+            self["nelec_dict"] = elec_dict
+        else:
+            self["nelec_dict"] = None
 
     @ResultAbacus.register(converge="if the SCF is converged",
                            total_mag="total magnetism (Bohr mag/cell)",
@@ -448,17 +459,22 @@ class Abacus(ResultAbacus):
             self['scf_time_each_step'] = scftime
 
     @ResultAbacus.register(atom_mags="list of list, the magnization of each atom of each ion step.",
-                           atom_mag = "list, the magnization of each atom. Only the last ION step.")
+                           atom_mag = "list, the magnization of each atom. Only the last ION step.",
+                           atom_elec="list of list of each atom. Each atom list is a list of each orbital, and each orbital is a list of each spin",
+                           atom_orb_elec="list of list of each atom. Each atom list is a list of each orbital, and each orbital is a list of each spin",
+                           )
     def GetAtomMag(self):
         mullikenf = os.path.join(os.path.split(self.LOGf)[0],"mulliken.txt")
         if not os.path.isfile(mullikenf):
             self['atom_mag'] = None
             self["atom_mags"] = None
+            self["atom_electron"] = None
             return
         
         atom_mag = []
+        atom_electron = []
         with open(mullikenf) as f1: lines = f1.readlines()
-        for line in lines:
+        for idx,line in enumerate(lines):
             if line[:5] == "STEP:":
                 atom_mag.append([])
             elif "Total Magnetism on atom" in line:
@@ -469,6 +485,18 @@ class Abacus(ResultAbacus):
                         atom_mag[-1].append([float(sline[0]),float(sline[1]),float(sline[2])])
                 else:
                     atom_mag[-1].append(float(line.split()[-1]))
+            elif "Zeta of" in line:
+                two_spin = True if "Spin 2" in line else False
+                atom_electron.append([])
+                j = idx + 1
+                while j < len(lines) and lines[j].strip() != "":
+                    if "Zeta of" in lines[j]:
+                        break
+                    if "sum over m+zeta" in lines[j]:
+                        atom_electron[-1].append([float(lines[j].split()[3])])
+                        if two_spin:
+                            atom_electron[-1][-1].append(float(lines[j].split()[4]))
+                    j += 1
         
         if len(atom_mag) == 0:
             self['atom_mags'] = None
@@ -476,26 +504,62 @@ class Abacus(ResultAbacus):
         else:
             self['atom_mags'] = atom_mag
             self["atom_mag"] = atom_mag[-1]
-    
-    @ResultAbacus.register(atom_mag_occ="list, the magnization of each atom calculated by occupation number. Only last ION step.")
-    def GetAtomMag(self):
-        natom = self['natom']
-        if natom == None:
-            self['atom_mag_occ'] = None
-            return
-        # read from the end to the start
-        atom_mag = []
-        for i in range(len(self.LOG)):
-            line = self.LOG[-i-1]
-            if "atomic mag:" in line:
-                atom_mag.append(float(line.split()[-1]))
-            if len(atom_mag) >= natom:
-                break
-        if len(atom_mag) < natom:
-            self['atom_mag_occ'] = None
+        
+        if not atom_electron:
+            self["atom_elec"] = None
+            self["atom_orb_elec"] = None
         else:
-            # reverse the list
-            self['atom_mag_occ'] = atom_mag[::-1]
+            self["atom_orb_elec"] = atom_electron
+            atom_elec = []
+            for i in atom_electron:
+                t = 0
+                for j in i:
+                    t += sum(j)
+                atom_elec.append(t)
+            self["atom_elec"] = atom_elec
+            
+    
+    @ResultAbacus.register(atom_mag_u="list of a dict, the magnization of each atom calculated by occupation number. Only the last SCF step.",
+                           atom_elec_u = "list of a dict with keys are atom index, atom label, and electron of U orbital.")
+    def GetAtomMag(self):
+        atom_mag_u = None
+        atom_elec_u = None
+        if self.LOG:
+            u_block = []
+            start_line = end_line = None
+            for i in  range(len(self.LOG)):
+                i = -1*i - 1
+                if "//=========================L(S)DA+U===========================//" in self.LOG[i]:
+                    start_line = i + 1
+                    break
+                elif "//=======================================================//" in self.LOG[i]:
+                    end_line = i
+            print(start_line,end_line)
+            if None not in [start_line, end_line]:
+                u_block = self.LOG[start_line:end_line]
+            else:
+                print("Can not find the L(S)DA+U block")
+                self['atom_mag_u'] = None
+                self["atom_elec_u"] = None
+                return
+            
+            labels = self["label"]
+            atom_mag_u = []
+            atom_elec_u = []
+            for i,line in enumerate(u_block):
+                if "atoms" in line:
+                    atom_index = int(line.split()[-1])
+                    atom_label = None if not labels else labels[atom_index]
+                    atom_mag_u.append({"index":atom_index,"label":atom_label,"mag":None})
+                    atom_elec_u.append({"index":atom_index,"label":atom_label,"elec":None})
+                elif "eigenvalues" in line:
+                    if atom_elec_u[-1]["elec"] == None:
+                        atom_elec_u[-1]["elec"] = []
+                    atom_elec_u[-1]["elec"].append(float(u_block[i+1].split()[-1]))
+                elif "atomic mag:" in line:
+                    atom_mag_u[-1]["mag"] = float(line.split()[-1])
+        self['atom_mag_u'] = atom_mag_u
+        self['atom_elec_u'] = atom_elec_u
     
     @ResultAbacus.register(drho="[], drho of each scf step",
                            drho_last="drho of the last scf step")
@@ -660,6 +724,44 @@ class Abacus(ResultAbacus):
                 return
         self["delta_energy"] = None
         self["delta_energyPerAtom"] = None
+    
+    @ResultAbacus.register(pdos="a dict, keys are 'energy' and 'orbitals', and 'orbitals' is a list of dict which is (index,species,l,m,z,data), dimension of data is nspin*ne",
+                           )
+    def GetPDOS(self): 
+        pdos_file = os.path.join(self.PATH,f"OUT.{self.SUFFIX}","PDOS")
+        print("PDOS file path:",pdos_file)
+        pdos = None
+        if os.path.isfile(pdos_file):
+            import xml.etree.ElementTree as ET
+            tree = ET.parse(pdos_file)
+            root = tree.getroot()
+            nspin = int(root.find('nspin').text)
+            energy = [float(i) for i in root.find('energy_values').text.split()]
+
+            ne = len(energy)
+
+            all_orbitals = []
+            for iorb in root.findall('orbital'):
+                data = [[] for i in range(nspin)]
+                for i in iorb.find('data').text.split("\n"):
+                    for j,jj in enumerate(i.split()):
+                        if j == 1:
+                            data[j].append(-1*float(jj))
+                        else:
+                            data[j].append(float(jj))
+                if len(data[0]) != ne:
+                    print("WARNING: PDOS len(data[0]) != ne")      
+                all_orbitals.append({
+                    "index": int(iorb.get('index')),
+                    "atom_index": int(iorb.get('atom_index')),
+                    "species": iorb.get('species'),
+                    "l": int(iorb.get('l')),
+                    "m": int(iorb.get('m')),
+                    "z": int(iorb.get('z')),
+                    "data": data
+                })
+            pdos = {"energy":energy,"orbitals":all_orbitals}
+        self["pdos"] = pdos
 
 
 class AbacusRelax(ResultAbacus):
