@@ -807,20 +807,33 @@ class AbacusRelax(ResultAbacus):
 
 class AbacusDeltaSpin(ResultAbacus):
     
-    @ResultAbacus.register(ds_lambda_step="a list of delta spin converge step in each SCF step",)
+    @ResultAbacus.register(ds_lambda_step="a list of DeltaSpin converge step in each SCF step",
+                           ds_lambda_rms="a list of DeltaSpin RMS in each SCF step")
     def GetDSLambdaStep(self):
+        '''
+Step (Outer -- Inner) =  16 -- 1           RMS = 1.057e-07
+Step (Outer -- Inner) =  16 -- 2           RMS = 1.355e-07
+Step (Outer -- Inner) =  16 -- 3           RMS = 1.176e-07
+Step (Outer -- Inner) =  16 -- 4           RMS = 9.760e-08
+        '''
         lambda_step = None 
+        lambda_rms = None
         if self.OUTPUT:
             scf_step = []
             lambda_step = []
+            lambda_rms = []
             for i in self.OUTPUT:
                 if "Step (Outer -- Inner) =" in i:
                     ss = int(i.split()[5])
                     lambdas = int(i.split()[7])
+                    rms = float(i.split()[10])
                     if ss not in scf_step:
                         scf_step.append(ss)
                         lambda_step.append(lambdas)
+                        lambda_rms.append(rms)
                     else:
                         lambda_step[-1] = lambdas
+                        lambda_rms[-1] = rms
         self["ds_lambda_step"] = lambda_step
+        self["ds_lambda_rms"] = lambda_rms
             
