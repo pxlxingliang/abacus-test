@@ -173,25 +173,23 @@ def supermetrics2html(supermetrics_set):
     metric_file = supermetrics_set.get("content","")
     criteria = supermetrics_set.get("criteria",{})
     title = supermetrics_set.get("title","")
+    center = supermetrics_set.get("center",True)
     
     if not os.path.exists(metric_file):
         print(f"Error: {metric_file} does not exist!")
         return ""
-    try:
-        table = tb.json2table_sm(metric_file)
-    except:
-        traceback.print_exc()
-        print(f"Error: transfer {metric_file} to table failed!")
-        return ""
     
-    if table in [[],None]:
+    sm = json.load(open(metric_file))
+    if not sm:
+        print("Error: read supermetrics failed!")
         return ""
-    table, passs_num = tb.format_table(tb.rotate_table(table),criteria)
     
     html = ""
     if title:
         html += f'''\t<div class="tabletitle">{title}</div>\n'''
-    html += _table2html(tb.rotate_table(table),has_head=False)
+    html += tb.gen_criteria_sm(criteria,sm)
+    if center:
+        html = "\t<center>\n" + html + "\t</center>\n"
     return html
 
 def table2html(table_set):

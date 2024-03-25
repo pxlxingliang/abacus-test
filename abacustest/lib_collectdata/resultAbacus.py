@@ -84,6 +84,7 @@ class ResultAbacus(Result):
                 print("WARNING: can not read abacus.json")
                 traceback.print_exc()
                 return None
+        return None
     
     def GetTime(self,class_name,func_name):
         # return the cpu_second of the function, and the calls of the function
