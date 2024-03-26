@@ -190,3 +190,41 @@ def cal_band_gap(band,efermi):
         band_gap = vb - cb
         if band_gap < 0: band_gap = 0 
     return band_gap
+
+def abacus_orb_label(l,m):
+    if l == 0:
+        return "s"
+    elif l == 1:
+        if m == 0:
+            return "p_z"
+        elif m == 1:
+            return "p_x"
+        elif m == 2:
+            return "p_y"
+    elif l == 2:
+        if m == 0:
+            return "d_z^2"
+        elif m == 1:
+            return "d_xz"
+        elif m == 2:
+            return "d_yz"
+        elif m == 3:
+            return "d_x^2-y^2"
+        elif m == 4:
+            return "d_xy"
+
+    return f"{l}_{m}"
+
+def get_abacus_json(json_dict,key_list):
+    # need first find if key_list in json_dict
+    v = None
+    has_keys = True
+    for k in key_list:
+        if k in json_dict:
+            json_dict = json_dict[k]
+        else:
+            has_keys = False
+            break
+    if has_keys:
+        v = json_dict
+    return v,has_keys

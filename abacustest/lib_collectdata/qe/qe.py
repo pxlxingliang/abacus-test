@@ -137,6 +137,7 @@ class Qe(ResultQe):
                        coord = "list, the coordinate of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]. Unit in Angstrom",
                        label = "the label of each atom",
                        element = "the element of each atom. Because QE do not output the element, we actually output the label.",
+                       element_list = "same as element.",
                        total_mag="total magnization",
                        absolute_mag="total absolute magnization",
                        atom_mag = "list, the magnization of each atom",
@@ -152,6 +153,7 @@ class Qe(ResultQe):
             output = output[-1]
             
         if output:
+            element = None
             self['converge'] = comm.ibool(xfmlt(output,['convergence_info','scf_conv','convergence_achieved']))
             self['scf_steps'] = comm.iint(xfmlt(output,['convergence_info','scf_conv','n_scf_steps']))
             self['ibzk'] = comm.iint(xfmlt(output,['band_structure','nks']))
@@ -195,11 +197,11 @@ class Qe(ResultQe):
                 if len(coord) == self['natom']:
                     self['coord'] = coord
                     self["label"] = label
-                    self["element"] = label
+                    element = label
                 else:
                     self['coord'] = None
                     self["label"] = None
-                    self["element"] = None
+                    element = None
                     print("ERROR: the length of coord is not equal to natom")
             else:
                 self['cell'] = None
@@ -221,8 +223,10 @@ class Qe(ResultQe):
             atom_mags = output.findall('magnetization/Scalar_Site_Magnetic_Moments/SiteMagnetization')
             if atom_mags:
                 atom_mag = []
+                element = []
                 for i in atom_mags:
                     atom_mag.append(float(i.text))
+                    element.append(i.attrib['species'].strip())
                 self['atom_mag'] = atom_mag
             else:
                 self['atom_mag'] = None
@@ -231,8 +235,13 @@ class Qe(ResultQe):
                 self['energy_per_atom'] = None
             else:
                 self['energy_per_atom'] = self['energy'] / self['natom']
+            self["element"] = element
+            self["element_list"] = element
         elif self.OUTPUT:
             converge = None
+            ibzk = None
+            nbands = None
+            nelec = None
             energy = None
             stress = None
             pressure = None
@@ -241,6 +250,7 @@ class Qe(ResultQe):
             cell = None
             coord = None
             label = None
+            element = None
             tot_mag = None
             abs_mag = None
             atom_mag = None
@@ -250,14 +260,21 @@ class Qe(ResultQe):
                     converge = True
                 elif "convergence NOT achieved" in iline:
                     converge = False
+                elif "atomic species   valence    mass     pseudopotential" in iline:
+                    j = idx + 1
+                    element = {}
+                    while self.OUTPUT[j].strip() !="":
+                        species = self.OUTPUT[j].split()[0]
+                        element[species] = self.OUTPUT[j].split("(")[0].split()[-1].strip()
+                        j += 1
                 elif "number of k points" in iline:
-                    self["ibzk"] = int(iline.split()[4])
+                    ibzk = int(iline.split()[4])
                 elif "total energy" in iline:
                     energy = float(iline.split()[-2]) * comm.RY2EV
                 elif "number of Kohn-Sham states" in iline:
-                    self["nbands"] = int(iline.split()[-1])
+                    nbands = int(iline.split()[-1])
                 elif "number of electrons" in iline:
-                    self["nelec"] = float(iline.split()[-1])
+                    nelec = float(iline.split()[-1])
                 elif "number of atoms/cell" in iline:
                     natom = int(iline.split()[-1])
                 elif "total magnetization" in iline:
@@ -301,6 +318,9 @@ class Qe(ResultQe):
                         coord.append([float(j) for j in icoord[1:]])
             self["converge"] = converge
             self["energy"] = energy
+            self["nbands"] = nbands
+            self["ibzk"] = ibzk
+            self["nelec"] = nelec
             self["stress"] = stress
             self["pressure"] = pressure
             self["force"] = force
@@ -308,7 +328,8 @@ class Qe(ResultQe):
             self["cell"] = cell
             self["coord"] = coord
             self["label"] = label
-            self["element"] = label
+            self["element"] = None if label ==None or element == None else [element[i] for i in label]
+            self["element_list"] = label
             self["total_mag"] = tot_mag
             self["absolute_mag"] = abs_mag
             self["atom_mag"] = atom_mag
@@ -347,6 +368,7 @@ class Qe(ResultQe):
             self["coord"] = None
             self["label"] = None
             self["element"] = None
+            self["element_list"] = None
             self["total_mag"] = None
             self["absolute_mag"] = None
             self["atom_mag"] = None

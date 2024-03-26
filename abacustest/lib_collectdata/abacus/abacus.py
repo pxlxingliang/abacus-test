@@ -32,12 +32,21 @@ class Abacus(ResultAbacus):
         self['version'] = version + "(" + commit + ")"
         return
                                               
-    @ResultAbacus.register(ncore="the mpi cores")
+    @ResultAbacus.register(ncore="the mpi cores",
+                           omp_num="the omp cores",)
     def GetNcore(self):
-        for line in self.LOG:
-            if "DSIZE =" in line:
-                self['ncore'] = int(line.split()[-1])
-                return
+        ncore = omp_num = None
+        if self.JSON:
+            ncore,_tmp = comm.get_abacus_json(self.JSON,["general_info","mpi_num"])
+            omp_num,_tmp = comm.get_abacus_json(self.JSON,["general_info","omp_num"])
+        elif self.LOG:    
+            for line in self.LOG:
+                if "DSIZE =" in line:
+                    ncore = int(line.split()[-1])
+                    break
+                
+        self["ncore"] = ncore
+        self["omp_num"] = omp_num
     
     @ResultAbacus.register(normal_end="if the job is normal ending")
     def GetNormalEnd(self):
@@ -95,56 +104,74 @@ class Abacus(ResultAbacus):
         else:
             self["kpt"] = None
 
-
+    @ResultAbacus.register(fft_grid = "fft grid for charge/potential")
+    def GetGridInfo(self):
+        fft_grid = None
+        for i,line in enumerate(self.LOG):
+            if "[fft grid for charge/potential] =" in line:
+                fft_grid = [float(i.strip()) for i in line.split('=')[1].split(',')]
+                break     
+        self["fft_grid"] = fft_grid
+    
     @ResultAbacus.register(nbands="number of bands",
                            nkstot = "total K point number",
                            ibzk = "irreducible K point number",
                            natom ="total atom number",
                            nelec = "total electron number",
                            nelec_dict = "dict of electron number of each species",
-                           fft_grid = "fft grid for charge/potential",
                            point_group="point group",
                            point_group_in_space_group="point group in space group")
-    def GetLogParam(self):       
-        natom = 0
-        nelec = 0
-        elec_dict = {}
-        point_group = None
-        point_group_in_space_group = None
-        for i,line in enumerate(self.LOG):
-            if "NBANDS =" in line:
-                self['nbands'] = int(line.split()[2])
-            elif 'nkstot =' in line:
-                self['nkstot'] = int(line.split()[-1])
-            elif 'nkstot_ibz =' in line:
-                self['ibzk'] = int(line.split()[-1])
-            elif "            electron number of element" in line:
-                elec_dict[line.split()[4]] = float(line.split()[-1])
-            elif 'number of atom for this type =' in line:
-                natom += int(line.split()[-1])
-            elif 'total electron number of element' in line:
-                nelec += float(line.split()[-1])
-            elif "[fft grid for charge/potential] =" in line:
-                self['fft_grid'] = [float(i.strip()) for i in line.split('=')[1].split(',')]
-            elif "POINT GROUP =" in line:
-                point_group = line.split("=")[1].strip()
-            elif "POINT GROUP IN SPACE GROUP =" in line:
-                point_group_in_space_group = line.split("=")[1].strip()
+    def GetLogParam(self): 
+        if self.JSON:
+            self["nbands"],_ = comm.get_abacus_json(self.JSON,["init","nband"])
+            self["nkstot"],_ = comm.get_abacus_json(self.JSON,["init","nkstot"])
+            self["ibzk"],_ = comm.get_abacus_json(self.JSON,["init","nkstot_ibz"])
+            self["natom"],_ = comm.get_abacus_json(self.JSON,["init","natom"])
+            self["nelec"],_ = comm.get_abacus_json(self.JSON,["init","nelectron"])
+            self["nelec_dict"],_ = comm.get_abacus_json(self.JSON,["init","nelectron_each_type"])
+            self["fft_grid"],_ = comm.get_abacus_json(self.JSON,["init","fft_grid"])
+            self["point_group"],_ = comm.get_abacus_json(self.JSON,["init","point_group"])
+            self["point_group_in_space_group"],_ = comm.get_abacus_json(self.JSON,["init","point_group_in_space"])
+        else:      
+            natom = 0
+            nelec = 0
+            elec_dict = {}
+            point_group = None
+            point_group_in_space_group = None
+            for i,line in enumerate(self.LOG):
+                if "NBANDS =" in line:
+                    self['nbands'] = int(line.split()[2])
+                elif 'nkstot =' in line:
+                    self['nkstot'] = int(line.split()[-1])
+                elif 'nkstot_ibz =' in line:
+                    self['ibzk'] = int(line.split()[-1])
+                elif "            electron number of element" in line:
+                    elec_dict[line.split()[4]] = float(line.split()[-1])
+                elif 'number of atom for this type =' in line:
+                    natom += int(line.split()[-1])
+                elif 'total electron number of element' in line:
+                    nelec += float(line.split()[-1])
+                elif "POINT GROUP =" in line:
+                    point_group = line.split("=")[1].strip()
+                elif "POINT GROUP IN SPACE GROUP =" in line:
+                    point_group_in_space_group = line.split("=")[1].strip()
 
-        self["point_group"] = point_group
-        self["point_group_in_space_group"] = point_group_in_space_group
-        if natom > 0:
-            self["natom"] = natom 
-        if nelec > 0:
-            self["nelec"] = nelec 
-        else:
-            self["nelec"] = None
-        
-        if elec_dict:
-            self["nelec_dict"] = elec_dict
-        else:
-            self["nelec_dict"] = None
+            self["point_group"] = point_group
+            self["point_group_in_space_group"] = point_group_in_space_group
+            if natom > 0:
+                self["natom"] = natom 
+            if nelec > 0:
+                self["nelec"] = nelec 
+            else:
+                self["nelec"] = None
 
+            if elec_dict:
+                self["nelec_dict"] = elec_dict
+            else:
+                self["nelec_dict"] = None
+
+    
+    
     @ResultAbacus.register(converge="if the SCF is converged",
                            total_mag="total magnetism (Bohr mag/cell)",
                            absolute_mag="absolute magnetism (Bohr mag/cell)",

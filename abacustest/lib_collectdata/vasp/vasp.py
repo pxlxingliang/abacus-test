@@ -421,3 +421,19 @@ class Vasp(ResultVasp):
                     self["relax_converge"] = False
             else:
                 self["relax_converge"] = None
+        elif self.OUTCAR:
+            nsw = 1
+            for i in self.OUTCAR:
+                if "   NSW    =" in i:
+                    nsw = int(i.split()[2])
+            relax_steps = 0
+            for i in self.OUTCAR[::-1]:
+                if "--------------------------------------- Iteration" in i:
+                    relax_steps = int(i[49:56])
+                    break
+            if relax_steps == 0 or relax_steps == nsw:
+                self["relax_converge"] = False
+            else:
+                self["relax_converge"] = True
+            self["relax_steps"] = relax_steps
+                
