@@ -179,52 +179,70 @@ class Abacus(ResultAbacus):
                            volume = "the volume of cell, in A^3",
                            efermi = "the fermi energy (eV). If has set nupdown, this will be a list of two values. The first is up, the second is down.",
                            energy_per_atom="the total energy divided by natom, (eV)")
-    def GetLogResult(self):       
-        total_mag = None
-        absolute_mag = None
-        efermi = None
-        converge = None
-        energy = None
-        volume = None
-        for i,line in enumerate(self.LOG):
-            if 'charge density convergence is achieved' in line:
-                converge = True
-            elif 'convergence has NOT been achieved!' in line or\
-                'convergence has not been achieved' in line:
-                converge = False
-            elif 'total magnetism (Bohr mag/cell)' in line:
-                total_mag = float(line.split()[-1])
-            elif 'absolute magnetism' in line:
-                absolute_mag = float(line.split()[-1])
-            elif "!FINAL_ETOT_IS" in line:
-                energy = float(line.split()[1])
-            elif "Volume (A^3) =" in line:
-                volume = float(line.split()[-1])
-            elif 'E_Fermi' in line:
-                if 'E_Fermi_up' in line:
-                    if efermi == None:
-                        efermi = [None,None]
-                    efermi[0] = float(line.split()[-1])
-                elif 'E_Fermi_dw' in line:
-                    if efermi == None:
-                        efermi = [None,None]
-                    efermi[1] = float(line.split()[-1])
-                else:
-                    efermi = float(line.split()[-1])
+    def GetLogResult(self):     
+        if self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
+            output_final = self.JSON.get("output")[-1]
+            self["converge"] = output_final.get("scf_converge",None)
+            self["total_mag"] = output_final.get("total_mag",None)
+            self["absolute_mag"] = output_final.get("absolute_mag",None)
+            self["energy"] = output_final.get("energy",None)
+            self["efermi"] = output_final.get("e_fermi",None)
+            cell  = output_final.get("cell",None)
+            if cell:
+                import numpy as np
+                self["volume"] = abs(np.linalg.det(cell))
+            else:
+                self["volume"] = None
+            if self["natom"] != None and self['energy'] != None:
+                self["energy_per_atom"] = self['energy']/self["natom"]
+            else:
+                self["energy_per_atom"] = None
+        else: 
+            total_mag = None
+            absolute_mag = None
+            efermi = None
+            converge = None
+            energy = None
+            volume = None
+            for i,line in enumerate(self.LOG):
+                if 'charge density convergence is achieved' in line:
+                    converge = True
+                elif 'convergence has NOT been achieved!' in line or\
+                    'convergence has not been achieved' in line:
+                    converge = False
+                elif 'total magnetism (Bohr mag/cell)' in line:
+                    total_mag = float(line.split()[-1])
+                elif 'absolute magnetism' in line:
+                    absolute_mag = float(line.split()[-1])
+                elif "!FINAL_ETOT_IS" in line:
+                    energy = float(line.split()[1])
+                elif "Volume (A^3) =" in line:
+                    volume = float(line.split()[-1])
+                elif 'E_Fermi' in line:
+                    if 'E_Fermi_up' in line:
+                        if efermi == None:
+                            efermi = [None,None]
+                        efermi[0] = float(line.split()[-1])
+                    elif 'E_Fermi_dw' in line:
+                        if efermi == None:
+                            efermi = [None,None]
+                        efermi[1] = float(line.split()[-1])
+                    else:
+                        efermi = float(line.split()[-1])
 
-        self["energy"] = energy
-        self["converge"] = converge
-        self["volume"] = volume
-        
-        self['total_mag'] = total_mag
-        self['absolute_mag'] = absolute_mag
-        if efermi != None and isinstance(efermi,list):
-            if abs(efermi[0] - efermi[1]) < 1e-6:
-                efermi = efermi[0]
-        self["efermi"] = efermi
+            self["energy"] = energy
+            self["converge"] = converge
+            self["volume"] = volume
 
-        if self["natom"] != None and self['energy'] != None:
-            self["energy_per_atom"] = self['energy']/self["natom"]
+            self['total_mag'] = total_mag
+            self['absolute_mag'] = absolute_mag
+            if efermi != None and isinstance(efermi,list):
+                if abs(efermi[0] - efermi[1]) < 1e-6:
+                    efermi = efermi[0]
+            self["efermi"] = efermi
+
+            if self["natom"] != None and self['energy'] != None:
+                self["energy_per_atom"] = self['energy']/self["natom"]
     
     @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one")
     def GetForceFromLog(self):
