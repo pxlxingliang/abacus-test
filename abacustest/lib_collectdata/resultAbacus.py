@@ -76,6 +76,7 @@ class ResultAbacus(Result):
             return None
 
     def ReadJson(self):
+        return None
         if os.path.isfile(os.path.join(self.PATH,"abacus.json")):
             try:
                 jsons = json.load(open(os.path.join(self.PATH,"abacus.json")))
