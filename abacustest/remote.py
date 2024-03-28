@@ -88,7 +88,7 @@ def push_to_github(remote_path,github_setting,config_setting,extra_setting={}):
     add_date_command = ""
     if add_date_path:
         date = time.strftime("%Y%m%d", time.localtime())
-        add_date_command = """
+        add_date_command = f"""
 # check if dates file exists
 if [ -f "{add_date_path}" ]; then
     # check if the date exists
