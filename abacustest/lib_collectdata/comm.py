@@ -228,3 +228,17 @@ def get_abacus_json(json_dict,key_list):
     if has_keys:
         v = json_dict
     return v,has_keys
+
+def get_metric_from_str(istr):
+    # istr: "{energy}/{natom}"
+    # the metric name may in the format of "{metric_name}"
+    # return a list of metric name
+    
+    if "{" not in istr:
+        return [istr]
+
+    metric_list = []
+    for i in istr.split("{"):
+        if "}" in i:
+            metric_list.append(i.split("}")[0])
+    return metric_list

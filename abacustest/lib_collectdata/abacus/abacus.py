@@ -755,20 +755,6 @@ class Abacus(ResultAbacus):
         self["label"] = atomlabel_list
         self['element_list'] = element_list
         self['atomlabel_list'] = atomlabel_list
-            
-    @ResultAbacus.register(delta_energy="the difference between energy and the reference value. Unit in eV. Key in reference file is \"energy\"",
-                           delta_energyPerAtom="delta_energy/natom, unit in eV")
-    def GetDeltaEnergy(self): 
-        if self.resultREF.get("energy",None) != None:
-            if self["energy"] != None:
-                self["delta_energy"] = self["energy"] - self.resultREF.get("energy")
-                if self["natom"] != None:
-                    self["delta_energyPerAtom"] = (self["energy"] - self.resultREF.get("energy")) / self["natom"]
-                else:
-                    self["delta_energyPerAtom"] = None
-                return
-        self["delta_energy"] = None
-        self["delta_energyPerAtom"] = None
     
     @ResultAbacus.register(pdos="a dict, keys are 'energy' and 'orbitals', and 'orbitals' is a list of dict which is (index,species,l,m,z,data), dimension of data is nspin*ne",
                            )
