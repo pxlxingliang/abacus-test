@@ -44,13 +44,20 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric27 = 'step1_time'
     AbacusMetric_metric28 = 'scf_steps'
     AbacusMetric_metric29 = 'atom_mag'
+    AbacusMetric_metric29_1 = 'atom_mag_u'
+    AbacusMetric_metric29_2 = 'atom_mags'
+    AbacusMetric_metric29_3 = 'atom_elec'
+    AbacusMetric_metric29_4 = 'atom_orb_elec'
+    AbacusMetric_metric29_5 = 'atom_elec_u'
     AbacusMetric_metric30 = 'drho'
     AbacusMetric_metric30_1 = 'drho_last'
     AbacusMetric_metric30_2 = 'denergy'
     AbacusMetric_metric30_3 = 'denergy_last'
     AbacusMetric_metric31 = 'lattice_constant'
     AbacusMetric_metric32 = 'cell'
+    AbacusMetric_metric32_1 = 'cell_init'
     AbacusMetric_metric33 = 'coordinate'
+    AbacusMetric_metric33_1 = 'coordinate_init'
     AbacusMetric_metric34 = 'element_list'
     AbacusMetric_metric35 = 'atomlabel_list'
     AbacusMetric_metric36 = 'delta_energy'
@@ -62,6 +69,10 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric42 = 'point_group'
     AbacusMetric_metric43 = 'point_group_in_space_group'
     AbacusMetric_metric44 = 'largest_gradient'
+    AbacusMetric_metric45 = 'ds_lambda_step'
+    AbacusMetric_metric46 = 'ds_lambda_rms'
+    
+    
 
 class SuperMetricMethodEnum(String, Enum):
     SuperMetricMethod_method1 = "iGM"
