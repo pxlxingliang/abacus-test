@@ -830,6 +830,9 @@ class AbacusRelax(ResultAbacus):
                     index_end = line.index("ELEC")
                     self["relax_steps"] = int(line[index_ben:index_end])
                     return
+                elif "STEP OF RELAXATION :" in line:
+                    self["relax_steps"] = int(line.split()[-1])
+                    return
                 elif " STEP OF ION RELAXATION : " in line:
                     self["relax_steps"] = int(line.split()[-1])
                     return
