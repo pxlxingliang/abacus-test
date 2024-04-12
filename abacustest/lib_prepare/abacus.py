@@ -94,9 +94,9 @@ class AbacusStru:
         self._cell = cell
         
         # check pp orb paw
-        self._pp = pp if pp else None
-        self._orb = orb if orb else None
-        self._paw = paw if paw else None
+        self._pp = self._clean_pporb(pp)
+        self._orb = self._clean_pporb(orb)
+        self._paw = self._clean_pporb(paw)
         
         if (not self._pp):
             print("WARNING: pp is not defined!!!")
@@ -107,7 +107,7 @@ class AbacusStru:
         self._dpks = dpks if dpks else None
         self._cartesian = cartesian
         self._move = move
-        self._magmom = magmom if magmom else [0]*len(label)
+        self._magmom = magmom if magmom else [0]*len(self._label)
         self._magmom_atom = magmom_atom
         self._velocity = velocity
         self._angle1 = angle1
@@ -130,6 +130,18 @@ class AbacusStru:
             self._mass = [constant.MASS_DICT.get(i,1.0) for i in self._element]
         
         self._check()
+    
+    def _clean_pporb(self,pporb):
+        if pporb:
+            if len(pporb) == len(self._coord):
+                new_pporb = []
+                for i in range(len(self._label)):
+                    new_pporb.append(pporb[sum(self._atom_number[:i+1])-1])
+                return new_pporb
+            else:
+                return pporb
+        else:
+            return None
     
     def _check(self):
         '''check the structure'''
