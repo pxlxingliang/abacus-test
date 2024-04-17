@@ -60,6 +60,7 @@ def IsTrue(param):
     
     '''
     if isinstance(param,str):
+        param = param.rstrip(".").lstrip(".")  # for the case of "True."
         if param.lower() in ["true","t","1"]:
             return True
         elif param.lower() in ["false","f","0"]:

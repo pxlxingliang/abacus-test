@@ -306,14 +306,14 @@ def Abacus2Vasp(abacus_path:str, save_path:str=None, potcar=None, vasp_setting={
         
     # 4.3 if nspin != 1, then set the initial magmom
     if abacus_input.get("nspin",1) != 1:
-        mag = stru.get_mag()
+        mag = stru.get_atommag()  # mag is a list of list, eahc list is the magmom of one atom, for noncolinear, it should be [magx,magy,magz]
         labels = stru.get_label()
         label = []
         for i in labels:
             if i not in label:
                 label.append(i)
         atom_number = [labels.count(i) for i in label]
-        vasp_input["MAGMOM"] = " ".join([f"{atom_number[i]}*{mag[i]}" for i in range(len(mag))])
+        vasp_input["MAGMOM"] = " ".join([f"{mag[i][0]}" for i in range(len(mag))]) # only support the collinear case now.
         
     # 4.4 update the vasp_input by vasp_setting    
     if vasp_setting:
