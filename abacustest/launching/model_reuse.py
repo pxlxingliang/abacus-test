@@ -28,6 +28,7 @@ class Models(String, Enum):
     model7_1 = "007_bandstru_abacusVSvasp"
     model8 = "008_dos"
     model10 = "010_LcaoVSPw"
+    model11 = "011_abacusVSvasp_eos"
     
 
 class MyModel(BaseModel):
