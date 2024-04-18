@@ -71,12 +71,12 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
             qp[para_qe[0]][para_qe[1]] = param.pop(para_aba)
     
     # set smearing  
-    smearing = param.pop("smearing_method").lower()
+    smearing = param.pop("smearing_method","")
     if not smearing:
         pass
-    elif smearing == "fixed":
+    elif smearing.lower() == "fixed":
         qp["system"]["occupations"] = "fixed"
-    elif smearing.startswith("gauss"):
+    elif smearing.lower().startswith("gauss"):
         qp["system"]["occupations"] = "smearing"
         qp["system"]["smearing"] = "gauss"
         if "smearing_sigma" in param:
@@ -85,12 +85,12 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
         print("WARNING: smearing_method %s is not supported now! Will not set occupations in QE." % smearing)
     
     # set ks_solver
-    kssolver = param.pop("ks_solver").lower()
+    kssolver = param.pop("ks_solver","")
     if not kssolver:
         pass
-    elif kssolver == "cg":
+    elif kssolver.lower() == "cg":
         qp["electrons"]["diagonalization"] = "cg"
-    elif kssolver == "dav":
+    elif kssolver.lower() == "dav":
         qp["electrons"]["diagonalization"] = "david"
     else:
         print("WARNING: ks_solver %s is not supported now, will not set diagonalization is QE." % kssolver)
