@@ -677,12 +677,14 @@ def OutResultArgs(parser):
     parser.description = "This script is used to output the summary of results"
     parser.add_argument('-r', '--result', type=str, help='the result file from collectdata, should be .json type',action="extend",nargs="*")
     parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type')
+    parser.add_argument('-m', '--metrics', default=["ALL"], help='The metrics that needed to be shown. Use ALL to show all metrics, default is ALL.', action="extend",nargs="*")
     parser.add_argument('-o', '--output', type=str, help='output the metrics')
     return parser
 
 def outresult(param):
     if param.result != None:
         allresult_files = param.result #if len(param.result) == 1 else param.result[1:]
+        metric_name = param.metrics if len(param.metrics) == 1 else param.metrics[1:]
         allresult = {}
         allfiles = []
         for ifile in allresult_files:
@@ -693,6 +695,19 @@ def outresult(param):
             for k,v in result.items():
                 key = "%s:%s" % (ifile,k) if len(allfiles) > 1 else k
                 allresult[key] = v
+        if "ALL" not in metric_name:
+            need_metric = []
+            for i in metric_name:
+                if i not in need_metric:
+                    need_metric.append(i)
+            new_result = {}
+            for ik,iv in allresult.items():
+                new_result[ik] = {}
+                for i in need_metric:
+                    new_result[ik][i] = iv.get(i,None)
+            allresult = new_result
+        if param.output != None:
+            json.dump(allresult,open(param.output,'w'),indent=4)
         pandas_out(allresult)
     
     if param.param!= None:
@@ -715,6 +730,7 @@ def outresult(param):
         output_value['example_name'] =  allresults['example_name']
         output_value['param_value'] = allparam_value
         output_value['metrics_value'] = allmetric_value
+        
         if param.output != None:
             json.dump(output_value,open(param.output,'w'),indent=4)
         if allmetric_value:

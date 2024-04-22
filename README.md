@@ -168,11 +168,18 @@ An example is like:
 {"PARAM":
         ["natom","kpt","ibzk","nelec","nbands","force","stress",
         "scf_steps","total_time","force_time","stress_time","energy_per_atom","band_gap",
-        {"INPUT":["ecutwfc","mixing_beta"]}]
+        {"SELF_DEFINED_NAME": "An eval string to get the value"}]
 }
 ```
 Only one key "PARAM" is recongnized by `collectdata`, the value is a list of keys. \
-If the value of one key (such as "INPUT") is a dictionary, you can write as {key: [key1_in_dict, key2_in_dict]}. \
+
+If you wish to customize the key name, you can add a dictionary to the list. The key in this dictionary is the name you want to define, and the value is an eval string used to obtain the value that the key should hold in {}.\
+For instance:
+- To get the value of energy per atom, you can write: {"energy per atom": "{energy}/{natom}"}. Here, "energy" and "natom" are the keys, and the value of "energy per atom" is the result of "energy" divided by "natom".
+- To rename the key name of energy to "energy (eV)", you can write: {"energy (eV)": "energy"}.
+
+
+
 The results will be save as json type, and you can define the file name by `-o`.
 
 ### 2.1 Get the keys
@@ -237,7 +244,7 @@ from abacustest.lib_collectdata.resultAbacus import ResultAbacus
 class MyAbacus(ResultAbacus):
     @ResultAbacus.register(key_name="description of the key")
     def function_name(self):
-        "your codes the get the value of key"
+        "your codes to get the value of key"
         self[key_name] = value
 ``` 
 If you want to define a vasp method, you need change the import line and class name, like:

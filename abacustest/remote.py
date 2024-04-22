@@ -1,15 +1,23 @@
-import os,shutil,copy,argparse,sys,json
-from abacustest.myflow import globV
+import os,shutil,copy,argparse,sys,json,time
+
+def gen_special_value():
+    sv = {}
+    date = time.strftime("%Y%m%d", time.localtime())
+    sv["DATE"] = date
+    return sv
 
 def prepare_files(settings):
     # prepare the files, and then push to remote like github
     # 1. create the folder remote
     # 2. copy the files/folders to the folder
+    # 3. support some special format:
+    #   - {DATE}: the date of today, like 20210801
     '''
     "remote":{
         "files":{
             "file1_local": "file1_remote",
             "file2_local": "file2_remote",
+            "file3_local": "/bda/{DATE}/fiel3_remote"
         }
     }
     '''
@@ -24,7 +32,9 @@ def prepare_files(settings):
     os.mkdir(remote_folder)
     
     files_setting = settings.get("files",{})
+    SV = gen_special_value()
     for ifile,jfile in files_setting.items():
+        jfile = jfile.format(**SV)
         if not os.path.exists(ifile):
             print(f"Error: {ifile} does not exist!")
             continue
@@ -37,7 +47,7 @@ def prepare_files(settings):
             shutil.copytree(ifile,os.path.join(remote_folder,jfile),dirs_exist_ok=True)
     return remote_folder
 
-def push_to_github(remote_path,github_setting,config_setting):
+def push_to_github(remote_path,github_setting,config_setting,extra_setting={}):
     # github_setting = 
     '''
         "github":{
@@ -45,6 +55,7 @@ def push_to_github(remote_path,github_setting,config_setting):
             "branch": "",
             "commit_msg": ""
         }
+        "add_date": "bda/dates"
     '''
     repo = github_setting.get("repo")
     branch = github_setting.get("branch")
@@ -71,6 +82,23 @@ def push_to_github(remote_path,github_setting,config_setting):
         github_path = "github" + str(n)
         n += 1
     os.mkdir(github_path)
+    
+    # add date to dates
+    add_date_path = extra_setting.get("add_date")
+    add_date_command = ""
+    if add_date_path:
+        date = time.strftime("%Y%m%d", time.localtime())
+        add_date_command = f"""
+# check if dates file exists
+if [ -f "{add_date_path}" ]; then
+    # check if the date exists
+    if ! grep -q "{date}" "{add_date_path}"; then
+        echo "{date}" >> "{add_date_path}"
+    fi
+else
+    echo "{date}" > "{add_date_path}"
+fi
+        """
     
     # gen bash script
     repo_url_with_token=f"https://oauth2:{token}@github.com/{repo}.git"    
@@ -111,6 +139,9 @@ git checkout {branch}
 # copy the files
 cp -r {remote_path}/* .
 
+# check if add date
+{add_date_command}
+
 # commit and push
 git add .
 git commit -m "{commit_msg}"
@@ -147,7 +178,7 @@ cd ..
 
 def push_to_remote(remote_path,setting,config_setting): 
     if setting.get("github"):
-        push_to_github(remote_path,setting.get("github"),config_setting)
+        push_to_github(remote_path,setting.get("github"),config_setting,setting)
     else:
         print("Error: the remote setting is not supported!")
         return 1
@@ -160,6 +191,7 @@ def ReportArgs(parser):
         "github_email": "",
         "github_token": ""
     },
+    "add_date": "bda/dates",
     "remote":{
         "files":{
             "file1_local": "file1_remote",
@@ -181,8 +213,9 @@ def Remote(param):
     if not os.path.exists(param_file):
         print(f"Error: {param_file} does not exist!")
         sys.exit(1)
-    config_setting = json.load(open(param_file)).get("config",{})
-    remote_setting = json.load(open(param_file)).get("remote",{})
+    settings = json.load(open(param_file))
+    config_setting = settings.get("config",{})
+    remote_setting = settings.get("remote",{})
 
     if remote_setting:
         remote_path = prepare_files(remote_setting)

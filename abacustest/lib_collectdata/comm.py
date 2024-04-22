@@ -137,3 +137,108 @@ def imath(a,b,symbol):
         print("Not support '%s' now" % symbol)
         return None
 
+def strtime2sec(stim_str):
+    # time_str: 1d2h3m4s
+    
+    day = 0
+    hour = 0
+    minute = 0
+    second = 0
+    time_str = stim_str.lower()
+    if 'd' in time_str:
+        day = int(time_str.split('d')[0])
+        time_str = time_str.split('d')[1]
+    if 'h' in time_str:
+        hour = int(time_str.split('h')[0])
+        time_str = time_str.split('h')[1]
+    if 'm' in time_str:
+        minute = int(time_str.split('m')[0])
+        time_str = time_str.split('m')[1]
+    if 's' in time_str:
+        second = float(time_str.split('s')[0])
+    return day*24*3600 + hour*3600 + minute*60 + second
+
+def cal_band_gap(band,efermi):
+    # band: [[spin1],[spin2],...]
+    # efermi: [efermi_spin1,efermi_spin2]
+    if isinstance(efermi,float):
+        efermi = [efermi,efermi]
+            
+    cb = None
+    vb = None
+    
+    for ispin in range(len(band)):
+        nband_below_fermi = None
+        for ik in range(len(band[ispin])):
+            for ib in range(len(band[ispin][ik])):
+                if band[ispin][ik][ib] > efermi[ispin]:
+                    if nband_below_fermi == None:
+                        nband_below_fermi = ib
+                    elif nband_below_fermi != ib:
+                        return 0
+                    icb = band[ispin][ik][ib-1] - efermi[ispin]
+                    ivb = band[ispin][ik][ib] - efermi[ispin]
+                    if cb == None or icb > cb:
+                        cb = icb
+                    if vb == None or ivb < vb:
+                        vb = ivb
+                    break
+    
+    if cb == None or vb == None:
+        band_gap = None
+    else:
+        band_gap = vb - cb
+        if band_gap < 0: band_gap = 0 
+    return band_gap
+
+def abacus_orb_label(l,m):
+    if l == 0:
+        return "s"
+    elif l == 1:
+        if m == 0:
+            return "p_z"
+        elif m == 1:
+            return "p_x"
+        elif m == 2:
+            return "p_y"
+    elif l == 2:
+        if m == 0:
+            return "d_z^2"
+        elif m == 1:
+            return "d_xz"
+        elif m == 2:
+            return "d_yz"
+        elif m == 3:
+            return "d_x^2-y^2"
+        elif m == 4:
+            return "d_xy"
+
+    return f"{l}_{m}"
+
+def get_abacus_json(json_dict,key_list):
+    # need first find if key_list in json_dict
+    v = None
+    has_keys = True
+    for k in key_list:
+        if k in json_dict:
+            json_dict = json_dict[k]
+        else:
+            has_keys = False
+            break
+    if has_keys:
+        v = json_dict
+    return v,has_keys
+
+def get_metric_from_str(istr):
+    # istr: "{energy}/{natom}"
+    # the metric name may in the format of "{metric_name}"
+    # return a list of metric name
+    
+    if "{" not in istr:
+        return [istr]
+
+    metric_list = []
+    for i in istr.split("{"):
+        if "}" in i:
+            metric_list.append(i.split("}")[0])
+    return metric_list

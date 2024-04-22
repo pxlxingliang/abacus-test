@@ -233,3 +233,38 @@ def gen_criteria(criteria,pass_num):
     html += '''</tbody>
     </table>\n\n'''
     return html
+
+def gen_criteria_sm(criteria,sm):
+    '''
+    sm = {key: value}
+    '''
+    html =  f'''
+    <table border="2px">
+        <tbody>
+            <tr>
+                <td>Metric</td>
+                <td>Value</td>
+                <td>Criteria</td>
+            </tr>
+        '''
+    for ik,iv in sm.items():
+        if ik in criteria:
+            icolor = "green" if judge_metric(iv, criteria[ik]) else "red"
+            value = output_float(iv)
+            html += f'''<tr>
+                    <td>{ik}</td>
+                    <td style="color:{icolor}">{value}</td> 
+                    <td>{criteria[ik]}</td>
+                </tr>
+            '''
+        else:
+            html += f'''<tr>
+                    <td>{ik}</td>
+                    <td>{iv}</td> 
+                    <td>---</td>
+                </tr>
+            '''
+        
+    html += '''</tbody>
+    </table>\n\n'''
+    return html

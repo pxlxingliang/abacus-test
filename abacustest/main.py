@@ -1,4 +1,4 @@
-import argparse
+import argparse,os
 from . import abacustest,collectdata,outresult,prepare,report,remote
 
 def parser():
@@ -16,8 +16,14 @@ def parser():
     
     
     return my_parser
+
+def print_head():
+    with open(os.path.join(os.path.dirname(__file__),"version")) as f: __version__ = f.read().strip()
+    print("\nABACUSTEST")
+    print(f"version: {__version__}\n")
     
 def main():
+    print_head()
     my_parser = parser()
     param = my_parser.parse_args()
     if param.command in ['submit','mlops-submit']:

@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Union
 import os,sys,traceback, re
 import numpy as np
 from pathlib import Path
@@ -16,7 +16,12 @@ class AbacusStru:
                  mass:List[float] = None,
                  element:List[str] = None,
                  lattice_constant:float = 1,
+                 move:List[List[int]] =None,
                  magmom: List[float] = None,
+                 magmom_atom: List[Union[float,List[float]]] = None,
+                 velocity: List[List[float]] = None,
+                 angle1: List[float] = None,
+                 angle2: List[float] = None,
                  dpks:str = None,
                  cartesian: bool = False):    
         """ABACUS STRU class, the unit is Bohr
@@ -45,8 +50,19 @@ class AbacusStru:
             coordinate of each atom
         lattice_constant : float, optional
             the lattice constance, by default 1
+        move: List[List[int]], optional
+            if do move of each atom, by default None
         magmom : float, optional
-            magmom setting of each type, by default None
+            if the number of magmom equal to type number, then set it to each type, by default None
+            else if the number of magmom equal to coord number, then set it to each atom, by default None
+        magmom_atom: List[Union[float,List[float]]], optional
+            if the magmom_atom is not None, then set the magmom of each atom, by default None
+        velocity: List[List[float]], optional
+            the velocity of each atom, by default None
+        angle1: List[float], optional
+            the angle1 of each atom, by default None
+        angle2: float, optional 
+            the angle2 of each atom, by default None
         dpks : str, optional
             the deepks descriptor file name, by default None
         cartesian : bool, optional
@@ -78,30 +94,29 @@ class AbacusStru:
         self._cell = cell
         
         # check pp orb paw
-        self._pp = pp if pp else None
-        self._orb = orb if orb else None
-        self._paw = paw if paw else None
+        self._pp = self._clean_pporb(pp)
+        self._orb = self._clean_pporb(orb)
+        self._paw = self._clean_pporb(paw)
         
-        if (not self._pp) and (not self._paw):
-            print("ERROR: Please define the pseudopotential or paw file")
-            sys.exit(1)
-        if self._pp:
-            assert(len(self._label) == len(self._pp)), "ERROR: label number is not equal to pp number"
-        if self._paw:
-            assert(len(self._label) == len(self._paw)), "ERROR: label number is not equal to paw number"
-        if self._orb:
-            assert(len(self._label) == len(self._orb)), "ERROR: label number is not equal to orb number"
+        if (not self._pp):
+            print("WARNING: pp is not defined!!!")
+            self._pp = ["" for i in range(len(self._label))]
             
         
         self._lattice_constant = lattice_constant
         self._dpks = dpks if dpks else None
         self._cartesian = cartesian
-        self._magmom = magmom if magmom else [0]*len(label)
+        self._move = move
+        self._magmom = magmom if magmom else [0]*len(self._label)
+        self._magmom_atom = magmom_atom
+        self._velocity = velocity
+        self._angle1 = angle1
+        self._angle2 = angle2
         
         if element != None:
             self._element = element
         else:
-            print("WARNING: element is not defined, will use the first one/two letter of label as element name")
+            #print("WARNING: element is not defined, will use the first one/two letter of label as element name")
             self._element = []
             for i in self._label:
                 ele = i[0]
@@ -113,6 +128,48 @@ class AbacusStru:
             self._mass = mass
         else:
             self._mass = [constant.MASS_DICT.get(i,1.0) for i in self._element]
+        
+        self._check()
+    
+    def _clean_pporb(self,pporb):
+        if pporb:
+            if len(pporb) == len(self._coord):
+                new_pporb = []
+                for i in range(len(self._label)):
+                    new_pporb.append(pporb[sum(self._atom_number[:i+1])-1])
+                return new_pporb
+            else:
+                return pporb
+        else:
+            return None
+    
+    def _check(self):
+        '''check the structure'''
+        n_label = len(self._label)
+        n_atom = len(self._coord)
+        
+        assert(n_label == len(self._atom_number)), "ERROR: the length of label is not equal to the length of atom_number"
+        assert(n_atom == sum(self._atom_number)), "ERROR: the length of coord is not equal to sum of atom_number"
+        
+        if self._pp != None:
+            assert(n_label == len(self._pp)), "ERROR: the length of label is not equal to pp"
+        if self._orb != None:
+            assert(n_label == len(self._orb)), "ERROR: the length of label is not equal to orb"
+        if self._paw != None:
+            assert(n_label == len(self._paw)), "ERROR: the length of label is not equal to paw"
+        if self._move:
+            assert(n_atom == len(self._move)), "ERROR: the length of coord is not equal to move"
+        if self._magmom:
+            assert(n_label == len(self._magmom)), "ERROR: the length of label is not equal to magmom"
+        if self._magmom_atom:
+            assert(n_atom == len(self._magmom_atom)), "ERROR: the length of coord is not equal to magmom_atom"
+        if self._velocity:
+            assert(n_atom == len(self._velocity)), "ERROR: the length of coord is not equal to velocity"
+        if self._angle1:
+            assert(n_atom == len(self._angle1)), "ERROR: the length of coord is not equal to angle1"
+        if self._angle2:
+            assert(n_atom == len(self._angle2)), "ERROR: the length of coord is not equal to angle2"
+        return True    
     
     def get_pp(self):
         return self._pp
@@ -139,7 +196,19 @@ class AbacusStru:
     def get_mass(self):
         return self._mass
 
+    def get_atommag(self):
+        # return the magmom of each atom
+        magmom = []
+        for i,ilabel in enumerate(self._label):
+            magmom += [self._magmom[i]] * self._atom_number[i]
+        if self._magmom_atom:
+            for ii,i in enumerate(self._magmom_atom):
+                if i != None:
+                    magmom[ii] = i
+        return magmom
+    
     def get_mag(self):
+        # return the magmom of each type
         return self._magmom
     
     def get_element(self,number=True,total=True):
@@ -386,6 +455,55 @@ class AbacusStru:
         
     def set_element(self,element):
         self._element = element
+    
+    def set_coord(self,coord,direct=False,bohr=True):
+        '''
+        set the coordinate of each atom
+        
+        if direct is True, then the coord is direct type, and will modify self._cartesian to False
+        else the coord is cartesian type, and will modify self._cartesian to True, and will set lattice_constant to 1.0, and modify cell *= lattice_constant
+        
+        if bohr is False, then will transfer the coord to Bohr unit
+        '''
+        if direct:
+            self._cartesian = False
+            self._coord = coord
+        else:
+            self._cartesian = True
+            self._cell = np.array(self._cell) * self._lattice_constant
+            self._lattice_constant = 1.0
+            if bohr:
+                self._coord = coord
+            else:
+                self._coord = np.array(coord) / constant.BOHR2A
+                self._coord = self._coord.tolist()
+        self._check()
+    
+    def set_cell(self,cell,bohr=True,change_coord=True):
+        '''
+        set the lattice of a, b, c
+        
+        Will set the lattice_constant to 1.0
+        
+        if bohr is False, then will transfer the cell to Bohr unit
+        
+        if change_coord is True, then will set the coord to direct type
+        else will firstly transfer the coord to cartesian type.
+        '''
+        if change_coord:
+            if self._cartesian:
+                coord = self.get_coord(bohr=bohr,direct=True)
+                self._coord = coord
+                self._cartesian = False
+                
+        self._lattice_constant = 1.0
+        if bohr:
+            self._cell = cell
+        else:
+            self._cell = np.array(cell) / constant.BOHR2A
+            self._cell = self._cell.tolist()
+        self._check()        
+        
      
     def write(self,struf="STRU"):
         cc = ""
@@ -427,7 +545,27 @@ class AbacusStru:
         for i,ilabel in enumerate(self._label):
             cc += "\n%s\n%f\n%d\n" % (ilabel,self._magmom[i],self._atom_number[i])
             for j in range(self._atom_number[i]):
-                cc += "%17.11f %17.11f %17.11f 1 1 1\n" % tuple(self._coord[icoord + j])
+                cc += "%17.11f %17.11f %17.11f " % tuple(self._coord[icoord + j])
+                if self._move:
+                    cc += "%d %d %d " % tuple(self._move[icoord + j])
+                if self._magmom_atom:
+                    if isinstance(self._magmom_atom[icoord + j],list):
+                        if len(self._magmom_atom[icoord + j]) == 3:
+                            cc += "mag %f %f %f " % tuple(self._magmom_atom[icoord + j])
+                        elif len(self._magmom_atom[icoord + j]) == 1:
+                            cc += "mag %f " % self._magmom_atom[icoord + j][0]
+                    elif self._magmom_atom[icoord + j] != None:
+                        cc += "mag %f " % self._magmom_atom[icoord + j]
+                if self._velocity:
+                    if self._velocity[icoord + j]:
+                        cc += "v %f %f %f " % tuple(self._velocity[icoord + j])
+                if self._angle1:
+                    if self._angle1[icoord + j]:
+                        cc += "angle1 %f " % self._angle1[icoord + j]
+                if self._angle2:
+                    if self._angle2[icoord + j]:
+                        cc += "angle2 %f " % self._angle2[icoord + j]
+                cc += "\n"
             icoord += self._atom_number[i]
         
         #write dpks
@@ -457,11 +595,83 @@ class AbacusStru:
         if poscar != None:
             Path(poscar).write_text(cc)
         return cc
-        
-        
+    
+    @staticmethod
+    def parse_stru_pos(pos_line):
+        '''
+  The content in atom position block:
+  - `m` or NO key word: three numbers, which take value in 0 or 1, control how the atom move in geometry relaxation calculations. In example below, the numbers `0 0 0` following the coordinates of the first atom means this atom are *not allowed* to move in all three directions, and the numbers `1 1 1` following the coordinates of the second atom means this atom *can* move in all three directions.
+  - `v` or `vel` or `velocity`: set the three components of initial velocity of atoms in geometry relaxation calculations(e. g. `v 1.0 1.0 1.0`).
+  - `mag` or `magmom` : set the start magnetization for each atom. In colinear case only one number should be given. In non-colinear case one have two choice:either set one number for the norm of magnetization here and specify two polar angle later(e. g. see below), or set three number for the xyz commponent of magnetization here (e. g. `mag 0.0 0.0 1.0`). Note that if this parameter is set, the initial magnetic moment setting in the second line will be overrided.
+    - `angle1`: in non-colinear case, specify the angle between c-axis and real spin, in angle measure instead of radian measure
+    - `angle2`: in non-colinear case, specify angle between a-axis and real spin in projection in ab-plane , in angle measure instead of radian measure
+
+      e.g.:
+
+      ```
+      Fe
+      1.0
+      2
+      0.0 0.0 0.0 m 0 0 0 mag 1.0 angle1 90 angle2 0
+      0.5 0.5 0.5 m 1 1 1 mag 1.0 angle1 90 angle2 180
+      ```
+        '''
+        sline = pos_line.split()
+        pos = [float(i) for i in sline[:3]]
+        move = None
+        velocity = None
+        magmom = None
+        angle1 = None
+        angle2 = None
+        if len(sline) > 3:
+            mag_list = []
+            velocity_list = []
+            move_list = []
+            angle1_list = []
+            angle2_list = []
+            label = "move"
+            for i in range(3,len(sline)):
+                if sline[i] == "m":
+                    label = "move"
+                elif sline[i] in ["v","vel","velocity"]:
+                    label = "velocity"
+                elif sline[i] in ["mag","magmom"]:
+                    label = "magmom"
+                elif sline[i] == "angle1":
+                    label = "angle1"
+                elif sline[i] == "angle2":
+                    label = "angle2"
+                elif label == "move":
+                    move_list.append(int(sline[i]))
+                elif label == "velocity":
+                    velocity_list.append(float(sline[i]))
+                elif label == "magmom":
+                    mag_list.append(float(sline[i]))
+                elif label == "angle1":
+                    angle1_list.append(float(sline[i]))
+                elif label == "angle2":
+                    angle2_list.append(float(sline[i]))
+                    
+            if len(move_list) == 3:
+                move = move_list
+            if len(velocity_list) == 3:
+                velocity = velocity_list
+            if len(mag_list) in [1,3]:
+                magmom = mag_list
+            if len(angle1_list) == 1:
+                angle1 = angle1_list[0]
+            if len(angle2_list) == 1:
+                angle2 = angle2_list[0]
+                
+        return pos,move,velocity,magmom,angle1,angle2
+
     @staticmethod
     def ReadStru(stru:str = "STRU"):
-        "read the label, pp, orb, cell, coord, deepks-descriptor"
+        '''
+        read the label, pp, orb, cell, coord, deepks-descriptor
+        
+
+        '''
         def get_block(keyname):
             block = []
             for i,line in enumerate(lines):
@@ -529,12 +739,17 @@ class AbacusStru:
                 cell.append([float(i) for i in line.split()[:3]])
         except:
             traceback.print_exc()
-            print("WARNING: LATTICE_VECTORS is not correct !!!!!!")
+            print("WARNING: LATTICE_VECTORS is incorrect !!!!!!")
 
         #read coordinate and coordinate type and atom number of each type
         atom_number = []
         coords = []
-        magmom = []
+        magmom_global = [] # the initial magmom of each type
+        magmom = [] # the initial magmom of each atom
+        move = []
+        velocity = []
+        angle1 = []
+        angle2 = []
         coord_type = atom_positions[0].split("#")[0].strip().lower()
         if coord_type.startswith("dire"):
             cartesian = False
@@ -549,11 +764,17 @@ class AbacusStru:
             if label not in labels:
                 print("label '%s' is not matched that in ATOMIC_SPECIES" % label)
                 sys.exit(1)
-            magmom.append(float(atom_positions[i+1].split()[0]))
+            magmom_global.append(float(atom_positions[i+1].split()[0]))
             atom_number.append(int(atom_positions[i+2].split()[0]))
             i += 3
             for j in range(atom_number[-1]):
-                coords.append([float(k) for k in atom_positions[i+j].split()[:3]])
+                pos,imove,ivelocity,imag,iangle1,iangle2 = AbacusStru.parse_stru_pos(atom_positions[i+j])
+                coords.append(pos)
+                move.append(imove)
+                velocity.append(ivelocity)
+                magmom.append(imag)
+                angle1.append(iangle1)
+                angle2.append(iangle2)
             i += atom_number[-1]
         
         return AbacusStru(label=labels,
@@ -564,7 +785,12 @@ class AbacusStru:
                           orb=orb,
                           paw = paw,
                           lattice_constant=lattice_constant,
-                          magmom=magmom,
+                          move=move,
+                          magmom=magmom_global,
+                          magmom_atom=magmom,
+                          velocity=velocity,
+                          angle1=angle1,
+                          angle2=angle2,
                           dpks=dpks,
                           cartesian=cartesian)
         

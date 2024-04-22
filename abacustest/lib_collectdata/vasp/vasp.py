@@ -61,7 +61,27 @@ class Vasp(ResultVasp):
                 self['ibzk'] = len(ibzk)
             else:
                 self['ibzk'] = None
-
+        else:
+            ibzk = None
+            kpt = None
+            nkstot = None
+            for i,line in enumerate(self.OUTCAR):
+                if "k-points in BZ" in line:
+                    ibzk = int(line.split()[3])
+                elif " generate k-points for:" in line:
+                    kpt = [int(j) for j in self.OUTCAR[i].split()[-3:]]
+                elif "k-points in reciprocal lattice and weights" in line:
+                    nkstot = 0
+                    for j in range(i+1,len(self.OUTCAR)):
+                        if self.OUTCAR[j].strip() == "":
+                            break
+                        nkstot += 1
+                    break
+                    
+            self["ibzk"] = ibzk        
+            self['kpt'] = kpt
+            self['nkstot'] = nkstot        
+                
     @ResultVasp.register(nbands="number of bands",
                          nelec = "total electron number",
                          spin = "the spin number",
@@ -101,6 +121,7 @@ class Vasp(ResultVasp):
             self['volume'] = comm.ifloat(comm.XmlGetText(self.XMLROOT.findall(tree),idx=-1))
             
         else:
+            volume = None
             for line in self.OUTCAR:
                 sline = line.split()
                 if "number of bands    NBANDS" in line:
@@ -119,7 +140,8 @@ class Vasp(ResultVasp):
                 elif "NELM   =" in line:
                     self['nelm'] = int(sline[2][:-1])
                 elif "volume of cell" in line:
-                    self["volume"] = float(sline[-1])
+                    volume = float(sline[-1])
+            self["volume"] = volume
 
     @ResultVasp.register(ldautype = "value of LDAUTYPE, the type of plus U",
                          ldaul = "list, value of LDAUL, the l-quantum number of each element",
@@ -240,13 +262,46 @@ class Vasp(ResultVasp):
     
     @ResultVasp.register(atom_name = 'list, the element name of each atom' ,
                          atom_type = 'list, the element name of each atomtype',
+                         element_list = 'list, the element name of all atoms',
                          efermi     = 'the fermi energy, eV')
     def GetXMLInfo(self):
-        if self.XMLROOT == None:
-            return
-        self['atom_name'] = comm.XmlGetText(self.XMLROOT.findall("./atominfo/array[@name='atoms']/set/rc/c[1]"))
-        self['atom_type'] = comm.XmlGetText(self.XMLROOT.findall("./atominfo/array[@name='atomtypes']/set/rc/c[2]"))
-        self['efermi'] = comm.XmlGetText(self.XMLROOT.findall("./calculation/dos/i[@name='efermi'][last()]"),func=float,idx = -1)
+        if self.XMLROOT != None:
+            atom_name = comm.XmlGetText(self.XMLROOT.findall("./atominfo/array[@name='atoms']/set/rc/c[1]"))
+            if isinstance(atom_name,list):
+                atom_name = [i.strip() for i in atom_name]
+            self["atom_name"] = atom_name
+            
+            atom_type = comm.XmlGetText(self.XMLROOT.findall("./atominfo/array[@name='atomtypes']/set/rc/c[2]"))
+            if isinstance(atom_type,list):
+                atom_type = [i.strip() for i in atom_type]
+            self["atom_type"] = atom_type
+            
+            self['efermi'] = comm.XmlGetText(self.XMLROOT.findall("./calculation/dos/i[@name='efermi'][last()]"),func=float,idx = -1)
+            element = []
+            for i in self.XMLROOT.findall("./atominfo/array[@name='atoms']/set/rc/c[1]"):
+                element.append(i.text)
+            self['element_list'] = element
+        else:
+            # read from OUTCAR
+            atom_name = None
+            atom_type = None
+            efermi = None
+            for i in range(len(self.OUTCAR)):
+                if "VRHFIN" in self.OUTCAR[i]:
+                    if atom_name == None:
+                        atom_name = []
+                    atom_name.append(self.OUTCAR[i].split(":")[0].split("=")[1].strip())
+                elif "E-fermi" in self.OUTCAR[i]:
+                    efermi = float(self.OUTCAR[i].split()[2])
+            if atom_name != None:
+                atom_type = []
+                for i in atom_name:
+                    if i not in atom_type:
+                        atom_type.append(i)
+            self['atom_type'] = atom_type
+            self['atom_name'] = atom_name
+            self["element_list"] = atom_name
+            self['efermi'] = efermi
 
     @ResultVasp.register(band = '[[[]]], list with three dimension spin*kpoint*band')
     def GetBandInfo(self):
@@ -264,8 +319,32 @@ class Vasp(ResultVasp):
                         for iband in kpoint.findall('r'):
                             band[-1][-1].append(float(iband.text.split()[0]))
                 self['band'] = band
-
-    '''
+        else:
+            # try to read band from OUTCAR
+            band = []
+            nspin = self["spin"]
+            nk = self["nkstot"]
+            nband = self["nbands"]
+            if nspin == None or nk == None:
+                self['band'] = None
+                return
+            print("nspin=%d, nk=%d, nband=%d" % (nspin,nk,nband))
+            for i in range(len(self.OUTCAR)):
+                if "spin component" in self.OUTCAR[i]:
+                    band.append([])
+                    for j in range(nk):
+                        nk_start = i + 1 + (nband+3)*j + 3
+                        nk_end = nk_start + nband
+                        band[-1].append([float(k.split()[1]) for k in self.OUTCAR[nk_start:nk_end]])
+                        
+                    nspin -= 1
+                    if nspin == 0:
+                        break
+            if len(band) == 0:
+                self['band'] = None
+            else:
+                self['band'] = band
+    
     @ResultVasp.register(band_gap = 'eV, the band gap')
     def GetBandGap(self):
         if self['band'] == None or self['efermi'] == None:
@@ -274,15 +353,7 @@ class Vasp(ResultVasp):
             vb = None
             cb = None
             fermi = self['efermi']
-            for ispin in self['band']:
-                for ik in ispin:
-                    for i,iband in enumerate(ik):
-                        if iband > fermi:
-                            vb = iband if vb == None or vb > iband else vb
-                            cb = ik[i-1] if cb == None or cb < ik[i-1] else cb
-                            break
-            #print("cb=%.5f, vb=%.5f" % (cb,vb))
-            self['band_gap'] = None if vb == None or cb == None else vb - cb
+            self["band_gap"] = comm.cal_band_gap(self['band'],fermi)
     '''
     @ResultVasp.register(band_gap = 'eV, the band gap')
     def GetBandGap(self):
@@ -318,7 +389,7 @@ class Vasp(ResultVasp):
                     band_gap = 0
                 self['band_gap'] = band_gap
                 return
-    
+    '''
     @ResultVasp.register(point_group = 'point group',
                          point_group_in_space_group = "point group in space group")
     def GetPointGroup(self):
@@ -341,7 +412,8 @@ class Vasp(ResultVasp):
         if self.XMLROOT != None:
             self["relax_steps"] = len(self.XMLROOT.findall("calculation"))
             
-            max_ion = comm.iint(self.XMLROOT.findtext("./parameters/ionic[@name='NSW']",default=64))
+            #max_ion = comm.iint(self.XMLROOT.findtext("./parameters/ionic[@name='NSW']",default=64))
+            max_ion = comm.iint(self.XMLROOT.findtext("./parameters/separator[@name='ionic']/i[@name='NSW']",default=64))
             if max_ion != None and self["relax_steps"] != None:
                 if max_ion > self["relax_steps"]:
                     self["relax_converge"] = True
@@ -349,3 +421,19 @@ class Vasp(ResultVasp):
                     self["relax_converge"] = False
             else:
                 self["relax_converge"] = None
+        elif self.OUTCAR:
+            nsw = 1
+            for i in self.OUTCAR:
+                if "   NSW    =" in i:
+                    nsw = int(i.split()[2])
+            relax_steps = 0
+            for i in self.OUTCAR[::-1]:
+                if "--------------------------------------- Iteration" in i:
+                    relax_steps = int(i[49:56])
+                    break
+            if relax_steps == 0 or relax_steps == nsw:
+                self["relax_converge"] = False
+            else:
+                self["relax_converge"] = True
+            self["relax_steps"] = relax_steps
+                

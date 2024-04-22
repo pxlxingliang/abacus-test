@@ -1,6 +1,7 @@
 import os,sys,json
 sys.path.append(os.path.split(__file__)[0])
 from .lib_collectdata.collectdata import RESULT
+from .lib_collectdata.comm import get_metric_from_str
 import argparse
 import traceback
 
@@ -17,29 +18,58 @@ def parse_param(paramf):
         print("ERROR: can not find file %s" % paramf)
         return []
 
+def get_metric_value(result,metric_str):
+    if "{" not in metric_str:
+        return result[metric_str]
+    else:
+        metrics = get_metric_from_str(metric_str)
+        values = {}
+        for i in metrics:
+            values[i] = result[i]
+        metrics_real_str = metric_str.format(**values)
+        try:
+            value = eval(metrics_real_str)
+        except:
+            print("ERROR: can not evaluate %s" % metric_str)
+            print("     The real str is: %s" % metrics_real_str)
+            traceback.print_exc()
+            value = None
+        return value
+
 def parse_value(abacus_result,allparams):
     allresult = {}
     for param in allparams:
         if isinstance(param,str):
-            allresult[param] = abacus_result[param]
+            allresult[param] = get_metric_value(abacus_result,param)
         elif isinstance(param,dict):
+            # if is a dict, then the key is a rename of param, and the value is an eval string, and the key of abacus_result can used by {key}
             for k,v in param.items():
                 if not isinstance(k,str):
                     print("Error: %s should be a string, skip!" % str(k))
                     continue
-
-                value = abacus_result[k]
-                if not isinstance(value,dict):
-                    print("the value of %s is not a dictionary" % k)
-                    allresult[k] = value
+                
+                # remain when key is INPUT, indicate want to get the sub value of INPUT that is a dict,
+                # such as INPUT["ecutwfc"], INPUT["basis"]
+                # this can be achieved by type "{INPUT}['ecutwfc']"
+                
+                if k in ["INPUT"]:
+                    value = abacus_result[k]
+                    if not isinstance(value,dict):
+                        print("the value of %s is not a dictionary" % k)
+                        allresult[k] = value
+                    else:
+                        if isinstance(v,str):
+                           allresult["%s/%s"% (k,v)] = value.get(v,None)
+                        elif isinstance(v,(list,tuple)):
+                            for iv in v:
+                                allresult["%s/%s"% (k,iv)] = value.get(iv,None)
+                        else:
+                            print("%s should be str, list or tuple" % str(v))
                 else:
                     if isinstance(v,str):
-                       allresult["%s/%s"% (k,v)] = value.get(v,None)
-                    elif isinstance(v,(list,tuple)):
-                        for iv in v:
-                            allresult["%s/%s"% (k,iv)] = value.get(iv,None)
+                        allresult[k] = get_metric_value(abacus_result,v)
                     else:
-                        print("%s should be str, list or tuple" % str(v))
+                        print("%s should be str" % str(v))
         else:
             print("%s should be str or dict" % str(param))
     return allresult                        
