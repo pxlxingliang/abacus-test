@@ -883,13 +883,13 @@ ATOM 1        -0.0000000000e+00   -0.0000000000e+00    3.5939101250e-05
                 elif "Final optimal lambda (Ry/uB):" in i:
                     optimal_lambda = []
                     for j in range(natom):
-                        if len(self.OUTPUT[idx+j+1].split()) == 5:
-                            optimal_lambda.append([float(ii) for ii in self.OUTPUT[idx+j+1].split()[2:5]])
+                        if len(self.OUTPUT[idx+j+1].split()) in [3,5] and self.OUTPUT[idx+j+1].split()[0] == "ATOM":
+                            optimal_lambda.append([float(ii) for ii in self.OUTPUT[idx+j+1].split()[2:]])
                 elif "Magnetic force (Ry/uB):" in i:
                     mag_force = []
                     for j in range(natom):
-                        if len(self.OUTPUT[idx+j+1].split()) == 5:
-                            mag_force.append([float(ii) for ii in self.OUTPUT[idx+j+1].split()[2:5]])
+                        if len(self.OUTPUT[idx+j+1].split()) in [3,5] and self.OUTPUT[idx+j+1].split()[0] == "ATOM":
+                            mag_force.append([float(ii) for ii in self.OUTPUT[idx+j+1].split()[2:]])
 
         self["ds_lambda_step"] = lambda_step
         self["ds_lambda_rms"] = lambda_rms
