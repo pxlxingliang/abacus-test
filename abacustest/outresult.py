@@ -706,6 +706,8 @@ def outresult(param):
                 for i in need_metric:
                     new_result[ik][i] = iv.get(i,None)
             allresult = new_result
+        if param.output != None:
+            json.dump(allresult,open(param.output,'w'),indent=4)
         pandas_out(allresult)
     
     if param.param!= None:
@@ -728,6 +730,7 @@ def outresult(param):
         output_value['example_name'] =  allresults['example_name']
         output_value['param_value'] = allparam_value
         output_value['metrics_value'] = allmetric_value
+        
         if param.output != None:
             json.dump(output_value,open(param.output,'w'),indent=4)
         if allmetric_value:
