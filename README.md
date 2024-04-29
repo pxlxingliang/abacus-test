@@ -47,6 +47,7 @@ An example is like:
     },
 
     "save_path":"result/abacus-pw",
+    "max_parallel": 100,
 
     "run_dft":[
         {"ifrun": true,
@@ -57,7 +58,7 @@ An example is like:
          "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
          "command": "mpirun -np 8 abacus > log",
          "extra_files":[],
-         "outputs":["log","result.json","OUT.*"]
+         "outputs":[]
         },
         {"ifrun": true,
          "image": "ABACUS310_IMAGE",
@@ -72,7 +73,7 @@ An example is like:
 
     "post_dft":{
                 "ifrun": false,
-                "command": "collectdata.py collectdata-abacus.json -o result.json -j 00*",
+                "command": "ls",
                 "extra_files": [],
                 "image":   "python:3.8",
                 "metrics":{
@@ -90,6 +91,7 @@ An example is like:
 - `ABBREVIATION`: define some abbreviation, and is only valid for `image`.
 - `config`: The setting of config information.
 - `save_path`: define the path to save the results of this test. If this key is not defined or if is deined to be "" or None, the value will be replaced to be the path defined by "-s" (the param of abacustest, the default of "-s" is "result/date_of_today" like "result/20230101")
+- `max_parallel`: define the max number of parallel jobs. Default is 100.
 - `run_dft`: define the detail of the running of your jobs. The value is a list of dictionaries. You can set any number of dictionaries.
   - `ifrun`: if set it to be `false`, will skip this part. 
   - `sub_save_path`: the path to save the results of this part in `save_path`, which means the real save path will be "save_path/sub_save_path". If this key is not defined, or is defined to be "" ornull, the real save path will be "save_path".

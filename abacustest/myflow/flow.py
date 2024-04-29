@@ -327,10 +327,11 @@ def RunJobs(param):
         comm.printinfo("No step is produced, exit!!!")
     else:
         dflow_labels = globV.get_value("PRIVATE_SET",{}).get("dflow_labels",None)
+        max_para = globV.get_value("PARAM").get("max_parallel",100)
         if globV.get_value("BOHRIUM_EXECUTOR"):
-            wf = Workflow(name="abacustest",context=globV.get_value("BRM_CONTEXT"),labels=dflow_labels)
+            wf = Workflow(name="abacustest",context=globV.get_value("BRM_CONTEXT"),labels=dflow_labels,parallelism=max_para)
         else:
-            wf = Workflow(name="abacustest",labels=dflow_labels)
+            wf = Workflow(name="abacustest",labels=dflow_labels,parallelism=max_para)
 
         wf.add(allstep)
         wf.submit()

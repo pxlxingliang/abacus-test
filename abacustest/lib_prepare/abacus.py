@@ -835,6 +835,8 @@ def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT", model="gamm
     if model.lower() in ["gamma","mp"]:
         with open(file_name,'w') as f1:
             f1.write("K_POINTS\n0\nGamma\n")
+            if len(kpoint_list) == 3:
+                kpoint_list += [0,0,0]
             f1.write(" ".join([str(i) for i in kpoint_list]))
     elif model.lower() in ["direct","cartessian"]:
         # normalize the weight

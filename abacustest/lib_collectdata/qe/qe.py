@@ -422,6 +422,49 @@ class Qe(ResultQe):
         self["efermi"] = efermi
         self["band_gap"] = band_gap      
     
+    @ResultQe.register(drho="[], drho of each scf step. Unit in Ry",
+                       drho_last="drho of the last scf step. Unit in Ry",
+                       denergy="[], denergy of each scf step. Unit in eV",
+                       denergy_last="denergy of the last scf step. Unit in eV")
+    def Getdrhode(self):
+        drho = None
+        drho_last = None
+        denergy = None
+        denergy_last = None
+        energy = None
+        if self.OUTPUT:
+            for iline in self.OUTPUT:
+                if "total energy              =" in iline:
+                    if energy == None:
+                        energy = []
+                    energy.append(iline.split()[-2])
+                elif "estimated scf accuracy    <" in iline:
+                    if drho == None:
+                        drho = []
+                    drho.append(float(iline.split()[-2]))
+        
+        if drho != None:
+            drho_last = drho[-1]
+        if energy != None:
+            e_acc = 10**(-1 * len(energy[0].split(".")[1]))
+            de = e_acc* comm.RY2EV
+            denergy = [0.0]
+            for i in range(1,len(energy)):
+                e1 = float(energy[i])
+                e2 = float(energy[i-1])
+                if not (abs(e1 - e2) < e_acc):
+                    de = (e1 - e2)*comm.RY2EV
+                denergy.append(de)
+            denergy_last = denergy[-1]
+            
+            
+        self["drho"] = drho
+        self["drho_last"] = drho_last
+        self["denergy"] = denergy
+        self["denergy_last"] = denergy_last
+                    
+            
+    
     @ResultQe.register(total_time="the total running time (WALL)",
                        force_time="the time to do the calculations of force (WALL)",
                        stress_time="the time to do the calculation of stress (WALL)")
