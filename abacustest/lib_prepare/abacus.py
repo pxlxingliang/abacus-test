@@ -429,6 +429,8 @@ class AbacusStru:
     def set_pp(self,pplist):
         if pplist and len(pplist) != len(self._label):
             print("ERROR: the length of pplist is not equal to label number")
+            print("pplist:",pplist)
+            print("label:",self._label)
             sys.exit(1)
         self._pp = pplist if pplist else None
     
@@ -759,13 +761,33 @@ class AbacusStru:
             print("Not support coordinate type %s now." % atom_positions[0].strip())
             sys.exit(1)
         i = 1
+        real_label = []
+        real_pp = []
+        real_orb = []
+        real_paw = []
         while i < len(atom_positions):
             label = atom_positions[i].strip()
             if label not in labels:
                 print("label '%s' is not matched that in ATOMIC_SPECIES" % label)
                 sys.exit(1)
+            an = int(atom_positions[i+2].split()[0])
+            if an == 0:
+                i += 3
+                continue
+            
+            real_label.append(label)
+            label_idx = labels.index(label)
+            if pp:
+                real_pp.append(pp[label_idx])
+            if orb:
+                real_orb.append(orb[label_idx])
+            if paw:
+                real_paw.append(paw[label_idx])
+                
             magmom_global.append(float(atom_positions[i+1].split()[0]))
-            atom_number.append(int(atom_positions[i+2].split()[0]))
+                
+            atom_number.append(an)
+                
             i += 3
             for j in range(atom_number[-1]):
                 pos,imove,ivelocity,imag,iangle1,iangle2 = AbacusStru.parse_stru_pos(atom_positions[i+j])
@@ -777,13 +799,13 @@ class AbacusStru:
                 angle2.append(iangle2)
             i += atom_number[-1]
         
-        return AbacusStru(label=labels,
+        return AbacusStru(label=real_label,
                           atom_number=atom_number,
                           cell=cell,
                           coord=coords,
-                          pp=pp,
-                          orb=orb,
-                          paw = paw,
+                          pp=real_pp,
+                          orb=real_orb,
+                          paw = real_paw,
                           lattice_constant=lattice_constant,
                           move=move,
                           magmom=magmom_global,
