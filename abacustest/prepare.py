@@ -8,6 +8,7 @@ from abacustest.myflow import comm
 from abacustest.lib_prepare import abacus as MyAbacus
 from abacustest.lib_prepare import abacus2qe as Aba2Qe
 from abacustest.lib_prepare import abacus2vasp as Aba2Vasp
+from abacustest.lib_prepare import abacus2cp2k as Aba2Cp2k
 
 def Direct2Cartesian(coord:List[List[float]],cell:List[List[float]]):
     return np.array(coord).dot(np.array(cell)).tolist()
@@ -739,6 +740,12 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
         "dpks_descriptor":"",
         "extra_files":[],
         "abacus2qe": bool,
+        "qe_setting":{},
+        "abacus2vasp": bool,
+        "potcar": str,
+        "vasp_setting":{},
+        "abacus2cp2k": bool,
+        "cp2k_setting":{},
         "mix_input_comment":"Do mixing for several input parameters. The diffrent values of one parameter should put in a list.",
         "mix_kpt_comment":"If need the mixing of several kpt setting. The element should be an int (eg 2 means [2,2,2,0,0,0]), or a list of 3 or 6 elements (eg [2,2,2] or [2,2,2,0,0,0]).",
         "mix_stru_commnet":"If need the mixing of several stru files. Like: ["a/stru","b/stru"],       
@@ -803,7 +810,7 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
                                   no_link=no_link
                                   )
         all_path_setting.append(prepareabacus.prepare())
-
+            
     if param_setting.get("abacus2qe",False):
         print("\nConvert ABACUS inputs to QE inputs")
         for isetting in all_path_setting:
@@ -825,6 +832,18 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
                 print(ipath)
                 try:
                     Aba2Vasp.Abacus2Vasp(ipath,save_path=ipath,potcar=potcar,vasp_setting=vasp_setting)
+                except:
+                    traceback.print_exc()
+    
+    if param_setting.get("abacus2cp2k",False):
+        print("\nConvert ABACUS inputs to CP2K inputs")
+        cp2k_setting = param_setting.get("cp2k_setting",{})
+        for isetting in all_path_setting:
+            if isetting:
+                ipath = list(isetting.keys())[0]
+                print(ipath)
+                try:
+                    Aba2Cp2k.Abacus2Cp2k(ipath,save_path=os.path.join(ipath,"cp2k.inp"),cp2k_setting=cp2k_setting)
                 except:
                     traceback.print_exc()
                       
