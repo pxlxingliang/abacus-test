@@ -3,6 +3,7 @@ import os,sys,traceback, re
 import numpy as np
 from pathlib import Path
 from .. import constant
+from . import comm
 
 class AbacusStru:
     def __init__(self,
@@ -815,7 +816,84 @@ class AbacusStru:
                           angle2=angle2,
                           dpks=dpks,
                           cartesian=cartesian)
-        
+
+def ReadKpt(kptpath):
+    '''
+    kptpath should be a file name of KPT file or a path of ABACUS inputs.
+    '''
+    if os.path.isdir(kptpath):
+        # try to file input
+        if os.path.isfile(os.path.join(kptpath,"INPUT")):
+            input_param = ReadInput(os.path.join(kptpath,"INPUT"))
+            kptf = os.path.join(kptpath,input_param.get("kpoint_file","KPT"))
+            struf = os.path.join(kptpath,input_param.get("stru_file","STRU"))
+            kspacing = input_param.get("kspacing",None)
+            if kspacing != None and kspacing != 0:
+                print(f"Have set kspacing in INPUT file, kspacing: {kspacing}. Will transfer to KPOINT.")
+                if not os.path.isfile(struf):
+                    print("  Can not find the STRU file, and try to read KPOINT from KPT file")
+                    if os.path.isfile(kptf):
+                        return ReadKpt(kptf)
+                    else:
+                        print("  Can not find the KPT file:",kptf)
+                        sys.exit(1)
+                else:
+                    stru = AbacusStru.ReadStru(struf)
+                    if stru == None:
+                        print("  Can not read the STRU file:",struf)
+                        sys.exit(1)
+                    cell = stru.get_cell(bohr=True)
+                    kpt = comm.kspacing2kpt(kspacing,cell) + [0,0,0]
+                    return kpt,"mp"
+            elif os.path.isfile(kptf):
+                return ReadKpt(kptf)
+            elif input_param.get("basis_type","").lower() == "lcao" and comm.IsTrue(input_param.get("gamma_only",False)):
+                return [1,1,1,0,0,0],"gamma"
+            else:
+                print("ERROR: Can not find the KPT file:",kptf)
+                sys.exit(1)
+        elif os.path.isfile(os.path.join(kptpath,"KPT")):
+            return ReadKpt(os.path.join(kptpath,"KPT"))
+        else:
+            print("ERROR: Can not find the INPUT/KPT file in the path:",kptpath)
+            sys.exit(1)
+    elif os.path.isfile(kptpath):
+        with open(kptpath) as f1: lines = f1.readlines()
+        model = lines[2].split()[0].lower()
+        if model.startswith("g") or model.startswith("m"):
+            model = "mp"
+        elif model.startswith("d"):
+            model = "direct"
+        elif model.startswith("l"):
+            model = "line"
+        else:
+            print(f"ERROR: the model of KPT file is not support now!!!\n{model}")
+            sys.exit(1)
+            
+        if model in ["mp","gamma"]:
+            kpt = [int(i) for i in lines[3].split()[:3]] + [float(i) for i in lines[3].split()[3:6]]
+            return kpt,model
+        elif model in ["direct"]:
+            nk = int(lines[1].split()[0])
+            kpt = []
+            for i in range(nk):
+                kpt.append([float(ii) for ii in lines[2+i].split()[:4]])
+            return kpt,model
+        elif model in ["line"]:
+            kpt = []
+            for line in lines[3:]:
+                if line.strip() == "":
+                    break
+                sline = line.split()
+                ik = [float(i) for i in sline[:3]] + [int(sline[3])]
+                if len(sline) == 4:
+                    kpt.append(ik)
+                elif len(sline) > 4:
+                    kpt.append(ik + [" ".join(sline[4:])])
+            return kpt,model
+    else:
+        print(f"ERROR: {kptpath} is not a file or path!!!")
+        sys.exit(1)
 
 def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT", model="gamma"):
     '''
