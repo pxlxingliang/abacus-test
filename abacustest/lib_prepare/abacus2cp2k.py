@@ -1,15 +1,55 @@
 from .abacus import AbacusStru, ReadInput, ReadKpt
 import os
-from . import comm
+from . import comm,cp2k
 
 def update_dict(dict1, dict2):
     '''
     Update dict1 with dict2, if the key in dict1 is also in dict2, then update the value of dict1 with the value of dict2.
     If the value of one key in dict1 and dict2 are both dict, then merge the two dicts.
+    
+    Need check the case for section&value, such as KIND&element, which should be treated as a section of KIND.
+    For one key not in dict1:
+        If the key is type section&value, then
+            If key is in repeat_section, then we add the section to dict1.
+            else, check if key is in dict1, if yes, del the key in dict1, and add the new section to dict1.
+        else
+            add the key to dict1.
+    
+    For repeat_section,
     '''
+    if (not isinstance(dict1,dict)) or (not isinstance(dict2,dict)):
+        return dict2
+    repeat_section = ["KIND"]
     for k,v in dict2.items():
         if k not in dict1:
-            dict1[k] = v
+            if "&" in k:
+                real_k = k.split("&")[0]
+                if real_k in repeat_section and v != None:
+                    dict1[k] = v
+                elif real_k in dict1:
+                    if v != None:
+                        dict1[k] = update_dict(dict1[real_k],v)
+                    del dict1[real_k]
+                else:
+                    dict1_keys = [i.split("&")[0] for i in dict1.keys()]
+                    if real_k not in dict1_keys:
+                        if v != None:
+                            dict1[k] = v
+                    else:
+                        idx = dict1_keys.index(real_k)
+                        del dict1[list(dict1.keys())[idx]]
+                        if v!= None:
+                            dict1[k] = v
+            else: 
+                dict1_keys = [i.split("&")[0] for i in dict1.keys()]
+                if k not in dict1_keys:
+                    if v != None:  
+                        dict1[k] = v
+                else:
+                    idx = dict1_keys.index(k)
+                    if v != None:
+                        dict1[k] = update_dict(dict1[list(dict1.keys())[idx]],v)
+                    del dict1[list(dict1.keys())[idx]]
         else:
             if isinstance(v,dict) and isinstance(dict1[k],dict):
                 dict1[k] = update_dict(dict1[k],v)
@@ -55,6 +95,7 @@ def param2cp2k(param:dict, save_path:str=None):
         return cc
     cc = write_section(param)
     if save_path:
+        print(f"Write CP2K input to {save_path}")
         with open(save_path,"w") as f:
             f.write(cc)
     return cc
@@ -80,6 +121,7 @@ def stru2cp2k(stru:AbacusStru):
     coord = stru.get_coord(bohr=False,direct=False)
     label = stru.get_label(total=True)
     element = stru.get_element(number=False,total=True)
+    mag = stru.get_mag()
     
     tmp = {
         "FORCE_EVAL": {
@@ -106,8 +148,9 @@ def stru2cp2k(stru:AbacusStru):
             label_uniq.append(ilabel)
             tmp["FORCE_EVAL"]["SUBSYS"][f"KIND&{ilabel}"] = {
                 "ELEMENT": element[idx],
-                "BASIS_SET": "DZVP-MOLOPT-SR-GTH",
-                "POTENTIAL": "GTH-PBE",
+                "MAGNETIZATION": mag[idx],
+                "BASIS_SET": "DZVP-MOLOPT-GTH" if element[idx] not in cp2k.BASIS else cp2k.BASIS[element[idx]],
+                "POTENTIAL": "GTH-BLYP" if  element[idx] not in cp2k.POTENTIAL else cp2k.POTENTIAL[element[idx]],
             }
     return tmp
 
@@ -123,6 +166,16 @@ def calculation2cp2k(calculation, force, stress):
     
     if stress or calculation == "cell-relax":
         tmp["FORCE_EVAL"] = {"STRESS_TENSOR": "ANALYTICAL"}
+    
+    print_section = {}
+    if calculation in ["relax", "cell-realx"] or force:
+        print_section["FORCES&ON"] = {}
+    if calculation in ["cell-relax"] or stress:
+        print_section["STRESS_TENSOR&ON"] = {}
+    if print_section:
+        if "FORCE_EVAL" not in tmp:
+            tmp["FORCE_EVAL"] = {}
+        tmp["FORCE_EVAL"]["PRINT"] = print_section
     return tmp
 
 def esolver2cp2k(esolver,dft_functional):
@@ -134,7 +187,7 @@ def esolver2cp2k(esolver,dft_functional):
         tmp = {"FORCE_EVAL": {"METHOD": "QS"}}
     
     dft_func = dft_functional.upper()
-    tmp["FORCE_EVAL"]["DFT"] = {"XC": {"XC_FUNCTIONAL": {"SECTION_PARAMETERS": dft_func}}}
+    tmp["FORCE_EVAL"]["DFT"] = {"XC": {f"XC_FUNCTIONAL&{dft_func}": {}}}
     
     return tmp
 
@@ -143,10 +196,10 @@ def kssolver2cp2k(kssolver):
         return {}
     tmp = {}
     if kssolver.lower() in ["genelpa","scalapack_gvx","cg", "dav"]:
-        tmp = {"FORCE_EVAL": {"DFT": {"SCF": {"ALGORITHM": "STANDARD"}}}}
+        tmp = {"FORCE_EVAL": {"DFT": {"SCF": {"DIAGONALIZATION":{"ALGORITHM": "STANDARD"}}}}}
     else:
         print(f"Warning: the value of ks_solver is {kssolver}, which is not supported now. Set FORCE_EVAL/DFT/SCF/ALGORITHM to STANDARD.")
-        tmp = {"FORCE_EVAL": {"DFT": {"SCF": {"ALGORITHM": "STANDARD"}}}}
+        tmp = {"FORCE_EVAL": {"DFT": {"SCF": {"DIAGONALIZATION":{"ALGORITHM": "STANDARD"}}}}}
     return tmp
 
 def mix2cp2k(mixing_type,mixing_beta, mixing_ndim):
@@ -176,7 +229,7 @@ def smearing2cp2k(smearing_method, smearing_sigma):
         return {}
     
     if smearing_method == "fd":
-        tmp = {"FORCE_EVAL": {"DFT": {"SCF": {"SMEAR": {"SECTION_PARAMETERS": "T","METHOD": "FERMI_DIRAC"}}}}}
+        tmp = {"FORCE_EVAL": {"DFT": {"SCF": {"SMEAR&T": {"METHOD": "FERMI_DIRAC"}}}}}
     else:
         print(f"Warning: the value of smearing_method is {smearing_method}, which is not supported now. Will not set smear.")
         return {}
@@ -199,7 +252,6 @@ def scf2cp2k(scf_thr, scf_nmax, basis):
     else: 
         print(f"Warning: the value of basis is {basis}, which is not supported now. Will not set EPS_SCF.")
         return {}
-    
     if scf_nmax != None:
         tmp["FORCE_EVAL"]["DFT"]["SCF"]["MAX_SCF"] = scf_nmax
     return tmp
@@ -216,7 +268,7 @@ def relaxthr2cp2k(calculation,force_thr, force_thr_ev,stress_thr):
         
     force = None
     if force_thr_ev != None:
-        force *= force_thr_ev * 0.03889 / 2
+        force = force_thr_ev * 0.03889 / 2
     if force_thr:
         force = force_thr / 2
     
@@ -236,8 +288,9 @@ def plusu2cp2k(plusu=None):
     return {}
 
 def vdw2cp2k(vdw=None):
-    return {}           
-
+    if vdw == None:
+        return {}   
+            
 def spin2cp2k(nspin):
     if nspin == None or nspin == 1:
         return {}
@@ -257,14 +310,13 @@ def input2cp2k(input_param:dict):
     tmp = {"GLOBAL": {"PRINT_LEVEL": "MEDIUM"}}
     
     # transfer oneone
-    for k, v in input_param.items():
+    allkeys = list(input_param.keys())
+    for k in allkeys:
         k = k.lower()
         if k in oneone:
-            itmp = oneone[k](v)
+            itmp = oneone[k](input_param[k])
             if itmp is not None:
                 update_dict(tmp,itmp)
-            else:
-                print(f"Warning: the value of {k} is {v}, which is not supported now. Will ignore it.")
             del input_param[k]
     
     # transfer calculation, force, stress
@@ -273,7 +325,7 @@ def input2cp2k(input_param:dict):
                                         input_param.pop("cal_force",False),
                                         input_param.pop("cal_stress",False)))
     update_dict(tmp,scf2cp2k(input_param.pop("scf_thr",None), input_param.pop("scf_nmax",None), input_param.pop("basis_type",None)))
-    update_dict(tmp,smearing2cp2k(input_param.pop("smearing",None), input_param.pop("smearing_sigma",None)))
+    update_dict(tmp,smearing2cp2k(input_param.pop("smearing_method",None), input_param.pop("smearing_sigma",None)))
     update_dict(tmp,mix2cp2k(input_param.pop("mixing_type",None), input_param.pop("mixing_beta",None), input_param.pop("mixing_ndim",None)))
     update_dict(tmp,kssolver2cp2k(input_param.pop("ks_solver",None)))
     update_dict(tmp,esolver2cp2k(input_param.pop("esolver","ksdft"), input_param.pop("dft_functional","pbe")))
@@ -284,7 +336,7 @@ def input2cp2k(input_param:dict):
     
     not_supportted_keys = list(input_param.keys())
     if len(not_supportted_keys) > 0:
-        print(f"Warning: below keysare not supported now, and will ignore them:\n    ", ", ".join(not_supportted_keys))
+        print(f"Warning: below keys are not supported now, and will ignore them:\n    ", ", ".join(not_supportted_keys))
     
     return tmp
     
