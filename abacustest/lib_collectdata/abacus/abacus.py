@@ -2,6 +2,8 @@ import os,sys,glob,re,traceback
 from ..resultAbacus import ResultAbacus
 from .. import comm
 
+KS_SOLVER_LIST = ['DA','DS','GE','GV','BP','CG','CU','PE','LA']
+
 class Abacus(ResultAbacus):
     
     @ResultAbacus.register(version="the version of ABACUS")
@@ -493,7 +495,7 @@ class Abacus(ResultAbacus):
         for i,line in enumerate(self.OUTPUT):
             if line[1:5] == 'ITER':
                 for j in range(i+1,len(self.OUTPUT)):
-                    if self.OUTPUT[j][1:3] in ['CG','DA','DS','GE','GV','BP']:
+                    if self.OUTPUT[j][1:3] in KS_SOLVER_LIST:
                         scftime.append(float(self.OUTPUT[j].split()[-1]))
                 break
         if len(scftime) > 0:
@@ -635,7 +637,7 @@ class Abacus(ResultAbacus):
                     while j < len(self.OUTPUT):
                         if "----------------------------" in self.OUTPUT[j]:
                             break
-                        if self.OUTPUT[j][1:3] in ['CG','DA','DS','GE','GV','BP'] and len(self.OUTPUT[j].split()) == ncol:
+                        if self.OUTPUT[j][1:3] in KS_SOLVER_LIST and len(self.OUTPUT[j].split()) == ncol:
                             denergy.append(float(self.OUTPUT[j].split()[ediff_idx]))
                         j += 1
                     break

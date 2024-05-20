@@ -1,26 +1,31 @@
 import argparse,os
-from . import abacustest,collectdata,outresult,prepare,report,remote
+from . import abacustest,collectdata,outresult,prepare,report,remote,model
 
 def parser():
     my_parser = argparse.ArgumentParser(description="abacustest")
     subparser = my_parser.add_subparsers(dest="command")
     
-    abacustest.AbacusTestArgs(subparser.add_parser("submit"))
-    abacustest.AbacusTestArgs(subparser.add_parser("mlops-submit"))
-    abacustest.AbacusTestCheckStatusArgs(subparser.add_parser("status"))
-    collectdata.CollectDataArgs(subparser.add_parser("collectdata"))
-    outresult.OutResultArgs(subparser.add_parser("outresult"))
-    prepare.PrepareArgs(subparser.add_parser("prepare"))
-    report.ReportArgs(subparser.add_parser("report"))
-    report.ReportArgs(subparser.add_parser("remote"))
-    
-    
+    abacustest.AbacusTestArgs(subparser.add_parser("submit",help="Submit a workflow"))
+    #abacustest.AbacusTestArgs(subparser.add_parser("mlops-submit"))
+    abacustest.AbacusTestCheckStatusArgs(subparser.add_parser("status", help="Check the status of the dflow job"))
+    collectdata.CollectDataArgs(subparser.add_parser("collectdata", help="Collect the specified key from the result files"))
+    outresult.OutResultArgs(subparser.add_parser("outresult", help="Screen the result files"))
+    prepare.PrepareArgs(subparser.add_parser("prepare", help="Prepare the inputs"))
+    report.ReportArgs(subparser.add_parser("report", help="Generate a html report for the results"))
+    report.ReportArgs(subparser.add_parser("remote", help = "Push the results to the remote server"))
+    model.ModelArgs(subparser.add_parser("model", help = "Prepare and post-process the specified model"))
     return my_parser
 
 def print_head():
     with open(os.path.join(os.path.dirname(__file__),"version")) as f: __version__ = f.read().strip()
-    print("\nABACUSTEST")
-    print(f"version: {__version__}\n")
+    print("\n")
+    print("--"*30)
+    print("+        ABACUSTEST")
+    print(f"+ version: {__version__}")
+    print(f"+ GITHUB: https://github.com/pxlxingliang/abacus-test/tree/develop")
+    print(f"+ BohriumApp: https://app.bohrium.dp.tech/abacustest/?request=GET%3A%2Fapplications%2Fabacustest")
+    print("--"*30+"\n")
+    
     
 def main():
     print_head()
@@ -40,6 +45,8 @@ def main():
         report.Report(param)
     elif param.command == "remote":
         remote.Remote(param)
+    elif param.command == "model":
+        model.RunModel(param)
     else:
         print(my_parser.parse_args(['-h']))
     

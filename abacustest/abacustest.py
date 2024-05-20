@@ -39,9 +39,9 @@ def checkstatus(param):
 def main():
     parser = argparse.ArgumentParser(description="abacustest")
     subparser = parser.add_subparsers(dest="command")
-    AbacusTestArgs(subparser.add_parser("submit"))
-    AbacusTestArgs(subparser.add_parser("mlops-submit"))
-    AbacusTestCheckStatusArgs(subparser.add_parser("status"))
+    AbacusTestArgs(subparser.add_parser("submit",help="Submit a workflow"))
+    AbacusTestArgs(subparser.add_parser("mlops-submit",help="Just submit a workflow and will not wait for the result"))
+    AbacusTestCheckStatusArgs(subparser.add_parser("status", help="Check the status of the dflow job"))
     parser = parser.parse_args()
     if parser.command == "submit":
         abacustest(parser)

@@ -5,6 +5,63 @@ from . import abacus as MyAbacus
 from . import qe as MyQe
 from . import comm
 
+def set_mixing_type(param,qp):
+    mixing = param.pop("mixing_type","").lower()
+    if not mixing:
+        pass
+    elif mixing == "broyden":
+        qp["electrons"]["mixing_mode"] = "plain"
+        if "mixing_beta" in param:
+            qp["electrons"]["mixing_beta"] = param.pop("mixing_beta")
+    else:
+        print("WARNING: mixing_type %s is not supported now, will not set mixing_mode in QE." % mixing)
+
+def set_smearing(param,qp):
+    smearing = param.pop("smearing_method","")
+    if not smearing:
+        pass
+    elif smearing.lower() == "fixed":
+        qp["system"]["occupations"] = "fixed"
+    elif smearing.lower().startswith("gauss"):
+        qp["system"]["occupations"] = "smearing"
+        qp["system"]["smearing"] = "gauss"
+        if "smearing_sigma" in param:
+            qp["system"]["degauss"] = param.pop("smearing_sigma")
+    else:
+        print("WARNING: smearing_method %s is not supported now! Will not set occupations in QE." % smearing)
+
+def set_ks_solver(param,qp):
+    kssolver = param.pop("ks_solver","")
+    if not kssolver:
+        pass
+    elif kssolver.lower() == "cg":
+        qp["electrons"]["diagonalization"] = "cg"
+    elif kssolver.lower() == "dav":
+        qp["electrons"]["diagonalization"] = "david"
+    else:
+        print("WARNING: ks_solver %s is not supported now, will not set diagonalization is QE." % kssolver)
+
+def set_relax_param(param,qp,calculation):
+    # set relax method
+    if calculation in ["relax", "cell-relax"] and "relax_method" in param:
+        relax_method = param.pop("relax_method")
+        if relax_method == "bfgs":
+            qp["ions"]["ion_dynamics"] = "bfgs"
+            if calculation == "cell-relax":
+                qp["cell"]["cell_dynamics"] = "bfgs"
+            if "relax_bfgs_w1" in param:
+                qp["ions"]["w_1"] = param.pop("relax_bfgs_w1")
+            if "relax_bfgs_w2" in param:
+                qp["ions"]["w_2"] = param.pop("relax_bfgs_w2")
+            if "relax_bfgs_rmax" in param:
+                qp["ions"]["trust_radius_max"] = param.pop("relax_bfgs_rmax")
+            if "relax_bfgs_rmin" in param:
+                qp["ions"]["trust_radius_min"] = param.pop("relax_bfgs_rmin")
+            if "relax_bfgs_init" in param:
+                qp["ions"]["trust_radius_ini"] = param.pop("relax_bfgs_init")
+        else:
+            print("WARNING: relax_method %s is not supported now, will not set ion_dynamics in QE." % relax_method)
+    
 
 def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
     '''transfer the abacus input to qe input
@@ -54,7 +111,7 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
             qp["control"]["forc_conv_thr"] = param.get("force_thr")
             param.pop("force_thr")
     if qp["control"]["calculation"] == "vc-relax":
-        qp["cell"]["press_conv_thr"] = param.pop("press_conv_thr",0.5)
+        qp["cell"]["press_conv_thr"] = param.pop("stress_thr",0.5)
     
     # set common parameters
     qp["control"]["pseudo_dir"] = param.pop("pseudo_dir",".")
@@ -69,42 +126,16 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
                              ]:
         if para_aba in param:
             qp[para_qe[0]][para_qe[1]] = param.pop(para_aba)
-    
-    # set smearing  
-    smearing = param.pop("smearing_method","")
-    if not smearing:
-        pass
-    elif smearing.lower() == "fixed":
-        qp["system"]["occupations"] = "fixed"
-    elif smearing.lower().startswith("gauss"):
-        qp["system"]["occupations"] = "smearing"
-        qp["system"]["smearing"] = "gauss"
-        if "smearing_sigma" in param:
-            qp["system"]["degauss"] = param.pop("smearing_sigma")
-    else:
-        print("WARNING: smearing_method %s is not supported now! Will not set occupations in QE." % smearing)
-    
-    # set ks_solver
-    kssolver = param.pop("ks_solver","")
-    if not kssolver:
-        pass
-    elif kssolver.lower() == "cg":
-        qp["electrons"]["diagonalization"] = "cg"
-    elif kssolver.lower() == "dav":
-        qp["electrons"]["diagonalization"] = "david"
-    else:
-        print("WARNING: ks_solver %s is not supported now, will not set diagonalization is QE." % kssolver)
-    
-    # set mixing_type
-    mixing = param.pop("mixing_type","").lower()
-    if not mixing:
-        pass
-    elif mixing == "broyden":
-        qp["electrons"]["mixing_mode"] = "plain"
-        if "mixing_beta" in param:
-            qp["electrons"]["mixing_beta"] = param.pop("mixing_beta")
-    else:
-        print("WARNING: mixing_type %s is not supported now, will not set mixing_mode in QE." % mixing)
+            
+    # set potential 
+    if "chg_extrap" in param:
+        aba2qe_dict = {"atomic": "atomic", "first-order": "first_order", "second-order": "second_order"}
+        qp["ions"]["pot_extrapolation"] = aba2qe_dict.get(param.pop("chg_extrap"))
+
+    set_smearing(param,qp)
+    set_ks_solver(param,qp)
+    set_mixing_type(param,qp)
+    set_relax_param(param,qp,calculation)
     
     # these paramters will be ignored    
     for ip in ["suffix","basis_type","gamma_only","kpt_file","dft_plus_u","orbital_corr","hubbard_u"]:
