@@ -212,6 +212,14 @@ class AbacusStru:
         # return the magmom of each type
         return self._magmom
     
+    def get_move(self):
+        # return the constraint of each atom
+        # 0: not move, 1: move
+        if self._move == None:
+            return [1] * len(self._coord)
+        else:
+            return self._move
+    
     def get_element(self,number=True,total=True):
         '''return the element name of each atom'''
         if total:

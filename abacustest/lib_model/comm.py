@@ -1,4 +1,5 @@
 import os,json
+import subprocess
 
 BOHRIUM_DES = '''If you use Bohrium to accelerate the calculation, you need to set below environment variables:
     export BOHRIUM_USERNAME=<your username> BOHRIUM_PASSWORD=<your password> BOHRIUM_PROJECT_ID=<your project id> 
@@ -38,3 +39,8 @@ def dump_setting(setting):
         print("Warning: setting.json exists. Will bakup it to", settingbakf)
         os.system(f"mv setting.json {settingbakf}")
     json.dump(setting, open("setting.json", "w"), indent=4)
+
+def get_physical_cores():
+    cmd = "lscpu | grep 'Core(s) per socket:' | awk '{print $4}'"
+    cores = subprocess.check_output(cmd, shell=True).decode().strip()
+    return int(cores)
