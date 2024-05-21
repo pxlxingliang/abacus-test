@@ -820,6 +820,10 @@ class AbacusStru:
 def ReadKpt(kptpath):
     '''
     kptpath should be a file name of KPT file or a path of ABACUS inputs.
+    
+    return kpt,model
+    - kpt is a list of k-point + shift, such as [1,1,1,0,0,0] 
+    - model is the model of k-point, such as "mp","gamma","direct","line"
     '''
     if os.path.isdir(kptpath):
         # try to file input

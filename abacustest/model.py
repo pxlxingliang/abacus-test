@@ -19,6 +19,7 @@ def ModelArgs(parser):
         iparser_postprocess = subsubparser.add_parser("post", help = "Post-process the model")
         imodel.prepare_args(iparser_prepare)
         imodel.postprocess_args(iparser_postprocess)
+        imodel.add_args(iparser)
     parser.description = "Prepare and post-process the specified model"
 
     return parser
@@ -32,6 +33,8 @@ def RunModel(param):
         imodel.run_prepare(param)
     elif param.modelcommand == "post":
         imodel.run_postprocess(param)
+    else:
+        imodel.run(param)
 
 def main():
     parser = argparse.ArgumentParser()

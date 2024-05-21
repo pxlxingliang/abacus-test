@@ -1,7 +1,6 @@
 from ..model import Model
 import os, glob, json
 from . import comm
-from abacustest.lib_collectdata.collectdata import RESULT
 
 
 class CommitTest(Model):
