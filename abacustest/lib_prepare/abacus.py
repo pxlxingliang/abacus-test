@@ -216,7 +216,7 @@ class AbacusStru:
         # return the constraint of each atom
         # 0: not move, 1: move
         if self._move == None:
-            return [1] * len(self._coord)
+            return [1,1,1] * len(self._coord)
         else:
             return self._move
     

@@ -135,12 +135,14 @@ class ExeAseRelax:
 
         # construct an ASE Atoms object
         from ase import Atoms
+        from ase.constraints import FixAtoms
         cell = stru.get_cell(bohr=False,)
         coord = stru.get_coord(bohr=False,direct=False)
         mag = stru.get_atommag()
         move = stru.get_move()
+        c = FixAtoms(mask=[i==0 for i in move])
 
-        atoms = Atoms(symbols=stru.get_label(total=True), positions=coord, cell=cell, pbc=[True,True,True], magmoms=mag, constraint=move)
+        atoms = Atoms(symbols=stru.get_label(total=True), positions=coord, cell=cell, pbc=[True,True,True], magmoms=mag, constraint=c)
         return input_param, atoms
 
     def set_fmax(self, input_param):
