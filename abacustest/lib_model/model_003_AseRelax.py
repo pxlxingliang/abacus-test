@@ -50,7 +50,7 @@ class AseRelax(Model):
             mpi = int(int(tcore)/params.omp)
         else:
             mpi = params.mpi
-        aserelax = ExeAseRelax(params.job, params.abacus, params.omp, mpi, params.optimize, params.fmax, "aserelax")
+        aserelax = ExeAseRelax(params.job, params.abacus, params.omp, mpi, params.optimize, params.fmax, params.cellrelax,"aserelax")
         aserelax.run()
     
     @staticmethod
