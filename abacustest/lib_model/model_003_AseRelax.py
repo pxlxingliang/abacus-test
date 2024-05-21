@@ -1,3 +1,4 @@
+import ase
 from ..model import Model
 import os, glob, json, sys
 from . import comm
@@ -94,6 +95,7 @@ class ExeAseRelax:
         self.fmax = fmax
         self.work_path = wrok_path
         self.relax_cell = relax_cell
+        self.logfile = "aserelax.log"
 
     def run(self):
         os.makedirs(self.work_path,exist_ok=True)
@@ -155,15 +157,19 @@ class ExeAseRelax:
                 self.fmax = 0.0257112
 
     def print_info(self, opt_module):
-        print("\n")
-        print("SETTING OMP_NUM_THREADS:",self.omp)
-        print("SETTING     mpi process:",self.mpi)
-        print("SETTING          abacus:",self.abacus)
-        print("SETTING      INPUT path:",os.path.abspath(self.job))
-        print("SETTING    running path:",os.path.abspath(self.work_path))
-        print("SETTING      fmax(eV/A):",self.fmax)
-        print("SETTING    ASE OPTIMIZE:",opt_module)
-        print("\n")
+        logs = ""
+        logs += "SETTING OMP_NUM_THREADS: {}\n".format(self.omp)
+        logs += "SETTING     mpi process: {}\n".format(self.mpi)
+        logs += "SETTING     ABACUS path: {}\n".format(self.abacus)
+        logs += "SETTING        job path: {}\n".format(os.path.abspath(self.job))
+        logs += "SETTING       work path: {}\n".format(os.path.abspath(self.work_path))
+        logs += "SETTING      fmax(eV/A): {}\n".format(self.fmax)
+        logs += "SETTING      cell relax: {}\n".format(bool(self.relax_cell))
+        logs += "SETTING    ASE OPTIMIZE: {}\n".format(opt_module)
+        logs += "\n"
+        print("\n" + logs)
+        with open(self.logfile,"w") as f:
+            f.write(logs)
 
     def exe_ase(self, atoms, input_param, optimizer):
         from ase.calculators.abacus import Abacus, AbacusProfile
@@ -182,6 +188,7 @@ class ExeAseRelax:
             opt = optimizer(atoms, trajectory='init_opt.traj', logfile="aserelax.log")
 
         opt.run(fmax=self.fmax,steps = input_param.get("relax_nmax",100))
+        opt.log()
         print("RELAX STEPS:",opt.get_number_of_steps())
 
         return opt
@@ -204,7 +211,7 @@ class ExeAseRelax:
             print("Do not support optimize:",self.optimize)
             sys.exit(1)    
 
-    def read_metrics(self,jobpath):
+    def read_metrics(self,jobpath,opt):
         from abacustest.lib_collectdata.collectdata import RESULT
         iresult = RESULT(fmt="abacus",path=jobpath)
         force = iresult["force"]
@@ -220,6 +227,10 @@ class ExeAseRelax:
             pressure = None
         else:
             pressure = (stress[0] + stress[4] + stress[8])/3.0
+            
+        ase_force = opt.atoms.get_forces()
+        ase_stress = opt.atoms.get_stress(voigt=False)
+        
         return {
             "version": iresult["version"],
             "energy": iresult["energy"],
@@ -229,4 +240,6 @@ class ExeAseRelax:
             "pressure": pressure,
             "force": force,
             "stress": stress,
+            "ase_force": ase_force,
+            "ase_stress": ase_stress,
         }
