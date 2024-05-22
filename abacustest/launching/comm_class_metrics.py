@@ -35,6 +35,11 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric19_1 = 'virial'
     AbacusMetric_metric19_2 = 'pressure'
     AbacusMetric_metric20 = 'force'
+    AbacusMetric_metric20_1 = 'energies'
+    AbacusMetric_metric20_2 = 'forces'
+    AbacusMetric_metric20_3 = 'stresses'
+    AbacusMetric_metric20_4 = 'virials'
+    AbacusMetric_metric20_5 = 'pressures'
     AbacusMetric_metric21 = 'band_gap'
     AbacusMetric_metric22 = 'total_time'
     AbacusMetric_metric23 = 'stress_time'
@@ -74,7 +79,8 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric47 = 'ds_optimal_lambda'
     AbacusMetric_metric48 = 'ds_mag_force'
     
-    
+    AbacusMetric_metric_mem1 = 'mem_vkb'
+    AbacusMetric_metric_mem2 = 'mem_psipw'
 
 class SuperMetricMethodEnum(String, Enum):
     SuperMetricMethod_method1 = "iGM"

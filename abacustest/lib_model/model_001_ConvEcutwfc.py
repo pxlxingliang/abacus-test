@@ -90,11 +90,7 @@ class ConvEcutwfc(Model):
             jobs = ["*"]
 
         value = params.value if len(params.value) > 0 else list(range(50, 101, 10))
-        real_jobs = []
-        for job in jobs:
-            for ijob in glob.glob(job):
-                if os.path.isdir(ijob):
-                    real_jobs.append(ijob)
+        real_jobs = comm.get_job_list(jobs)
         print("The jobs are:", ", ".join(real_jobs))
 
         setting = SETTING_TMP

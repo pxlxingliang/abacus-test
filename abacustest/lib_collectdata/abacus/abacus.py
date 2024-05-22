@@ -178,6 +178,7 @@ class Abacus(ResultAbacus):
                            total_mag="total magnetism (Bohr mag/cell)",
                            absolute_mag="absolute magnetism (Bohr mag/cell)",
                            energy = "the total energy (eV)",
+                           energies = "list of total energy of each ION step",
                            volume = "the volume of cell, in A^3",
                            efermi = "the fermi energy (eV). If has set nupdown, this will be a list of two values. The first is up, the second is down.",
                            energy_per_atom="the total energy divided by natom, (eV)")
@@ -188,6 +189,7 @@ class Abacus(ResultAbacus):
             self["total_mag"] = output_final.get("total_mag",None)
             self["absolute_mag"] = output_final.get("absolute_mag",None)
             self["energy"] = output_final.get("energy",None)
+            self["energies"] = [i.get("energy",None) for i in self.JSON.get("output")]
             self["efermi"] = output_final.get("e_fermi",None)
             cell  = output_final.get("cell",None)
             if cell:
@@ -205,6 +207,7 @@ class Abacus(ResultAbacus):
             efermi = None
             converge = None
             energy = None
+            energies = []
             volume = None
             for i,line in enumerate(self.LOG):
                 if 'charge density convergence is achieved' in line:
@@ -218,6 +221,8 @@ class Abacus(ResultAbacus):
                     absolute_mag = float(line.split()[-1])
                 elif "!FINAL_ETOT_IS" in line:
                     energy = float(line.split()[1])
+                elif "final etot is" in line:
+                    energies.append(float(line.split()[-2]))
                 elif "Volume (A^3) =" in line:
                     volume = float(line.split()[-1])
                 elif 'E_Fermi' in line:
@@ -235,6 +240,10 @@ class Abacus(ResultAbacus):
             self["energy"] = energy
             self["converge"] = converge
             self["volume"] = volume
+            if energies:
+                self["energies"] = energies
+            else:
+                self["energies"] = None
 
             self['total_mag'] = total_mag
             self['absolute_mag'] = absolute_mag
@@ -246,11 +255,12 @@ class Abacus(ResultAbacus):
             if self["natom"] != None and self['energy'] != None:
                 self["energy_per_atom"] = self['energy']/self["natom"]
     
-    @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one")
+    @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one",
+                           forces = "list of force, the force of each ION step. Dimension is [nstep,3*natom]")
     def GetForceFromLog(self):
-        force = None
+        forces = []
         for i in range(len(self.LOG)):
-            i = -1*i - 1
+            #i = -1*i - 1
             line = self.LOG[i]
             if 'TOTAL-FORCE (eV/Angstrom)' in line:
                 #head_pattern = re.compile(r'^\s*atom\s+x\s+y\s+z\s*$')
@@ -266,21 +276,28 @@ class Abacus(ResultAbacus):
                 if noforce:
                     break
                 
+                force = []
                 while value_pattern.match(self.LOG[j]):
-                    if force == None:
-                        force = []
                     force += [float(ii) for ii in self.LOG[j].split()[1:4]]
                     j += 1
-                break
-        self['force'] = force
+                if force: forces.append(force)
+        if forces:        
+            self['force'] = forces[-1]
+            self["forces"] = forces
+        else:
+            self['force'] = None
+            self["forces"] = None
     
     @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one",
-                           virial="list[9], virial of the system,  = stress * volume, which is the last one.",
-                           pressure="the pressure of the system, unit in kbar.")
+                           virial="list[9], virial of the system,  = stress * volume, and is the last one.",
+                           pressure="the pressure of the system, unit in kbar.",
+                           stresses="list of stress, the stress of each ION step. Dimension is [nstep,9]",
+                           virials="list of virial, the virial of each ION step. Dimension is [nstep,9]",
+                           pressures="list of pressure, the pressure of each ION step.")
     def GetStessFromLog(self):
-        stress = None
+        stresses = []
         for i in range(len(self.LOG)):
-            i = -1*i - 1
+            #i = -1*i - 1
             line = self.LOG[i]
             if 'TOTAL-STRESS (KBAR)' in line:
                 value_pattern = re.compile(r'^\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$')
@@ -295,20 +312,37 @@ class Abacus(ResultAbacus):
                         break
                 if nostress:
                     break
-                
+                stress = []
                 while value_pattern.match(self.LOG[j]):
-                    if stress == None:
-                        stress = []
                     stress += [float(ii) for ii in self.LOG[j].split()[:3]]
                     j += 1
-                break
-        self['stress'] = stress
-        if stress != None and self["volume"] != None:
-            self['virial'] = [i * self["volume"] * comm.KBAR2EVPERANGSTROM3 for i in stress]
-            self["pressure"] = (stress[0] + stress[4] + stress[8]) / 3.0
+                if stress: stresses.append(stress)
+        
+        virials = []
+        pressures = []
+        for stress in stresses:
+            if self["volume"] != None:
+                virial = [i * self["volume"] * comm.KBAR2EVPERANGSTROM3 for i in stress]
+                virials.append(virial)
+            pressures.append((stress[0] + stress[4] + stress[8]) / 3.0)
+            
+        if stresses:
+            self['stress'] = stresses[-1]
+            self["stresses"] = stresses
+            self["pressure"] = pressures[-1]
+            self["pressures"] = pressures
+        else:
+            self["stress"] = None
+            self["stresses"] = None
+            self["pressure"] = None
+            self["pressures"] = None
+
+        if virials:
+            self['virial'] = virials[-1]
+            self["virials"] = virials
         else:
             self['virial'] = None
-            self["pressure"] = None
+            self["virials"] = None
         
     @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
     def GetLargestGradientFromLog(self):
@@ -896,4 +930,20 @@ ATOM 1        -0.0000000000e+00   -0.0000000000e+00    3.5939101250e-05
         self["ds_lambda_step"] = lambda_step
         self["ds_lambda_rms"] = lambda_rms
         self["ds_optimal_lambda"] = optimal_lambda
-        self["ds_mag_force"] = mag_force   
+        self["ds_mag_force"] = mag_force  
+        
+        
+class AbacusMemory(ResultAbacus):
+    
+    @ResultAbacus.register(mem_vkb="the memory of VNL::vkb, unit it MB",
+                           mem_psipw="the memory of PsiPW, unit it MB",)
+    def GetMemory(self):
+        if self.LOG:
+            for line in self.LOG:
+                if "Warning_Memory_Consuming allocated:  VNL::vkb" in line:
+                    self["mem_vkb"] = float(line.split()[-2])
+                elif "Warning_Memory_Consuming allocated:  Psi_PW" in line:
+                    self["mem_psipw"] = float(line.split()[-2])
+                    
+
+         

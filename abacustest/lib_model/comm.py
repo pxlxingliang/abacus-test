@@ -1,4 +1,4 @@
-import os,json
+import os,json,glob
 import subprocess
 
 BOHRIUM_DES = '''If you use Bohrium to accelerate the calculation, you need to set below environment variables:
@@ -44,3 +44,47 @@ def get_physical_cores():
     cmd = "lscpu | grep 'Core(s) per socket:' | awk '{print $4}'"
     cores = subprocess.check_output(cmd, shell=True).decode().strip()
     return int(cores)
+
+def get_job_list(jobs):
+    job_list = []
+    for job in jobs:
+        for ijob in glob.glob(job):
+            if os.path.isdir(ijob):                        
+                job_list.append(ijob)
+    return job_list
+    
+def gen_supermetrics(file_name, sm_name=None, image=True):
+    # file_type should be image or html
+    if sm_name == None:
+        basename = os.path.basename(file_name.rstrip("/"))
+        if "." in basename:
+            sm_name = os.path.splitext(basename)[0]
+        else:
+            sm_name = basename
+    return {
+        sm_name: {"type": {True:"image", False: "html"}.get(bool(image)),
+                  "file": file_name}
+    } 
+
+def bak_file(filename, bak_org=False):
+    '''
+    Check if the file exists, and if so:
+    if bak_org is True, backup the original file to a non-exist filename.bak{n}, n = 1,2,3,...
+    else, return the filename.bak{n} that does not exist.
+    '''
+    if not os.path.exists(filename):
+        return filename
+    
+    i = 1
+    bakf = f"{filename}.bak{i}"
+    while os.path.exists(bakf):
+        i += 1
+        bakf = f"{filename}.bak{i}"
+        
+    if bak_org:
+        os.system(f"mv {filename} {bakf}")
+        return filename 
+    else:
+        return bakf
+        
+         

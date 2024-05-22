@@ -99,11 +99,7 @@ cd $pwd
         
         self._scripts(params.clonemax,params.repo,params.install,params.runcommand,"run_committest.sh")
         
-        real_jobs = []
-        for job in jobs:
-            for ijob in glob.glob(job):
-                if os.path.isdir(ijob):                        
-                    real_jobs.append(ijob)
+        real_jobs = comm.get_job_list(jobs)
                     
         setting = {
             "save_path": "results",

@@ -38,7 +38,7 @@ class AseRelax(Model):
         parser.add_argument('--fmax', type=float,  default=None,help='the fmax for the relax (eV/A). Default is None. and will read from INPUT file or 0.0257112 eV/A.') 
         parser.add_argument('--omp', type=int,  default=1,help='number of OMP parrallel, default 1 ')
         parser.add_argument('--mpi', type=int,  default=0,help='number of MPI parrallel, default 0, which means all cores/number of omp.' )
-        parser.add_argument('--cellrelax', type=int,  default=None,help='if relax the box. 0: no, 1: yes. Default will read the INPUT, and set to 1 only when calculation is cell-relax' )
+        parser.add_argument('--cellrelax', nargs='?',type=int, const=1, default=None,help='if relax the box. 0: no, 1: yes. Default will read the INPUT, and set to 1 only when calculation is cell-relax' )
         parser.add_argument('-j','--job', type=str,  default=".",help='the path of abacus inputs, default is current folder.' )
 
     def run(self,params):
@@ -60,20 +60,21 @@ class AseRelax(Model):
         The arguments can not be command, model, modelcommand '''
         parser.add_argument("-j","--jobs",type=str,help="the path of jobs to be tested",action="extend",nargs="*",)
         parser.add_argument("-c", "--rundftcommand", type=str, default="abacustest model aserelax -o BFGS --mpi 32 --omp 1",help="the command to execute aserelax, default is 'abacustest model aserelax -o BFGS' ")
-        parser.add_argument("--machine", default="c32_m128_cpu", help="the machine to run the abacus. Default is c32_m128_cpu")
         parser.add_argument("-i","--image",default="registry.dp.tech/dptech/prod-471/abacus-ase:20240522",type=str,help="the used image. Should has ABACUS/ASE-ABACUS/abacustest in image", )
+        parser.add_argument("--machine", default="c32_m128_cpu", help="the machine to run the abacus. Default is c32_m128_cpu")
+        parser.add_argument("-r", "--run", default=0, help="if run the test. Default is 0.", type=int)
         
-
     def run_prepare(self,params):
         '''
         Parse the parameters and run the prepare process.
         Usually, this step will generate the input files for abacustest submit.
         '''
+        real_jobs = comm.get_job_list(params.jobs)
         setting = {
             "save_path": "results",
             "bohrium_group_name": "ase-abacus-relax",
             "run_dft": {
-                "example": params.jobs,
+                "example": real_jobs,
                 "command": params.rundftcommand,
                 "image": params.image,
                 "bohrium": {
@@ -85,19 +86,121 @@ class AseRelax(Model):
         }
         
         comm.dump_setting(setting)
+        comm.doc_after_prepare("ASE-ABACUS relax", real_jobs, ["setting.json"])
+        print("After finish the calculation, you can run below command to do the postprocess:")
+        print(f"    abacustest model {self.model_name()} post -j {' '.join(real_jobs)} -r result.json\n")
+        
+        if params.run:
+            bash_script = "aserelax.sh"
+            with open(bash_script,"w") as f:
+                f.write("abacustest submit -p setting.json\n")
+                f.write("cd results\n")
+                f.write(f"abacustest model {self.model_name()} post -j {' '.join(real_jobs)} -r result.json\n")
+            os.system(f"bash {bash_script} &")
 
     @staticmethod
     def postprocess_args(parser):
         '''
         Add arguments for the postprocess subcommand
         The arguments can not be command, model, modelcommand'''
-        pass
+        parser.add_argument("-j","--jobs",type=str,default=[],help="The path of aserelax job. Should has metrics.json file generated after aserelax.",action="extend",nargs="*",)
+        parser.add_argument("-o","--output",default="aserelax.png",help="the output picture name, default is aserelax.png",)
+        parser.add_argument("-r","--result",default="result.json",help="Save the data of the plot to a json file. Default is result.json.",)
+        parser.add_argument('--abacus', nargs='?',type=int, const=1, default=None,help='postprocess the job as an abacus relax job' )
+        parser.add_argument('--metric', nargs='?',type=str, const="metrics.json", default=None,help='postprocess a metrics.json file. If set metric, then will only plot data in this file' )
+        
+        
+    def _post_gen_allmetrics(self,params):
+        if params.metric:
+            allmetrics = json.load(open(params.metric))
+        else:
+            allmetrics = {}
+            jobs = comm.get_job_list(params.jobs)
+            if len(jobs) == 0:
+                print("No jobs are specified.")
+                return {}
 
+            if params.abacus:
+                from abacustest.lib_collectdata.collectdata import RESULT
+                for ijob in jobs:
+                    result = RESULT(path=ijob,fmt="abacus")
+                    forces = result["forces"]
+                    fmax = []
+                    if forces:
+                        for force in forces:
+                            fmax.append(max([ (sum([j**2 for j in force[3*i:3*i+3]]))**0.5 for i in range(len(force)//3)]))
+                    allmetrics[ijob.rstrip("/")] = {
+                        "version": result["version"],
+                        "energy": result["energy"],
+                        "energy_traj": result["energies"],
+                        "fmax_traj": fmax,
+                        "relax_steps": result["relax_steps"],
+                        "relax_converge": result["relax_converge"]
+                    }
+            else:
+                for ijob in jobs:
+                    if os.path.isfile(os.path.join(ijob,"metrics.json")):
+                        metrics = json.load(open(os.path.join(ijob,"metrics.json")))
+                        allmetrics[ijob.rstrip("/")] = metrics
+                    else:
+                        print(f"metrics.json not found in {ijob}")
+                if len(allmetrics) == 0:
+                    print("No metrics.json found in all jobs.")
+                    return {}
+        
+        return allmetrics
+    
+    def _post_gen_plot_data(self,allmetrics):
+        plot_data = {}
+        for ik,iv in allmetrics.items():
+            enes = iv.get("energy_traj")
+            fmax = iv.get("fmax_traj")
+            if enes and fmax:
+                plot_data[ik] = {
+                    "enes": enes,
+                    "fmax": fmax,
+                }
+        return plot_data 
+    
+    def _post_plot(self,plot_data,output):
+        import matplotlib.pyplot as plt
+        examples = list(plot_data.keys())
+        examples.sort()
+        
+        ncol = 1
+        nrow = len(examples)
+        
+        fig, axes = plt.subplots(nrow,ncol,figsize=(8*ncol,6*nrow))
+        if nrow * ncol == 1:
+            axes = [axes]
+        for i,example in enumerate(examples):
+            axes[i].plot(plot_data[example]["enes"],label="Energy (eV)",color="blue",linestyle="-",marker="o")
+            ax1 = axes[i].twinx()
+            ax1.plot(plot_data[example]["fmax"],label="Fmax (eV/A)",color="red",linestyle="--",marker="o")
+            axes[i].set_title(example)
+            axes[i].set_xlabel("Step")
+            axes[i].set_ylabel("Energy (eV)")
+            ax1.set_ylabel("Fmax (eV/A)")
+            axes[i].legend(loc="upper left")
+            ax1.legend(loc="upper right")
+            ene_max = max(plot_data[example]["enes"])
+            ene_min = min(plot_data[example]["enes"])
+            fmax_max = max(plot_data[example]["fmax"])
+            fmax_min = min(plot_data[example]["fmax"])
+            axes[i].set_ylim(ene_min,ene_max + (ene_max - ene_min)*0.2)
+            ax1.set_ylim(fmax_min,fmax_max + (fmax_max - fmax_min)*0.2)
+        plt.tight_layout()
+        plt.savefig(output)
+    
     def run_postprocess(self,params):
         '''
         Parse the parameters and run the postprocess process'''
-        pass
-
+        all_metrics = self._post_gen_allmetrics(params)
+        plot_data = self._post_gen_plot_data(all_metrics)
+        self._post_plot(plot_data,params.output)
+        json.dump(all_metrics,open(comm.bak_file("metrics.json",bak_org=False),"w"),indent=4)
+        json.dump(plot_data,open(params.result,"w"),indent=4)
+        json.dump(comm.gen_supermetrics(params.output),open("supermetrics.json","w"),indent=4)
 
 class ExeAseRelax:
     def __init__(self, job, abacus, omp, mpi, optimize, fmax, relax_cell, wrok_path):
