@@ -231,8 +231,6 @@ class ExeAseRelax:
     def read_metrics(self,jobpath,opt):
         from abacustest.lib_collectdata.collectdata import RESULT
         iresult = RESULT(fmt="abacus",path=jobpath)
-        abacus_force = iresult["force"]
-        abacus_stress = iresult["stress"]
         
         ase_force = opt.atoms.get_forces().tolist()
         
@@ -269,10 +267,9 @@ class ExeAseRelax:
             "energy_per_atom": iresult["energy_per_atom"],
             "max_force": max_force,
             "max_force_comp": max_force_comp,
-            "pressure": pressure,
             "energy_traj": enes,
             "fmax_traj": fmaxs,
             "force": ase_force,
-            "abacus_force": abacus_force,
-            "abacus_stress": abacus_stress,
+            "abacus_force": iresult["force"],
+            "abacus_stress": iresult["stress"],
         }
