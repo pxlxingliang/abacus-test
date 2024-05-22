@@ -1,6 +1,5 @@
-import ase
 from ..model import Model
-import os, glob, json, sys
+import os, json, sys
 from . import comm
 
 
