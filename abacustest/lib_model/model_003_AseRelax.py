@@ -192,7 +192,7 @@ class ExeAseRelax:
 
         opt.run(fmax=self.fmax,steps = input_param.get("relax_nmax",100))
         #opt.log()
-        print("RELAX STEPS:",opt.get_number_of_steps())
+        print("RELAX STEPS:",opt.get_number_of_steps()+1)
 
         return opt
 
@@ -241,17 +241,19 @@ class ExeAseRelax:
         if os.path.isfile(self.logfile):
             with open(self.logfile) as f:
                 logs = f.readlines()
+            nsteps = opt.get_number_of_steps() + 1
             enes = []
             fmaxs = []
             for idx,line in enumerate(logs):
                 if "Step     Time          Energy          fmax" in line:
                     i = idx + 1
-                    while i < len(logs):
-                        if logs[i].strip() == "": break
+                    while nsteps > 0:
+                        if logs[i].strip() == "": continue
                         ene, fmax = logs[i].split()[3:5]
                         enes.append(float(ene))
                         fmaxs.append(float(fmax))
                         i += 1
+                        nsteps -= 1
         else:
             enes = None
             fmaxs = None
