@@ -67,7 +67,8 @@ class AseRelax(Model):
         Parse the parameters and run the prepare process.
         Usually, this step will generate the input files for abacustest submit.
         '''
-        pass
+        # ase image: registry.dp.tech/dptech/prod-471/abacus-ase:20240521
+        
         
     
     @staticmethod
@@ -95,17 +96,18 @@ class ExeAseRelax:
         self.fmax = fmax
         self.work_path = wrok_path
         self.relax_cell = relax_cell
+        self.cal_stress = False
         self.logfile = "aserelax.log"
 
     def run(self):
         os.makedirs(self.work_path,exist_ok=True)
         input_param, atoms = self.prepare_param()
         self.set_fmax(input_param)
-        opt, opt_module = self.set_ase_opt()
+        optimizer, opt_module = self.set_ase_opt()
         self.print_info(opt_module)
-        qn_init = self.exe_ase(atoms, input_param, opt)
+        qn_init = self.exe_ase(atoms, input_param, optimizer)
 
-        metrics = self.read_metrics(self.work_path)
+        metrics = self.read_metrics(self.work_path,qn_init)
         metrics.update({"relax_steps": int(qn_init.nsteps) + 1,
                    "relax_converge": bool(qn_init.converged()) })
         json.dump(metrics,open("metrics.json","w"),indent=4)
@@ -119,6 +121,8 @@ class ExeAseRelax:
         input_param = ReadInput(os.path.join(init_path,"INPUT"))
         if self.relax_cell == None:
             self.relax_cell = input_param.get("calculation","scf") == "cell-relax"
+        if input_param.get("cal_stress") or self.relax_cell:
+            self.cal_stress = True
         input_param["calculation"] = "scf"  # only run scf
         stru = AbacusStru.ReadStru(os.path.join(init_path,"STRU"))
         if not stru:
@@ -127,9 +131,9 @@ class ExeAseRelax:
         labels = stru.get_label(total=False)
         pp = stru.get_pp()
         orb = stru.get_orb()
-        input_param["pp"] = {labels[i]:os.path.abspath(os.path.join(self.job,input_param.get("pseudo_dir",""),pp[i])) for i in range(len(labels))}
+        input_param["pp"] = {labels[i]:os.path.abspath(os.path.join(init_path,input_param.get("pseudo_dir",""),pp[i])) for i in range(len(labels))}
         if input_param.get("basis_type") in ["lcao"] and orb:
-            input_param["basis"]  = {labels[i]:os.path.abspath(os.path.join(self.job,input_param.get("pseudo_dir",""),orb[i])) for i in range(len(labels))}
+            input_param["basis"]  = {labels[i]:os.path.abspath(os.path.join(init_path,input_param.get("pseudo_dir",""),orb[i])) for i in range(len(labels))}
 
         kpt = ReadKpt(init_path)
         if kpt:
@@ -142,7 +146,7 @@ class ExeAseRelax:
         coord = stru.get_coord(bohr=False,direct=False)
         mag = stru.get_atommag()
         move = stru.get_move()
-        c = FixAtoms(mask=[i==0 for i in move])
+        c = FixAtoms(mask=[True if set(i) == {0} else False for i in move])
 
         atoms = Atoms(symbols=stru.get_label(total=True), positions=coord, cell=cell, pbc=[True,True,True], magmoms=mag, constraint=c)
         return input_param, atoms
@@ -188,7 +192,7 @@ class ExeAseRelax:
             opt = optimizer(atoms, trajectory='init_opt.traj', logfile="aserelax.log")
 
         opt.run(fmax=self.fmax,steps = input_param.get("relax_nmax",100))
-        opt.log()
+        #opt.log()
         print("RELAX STEPS:",opt.get_number_of_steps())
 
         return opt
@@ -214,23 +218,45 @@ class ExeAseRelax:
     def read_metrics(self,jobpath,opt):
         from abacustest.lib_collectdata.collectdata import RESULT
         iresult = RESULT(fmt="abacus",path=jobpath)
-        force = iresult["force"]
-        stress = iresult["stress"]
-        if force == None:
+        abacus_force = iresult["force"]
+        abacus_stress = iresult["stress"]
+        
+        ase_force = opt.atoms.get_forces().tolist()
+        if self.cal_stress:
+            ase_stress = opt.atoms.get_stress().tolist()
+        else:
+            ase_stress = None
+        
+        if ase_force:
+            max_force = max((sum([j**2 for j in i]))**0.5 for i in ase_force)
+            max_force_comp = max(max([abs(j) for j in i]) for i in ase_force)
+        else:
             max_force = None
             max_force_comp = None
-        else:
-            max_force = max([(sum([force[3*i+j]**2 for j in range(3)]))**0.5 for i in range(len(force)//3)])
-            max_force_comp = max([abs(i) for i in force])
-
-        if stress == None:
-            pressure = None
-        else:
-            pressure = (stress[0] + stress[4] + stress[8])/3.0
-            
-        ase_force = opt.atoms.get_forces()
-        ase_stress = opt.atoms.get_stress(voigt=False)
         
+        if ase_stress:
+            pressure = (ase_stress[0][0] + ase_stress[1][1] + ase_stress[2][2]) / 3
+        else:
+            pressure = None
+        
+        if os.path.isfile(self.logfile):
+            with open(self.logfile) as f:
+                logs = f.readlines()
+            enes = []
+            fmaxs = []
+            for idx,line in enumerate(logs):
+                if "Step     Time          Energy          fmax" in line:
+                    i = idx + 1
+                    while i < len(logs):
+                        if logs[i].strip() == "": break
+                        ene, fmax = logs[i].split()[3:5]
+                        enes.append(float(ene))
+                        fmaxs.append(float(fmax))
+                        i += 1
+        else:
+            enes = None
+            fmaxs = None
+
         return {
             "version": iresult["version"],
             "energy": iresult["energy"],
@@ -238,8 +264,10 @@ class ExeAseRelax:
             "max_force": max_force,
             "max_force_comp": max_force_comp,
             "pressure": pressure,
-            "force": force,
-            "stress": stress,
-            "ase_force": ase_force,
-            "ase_stress": ase_stress,
+            "energy_traj": enes,
+            "fmax_traj": fmaxs,
+            "force": ase_force,
+            "stress": ase_stress,
+            "abacus_force": abacus_force,
+            "abacus_stress": abacus_stress,
         }
