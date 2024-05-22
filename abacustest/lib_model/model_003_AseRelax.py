@@ -18,14 +18,14 @@ class AseRelax(Model):
         Name of the model, which will be used as the subcommand
         '''
         return "aserelax"
-    
+
     @staticmethod
     def description():
         '''
         Description of the model
         '''
         return "Prepare the inputs for relax by ASE + ABACUS"
-    
+
     @staticmethod
     def add_args(parser):
         '''
@@ -40,7 +40,7 @@ class AseRelax(Model):
         parser.add_argument('--mpi', type=int,  default=0,help='number of MPI parrallel, default 0, which means all cores/number of omp.' )
         parser.add_argument('--cellrelax', type=int,  default=None,help='if relax the box. 0: no, 1: yes. Default will read the INPUT, and set to 1 only when calculation is cell-relax' )
         parser.add_argument('-j','--job', type=str,  default=".",help='the path of abacus inputs, default is current folder.' )
-    
+
     def run(self,params):
         '''
         Parse the parameters and run the model
@@ -52,33 +52,47 @@ class AseRelax(Model):
             mpi = params.mpi
         aserelax = ExeAseRelax(params.job, params.abacus, params.omp, mpi, params.optimize, params.fmax, params.cellrelax,"aserelax")
         aserelax.run()
-    
+
     @staticmethod
     def prepare_args(parser):
         '''
         Add arguments for the prepare subcommand
         The arguments can not be command, model, modelcommand '''
+        parser.add_argument("-j","--jobs",type=str,help="the path of jobs to be tested",action="extend",nargs="*",)
+        parser.add_argument("-c", "--rundftcommand", type=str, default="abacustest model aserelax -o BFGS --mpi 32 --omp 1",help="the command to execute aserelax, default is 'abacustest model aserelax -o BFGS' ")
+        parser.add_argument("--machine", default="c32_m128_cpu", help="the machine to run the abacus. Default is c32_m128_cpu")
+        parser.add_argument("-i","--image",default="registry.dp.tech/dptech/prod-471/abacus-ase:20240522",type=str,help="the used image. Should has ABACUS/ASE-ABACUS/abacustest in image", )
         
-        parser.add_argument("-j","--jobs",default=[],type=str,help="the path of jobs to be tested",action="extend",nargs="*",)
-        
+
     def run_prepare(self,params):
         '''
         Parse the parameters and run the prepare process.
         Usually, this step will generate the input files for abacustest submit.
         '''
-        # ase image: registry.dp.tech/dptech/prod-471/abacus-ase:20240521
+        setting = {
+            "save_path": "results",
+            "bohrium_group_name": "ase-abacus-relax",
+            "run_dft": {
+                "example": params.jobs,
+                "command": params.rundftcommand,
+                "image": params.image,
+                "bohrium": {
+                    "scass_type": params.machine,
+                    "job_type": "container",
+                    "platform": "paratera",
+                },
+            },
+        }
         
-        
-    
+        comm.dump_setting(setting)
+
     @staticmethod
     def postprocess_args(parser):
         '''
         Add arguments for the postprocess subcommand
         The arguments can not be command, model, modelcommand'''
         pass
-    
-    
-    
+
     def run_postprocess(self,params):
         '''
         Parse the parameters and run the postprocess process'''
@@ -221,10 +235,6 @@ class ExeAseRelax:
         abacus_stress = iresult["stress"]
         
         ase_force = opt.atoms.get_forces().tolist()
-        if self.cal_stress:
-            ase_stress = opt.atoms.get_stress().tolist()
-        else:
-            ase_stress = None
         
         if ase_force:
             max_force = max((sum([j**2 for j in i]))**0.5 for i in ase_force)
@@ -232,11 +242,6 @@ class ExeAseRelax:
         else:
             max_force = None
             max_force_comp = None
-        
-        if ase_stress:
-            pressure = (ase_stress[0][0] + ase_stress[1][1] + ase_stress[2][2]) / 3
-        else:
-            pressure = None
         
         if os.path.isfile(self.logfile):
             with open(self.logfile) as f:
@@ -268,7 +273,6 @@ class ExeAseRelax:
             "energy_traj": enes,
             "fmax_traj": fmaxs,
             "force": ase_force,
-            "stress": ase_stress,
             "abacus_force": abacus_force,
             "abacus_stress": abacus_stress,
         }
