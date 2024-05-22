@@ -200,9 +200,9 @@ class ExeAseRelax:
 
         if self.relax_cell:
             ucf = ExpCellFilter(atoms,)
-            opt = optimizer(ucf, trajectory='init_opt.traj')
+            opt = optimizer(ucf, trajectory='init_opt.traj',logfile = self.logfile)
         else:
-            opt = optimizer(atoms, trajectory='init_opt.traj', logfile="aserelax.log")
+            opt = optimizer(atoms, trajectory='init_opt.traj', logfile=self.logfile)
 
         opt.run(fmax=self.fmax,steps = input_param.get("relax_nmax",100))
         #opt.log()
