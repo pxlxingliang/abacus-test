@@ -86,7 +86,7 @@ class AseRelax(Model):
         }
         
         comm.dump_setting(setting)
-        comm.doc_after_prepare("ASE-ABACUS relax", real_jobs, ["setting.json"])
+        comm.doc_after_prepare("ASE-ABACUS relax", real_jobs, ["setting.json"],has_prepare=False)
         print("After finish the calculation, you can run below command to do the postprocess:")
         print(f"    abacustest model {self.model_name()} post -j {' '.join(real_jobs)} -r result.json\n")
         
@@ -103,18 +103,19 @@ class AseRelax(Model):
         '''
         Add arguments for the postprocess subcommand
         The arguments can not be command, model, modelcommand'''
-        parser.add_argument("-j","--jobs",type=str,default=[],help="The path of aserelax job. Should has metrics.json file generated after aserelax.",action="extend",nargs="*",)
+        parser.add_argument("-j","--jobs",type=str,default=["."],help="The path of aserelax job. Should has metrics.json file generated after aserelax.",action="extend",nargs="*",)
         parser.add_argument("-o","--output",default="aserelax.png",help="the output picture name, default is aserelax.png",)
         parser.add_argument("-r","--result",default="result.json",help="Save the data of the plot to a json file. Default is result.json.",)
         parser.add_argument('--abacus', nargs='?',type=int, const=1, default=None,help='postprocess the job as an abacus relax job' )
         parser.add_argument('--metric', nargs='?',type=str, const="metrics.json", default=None,help='postprocess a metrics.json file. If set metric, then will only plot data in this file' )
-        
-        
+        parser.add_argument('--noplot', nargs='?',type=int, const=1, default=None,help='If not plot the image' )
+
     def _post_gen_allmetrics(self,params):
         if params.metric:
             allmetrics = json.load(open(params.metric))
         else:
             allmetrics = {}
+            jobs = params.jobs if len(params.jobs) == 1 else params.jobs[1:]
             jobs = comm.get_job_list(params.jobs)
             if len(jobs) == 0:
                 print("No jobs are specified.")
@@ -167,27 +168,33 @@ class AseRelax(Model):
         examples = list(plot_data.keys())
         examples.sort()
         
-        ncol = 1
-        nrow = len(examples)
+        ncol = int((len(examples))**0.5)
+        nrow = int(len(examples)//ncol)
+        while nrow * ncol < len(examples):
+            nrow += 1
         
         fig, axes = plt.subplots(nrow,ncol,figsize=(8*ncol,6*nrow))
-        if nrow * ncol == 1:
-            axes = [axes]
         for i,example in enumerate(examples):
-            axes[i].plot(plot_data[example]["enes"],label="Energy (eV)",color="blue",linestyle="-",marker="o")
-            ax1 = axes[i].twinx()
+            if nrow * ncol == 1:
+                ax0 = axes
+            elif nrow == 1 or ncol == 1:
+                ax0 = axes[i]
+            else:
+                ax0 = axes[i//ncol][i%ncol]
+            ax0.plot(plot_data[example]["enes"],label="Energy (eV)",color="blue",linestyle="-",marker="o")
+            ax1 = ax0.twinx()
             ax1.plot(plot_data[example]["fmax"],label="Fmax (eV/A)",color="red",linestyle="--",marker="o")
-            axes[i].set_title(example)
-            axes[i].set_xlabel("Step")
-            axes[i].set_ylabel("Energy (eV)")
+            ax0.set_title(example)
+            ax0.set_xlabel("Step")
+            ax0.set_ylabel("Energy (eV)")
             ax1.set_ylabel("Fmax (eV/A)")
-            axes[i].legend(loc="upper left")
+            ax0.legend(loc="upper left")
             ax1.legend(loc="upper right")
             ene_max = max(plot_data[example]["enes"])
             ene_min = min(plot_data[example]["enes"])
             fmax_max = max(plot_data[example]["fmax"])
             fmax_min = min(plot_data[example]["fmax"])
-            axes[i].set_ylim(ene_min,ene_max + (ene_max - ene_min)*0.2)
+            ax0.set_ylim(ene_min,ene_max + (ene_max - ene_min)*0.2)
             ax1.set_ylim(fmax_min,fmax_max + (fmax_max - fmax_min)*0.2)
         plt.tight_layout()
         plt.savefig(output)
@@ -197,10 +204,13 @@ class AseRelax(Model):
         Parse the parameters and run the postprocess process'''
         all_metrics = self._post_gen_allmetrics(params)
         plot_data = self._post_gen_plot_data(all_metrics)
-        self._post_plot(plot_data,params.output)
-        json.dump(all_metrics,open(comm.bak_file("metrics.json",bak_org=False),"w"),indent=4)
+        if not params.noplot:
+            self._post_plot(plot_data,params.output)
+            json.dump(comm.gen_supermetrics(params.output),open("supermetrics.json","w"),indent=4)
+        if not params.metric: 
+            json.dump(all_metrics,open(comm.bak_file("metrics.json",bak_org=False),"w"),indent=4)
         json.dump(plot_data,open(params.result,"w"),indent=4)
-        json.dump(comm.gen_supermetrics(params.output),open("supermetrics.json","w"),indent=4)
+        
 
 class ExeAseRelax:
     def __init__(self, job, abacus, omp, mpi, optimize, fmax, relax_cell, wrok_path):

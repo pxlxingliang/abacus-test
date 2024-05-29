@@ -124,6 +124,7 @@ class Qe(ResultQe):
     @ResultQe.register(converge="if SCF is converged",
                        scf_steps="the steps of SCF",
                        energy="total energy, unit in eV",
+                       energies = "list, the total energy of each ION step",
                        nbands="band number",
                        ibzk="irreducible K point number",
                        nkstot="the total k points",
@@ -132,6 +133,10 @@ class Qe(ResultQe):
                        stress="list, the stress, [xx,xy,xz,yx,yy,yz,zx,zy,zz]. Unit in kbar.",
                        virial="list, the virial, [xx,xy,xz,yx,yy,yz,zx,zy,zz]. Unit in eV.",
                        pressure="the pressure, unit in kbar",
+                       forces = "list, the force of each ION step",
+                       stresses = "list, the stress of each ION step",
+                       virials = "list, the virial of each ION step",
+                       pressures = "list, the pressure of each ION step",
                        cell = "list, the cell, [a1,a2,a3,b1,b2,b3,c1,c2,c3]. Unit in Angstrom",
                        volume = "the volume of cell, unit in Angstrom^3",
                        coord = "list, the coordinate of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]. Unit in Angstrom",
@@ -151,8 +156,7 @@ class Qe(ResultQe):
                 print("ERROR: can not find the output in pwscf.xml")
                 return
             output = output[-1]
-            
-        if output:
+
             element = None
             self['converge'] = comm.ibool(xfmlt(output,['convergence_info','scf_conv','convergence_achieved']))
             self['scf_steps'] = comm.iint(xfmlt(output,['convergence_info','scf_conv','n_scf_steps']))
@@ -237,15 +241,40 @@ class Qe(ResultQe):
                 self['energy_per_atom'] = self['energy'] / self['natom']
             self["element"] = element
             self["element_list"] = element
+            
+            print("find step")
+            allsteps = self.XMLROOT.findall('step')
+            energies = []
+            forces = []
+            stresses = []
+            pressures = []
+            virials = []
+            for istep in allsteps:
+                energies.append(comm.ifloat(xfmlt(istep,['total_energy','etot'])))
+                force = istep.find('forces')
+                if force != None:
+                    forces.append([float(i) * comm.HARTREE2EV / comm.BOHR2A for i in force.text.split()])
+                stress = istep.find('stress')
+                if stress != None:
+                    stresses.append([float(i)/comm.KBAR2HARTREEPERBOHR3 for i in stress.text.split()])
+                    pressures.append((stresses[-1][0] + stresses[-1][4] + stresses[-1][8]) / 3.0)
+                    if volume != None:
+                        virials.append([float(i) * volume * comm.HARTREE2EV / comm.BOHR2A ** 3   for i in stress.text.split()])
+            self["energies"] = energies if energies else None
+            self["forces"] = forces if forces else None
+            self["stresses"] = stresses if stresses else None
+            self["pressures"] = pressures if pressures else None
+            self["virials"] = virials if virials else None
+            
         elif self.OUTPUT:
             converge = None
             ibzk = None
             nbands = None
             nelec = None
-            energy = None
-            stress = None
-            pressure = None
-            force = None
+            energies = []
+            stresses = []
+            pressures = []
+            forces = []
             natom = None
             cell = None
             coord = None
@@ -270,7 +299,7 @@ class Qe(ResultQe):
                 elif "number of k points" in iline:
                     ibzk = int(iline.split()[4])
                 elif "total energy" in iline:
-                    energy = float(iline.split()[-2]) * comm.RY2EV
+                    energies.append(float(iline.split()[-2]) * comm.RY2EV)
                 elif "number of Kohn-Sham states" in iline:
                     nbands = int(iline.split()[-1])
                 elif "number of electrons" in iline:
@@ -295,12 +324,15 @@ class Qe(ResultQe):
                     for i in range(3):
                         stress.extend([float(j) for j in self.OUTPUT[idx+i+1].split()[3:6]])
                     pressure = float(iline.split()[-1])
+                    stresses.append(stress)
+                    pressures.append(pressure)
                 elif "Forces acting on atoms" in iline:
                     force = []
                     j = idx + 2
                     while len(self.OUTPUT[j].split()) == 8:
                         force.extend([float(i) * comm.RY2EV / comm.BOHR2A for i in self.OUTPUT[j].split()[-3:]])
                         j += 1
+                    forces.append(force)
                 elif "CELL_PARAMETERS" in iline:
                     cell = []
                     lat0 = float(iline.split("=")[1].strip()[:-1])
@@ -317,13 +349,17 @@ class Qe(ResultQe):
                         label.append(icoord[0])
                         coord.append([float(j) for j in icoord[1:]])
             self["converge"] = converge
-            self["energy"] = energy
+            self["energy"] = None if len(energies) == 0 else energies[-1]
+            self["energies"] = None if len(energies) == 0 else energies
             self["nbands"] = nbands
             self["ibzk"] = ibzk
             self["nelec"] = nelec
-            self["stress"] = stress
-            self["pressure"] = pressure
-            self["force"] = force
+            self["stress"] = None if len(stresses) == 0 else stresses[-1]
+            self["stresses"] = None if len(stresses) == 0 else stresses
+            self["pressure"] = None if len(pressures) == 0 else pressures[-1]
+            self["pressures"] = None if len(pressures) == 0 else pressures
+            self["force"] = None if len(forces) == 0 else forces[-1]
+            self["forces"] = None if len(forces) == 0 else forces
             self["natom"] = natom
             self["cell"] = cell
             self["coord"] = coord
@@ -336,8 +372,8 @@ class Qe(ResultQe):
             self["scf_steps"] = scf_steps
             self["nkstot"] = None
             self["kpt"] = None
-            if energy != None and natom != None:
-                self["energy_per_atom"] = energy / natom
+            if energies and natom != None:
+                self["energy_per_atom"] = energies[-1] / natom
             else:
                 self["energy_per_atom"] = None
             
@@ -347,22 +383,32 @@ class Qe(ResultQe):
                 self["volume"] = None
             
             # calc the virial
-            if stress != None and self["volume"] != None:
-                self["virial"] = [i * self["volume"] * comm.KBAR2EVPERANGSTROM3 for i in stress]
+            if stresses and self["volume"] != None:
+                virials = []
+                for stress in stresses:
+                    virials.append([i * self["volume"] * comm.KBAR2EVPERANGSTROM3 for i in stress])
+                self["virial"] = virials[-1]
+                self["virials"] = virials
             else:
                 self["virial"] = None
+                self["virials"] = None
         else:
             self["converge"] = None
             self["scf_steps"] = None
             self["energy"] = None
+            self["energies"] = None
             self["nbands"] = None
             self["ibzk"] = None
             self["nkstot"] = None
             self["kpt"] = None
             self["force"] = None
+            self["forces"] = None
             self["stress"] = None
+            self["stresses"] = None
             self["virial"] = None
+            self["virials"] = None
             self["pressure"] = None
+            self["pressures"] = None
             self["cell"] = None
             self["volume"] = None
             self["coord"] = None

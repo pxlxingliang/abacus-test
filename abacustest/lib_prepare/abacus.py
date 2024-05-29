@@ -840,7 +840,10 @@ def ReadKpt(kptpath):
             kptf = os.path.join(kptpath,input_param.get("kpoint_file","KPT"))
             struf = os.path.join(kptpath,input_param.get("stru_file","STRU"))
             kspacing = input_param.get("kspacing",None)
-            if kspacing != None and kspacing != 0:
+            if input_param.get("basis_type","").lower() == "lcao" and comm.IsTrue(input_param.get("gamma_only",False)):
+                print("Have set gamma_only in INPUT file, will use 1 1 1 for KPOINT.")
+                return [1,1,1,0,0,0],"gamma"
+            elif kspacing != None and kspacing != 0:
                 print(f"Have set kspacing in INPUT file, kspacing: {kspacing}. Will transfer to KPOINT.")
                 if not os.path.isfile(struf):
                     print("  Can not find the STRU file, and try to read KPOINT from KPT file")
@@ -859,8 +862,6 @@ def ReadKpt(kptpath):
                     return kpt,"mp"
             elif os.path.isfile(kptf):
                 return ReadKpt(kptf)
-            elif input_param.get("basis_type","").lower() == "lcao" and comm.IsTrue(input_param.get("gamma_only",False)):
-                return [1,1,1,0,0,0],"gamma"
             else:
                 print("ERROR: Can not find the KPT file:",kptf)
                 sys.exit(1)
@@ -870,7 +871,7 @@ def ReadKpt(kptpath):
             print("ERROR: Can not find the INPUT/KPT file in the path:",kptpath)
             sys.exit(1)
     elif os.path.isfile(kptpath):
-        with open(kptpath) as f1: lines = f1.readlines()
+        with open(kptpath) as f1: lines = [i for i in f1.readlines() if i.split("#")[0].strip() != ""]
         model = lines[2].split()[0].lower()
         if model.startswith("g") or model.startswith("m"):
             model = "mp"

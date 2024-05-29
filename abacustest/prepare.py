@@ -35,7 +35,8 @@ class PrepareAbacus:
                  dpks_descriptor:str=None,
                  extra_files: List[str] = [],
                  bak_file = True,
-                 no_link = False):
+                 no_link = False,
+                 link_example_template_extra_files=True,):
         """To prepare the inputs of abacus
 
         Parameters
@@ -110,6 +111,9 @@ class PrepareAbacus:
             
         no_link: bool, optional
             if True, then will not link the files in example_template to save_path,
+            
+        link_example_template_extra_files: bool, optional
+            if True, then will link the extra files in example_template to save_path,
         """        
         self.save_path = save_path
         self.example_template = example_template
@@ -140,6 +144,20 @@ class PrepareAbacus:
         # when read the template file, will check if the template file folder is same with save_path
         # if same and final structures only one, then will not bak the template folder
         self.template_is_save_path = self.CheckIfTemplateIsSavePath()
+        self.example_template_extra_files = self.CheckExampleTemplateExtraFiles(link_example_template_extra_files)
+    
+    def CheckExampleTemplateExtraFiles(self,link_example_template_extra_files):
+        # check the extra files in example_template except for INPUT, KPT, STRU
+        if (not link_example_template_extra_files) or (not self.example_template):
+            return []
+        allfiles = os.listdir(self.example_template)
+        extrafiles = []
+        for ifile in allfiles:
+            if ifile in ["INPUT","STRU","KPT"]:
+                continue
+            if os.path.isfile(os.path.join(self.example_template,ifile)):
+                extrafiles.append(os.path.abspath(os.path.join(self.example_template,ifile)))
+        return extrafiles
         
     def CheckIfTemplateIsSavePath(self):
         if not os.path.exists(self.save_path):
@@ -416,7 +434,7 @@ class PrepareAbacus:
                     labels.append(ilabel)
             linkstru = True
             skipstru = False
-            allfiles = self.extra_files  #files that will be linked
+            allfiles = self.example_template_extra_files + self.extra_files  #files that will be linked
             pp_list = []   #pp file name
             orb_list = []  #orb file name
             paw_list = [] #paw file name
@@ -739,6 +757,7 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
         "orb_path": str,
         "dpks_descriptor":"",
         "extra_files":[],
+        "link_example_template_extra_files":true,
         "abacus2qe": bool,
         "qe_setting":{},
         "abacus2vasp": bool,
@@ -807,7 +826,8 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
                                   dpks_descriptor=param_setting.get("dpks_descriptor",None),
                                   extra_files=param_setting.get("extra_files",[]),
                                   bak_file = param_setting.get("bak_file",True),
-                                  no_link=no_link
+                                  no_link=no_link,
+                                  link_example_template_extra_files=param_setting.get("link_example_template_extra_files",True)
                                   )
         all_path_setting.append(prepareabacus.prepare())
             

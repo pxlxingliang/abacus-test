@@ -25,7 +25,7 @@ class CommitTest(Model):
         parser.add_argument("-c","--commit",default=[],type=str,help="the commits to be tested. Can also be branch or tag name that can be checkouted to using git checkout",action="extend",nargs="*",)
         parser.add_argument("--repo",default="https://github.com/deepmodeling/abacus-develop.git", help="the repository to be tested. Default is https://github.com/deepmodeling/abacus-develop.git")
         parser.add_argument("--clonemax",default=10,help="the max number of commits to be cloned. Default is 10",type=int)
-        parser.add_argument("--install", default="cmake -B build -DENABLE_DEEPKS=ON -DENABLE_LIBXC=ON -DENABLE_LIBRI=ON -DENABLE_RAPIDJSON=ON;cmake --build build -j`nproc`;cmake --install build", help="the command to install the abacus. Default same as dockerfile.intel")
+        parser.add_argument("--install", default="cmake -B build -DENABLE_DEEPKS=ON -DENABLE_LIBXC=ON -DENABLE_LIBRI=ON -DENABLE_RAPIDJSON=ON && cmake --build build -j`nproc` && cmake --install build", help="the command to install the abacus. Default same as dockerfile.intel")
         parser.add_argument("--runcommand",default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log", help="the command to run the abacus. Default is OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log")
         parser.add_argument("--machine", default="c32_m64_cpu", help="the machine to run the abacus. Default is c32_m64_cpu")
         parser.add_argument("-r", "--run", default=0, help="if run the test. Default is 0.", type=int)
