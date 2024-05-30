@@ -150,6 +150,8 @@ class PrepareAbacus:
         # check the extra files in example_template except for INPUT, KPT, STRU
         if (not link_example_template_extra_files) or (not self.example_template):
             return []
+        if not os.path.isdir(self.example_template):
+            return []
         allfiles = os.listdir(self.example_template)
         extrafiles = []
         for ifile in allfiles:
@@ -803,6 +805,9 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
     commpath,example_template_nocomm = CommPath(example_template)
     print(commpath,example_template_nocomm)
     for idx,iexample in enumerate(example_template):
+        if not os.path.isdir(iexample):
+            print("Can not find folder %s" % iexample)
+            continue
         if len(example_template) > 1:
             save_path = os.path.join(save_folder,example_template_nocomm[idx])
             print("\n%s" % iexample)
