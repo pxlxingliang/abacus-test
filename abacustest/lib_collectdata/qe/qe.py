@@ -538,7 +538,8 @@ class Qe(ResultQe):
                 if "Writing all to output data dir" in iline:
                     break
                 if "PWSCF        :" in iline:
-                    total_time = comm.strtime2sec(iline.split()[-2])
+                    # may have case "PWSCF        :      7h43m CPU      8h 0m WALL"
+                    total_time = comm.strtime2sec(iline.split("CPU")[-1].split("WALL")[0])
                 elif "force" in iline:
                     force_time = comm.strtime2sec(iline.split()[-2])
                 elif "stress" in iline:
