@@ -428,6 +428,9 @@ class PrepareAbacus:
         stru_num = len(self.stru_list) * len(kpt_list) * len(input_list)
         for istru in self.stru_list:  #iteration of STRU
             stru_data = MyAbacus.AbacusStru.ReadStru(istru)
+            if not stru_data:
+                print(f"ERROR: read STRU failed in {istru}")
+                continue
             stru_path = os.path.split(istru)[0]
             if stru_path == "": stru_path = os.getcwd()
             labels = []
@@ -450,8 +453,10 @@ class PrepareAbacus:
                         pp_in_stru = stru_data.get_pp()[i]
                         if os.path.isfile(pp_in_stru):
                             print("label '%s': link the pseudopotential file '%s' defined in %s" % (ilabel,pp_in_stru,istru))
-                            pp_list.append(os.path.split(pp_in_stru)[1])
+                            pp_list.append(os.path.basename(pp_in_stru))
                             allfiles.append(os.path.abspath(pp_in_stru))
+                            if pp_list[-1] != stru_data.get_pp()[i]:
+                                linkstru = False
                         else:
                             print("label '%s': the pseudopotential file '%s' defined in %s is not found" % (ilabel,pp_in_stru,istru))
                             #skipstru = True
@@ -459,7 +464,7 @@ class PrepareAbacus:
                             #break
                         os.chdir(cwd)
                 else:
-                    pp_list.append(os.path.split(self.pp_dict[ilabel])[1])  #only store the file name to pp_list
+                    pp_list.append(os.path.basename(self.pp_dict[ilabel]))  #only store the file name to pp_list
                     allfiles.append(self.pp_dict[ilabel]) #store the whole pp file to allfiles                    
                     if not stru_data.get_pp() or pp_list[-1] != stru_data.get_pp()[i]:
                         linkstru = False
@@ -472,7 +477,7 @@ class PrepareAbacus:
                         orb_in_stru = stru_data.get_orb()[i]
                         if os.path.isfile(orb_in_stru):
                             print("label '%s': link the orb file '%s' defined in %s" % (ilabel,orb_in_stru,istru))
-                            orb_list.append(os.path.split(orb_in_stru)[1])
+                            orb_list.append(os.path.basename(orb_in_stru))
                             allfiles.append(os.path.abspath(orb_in_stru))
                             if orb_list[-1] != stru_data.get_orb()[i]:  
                                 linkstru = False
@@ -480,7 +485,7 @@ class PrepareAbacus:
                             print("label '%s': the orbital file '%s' defined in %s is not found." % (ilabel,orb_in_stru,istru))
                         os.chdir(cwd)
                 else:
-                    orb_list.append(os.path.split(self.orb_dict[ilabel])[1]) 
+                    orb_list.append(os.path.basename(self.orb_dict[ilabel])) 
                     allfiles.append(self.orb_dict[ilabel])
                     if not stru_data.get_orb() or orb_list[-1] != stru_data.get_orb()[i]:  
                         linkstru = False
@@ -492,7 +497,7 @@ class PrepareAbacus:
                         paw_in_stru = stru_data.get_paw()[i]
                         if os.path.isfile(paw_in_stru):
                             print("label '%s': link the paw file '%s' defined in %s" % (ilabel,paw_in_stru,istru))
-                            paw_list.append(os.path.split(paw_in_stru)[1])
+                            paw_list.append(os.path.basename(paw_in_stru))
                             allfiles.append(os.path.abspath(paw_in_stru))
                             if paw_list[-1] != stru_data.get_paw()[i]:  
                                 linkstru = False
@@ -500,7 +505,7 @@ class PrepareAbacus:
                             print("label '%s': the paw file '%s' defined in %s is not found." % (ilabel,paw_in_stru,istru))
                         os.chdir(cwd)
                 else:
-                    paw_list.append(os.path.split(self.paw_dict[ilabel])[1]) 
+                    paw_list.append(os.path.basename(self.paw_dict[ilabel])) 
                     allfiles.append(self.paw_dict[ilabel])
                     if not stru_data.get_paw() or paw_list[-1] != stru_data.get_paw()[i]:  
                         linkstru = False
@@ -511,7 +516,7 @@ class PrepareAbacus:
             #check dpks 
             if self.dpks_descriptor:
                 if os.path.isfile(self.dpks_descriptor):
-                    dpks = os.path.split(self.dpks_descriptor)[1]
+                    dpks = os.path.basename(self.dpks_descriptor)
                     allfiles.append(self.dpks_descriptor)
                 else:
                     print("Error: Can not find file %s, skip the prepare of dpks_descriptor" % self.dpks_descriptor)
@@ -522,7 +527,7 @@ class PrepareAbacus:
                 if dpks:
                     if os.path.isfile(dpks):
                         allfiles.append(os.path.abspath(dpks))
-                        dpks = os.path.split(dpks)[1]
+                        dpks = os.path.basename(dpks)
                     else:
                         print("Error: deepks descriptor is defined in %s/STRU, but can not find the file, skip the prepare" % stru_path)
                         dpks = None
@@ -605,7 +610,7 @@ class PrepareAbacus:
                     #link other files
                     for ifile in allfiles:
                         ifile = os.path.abspath(ifile)
-                        filename = os.path.split(ifile)[1]
+                        filename = os.path.basename(ifile)
                         target_file = os.path.join(save_path,filename)
                         if os.path.isfile(target_file) and not Path(ifile).samefile(Path(target_file)):
                             os.unlink(target_file)
@@ -840,12 +845,12 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
         print("\nConvert ABACUS inputs to QE inputs")
         for isetting in all_path_setting:
             if isetting:
-                ipath = list(isetting.keys())[0]
-                print(ipath)
-                try:
-                    Aba2Qe.Abacus2Qe(ipath,save_path=os.path.join(ipath,"input"),qe_param=param_setting.get("qe_setting",{}))
-                except:
-                    traceback.print_exc()
+                for ipath in list(isetting.keys()):
+                    print(ipath)
+                    try:
+                        Aba2Qe.Abacus2Qe(ipath,save_path=os.path.join(ipath,"input"),qe_param=param_setting.get("qe_setting",{}))
+                    except:
+                        traceback.print_exc()
     
     if param_setting.get("abacus2vasp",False):
         print("\nConvert ABACUS inputs to VASP inputs")
@@ -853,24 +858,24 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
         vasp_setting = param_setting.get("vasp_setting",{})
         for isetting in all_path_setting:
             if isetting:
-                ipath = list(isetting.keys())[0]
-                print(ipath)
-                try:
-                    Aba2Vasp.Abacus2Vasp(ipath,save_path=ipath,potcar=potcar,vasp_setting=vasp_setting)
-                except:
-                    traceback.print_exc()
+                for ipath in list(isetting.keys()):
+                    print(ipath)
+                    try:
+                        Aba2Vasp.Abacus2Vasp(ipath,save_path=ipath,potcar=potcar,vasp_setting=vasp_setting)
+                    except:
+                        traceback.print_exc()
     
     if param_setting.get("abacus2cp2k",False):
         print("\nConvert ABACUS inputs to CP2K inputs")
         cp2k_setting = param_setting.get("cp2k_setting",{})
         for isetting in all_path_setting:
             if isetting:
-                ipath = list(isetting.keys())[0]
-                print(ipath)
-                try:
-                    Aba2Cp2k.Abacus2Cp2k(ipath,save_path=os.path.join(ipath,"cp2k.inp"),cp2k_setting=cp2k_setting)
-                except:
-                    traceback.print_exc()
+                for ipath in list(isetting.keys()):
+                    print(ipath)
+                    try:
+                        Aba2Cp2k.Abacus2Cp2k(ipath,save_path=os.path.join(ipath,"cp2k.inp"),cp2k_setting=cp2k_setting)
+                    except:
+                        traceback.print_exc()
                       
     return all_path_setting
 

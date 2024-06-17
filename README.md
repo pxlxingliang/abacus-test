@@ -312,6 +312,7 @@ A template of param.json is:
       "orb_path":,
       "dpks_descriptor":,
       "extra_files":[],
+      "link_example_template_extra_files":true,
       "abacus2qe": false,
       "qe_setting":{
         "version": 7.0,
@@ -346,7 +347,8 @@ Only key "prepare" is recongnized by `abacustest prepare`.
 - `pp_path`: the path of pseudopotential files. There should has an extra "element.json" file that defines the element name and the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}, or abacustest will read the first two letters of the pseudopotential file name as the element name. If one element has been defined in both `pp_dict` and `pp_path`, the value in `pp_dict` will be used. 
 - `orb_path`: the path of orbital files. There should has an extra "element.json" file that defines the element name and the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}, or abacustest will read the first two letters of the orbital file name as the element name. If one element has been defined in both `orb_dict` and `orb_path`, the value in `orb_dict` will be used. 
 - `dpks_descriptor`: the descriptor of dpks. If is not null, will link the dpks file for each example. 
-- `extra_files`: the extra files that will be lniked to each example folder. Such as: ["abc.py","def.json"]. 
+- `extra_files`: the extra files that will be lniked to each example folder. Such as: ["abc.py","def.json"].
+- `link_example_template_extra_files`: if link the extra files in each example folder. Default is true (will link or copy all files in example folder). If is false, will only copy or link the required files for ABACUS job, such as: INPUT/KPT/STRU/.upf/.orb. 
 - `abacus2qe`: if convert the ABACUS input to QE input. Default is false. Now support the convert of cell, coordinate, kpt, pp, and normal scf/relax/cell-relax calculation, and settings of symmetry/smearing/mixing/scf_thr/force_thr/stress_thr, and the magnetic setting of atom type.
 - `qe_setting`: the setting of QE input. Here has three types settings: 
     - specify params in "system","control","electrons","ions","cell". Like: "system": {"ibrav":0},...

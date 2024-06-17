@@ -1,5 +1,6 @@
-import os,json,glob
-import subprocess
+import os,json,glob,shutil,traceback
+import subprocess,copy
+from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,ReadKpt
 
 BOHRIUM_DES = '''If you use Bohrium to accelerate the calculation, you need to set below environment variables:
     export BOHRIUM_USERNAME=<your username> BOHRIUM_PASSWORD=<your password> BOHRIUM_PROJECT_ID=<your project id> 
@@ -30,22 +31,50 @@ def doc_after_prepare(model_name, jobs, files,has_prepare=True):
         print("    abacustest prepare -p setting.json " + outfolder + "\n\n")
     
 def dump_setting(setting):
+    """
+    Dump the given setting dictionary to a JSON file named 'setting.json'.
+    If 'setting.json' already exists, it will be backed up with a numbered suffix.
+
+    Args:
+        setting (dict): The setting dictionary to be dumped.
+
+    Returns:
+        None
+    """
     if os.path.isfile("setting.json"):
         i = 1
         settingbakf = f"setting.json.bak{i}"
         while os.path.isfile(settingbakf):
             i += 1
             settingbakf = f"setting.json.bak{i}"
-        print("Warning: setting.json exists. Will bakup it to", settingbakf)
+        print("Warning: setting.json exists. Will backup it to", settingbakf)
         os.system(f"mv setting.json {settingbakf}")
     json.dump(setting, open("setting.json", "w"), indent=4)
 
 def get_physical_cores():
+    """
+    Get the number of physical cores in the system.
+
+    Returns:
+        int: The number of physical cores.
+
+    Raises:
+        CalledProcessError: If the command execution fails.
+    """
     cmd = "lscpu | grep 'Core(s) per socket:' | awk '{print $4}'"
     cores = subprocess.check_output(cmd, shell=True).decode().strip()
     return int(cores)
 
 def get_job_list(jobs):
+    '''
+    Get a list of job directories from the given list of job patterns.
+
+    Args:
+        jobs (list): A list of job patterns.
+
+    Returns:
+        list: A list of job directories.
+    '''
     job_list = []
     for job in jobs:
         for ijob in glob.glob(job):
@@ -86,5 +115,106 @@ def bak_file(filename, bak_org=False):
         return filename 
     else:
         return bakf
+
+def clean_files(ipath, f_list=[], folder_list=[]):
+    '''
+    Clean the files in the given folder.
+    '''
+    for ifile in f_list:
+        for jfile in glob.glob(os.path.join(ipath,ifile)):
+            if os.path.isfile(jfile):
+                os.remove(jfile)
+    for ifolder in folder_list:
+        for jfolder in glob.glob(os.path.join(ipath,ifolder)):
+            if os.path.isdir(jfolder):
+                shutil.rmtree(jfolder)       
+
+def get_abacus_inputfiles(ipath):
+    """
+    Find the input files in the given path and return a dict:
+    {
+        "input": input_param, # a dict of the input parameters, kpt_file, stru_file, pseudo_dir, orb_dir will be popped out or modified
+        "stru": stru, # an AbacusStru object or None. The pp/orb now is only the base name.
+        "kptf": kptf, # the absolute path of the kpt file or None if not found
+        "pp": pp_abs_path, # a list of the absolute path of the pseudopotential files or [] if defined in STRU
+        "orb": orb_abs_path, # a list of the absolute path of the orbital files or [] if defined in STRU
+        "extra_files": extra_files # a list of the absolute path of the extra files
+    }
+    
+    1. the kptf/pp/orb files are the absolute path, but not check if the files exist
+    2. if the INPUT or STRU is not read, the corresponding value will be None
+    3. if INPUT defines the stru_file, pseudo_dir or orb_dir, the returned dict will delete the corresponding key in the input_param
+    4. extra_files are the files in the folder but not in the list of INPUT, STRU, KPT, PP, ORB
+    """
+    if not os.path.isdir(ipath):
+        print(f"ERROR: {ipath} is not a directory")
+        return {
+            "input": None,
+            "stru": None,
+            "kpt": None,
+            "pp": [],
+            "orb": [],
+            "extra_files": []
+        }
+    
+    pwd = os.getcwd()
+    os.chdir(ipath)
+    
+    if os.path.isfile("INPUT"):
+        input_param = ReadInput("INPUT")
+        struf = input_param.pop("stru_file","STRU")
+        kptf = "KPT"
+        if "kpt_file" in input_param:
+            kptf = input_param["kpt_file"]
+            input_param["kpt_file"] = os.path.basename(kptf)
+    else:
+        print(f"ERROR: INPUT file not found in {ipath}")
+        input_param = {}
+        kptf = "KPT"
+        struf = "STRU"
         
-         
+    if not os.path.isfile(struf):
+        print(f"ERROR: STRU file '{struf}' not found in {ipath}")
+        stru = None
+    else:
+        stru = AbacusStru.ReadStru(struf)
+        if not stru:
+            print(f"ERROR: read STRU failed in {ipath}")
+            stru = None
+            
+    pp_path = input_param.pop("pseudo_dir","")
+    orb_path = input_param.pop("orb_dir","")
+    
+    pp_name = []
+    orb_name = []
+    pp_abs_path = None
+    orb_abs_path = None
+    if stru:
+        pp = stru.get_pp()
+        orb = stru.get_orb()
+        pp = pp if pp else []
+        orb = orb if orb else []
+        pp_abs_path = [os.path.abspath(os.path.join(pp_path,i)) for i in pp]
+        orb_abs_path = [os.path.abspath(os.path.join(orb_path,i)) for i in orb]
+        pp_name = [os.path.basename(i) for i in pp]
+        orb_name = [os.path.basename(i) for i in orb]
+        if len(pp_name) > 0:
+            stru.set_pp(pp_name)
+        if len(orb_name) > 0:
+            stru.set_orb(orb_name)    
+    
+    extra_files = []
+    for ifile in os.listdir(ipath):
+        if ifile not in ["INPUT",struf,kptf]+pp_name+orb_name and os.path.isfile(os.path.join(ifile)):
+            extra_files.append(os.path.abspath(ifile))
+    
+    kptf = os.path.abspath(kptf) if os.path.isfile(kptf) else None
+    os.chdir(pwd)        
+    return {
+        "input": input_param if input_param else None,
+        "stru": stru,
+        "kpt": kptf,
+        "pp": pp_abs_path,
+        "orb": orb_abs_path,
+        "extra_files": extra_files
+    }

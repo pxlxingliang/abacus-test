@@ -178,6 +178,7 @@ class Abacus(ResultAbacus):
                            total_mag="total magnetism (Bohr mag/cell)",
                            absolute_mag="absolute magnetism (Bohr mag/cell)",
                            energy = "the total energy (eV)",
+                           energy_ks = "the E_KohnSham, unit in eV",
                            energies = "list of total energy of each ION step",
                            volume = "the volume of cell, in A^3",
                            efermi = "the fermi energy (eV). If has set nupdown, this will be a list of two values. The first is up, the second is down.",
@@ -208,6 +209,7 @@ class Abacus(ResultAbacus):
             converge = None
             energy = None
             energies = []
+            energies_ks = []
             volume = None
             for i,line in enumerate(self.LOG):
                 if 'charge density convergence is achieved' in line:
@@ -223,6 +225,8 @@ class Abacus(ResultAbacus):
                     energy = float(line.split()[1])
                 elif "final etot is" in line:
                     energies.append(float(line.split()[-2]))
+                elif "E_KohnSham" in line:
+                    energies_ks.append(float(line.split()[-1]))
                 elif "Volume (A^3) =" in line:
                     volume = float(line.split()[-1])
                 elif 'E_Fermi' in line:
@@ -244,6 +248,11 @@ class Abacus(ResultAbacus):
                 self["energies"] = energies
             else:
                 self["energies"] = None
+
+            if energies_ks:
+                self["energy_ks"] = energies_ks[-1]
+            else:
+                self["energy_ks"] = None
 
             self['total_mag'] = total_mag
             self['absolute_mag'] = absolute_mag
