@@ -270,6 +270,22 @@ class PrepareAbacus:
         else:
             print("Not find paw dir: %s" % self.paw_path) 
             
+    def parse_combine_input(self,input_dict, combine_str="|"):
+        #parse the combine input, such as "ecutwfc|kspacing": "50|0.2"
+        new_input_dict = {}
+        for key,value in input_dict.items():
+            if combine_str in key and isinstance(value,str):
+                keys = key.split(combine_str)
+                vs = value.split(combine_str)
+                if len(keys) != len(vs):
+                    print(f"ERROR: number of keys and values are not equal in {key}={value}")
+                    new_input_dict[key] = value
+                else:
+                    for i in range(len(keys)):
+                        new_input_dict[keys[i]] = vs[i]
+            else:
+                new_input_dict[key] = value
+        return new_input_dict
             
     def Construct_input_list(self):
         all_inputs = []
@@ -308,6 +324,8 @@ class PrepareAbacus:
             else:
                 print("WARNING: type of '%s' is" % str(v),type(v),"will not add to INPUT")
                 input_constant[k] = v
+                
+        input_constant = self.parse_combine_input(input_constant) # parse the combine input
         print("Invariant INPUT setting:",str(input_constant))
 
         all_inputs.append(input_constant)
@@ -324,8 +342,13 @@ class PrepareAbacus:
                     for iinput in tmp_inputs:
                         iinput[k] = iv
                     all_inputs += copy.deepcopy(tmp_inputs)
-        
-        return all_inputs,[i for i in list_param.keys()]
+        list_param_new = []
+        for k in list_param:
+            if "|" in k:
+                list_param_new += k.split("|")
+            else:
+                list_param_new.append(k)
+        return [self.parse_combine_input(i) for i in all_inputs],list_param_new
 
     def Construct_kpt_list(self):
         """

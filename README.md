@@ -335,7 +335,7 @@ Only key "prepare" is recongnized by `abacustest prepare`.
 - `input_template`: the template of INPUT file. If is not null, all example will use this file as INPUT file. 
 - `kpt_template`: the template of KPT file. If is not null, all example will use this file as KPT file. 
 - `stru_template`: the template of STRU file. If is not null, all example will use this file as STRU file. 
-- `mix_input`: the mix of INPUT parameters. If is not null, will generate all combinations of the parameters for each example. Such as: {"ecutwfc":[50,60,70],"kspacing":[0.1,0.12,0.13]}, will generate 9 INPUTs. 
+- `mix_input`: the mix of INPUT parameters. If is not null, will generate all combinations of the parameters for each example. Such as: {"ecutwfc":[50,60,70],"kspacing":[0.1,0.12,0.13]}, will generate 9 INPUTs. If one need combine the parameters, should use '|' to connect them, and the value should be also combined by '|'. Such as: {"ecutwfc|kspacing":["50|0.1","60|0.12","70|0.13"]}. 
 - `mix_kpt`: the mix of KPT parameters. If is not null, will generate all combinations of the parameters for each example. There are three types to define the kpt parameters: 
     - One Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: 4, means 4 4 4 0 0 0. 
     - Three Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: [4,4,4], means 4 4 4 0 0 0. 
