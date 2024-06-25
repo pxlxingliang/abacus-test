@@ -89,7 +89,11 @@ An example is like:
 ```
 - ``bohrium_group_name``: If use bohrium, you can define the group name at here.
 - `ABBREVIATION`: define some abbreviation, and is only valid for `image`.
-- `config`: The setting of config information.
+- `config`: The setting of config information. If you do not use bohrium, this key can be removed.
+  - `bohrium_username`: the username to login Bohrium (the email or phone number that used to register Bohrium).
+  - `bohrium_password`: the password of Bohrium.
+  - `bohrium_project_id`: the project id of Bohrium. \
+  Besides, you can set the bash environment variables (uppercase letter) to replace the value of `config`, such as: ```export BOHRIUM_USERNAME="xxx"```, and then you can remove the key `config` in job.json. If both are defined, the value in job.json will be used.
 - `save_path`: define the path to save the results of this test. If this key is not defined or if is deined to be "" or None, the value will be replaced to be the path defined by "-s" (the param of abacustest, the default of "-s" is "result/date_of_today" like "result/20230101")
 - `max_parallel`: define the max number of parallel jobs. Default is 100.
 - `run_dft`: define the detail of the running of your jobs. The value is a list of dictionaries. You can set any number of dictionaries.
