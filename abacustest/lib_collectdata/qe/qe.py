@@ -552,6 +552,37 @@ class Qe(ResultQe):
             self["force_time"] = None
             self["stress_time"] = None
 
+    @ResultQe.register(scf_time="the SCF time (WALL)",
+                       scf_time_each_step="list, the SCF time of each step (WALL)",
+                       scf_time_step1 = "the time of the first step (WALL)")
+    def GetSCFTime(self):
+        if self.OUTPUT:
+            start_time = None # the time before SCF
+            scf_times = [] # the time of each SCF step
+            scf_loop = False
+            for i,line in enumerate(self.OUTPUT):
+                if "Self-consistent Calculation" in line:
+                    for j in range(i-1,-1,-1):
+                        if "total cpu time spent up to now is" in self.OUTPUT[j]:
+                            start_time = float(self.OUTPUT[j].split()[-2])
+                            break
+                    scf_loop = True
+                elif "End of self-consistent calculation" in line:
+                    break
+                elif "total cpu time spent up to now is" in line and scf_loop and start_time != None:
+                    scf_times.append(float(line.split()[-2]) - start_time)
+                    start_time = float(line.split()[-2])
+            self["scf_time"] = None if not scf_times else sum(scf_times)
+            self["scf_time_each_step"] = None if not scf_times else scf_times
+            self["scf_time_step1"] = None if not scf_times else scf_times[0]
+        else:
+            self["scf_time"] = None
+            self["scf_time_each_step"] = None
+            self["scf_time_step1"] = None
+            
+                    
+                    
+    
     @ResultQe.register(relax_converge="if the relax is converged")
     def GetRelaxConverge(self):
         if self.OUTPUT:

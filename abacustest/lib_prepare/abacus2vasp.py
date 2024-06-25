@@ -296,6 +296,8 @@ def Abacus2Vasp(abacus_path:str, save_path:str=None, potcar=None, vasp_setting={
     
     # 4. WRITE INCAR
     vasp_input = ParamAbacus2Vasp(abacus_input)
+    if "LWAVE" not in vasp_input: vasp_input["LWAVE"] = ".FALSE."
+    if "LCHARG" not in vasp_input: vasp_input["LCHARG"] = ".FALSE."
     
     # 4.1 special setting in vasp_setting
     emax_coef = vasp_setting.pop("emax_coef",1.5)
