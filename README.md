@@ -9,12 +9,13 @@ The sub_commands:
 - `outresult`
 - `status`
 - `prepare`
+- `download`
 
 Please use `abacustest -h` to get the usages
 
 ## 1. submit
 ```
-usage: abacustest submit [-h] [-p PARAM] [-s SAVE] [--override OVERRIDE] [--outinfo OUTINFO] [--debug [DEBUG]]
+usage: abacustest submit [-h] [-p PARAM] [-s SAVE] [--override OVERRIDE] [--debug [DEBUG]] [--download DOWNLOAD]
 
 This script is used to run a testing
 
@@ -24,7 +25,7 @@ optional arguments:
                         the job setting file, default is job.json
   -s SAVE, --save SAVE  the folder where the results will be put in, default: result/date_of_today (e.g. result/20230101)
   --override OVERRIDE   when the save folder exists, if override it. 0: no, 1: yes.
-  --outinfo OUTINFO     if output detail informations, 0: no, 1: yes
+  --download DOWNLOAD   if wait the finish of flow and download the results, 0: no, 1: yes. Default is 1
   --debug [DEBUG]       debug mode for dflow
 ```
 job.json (-p) is needed as input \
@@ -370,6 +371,22 @@ Only key "prepare" is recongnized by `abacustest prepare`.
 
 If there has more than two types of mixing, will put inputs in a subfolder named by 00000, 00001, 00002, ...
 
+## 6. download
+``` 
+usage: abacustest download [-h] [-p PARAM] [-s SAVE] job_id
+
+Download the results of the dflow job
+
+positional arguments:
+  job_id                the job id of dflow
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PARAM, --param PARAM
+                        the file for bohrium account information, default is "job.json"
+  -s SAVE, --save SAVE  the folder where the results will be put in, default: result
+```
+The job_id is the job id of dflow, and the param file is the same as the param file of `submit`. \
 
 ## 6. example
 [examples](https://github.com/pxlxingliang/abacus-test/tree/develop/example)

@@ -16,14 +16,21 @@ def AbacusTestArgs(parser):
     parser.add_argument('-p', '--param', type=str, default="job.json",help='the job setting file, default is job.json')
     parser.add_argument('-s', '--save', type=str, default=None,help='the folder where the results will be put in, default: result')
     parser.add_argument('--override', type=int, default=1,help="when the save folder exists, if override it. 0: no, 1: yes. ")
-    parser.add_argument('--outinfo', type=int, default=1,help='if output detail informations, 0: no, 1: yes')
     parser.add_argument('--debug',nargs='?',type=int, const=1, default=0,help="debug mode for dflow")
+    parser.add_argument('--download',default=1,type=int, help="if wait the finish of flow and download the results, 0: no, 1: yes. Default is 1")
     return parser
 
 def AbacusTestCheckStatusArgs(parser):
     parser.description = "Check the status of the dflow job"
     parser.add_argument('-p', '--param', type=str, default="job.json",help='the file for bohrium account information, default is "job.json"')
     parser.add_argument("job_id", help="the job id of dflow")
+    return parser
+
+def AbacusTestDownloadArgs(parser):
+    parser.description = "Download the results of the dflow job"
+    parser.add_argument("job_id", help="the job id of your workflow")
+    parser.add_argument('-p', '--param', type=str, default="job.json",help='the file for bohrium account information, default is "job.json"')
+    parser.add_argument('-s', '--save', type=str, default=None,help='the folder where the results will be put in, default: result')
     return parser
 
 def abacustest(param):
@@ -36,6 +43,10 @@ def checkstatus(param):
     status = flow.CheckStatus(param)
     print(status)
 
+def downloadflow(param):
+    globV._init()
+    flow.DownloadFlow(param)
+
 def main():
     parser = argparse.ArgumentParser(description="abacustest")
     subparser = parser.add_subparsers(dest="command")
@@ -47,6 +58,8 @@ def main():
         abacustest(parser)
     elif parser.command == "status":
         checkstatus(parser)
+    elif parser.command == "download":
+        downloadflow(parser)
 
 if __name__ == '__main__':
     main()

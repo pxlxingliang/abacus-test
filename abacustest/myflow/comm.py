@@ -7,8 +7,7 @@ def printinfo(istr,*args):
     output = " ".join([str(istr)]+[str(i) for i in args])
     with open(LOGFILE,'a+') as f1:
         f1.write(output + "\n")
-    if globV.get_value("OUTINFO"):
-        print(output,flush=True)
+    print(output,flush=True)
         
 def GetBakFile(sfile):
     while sfile[-1] == '/':
