@@ -123,7 +123,7 @@ cd $pwd
                 }
             })
         comm.dump_setting(setting)
-        comm.doc_after_prepare("commit test",real_jobs,["run_committest.sh","setting.json"],has_prepare=False)
+        comm.doc_after_prepare("commit_test",real_jobs,["run_committest.sh","setting.json"],has_prepare=False)
         
         #print("After finish the calculation, you can run below command to do the postprocess:")
         
