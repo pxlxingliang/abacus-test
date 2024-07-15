@@ -731,6 +731,7 @@ def outresult(param):
         output_value['param_value'] = allparam_value
         output_value['metrics_value'] = allmetric_value
         
+        json.dump(allmetric_value,open("superMetrics.json","w"),indent=4)
         if param.output != None:
             json.dump(output_value,open(param.output,'w'),indent=4)
         if allmetric_value:

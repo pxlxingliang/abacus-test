@@ -75,6 +75,21 @@ def CopyFiles(path1,path2,move = False):
                 #shutil.copytree(abspath1,abspath2,dirs_exist_ok=True)
                 CopyFile(abspath1,abspath2)
 
+def LinkFiles(src_list, dst_path):
+    # the src_list should be a list of relative path, and the dst_path should be a absolute path
+    # will create the soft link in dst_path with the same path tree as src_list
+    for src in src_list:
+        src = src.rstrip("/")
+        src_root, src_name = os.path.split(src)   
+        if os.path.isfile(os.path.join(dst_path,src)):
+            os.remove(os.path.join(dst_path,src))
+        elif os.path.isdir(os.path.join(dst_path,src)):
+            shutil.rmtree(os.path.join(dst_path,src))
+                        
+        if not os.path.exists(os.path.join(dst_path,src_root)):
+            os.makedirs(os.path.join(dst_path,src_root))
+        os.symlink(os.path.abspath(src),os.path.join(dst_path,src))           
+
 def CollectFileName(paths):
     #Recursively find all files under the paths
     allfiles = []

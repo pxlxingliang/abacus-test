@@ -65,36 +65,64 @@ class RunDFT(OP):
             }
         )
 
-    @OP.exec_sign_check
-    def execute(
-        self,
-        op_in: OPIO,
-    ) -> OPIO:
-
-        print("op_in:",op_in,file=sys.stderr)
-        outpath = []
-        cwd = os.getcwd()
-        
-        # if define sub_save_path, create sub_save_path in root and copy examples to work path
-        # else work path is examples
+    def read_metrics(self, op_in, work_path):
+        #check if need to upload to tracking
+        tracking_setting = op_in["upload_tracking"]
+        metrics_setting = op_in["metrics"]
+        super_metrics_setting = op_in["super_metrics"]
+        do_upload_tracking = False
+        if tracking_setting and tracking_setting.get("ifurn",True):
+            do_upload_tracking = True
+        #read metrics
+        try:
+            os.chdir(work_path)
+            tracking_values = metrics.ReadMetrics(metrics.Metrics.TransferMetricsOPIO(metrics_setting),do_upload_tracking,["."])
+        except:
+            traceback.print_exc()
+            tracking_values = None
+            
+        #calculate super_metrics
+        try:
+            os.chdir(work_path)
+            tracking_summary,report = metrics.ReadSuperMetrics(metrics.Metrics.TransferMetricsOPIO(super_metrics_setting),do_upload_tracking)  
+        except:
+            traceback.print_exc()
+            tracking_summary = None  
+        #upload tracking
+        if do_upload_tracking:
+            try:
+                tracking.upload_to_tracking(tracking_setting,tracking_values,tracking_summary,AIM_ACCESS_TOKEN=None)
+            except:
+                traceback.print_exc() 
+                
+    def get_cpu_info(self,example_path):
+        # get cpuinfo to CPUINFO.log
+        log = ""
+        try:
+            os.system(f"lscpu > {example_path}/CPUINFO.log")
+        except:
+            pass
+        if os.path.isfile(f"{example_path}/CPUINFO.log"):
+            with open(f"{example_path}/CPUINFO.log") as f1:
+                log = "\n\nCPUINFO:\n" + f1.read()
+        return log
+                    
+    def run_one_job(self,op_in):
         root_path = op_in["examples"].art_root
         print("root_path:",root_path,file=sys.stderr)
+        cwd = os.getcwd()
+        outpath = []
         for iexample in op_in["examples"]:
-            #example_path = str(iexample).split("/inputs/artifacts/examples/")[1]
             example_path = os.path.relpath(str(iexample),str(root_path))
-            work_path = example_path
             if op_in["sub_save_path"] != None and str(op_in["sub_save_path"]).strip() != "":
-                work_path = os.path.join(str(op_in["sub_save_path"]),example_path)
-            os.makedirs(work_path,exist_ok=True)
-            comm.CopyFiles(str(iexample),work_path,move=False)
-            work_path_name = work_path
-            work_path = os.path.abspath(work_path)
+                example_path = os.path.join(str(op_in["sub_save_path"]),example_path)
+                
+            work_path = iexample
             print("work path:",work_path,file=sys.stderr)
 
             #copy extra_files to work path
             print("sub_save_path:",op_in["sub_save_path"],file=sys.stderr) 
             if op_in["extra_files"] != None:
-                #extra_file_path = str(op_in["extra_files"]).split("/inputs/artifacts/extra_files")[0] + "/inputs/artifacts/extra_files"
                 extra_file_path = op_in["extra_files"].art_root
                 comm.CopyFiles(extra_file_path,work_path,move=False)
 
@@ -107,47 +135,7 @@ class RunDFT(OP):
                 log += out + err
                 #log += os.popen("(%s) 2>&1" % cmd).read()
 
-            #check if need to upload to tracking
-            tracking_setting = op_in["upload_tracking"]
-            metrics_setting = op_in["metrics"]
-            super_metrics_setting = op_in["super_metrics"]
-            do_upload_tracking = False
-            if tracking_setting and tracking_setting.get("ifurn",True):
-                do_upload_tracking = True
-
-            #read metrics
-            try:
-                os.chdir(work_path)
-                tracking_values = metrics.ReadMetrics(metrics.Metrics.TransferMetricsOPIO(metrics_setting),do_upload_tracking,["."])
-            except:
-                traceback.print_exc()
-                tracking_values = None
-                
-            #calculate super_metrics
-            try:
-                os.chdir(work_path)
-                tracking_summary,report = metrics.ReadSuperMetrics(metrics.Metrics.TransferMetricsOPIO(super_metrics_setting),do_upload_tracking)  
-            except:
-                traceback.print_exc()
-                tracking_summary = None  
-
-            #upload tracking
-            if do_upload_tracking:
-                try:
-                    tracking.upload_to_tracking(tracking_setting,tracking_values,tracking_summary,AIM_ACCESS_TOKEN=None)
-                except:
-                    traceback.print_exc()   
-
-            # get cpuinfo to CPUINFO.log
-            os.chdir(work_path)
-            try:
-                os.system("lscpu > CPUINFO.log")
-            except:
-                pass
-            cpuinfo_log = None if not os.path.isfile("CPUINFO.log") else "CPUINFO.log" 
-            if cpuinfo_log:
-                with open(cpuinfo_log) as f1:
-                    log += "\n\nCPUINFO:\n" + f1.read()  
+            self.read_metrics(op_in, work_path)
                                 
             #collect outputs
             os.chdir(work_path)
@@ -156,25 +144,33 @@ class RunDFT(OP):
             while os.path.isfile(logfile_name):
                 logfile_name = "STDOUTER_%d.log" % i
                 i += 1
-            
-            os.chdir(cwd)
-            logfile = Path(os.path.join(work_path_name,logfile_name))
+            outfiles = []
             if len(op_in["outputfiles"]) == 0:
-                outpath.append(Path(work_path_name))
+                outfiles = os.listdir(".")
             else:
                 for i in op_in["outputfiles"]:
-                    for j in glob.glob(os.path.join(work_path_name,i)):
+                    for j in glob.glob(i):
                         if os.path.exists(j):
-                            outpath.append(Path(j))
+                            outfiles.append(j)
                         else:
                             log += "\n%s is not exist" % j
-                outpath.append(logfile)
-                if cpuinfo_log:
-                    outpath.append(Path(os.path.join(work_path_name,cpuinfo_log)))
-            #print("log:",log,file=sys.stderr)
+            comm.LinkFiles(outfiles,os.path.join(cwd,example_path))
+            
+            os.chdir(cwd) 
+            log += self.get_cpu_info(example_path)
+            logfile = Path(os.path.join(example_path,logfile_name))  
             logfile.write_text(log)
-            #os.chdir(cwd)
+            outpath.append(Path(example_path)) 
+        return outpath
+    
+    @OP.exec_sign_check
+    def execute(
+        self,
+        op_in: OPIO,
+    ) -> OPIO:
 
+        print("op_in:",op_in,file=sys.stderr)
+        outpath = self.run_one_job(op_in)
         print("outpath:",str(outpath),file=sys.stderr)
         
         op_out = OPIO(
@@ -294,6 +290,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
                         group_size=group_size,
                         )
                     )
+            
             artifacts={"examples": examples[0][0]}
             if extrafiles:
                 artifacts["extra_files"]=extrafiles[0][0]
