@@ -60,23 +60,23 @@ class ReuseDataset(BaseModel):
                             description="the reuse dataset")
         
 class ReuseModel(
-    comm_class.ConfigSetGithub,
-    comm_class.TrackingSet,
-    RundftImage,
-    comm_class_exampleSource.ScriptExampleSet,
-    comm_class_exampleSource.ScriptSourceSet,
-    comm_class_exampleSource.ScriptDatasetSet,
-    comm_class_exampleSource.ExampleSet,
+    #comm_class.ConfigSetGithub,
+    #comm_class.TrackingSet,
+    #RundftImage,
+    #comm_class_exampleSource.ScriptExampleSet,
+    #comm_class_exampleSource.ScriptSourceSet,
+    #comm_class_exampleSource.ScriptDatasetSet,
+    #comm_class_exampleSource.ExampleSet,
     comm_class_exampleSource.ExampleSourceSet,
-    comm_class_exampleSource.DatasetSet,
-    MyModel,
-    ReuseDataset,
+    #comm_class_exampleSource.DatasetSet,
+    #MyModel,
+    #ReuseDataset,
                     comm_class.OutputSet,
                     comm_class.ConfigSet,
                     BaseModel):
     ...  
 
-def ReuseModelRunner(opts:ReuseModel) -> int:
+def ReuseModelRunnerOld(opts:ReuseModel) -> int:
     try:
         logs = comm_class.myLog()
 
@@ -162,6 +162,64 @@ def ReuseModelRunner(opts:ReuseModel) -> int:
             if new_postdft_command:
                 allparams["post_dft"]["command"] = new_postdft_command
                 
+        #execut
+        stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
+        logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
+        reports = comm_pmetrics.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
+
+        logfname = "output.log"
+        logs.write(os.path.join(str(opts.IO_output_path),logfname))
+        log_section = ReportSection(title="",
+                                  elements=[AutoReportElement(title='', path=logfname, description="")])
+        reports.append(log_section)
+
+        if reports:
+            report = Report(title="abacus test report",
+                            sections=reports,
+                            description="a report of abacustest")
+            report.save(output_path)
+
+        #move results to output_path
+        comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
+        comm_func.pack_results(output_path,allparams.get("save_path","results"))
+    except:
+        traceback.print_exc()
+        return 1
+
+    return 0
+
+def ReuseModelRunner(opts:ReuseModel) -> int:
+    try:
+        logs = comm_class.myLog()
+
+        paths = comm_func.create_path(str(opts.IO_output_path))
+        output_path = paths["output_path"]
+        work_path = paths["work_path"]
+        download_path = paths["download_path"]
+
+        logs.iprint("read source setting ...")
+        datas = comm_class_exampleSource.read_source(opts,work_path,download_path,logs.iprint)
+        
+        setting_file = os.path.join(work_path,"setting.json")
+        if not os.path.exists(setting_file):
+            print("\nERROR: Please supply the setting information!!!!")
+            return 1
+        try:
+            setting = json.load(open(setting_file))
+        except:
+            traceback.print_exc()
+            return 1
+        
+        #read setting
+        allparams = {"config": comm_func.read_config(opts)}
+        for k,v in setting.items():
+            if k == "config":
+                for ik,iv in v.items():
+                    allparams["config"][ik] = iv
+            #elif k in ["ABBREVIATION","save_path","run_dft","post_dft","report","dataset_info","upload_datahub","upload_tracking"]:
+            else:
+                allparams[k] = v
+     
         #execut
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
         logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
