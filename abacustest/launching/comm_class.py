@@ -27,7 +27,7 @@ from typing import Literal
 import re,os
 
 class OutputSet(BaseModel):
-    IO_output_path: OutputDirectory = Field(default="./output")
+    IO_output_path: OutputDirectory = Field(default="./outputs")
 
 class ConfigSet(BaseModel):
     #Bohrium config
