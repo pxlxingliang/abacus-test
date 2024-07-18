@@ -301,16 +301,14 @@ A template of param.json is:
 ```
 {
   "prepare":{
-      "example_template":["example_path"],
+      "example_template":["example1","example2"],
       "input_template":"INPUT",
       "kpt_template":"KPT",
-      "stru_template":"STRU",
       "mix_input":{
           "ecutwfc":[50,60,70],
           "kspacing":[0.1,0.12,0.13]
       },
       "mix_kpt":[],
-      "mix_stru":[],
       "pp_dict":{},
       "orb_dict":{},
       "pp_path":,
@@ -336,17 +334,15 @@ A template of param.json is:
 ```
 Only key "prepare" is recongnized by `abacustest prepare`.    
 
-- `example_template`: the template of example folder, such as: ["example_path"], ["example_path1","example_path2"]. 
+- `example_template`: a list of examples, should at least has `STRU` file in each example folder. 
 - `input_template`: the template of INPUT file. If is not null, all example will use this file as INPUT file. 
 - `kpt_template`: the template of KPT file. If is not null, all example will use this file as KPT file. 
-- `stru_template`: the template of STRU file. If is not null, all example will use this file as STRU file. 
 - `mix_input`: the mix of INPUT parameters. If is not null, will generate all combinations of the parameters for each example. Such as: {"ecutwfc":[50,60,70],"kspacing":[0.1,0.12,0.13]}, will generate 9 INPUTs. If one need combine the parameters, should use '|' to connect them, and the value should be also combined by '|'. Such as: {"ecutwfc|kspacing":["50|0.1","60|0.12","70|0.13"]}. 
 - `mix_kpt`: the mix of KPT parameters. If is not null, will generate all combinations of the parameters for each example. There are three types to define the kpt parameters: 
     - One Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: 4, means 4 4 4 0 0 0. 
     - Three Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: [4,4,4], means 4 4 4 0 0 0. 
     - Three Int number defines the K points in a/b/c direction, and three Float defines the shift in G space. Such as: [4,4,4,1,1,1], means 4 4 4 1 1 1.  
     So, an example of mix_kpt can be: [2,[3,3,3],[4,4,4,1,1,1]] 
-- `mix_stru`: the mix of STRU file. If is not null, will generate all combinations for each example.
 - `pp_dict`: the pseudopotential dict. The key is the element name, and the value is the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}. 
 - `orb_dict`: the orbital dict. The key is the element name, and the value is the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}. 
 - `pp_path`: the path of pseudopotential files. There should has an extra "element.json" file that defines the element name and the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}, or abacustest will read the first two letters of the pseudopotential file name as the element name. If one element has been defined in both `pp_dict` and `pp_path`, the value in `pp_dict` will be used. 
@@ -388,6 +384,6 @@ optional arguments:
 ```
 The job_id is the job id of dflow, and the param file is the same as the param file of `submit`. \
 
-## 6. example
+## 7. example
 [examples](https://github.com/pxlxingliang/abacus-test/tree/develop/example)
 
