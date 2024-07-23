@@ -1,6 +1,7 @@
 import os,sys,glob,re,traceback
 from ..resultAbacus import ResultAbacus
 from .. import comm
+import numpy as np
 
 KS_SOLVER_LIST = ['DA','DS','GE','GV','BP','CG','CU','PE','LA']
 
@@ -110,8 +111,8 @@ class Abacus(ResultAbacus):
     def GetGridInfo(self):
         fft_grid = None
         for i,line in enumerate(self.LOG):
-            if "[fft grid for charge/potential] =" in line:
-                fft_grid = [float(i.strip()) for i in line.split('=')[1].split(',')]
+            if "fft grid for charge/potential =" in line:
+                fft_grid = [float(i.strip()) for i in line.split('=')[1].replace("[","").replace("]","").split(',')]
                 break     
         self["fft_grid"] = fft_grid
     
@@ -194,7 +195,6 @@ class Abacus(ResultAbacus):
             self["efermi"] = output_final.get("e_fermi",None)
             cell  = output_final.get("cell",None)
             if cell:
-                import numpy as np
                 self["volume"] = abs(np.linalg.det(cell))
             else:
                 self["volume"] = None
@@ -542,7 +542,6 @@ class Abacus(ResultAbacus):
                         scftime.append(float(self.OUTPUT[j].split()[-1]))
                 break
         if len(scftime) > 0:
-            import numpy as np
             self['scf_time'] = np.array(scftime).sum()
             self['step1_time'] = scftime[0]
             self['scf_steps'] = len(scftime)
@@ -690,8 +689,10 @@ class Abacus(ResultAbacus):
         else:
             self["denergy_last"] = None
 
-    @ResultAbacus.register(lattice_constant="unit in angstrom",
+    @ResultAbacus.register(lattice_constant="a list of six float which is a/b/c,alpha,beta,gamma of cell. If has more than one ION step, will output the last one.",
+                           lattice_constants="a list of list of six float which is a/b/c,alpha,beta,gamma of cell",
                            cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will output the last one.",
+                           cells = "a list of [[],[],[]], which is a two-dimension list of cell vector, unit in Angstrom.",
                            cell_init = "[[],[],[]], two-dimension list, unit in Angstrom. The initial cell",
                            coordinate = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. If is relax or md, will output the last one",
                            coordinate_init = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. The initial coordinate",
@@ -703,19 +704,40 @@ class Abacus(ResultAbacus):
         lc = 1   
         for line in self.LOG:
             if "lattice constant (Angstrom)" in line:
-                self["lattice_constant"] = lc = float(line.split()[-1])
+                lc = float(line.split()[-1])
                 break
         
-        cell = None
+        cells = []
         for i in range(len(self.LOG)): 
             iline = -i - 1 
             line = self.LOG[iline]
             if "Lattice vectors: (Cartesian coordinate: in unit of a_0)" in line:
-                cell = []
+                icell = []
                 for k in range(1, 4):
-                    cell.append([float(x) * lc for x in self.LOG[iline + k].split()[0:3]])
+                    icell.append([float(x) * lc for x in self.LOG[iline + k].split()[0:3]])
+                cells.append(icell)
                 break
-        self['cell'] = cell
+                    
+        if cells:
+            self['cells'] = cells
+            self['cell'] = cells[-1]
+            # calculate a/b/c,alpha,beta,gamma
+            lattice_constants = []
+            for cell in cells:
+                a = np.linalg.norm(cell[0])
+                b = np.linalg.norm(cell[1])
+                c = np.linalg.norm(cell[2])
+                alpha = np.arccos(np.dot(cell[1],cell[2])/(b*c))*180/np.pi
+                beta = np.arccos(np.dot(cell[0],cell[2])/(a*c))*180/np.pi
+                gamma = np.arccos(np.dot(cell[0],cell[1])/(a*b))*180/np.pi
+                lattice_constants.append([a,b,c,alpha,beta,gamma])
+            self['lattice_constants'] = lattice_constants
+            self['lattice_constant'] = lattice_constants[-1]
+        else:
+            self["cells"] = None
+            self["cell"] = None
+            self['lattice_constants'] = None
+            self['lattice_constant'] = None
         
         cell_init = None
         for i in range(len(self.LOG)): 
@@ -741,7 +763,6 @@ class Abacus(ResultAbacus):
                         if line.split()[0] == "DIRECT":
                             for k in range(2, 2 + natom):
                                 coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                            import numpy as np
                             coordinate = np.array(coordinate).dot(np.array(cell)).tolist()
                         elif line.split()[0] == "CARTESIAN":
                             for k in range(2, 2 + natom):
@@ -763,7 +784,6 @@ class Abacus(ResultAbacus):
                         if line.split()[0] == "DIRECT":
                             for k in range(2, 2 + natom):
                                 coordinate_init.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                            import numpy as np
                             coordinate_init = np.array(coordinate_init).dot(np.array(cell)).tolist()
                         elif line.split()[0] == "CARTESIAN":
                             for k in range(2, 2 + natom):

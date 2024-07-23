@@ -204,7 +204,7 @@ def get_abacus_inputfiles(ipath):
             stru.set_orb(orb_name)    
     
     extra_files = []
-    for ifile in os.listdir(ipath):
+    for ifile in os.listdir("."):
         if ifile not in ["INPUT",struf,kptf]+pp_name+orb_name and os.path.isfile(os.path.join(ifile)):
             extra_files.append(os.path.abspath(ifile))
     
@@ -218,3 +218,21 @@ def get_abacus_inputfiles(ipath):
         "orb": orb_abs_path,
         "extra_files": extra_files
     }
+
+def clean_none_list(*args):
+    '''
+    For given same length lists, remove the elements that are None in the same position.
+    If the length of the lists are different, return the original lists.
+    '''
+    if len(args) == 0:
+        return []
+    n = len(args[0])
+    for i in args:
+        if len(i) != n:
+            return args
+    new_args = [[] for i in range(len(args))]
+    for i in range(n):
+        if all([not isinstance(j[i],type(None)) for j in args]):
+            for j in range(len(args)):
+                new_args[j].append(args[j][i])
+    return tuple(new_args)

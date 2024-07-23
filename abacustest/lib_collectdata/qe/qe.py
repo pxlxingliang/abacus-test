@@ -250,7 +250,7 @@ class Qe(ResultQe):
             pressures = []
             virials = []
             for istep in allsteps:
-                energies.append(comm.ifloat(xfmlt(istep,['total_energy','etot'])))
+                energies.append(comm.ifloat(xfmlt(istep,['total_energy','etot'])) * comm.HARTREE2EV)
                 force = istep.find('forces')
                 if force != None:
                     forces.append([float(i) * comm.HARTREE2EV / comm.BOHR2A for i in force.text.split()])
