@@ -467,13 +467,17 @@ class PrepareAbacus:
             orb_list = []  #orb file name
             paw_list = [] #paw file name
             dpks = None    #dpks file name
+            input_in_stru_path = {}
+            if os.path.isfile(os.path.join(stru_path,"INPUT")):
+                input_in_stru_path = PrepareAbacus.ReadInput(os.path.join(stru_path,"INPUT"))
+            print(input_in_stru_path)
             for i,ilabel in enumerate(labels):
                 #check pp file 
                 if ilabel not in self.pp_dict:
                     #print("label '%s' is found in '%s', but not defined in pp_dict." % (ilabel,istru))
                     if stru_data.get_pp():
                         os.chdir(stru_path)
-                        pp_in_stru = stru_data.get_pp()[i]
+                        pp_in_stru = os.path.join(input_in_stru_path.get("pseudo_dir",""),stru_data.get_pp()[i])
                         if os.path.isfile(pp_in_stru):
                             print("label '%s': link the pseudopotential file '%s' defined in %s" % (ilabel,pp_in_stru,istru))
                             pp_list.append(os.path.basename(pp_in_stru))
@@ -497,7 +501,7 @@ class PrepareAbacus:
                     if stru_data.get_orb():
                         #print("label '%s' is found in '%s', but not defined in orb_dict." % (ilabel,istru))
                         os.chdir(stru_path)
-                        orb_in_stru = stru_data.get_orb()[i]
+                        orb_in_stru = os.path.join(input_in_stru_path.get("orbital_dir",""),stru_data.get_orb()[i])
                         if os.path.isfile(orb_in_stru):
                             print("label '%s': link the orb file '%s' defined in %s" % (ilabel,orb_in_stru,istru))
                             orb_list.append(os.path.basename(orb_in_stru))
@@ -599,6 +603,9 @@ class PrepareAbacus:
                     
                     #create INPUT   
                     if iinput != None: 
+                        # if pseudo_dir and orbital_dir is defined in INPUT, then remove them
+                        iinput.pop("pseudo_dir","")
+                        iinput.pop("orbital_dir","")  
                         PrepareAbacus.WriteInput(iinput,os.path.join(save_path,"INPUT"))
                     
                     #create KPT
