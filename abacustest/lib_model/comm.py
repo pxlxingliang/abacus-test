@@ -1,6 +1,7 @@
 import os,json,glob,shutil,traceback
 import subprocess,copy
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,ReadKpt
+import select
 
 BOHRIUM_DES = '''If you use Bohrium to accelerate the calculation, you need to set below environment variables:
     export BOHRIUM_USERNAME=<your username> BOHRIUM_PASSWORD=<your password> BOHRIUM_PROJECT_ID=<your project id> 
@@ -236,3 +237,37 @@ def clean_none_list(*args):
             for j in range(len(args)):
                 new_args[j].append(args[j][i])
     return tuple(new_args)
+
+def run_command(
+        cmd,
+        shell=True
+):
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=shell,
+        executable='/bin/bash'
+    )
+    out = ""
+    err = ""
+    while True:
+        readable, _, _ = select.select(
+            [process.stdout, process.stderr], [], [])
+
+        # 读取已经准备好的输出
+        for fd in readable:
+            if fd == process.stdout:
+                line = process.stdout.readline()
+                print(line.decode()[:-1])
+                out += line.decode()
+            elif fd == process.stderr:
+                line = process.stderr.readline()
+                print("STDERR:", line.decode()[:-1])
+                err += line.decode()
+
+        # 如果子进程已经结束，则退出循环
+        return_code = process.poll()
+        if return_code is not None:
+            break
+    return return_code, out, err

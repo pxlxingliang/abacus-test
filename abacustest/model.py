@@ -1,5 +1,5 @@
 import argparse,importlib,glob,os
-from lib_model.model import Model
+from abacustest.lib_model.model import Model
 
 def ReadAllModels():
     return {imodel.model_name():imodel for imodel in Model.__subclasses__()} 
