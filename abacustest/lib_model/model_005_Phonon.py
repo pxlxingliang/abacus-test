@@ -101,6 +101,7 @@ def PreparePhono(jobs,abacus_command,abacus_image,abacus_machine,phonopy,setting
         input_param = ReadInput("INPUT")
         input_param["calculation"] = "scf"  # force set to scf
         input_param["suffix"] = "ABACUS"    # force set to ABACUS
+        input_param["cal_force"] = "1"
         if not os.path.isfile("setting.conf"):
             print("Error: setting.conf not exist in",ijob)
             continue
@@ -115,6 +116,7 @@ def PreparePhono(jobs,abacus_command,abacus_image,abacus_machine,phonopy,setting
             os.makedirs("ABACUS-"+idx)
             os.system(f"cp -r {' '.join(allfiles)} ABACUS-{idx}")
             os.system(f"cp -r {istru} ABACUS-{idx}/STRU ")
+            WriteInput(input_param,os.path.join("ABACUS-"+idx,"INPUT"))
             if os.path.isfile("phonopy_disp.yaml"):
                 os.system(f"cp phonopy_disp.yaml ABACUS-{idx}/")
             allexamples.append(os.path.join(ijob,f"ABACUS-{idx}"))

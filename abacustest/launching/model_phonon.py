@@ -42,6 +42,7 @@ def PhononModelRunner(opts:PhononModel) -> int:
         output_path = paths["output_path"]
         work_path = paths["work_path"]
         download_path = paths["download_path"]
+        cwd = os.getcwd()
         logs.iprint("read source setting ...")
         datas = comm_class_exampleSource.read_source(opts,work_path,download_path,logs.iprint)
         allparams = {"config": comm_func.read_config(opts),
@@ -63,14 +64,16 @@ def PhononModelRunner(opts:PhononModel) -> int:
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
         
         #postprocess
+        os.chdir(work_path)
         PostprocessPhonon(examples,"phonopy",opts.phonopy_setting)
+        os.chdir(cwd)
 
         logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
         
         # produce metrics and superMetrics reports
         reports = comm_pmetrics.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
         logfname = "output.log"
-        logs.write(os.path.join(str(opts.IO_output_path),logfname))
+        logs.write(os.path.join(output_path,logfname))
         log_section = ReportSection(title="",
                                   elements=[AutoReportElement(title='', path=logfname, description="")])
         reports.append(log_section)
