@@ -116,7 +116,7 @@ class AseRelax(Model):
         else:
             allmetrics = {}
             jobs = params.jobs if len(params.jobs) == 1 else params.jobs[1:]
-            jobs = comm.get_job_list(params.jobs)
+            jobs = comm.get_job_list(jobs)
             if len(jobs) == 0:
                 print("No jobs are specified.")
                 return {}
