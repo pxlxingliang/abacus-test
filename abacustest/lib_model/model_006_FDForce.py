@@ -1,11 +1,13 @@
-import os,sys,glob,json,shutil,copy
+import os,sys,glob,json,shutil,copy,traceback
+from abacustest import constant
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,WriteInput,WriteKpt
+from abacustest.lib_collectdata.collectdata import RESULT
 from abacustest.prepare import PrepareAbacus
 from ..model import Model
 from . import comm
 
 PREPARE_DOC="""
-    This model is used to prepare the inputs to do the finite difference test of force. 
+    This model is used to do the finite difference test of force. 
     Should prepare a file named 'info.txt' in the folder of inputs, which contains the label, number of atom, x/y/z component of cell vector, such as:
     '
     C 2 x y z
@@ -13,6 +15,12 @@ PREPARE_DOC="""
     O 3 y
     '
     which means do the finite difference test of force 2-nd C on x y z component, and 1-st H on x y component, and 3-rd O on y component.
+"""
+POST_DOC="""
+    the subfolder of the job should be like:
+    fdf: the original input
+    fdf_<LABEL_NAME>_<LABEL_IDX>_<x/y/z>_<+/->_<inum>: the input with cell vector changed by +/- diff
+    there should be a file named "step.txt" in the fdf folder, which contains the step of finite difference test.
 """
 
 class fdforce(Model):
@@ -97,12 +105,16 @@ class fdforce(Model):
         '''
         Add arguments for the postprocess subcommand
         The arguments can not be command, model, modelcommand'''
-        pass
+        
+        parser.description = POST_DOC
+        parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder.')
+        return parser
 
     def run_postprocess(self,params):
         '''
         Parse the parameters and run the postprocess process'''
-        pass
+        jobs = ["."] if len(params.job) == 1 else params.job[1:]
+        PostProcessFDForce(jobs).run()
     
 class PrepareFDForce:
     def __init__(self,infof,jobs,step,number):
@@ -258,3 +270,229 @@ class PrepareFDForce:
                             otherfiles,
                             input_param)
         return subfolders
+    
+    
+class PostProcessFDForce:
+    def __init__(self,jobs):
+        self.jobs = jobs
+        pass
+    
+    def run(self):
+        allresults = {}
+
+        for ijob in self.jobs:
+            for iijob in glob.glob(ijob):
+                if not os.path.isdir(iijob):
+                    continue
+                if not os.path.isdir(os.path.join(iijob,"fdf")):
+                    print(f"ERROR: {iijob} does not have fdf folder")
+                    continue
+                print(f"get results in {iijob}")
+                allresults[iijob.rstrip("/")] = self.get_onejob(iijob)
+
+        allpngs = self.plot_force(allresults)
+        metrics = {}
+        for ik,iv in allresults.items():
+            if iv == None:
+                continue
+            for jk,jv in iv.items():
+                if jk in ["force","converge","labels","step"]:
+                    continue
+                
+                metrics[ik + "/" + jk] = {
+                    "Ana-force(eV/A)": jv["abacus"],
+                    "FD-force(eV/A)": jv["fd"],
+                    "Ana-FD(eV/A)": None if jv["abacus"] == None or jv["fd"] == None else jv["abacus"] - jv["fd"],
+                    "distance(A)": jv["distance(A)"],
+                    "energy(eV)": jv["energy"],
+                    "energy+(eV)": jv["energy+"],
+                    "energy-(eV)": jv["energy-"],
+                    "force+(eV/A)": jv["force+"],
+                    "force-(eV/A)": jv["force-"],
+                    "converge(input)": iv["converge"],
+                    "converge-FD+": jv["converge+"],
+                    "converge-FD-": jv["converge-"],
+                    "step(bohr)": iv["step"]  
+                }
+        json.dump(metrics,open("metrics.json","w"),indent=4)   
+        if len(allpngs) > 0:
+            json.dump({i[:-4]: {"type": "image", "file": i} for i in allpngs},open("supermetrics.json","w"),indent=4)      
+    
+    def get_onejob(self,job):
+        # read results from fdf
+        result = RESULT(path=os.path.join(job,"fdf"),fmt="abacus")
+        force = result["force"]
+        converge = result["converge"]
+        labels = result["atomlabel_list"]
+        energy = result["energy"]
+        allresults = {"force": force, "converge": converge, "labels": labels}
+
+        if not os.path.isfile(os.path.join(job,"fdf","step.txt")):
+            print(f"ERROR: {job} does not have step.txt")
+            return None
+        step = float(open(os.path.join(job,"fdf","step.txt")).readline())
+        allresults["step"] = step
+
+        for i in glob.glob(os.path.join(job,"fdf_*_+_*")):
+            ii = i.split("/")[-1].split("_")
+
+            if len(ii) != 6:
+                continue
+            try:
+                ilabel = ii[1]
+                iidx = int(ii[2])
+                xyz = ii[3]
+                xyz_idx = {"x":0,"y":1,"z":2}[xyz]
+                atom_idx = 0
+                for j in range(len(labels)):
+                    if labels[j] == ilabel:
+                        atom_idx += 1
+                    if atom_idx == iidx:
+                        break
+                atom_idx = j
+                step_num = int(ii[5])
+
+                result1 = RESULT(path=i,fmt="abacus")
+                energy1 = result1["energy"]
+                converge1 = result1["converge"]
+                force1 = result1["force"]
+
+                if not os.path.isdir(os.path.join(job,f"fdf_{ilabel}_{iidx}_{xyz}_-_{step_num}")):
+                    print(f"ERROR: {job} does not have fdf_{ilabel}_{iidx}_{xyz}_-_{step_num}")
+                    continue
+                result2 = RESULT(path=os.path.join(job,f"fdf_{ilabel}_{iidx}_{xyz}_-_{step_num}"),fmt="abacus")
+                energy2 = result2["energy"]
+                converge2 = result2["converge"]
+                force2 = result2["force"]
+
+                if energy1 != None and energy2 != None:
+                    fd = (energy2 - energy1) / (2 * step * constant.BOHR2A * step_num)
+                else:
+                    fd = None
+                abacus = None if force ==None else force[atom_idx*3 + xyz_idx]
+                allresults[f"{ilabel}_{iidx}_{xyz}_{step_num}"] = {"abacus": abacus,
+                                                        "fd": fd,
+                                                        "distance(A)": step * constant.BOHR2A * step_num,
+                                                        "energy": energy,
+                                                        "energy+": energy1,
+                                                        "energy-": energy2,
+                                                        "force+": None if force1 ==None else force1[atom_idx*3 + xyz_idx],
+                                                        "force-": None if force2 == None else force2[atom_idx*3 + xyz_idx],
+                                                        "converge+": converge1,
+                                                        "converge-": converge2,}
+
+            except:
+                traceback.print_exc()
+                continue
+        return allresults
+
+    def plot_force(self,allresults):
+        # plot the force calculated by abacus and finite difference
+        # plot two figures for each atom direction, one is the energy of each step, the other is the analytic and finite difference force of each step
+        results = {}
+        labels = []
+        for ik,iv in allresults.items():
+            if iv == None:
+                continue
+            for jk,jv in iv.items():
+                if jk in ["force","converge","labels","step"]:
+                    continue
+                ilabel = ik + "/" + "_".join(jk.split("_")[:3])
+                if ilabel not in results:
+                    labels.append(ilabel)
+                    results[ilabel] = {
+                        "distance": [0],
+                        "energy":[jv["energy"]],
+                        "force":[jv["abacus"]],
+                        "force0-Ana": jv["abacus"],
+                        "distance0": [],
+                        "force0-FD": []
+                    }
+                results[ilabel]["distance"].append(jv["distance(A)"])
+                results[ilabel]["energy"].append(jv["energy+"])
+                results[ilabel]["force"].append(jv["force+"])
+                results[ilabel]["distance"].append(-1*jv["distance(A)"])
+                results[ilabel]["energy"].append(jv["energy-"])
+                results[ilabel]["force"].append(jv["force-"])
+                results[ilabel]["distance0"].append(2 * jv["distance(A)"])
+                results[ilabel]["force0-FD"].append((jv["energy-"] - jv["energy+"]) / (2 * jv["distance(A)"]))
+
+        labels.sort()
+        allpngs = []
+        for ilabel in labels:
+            energy = results[ilabel]["energy"]
+            distance = results[ilabel]["distance"]
+            force = results[ilabel]["force"]
+            if None in energy or None in force:
+                print(f"ERROR: {ilabel} has None in energy or force")
+                continue
+            # sort the data by distance
+            results[ilabel]["energy"] = energy = [x for _,x in sorted(zip(distance,energy))]
+            results[ilabel]["force"] = force = [x for _,x in sorted(zip(distance,force))]
+            distance.sort()
+            fd_force = []
+            for i in range(1,len(distance)-1):
+                fd_force.append((energy[i+1] - energy[i-1]) / (distance[i-1] - distance[i+1]))
+            results[ilabel]["fd_force"] = fd_force
+
+            # calculate the RMSD of the force
+            rmsd = 0
+            for i in range(len(force)-2):
+                rmsd += (force[i+1] - fd_force[i])**2
+            rmsd = (rmsd / len(force))**0.5
+
+            # plot the two figures, one in left, the other in right
+            import matplotlib.pyplot as plt
+            fig,ax = plt.subplots(1,2,figsize=(12,5))
+            ax1 = ax[0]
+            #fig, ax1 = plt.subplots()
+            ax2 = ax1.twinx()
+            ax1.plot(distance,energy,"b+-",label="Energy(eV)")
+            ax2.plot(distance,force,"ro-",label="Analytic(eV/A)")
+            ax2.plot(distance[1:-1],fd_force,"m*-",label="Finite Difference(eV/A)")
+            ymax1 = max(energy)
+            ymin1 = min(energy)
+            ymax2 = max(max(force),max(fd_force))
+            ymin2 = min(min(force),min(fd_force))
+            ax1.set_xlabel("distance(A)")
+            ax1.set_ylabel("Energy(eV)",color="b")
+            ax2.set_ylabel("Force(eV/A)",color="r")
+            ax1.spines['left'].set_color('blue')
+            ax1.tick_params(axis='y', colors='blue')
+            ax2.spines['right'].set_color('red')
+            ax2.tick_params(axis='y', colors='red')
+            ax1.set_ylim(ymin1-(ymax1-ymin1)*0.1,ymax1+(ymax1-ymin1)*0.2)
+            ax2.set_ylim(ymin2-(ymax2-ymin2)*0.1,ymax2+(ymax2-ymin2)*0.2)
+            ax1.set_title(ilabel + f"(FD-Ana RMSD={rmsd:.2e})")
+            ax1.legend(loc="upper left")
+            ax2.legend(loc="upper right")
+            ax2.grid(True)
+
+            ax3 = ax[1]
+            # plot force0-FD vs distance0
+            x = results[ilabel]["distance0"]
+            y = results[ilabel]["force0-FD"]
+            y_ref = results[ilabel]["force0-Ana"]
+            ymin = min(y_ref, min(y))
+            ymax = max(y_ref, max(y))
+            # sort x,y by x
+            x,y = zip(*sorted(zip(x,y)))
+            ax3.plot(x,y,"m*-",label="Finite Difference(eV/A)")
+            ax3.axhline(y_ref,ls="--",color="red",label="Analytic(eV/A)")
+            ax3.set_xlabel("Step size of finite difference(A)")
+            ax3.set_ylabel("Force(eV/A)")
+            ax3.set_title(ilabel + f"(FD VS step-size)")
+            ax3.legend(loc="upper right")
+            ax3.grid(True)
+            ax3.set_ylim(ymin-(ymax-ymin)*0.1,ymax+(ymax-ymin)*0.2)
+
+
+            plt.subplots_adjust(right=0.85) 
+            png = ilabel + ".png"
+            plt.tight_layout()
+            plt.savefig(png)
+            plt.close()
+            allpngs.append(png)
+
+        json.dump(results,open("results.json","w"),indent=4)    
+        return allpngs
