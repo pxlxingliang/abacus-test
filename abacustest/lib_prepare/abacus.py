@@ -23,6 +23,8 @@ class AbacusStru:
                  velocity: List[List[float]] = None,
                  angle1: List[float] = None,
                  angle2: List[float] = None,
+                 constrain: List[Union[bool,List[bool]]] = None,
+                 lambda_: List[Union[float,List[float]]] = None,
                  dpks:str = None,
                  cartesian: bool = False):    
         """ABACUS STRU class, the unit is Bohr
@@ -54,16 +56,18 @@ class AbacusStru:
         move: List[List[int]], optional
             if do move of each atom, by default None
         magmom : float, optional
-            if the number of magmom equal to type number, then set it to each type, by default None
-            else if the number of magmom equal to coord number, then set it to each atom, by default None
+            if the magmom of each type, by default None
         magmom_atom: List[Union[float,List[float]]], optional
             if the magmom_atom is not None, then set the magmom of each atom, by default None
+            each element should be one float or three float (for non-colinear case), or None (not set)
         velocity: List[List[float]], optional
             the velocity of each atom, by default None
         angle1: List[float], optional
             the angle1 of each atom, by default None
         angle2: float, optional 
             the angle2 of each atom, by default None
+        constrain: List[List[bool],bool], optional
+            if constrain the magnetization of each atom, by default None
         dpks : str, optional
             the deepks descriptor file name, by default None
         cartesian : bool, optional
@@ -113,6 +117,8 @@ class AbacusStru:
         self._velocity = velocity
         self._angle1 = angle1
         self._angle2 = angle2
+        self._constrain = constrain
+        self._lambda = lambda_
         
         if element != None:
             self._element = element
@@ -170,6 +176,10 @@ class AbacusStru:
             assert(n_atom == len(self._angle1)), "ERROR: the length of coord is not equal to angle1"
         if self._angle2:
             assert(n_atom == len(self._angle2)), "ERROR: the length of coord is not equal to angle2"
+        if self._constrain:
+            assert(n_atom == len(self._constrain)), "ERROR: the length of coord is not equal to constrain"
+        if self._lambda:
+            assert(n_atom == len(self._lambda)), "ERROR: the length of coord is not equal to lambda"
         return True    
     
     def get_pp(self):
@@ -199,14 +209,86 @@ class AbacusStru:
 
     def get_atommag(self):
         # return the magmom of each atom
+        # if non-colinear, then return a list of three float for that atom.
+        # like: [0,0,0,[1,1,1],[1,1,1],0,0,0], which means the atom 1-3,6-8 has mag 0, and atom 4-5 has mag [1,1,1] 
         magmom = []
         for i,ilabel in enumerate(self._label):
             magmom += [self._magmom[i]] * self._atom_number[i]
         if self._magmom_atom:
             for ii,i in enumerate(self._magmom_atom):
                 if i != None:
-                    magmom[ii] = i
+                    imag = None
+                    if isinstance(i,(list,tuple)) and len(i) == 3: # for non-colinear case
+                        imag = i
+                    elif isinstance(i,(list,tuple)) and len(i) == 1 and isinstance(i[0],(int,float)):
+                        imag = float(i[0])
+                    elif isinstance(i,(int,float)):
+                        imag = float(i)
+                    
+                    # if has set the total mag and angle1 and angle2, then transfer to magx,magy,magz    
+                    if imag != None and isinstance(imag,float) and self._angle1 and self._angle2 and self._angle1[ii] != None and self._angle2[ii] != None:
+                        imag = self.angle_to_mag(imag,self._angle1[ii],self._angle2[ii])
+                    
+                    if imag != None:    
+                        magmom[ii] = imag
         return magmom
+    
+    def get_constrain(self):
+        # return a list of N bool values, each value is True or False or a list of three True or False
+        if self._constrain:
+            c = []
+            for i in self._constrain:
+                if i == None:
+                    c.append(False)
+                else:
+                    if isinstance(i,list):
+                        c.append([bool(j) for j in i])
+                    else:
+                        c.append(bool(i))
+            return c
+        else:
+            return [False] * len(self._coord)
+    
+    def get_lambda(self):
+        # return a list
+        if self._lambda:
+            l = []
+            for i in self._lambda:
+                if i == None:
+                    l.append(0)
+                else:
+                    if isinstance(i,list):
+                        l.append([float(j) for j in i])
+                    else:
+                        l.append(float(i))
+            return l
+        else:
+            return [0] * len(self._coord)
+    
+    def get_angle1(self):
+        return self._angle1
+    
+    def get_angle2(self):
+        return self._angle2
+
+    @staticmethod
+    def mag_to_angle(magx,magy,magz):
+        '''return the angle1 and angle2 of the magnetization'''
+        mag = np.array([magx,magy,magz])
+        mag /= np.linalg.norm(mag)
+        angle1 = np.arccos(mag[2]) * 180 / np.pi
+        angle2 = np.arctan2(mag[1],mag[0]) * 180 / np.pi
+        return angle1,angle2
+    
+    @staticmethod
+    def angle_to_mag(totmag,angle1,angle2):
+        '''return the magnetization of the magnetization'''
+        angle1 = angle1 * np.pi / 180
+        angle2 = angle2 * np.pi / 180
+        mag = np.array([np.sin(angle1)*np.cos(angle2),np.sin(angle1)*np.sin(angle2),np.cos(angle1)])
+        mag *= totmag
+        return mag.tolist()
+        
     
     def get_mag(self):
         # return the magmom of each type
@@ -218,7 +300,13 @@ class AbacusStru:
         if self._move == None:
             return [1,1,1] * len(self._coord)
         else:
-            return self._move
+            m = []
+            for i in self._move:
+                if i == None:
+                    m.append([1,1,1])
+                else:
+                    m.append(i)
+            return m
     
     def get_element(self,number=True,total=True):
         '''return the element name of each atom'''
@@ -557,7 +645,7 @@ class AbacusStru:
             cc += "\n%s\n%f\n%d\n" % (ilabel,self._magmom[i],self._atom_number[i])
             for j in range(self._atom_number[i]):
                 cc += "%17.11f %17.11f %17.11f " % tuple(self._coord[icoord + j])
-                if self._move:
+                if self._move and self._move[icoord + j] and len(self._move[icoord + j]) == 3:
                     cc += "%d %d %d " % tuple(self._move[icoord + j])
                 if self._magmom_atom:
                     if isinstance(self._magmom_atom[icoord + j],list):
@@ -570,12 +658,14 @@ class AbacusStru:
                 if self._velocity:
                     if self._velocity[icoord + j]:
                         cc += "v %f %f %f " % tuple(self._velocity[icoord + j])
-                if self._angle1:
-                    if self._angle1[icoord + j]:
+                if self._angle1 and self._angle1[icoord + j] != None:
                         cc += "angle1 %f " % self._angle1[icoord + j]
-                if self._angle2:
-                    if self._angle2[icoord + j]:
+                if self._angle2 and self._angle2[icoord + j] != None:
                         cc += "angle2 %f " % self._angle2[icoord + j]
+                if self._constrain and self._constrain[icoord + j]:
+                        cc += "sc " + " ".join(["1" if ic else "0" for ic in self._constrain[icoord + j]]) + " " 
+                if self._lambda and self._lambda[icoord + j]:
+                        cc += "lambda " + " ".join(["1" if ic else "0" for ic in self._lambda[icoord + j]]) + " "
                 cc += "\n"
             icoord += self._atom_number[i]
         
@@ -623,7 +713,7 @@ class AbacusStru:
       Fe
       1.0
       2
-      0.0 0.0 0.0 m 0 0 0 mag 1.0 angle1 90 angle2 0
+      0.0 0.0 0.0 m 0 0 0 mag 1.0 angle1 90 angle2 0 constrain 0 0 0
       0.5 0.5 0.5 m 1 1 1 mag 1.0 angle1 90 angle2 180
       ```
         '''
@@ -634,14 +724,19 @@ class AbacusStru:
         magmom = None
         angle1 = None
         angle2 = None
+        constrain = None
+        lambda1 = None
         if len(sline) > 3:
             mag_list = []
             velocity_list = []
             move_list = []
             angle1_list = []
             angle2_list = []
+            constrain_list = []
+            lambda_list = []
             label = "move"
             for i in range(3,len(sline)):
+                # firstly read the label
                 if sline[i] == "m":
                     label = "move"
                 elif sline[i] in ["v","vel","velocity"]:
@@ -652,6 +747,12 @@ class AbacusStru:
                     label = "angle1"
                 elif sline[i] == "angle2":
                     label = "angle2"
+                elif sline[i] in ["constrain","sc"]:
+                    label = "constrain"
+                elif sline[i] in ["lambda"]:
+                    label = "lambda"
+                
+                # the read the value to the list    
                 elif label == "move":
                     move_list.append(int(sline[i]))
                 elif label == "velocity":
@@ -662,19 +763,32 @@ class AbacusStru:
                     angle1_list.append(float(sline[i]))
                 elif label == "angle2":
                     angle2_list.append(float(sline[i]))
-                    
+                elif label == "constrain":
+                    constrain_list.append(bool(int(sline[i])))
+                elif label == "lambda":
+                    lambda_list.append(float(sline[i]))
+
             if len(move_list) == 3:
                 move = move_list
             if len(velocity_list) == 3:
                 velocity = velocity_list
             if len(mag_list) in [1,3]:
-                magmom = mag_list
+                magmom = mag_list if len(mag_list) == 3 else mag_list[0]
             if len(angle1_list) == 1:
                 angle1 = angle1_list[0]
             if len(angle2_list) == 1:
                 angle2 = angle2_list[0]
+            if len(constrain_list) == 3:
+                constrain = constrain_list
+            elif len(constrain_list) == 1:
+                constrain = constrain_list[0]
+            if len(lambda_list) == 3:
+                lambda1 = lambda_list
+            elif len(lambda_list) == 1:
+                lambda1 = lambda_list[0]
                 
-        return pos,move,velocity,magmom,angle1,angle2
+                
+        return pos,move,velocity,magmom,angle1,angle2,constrain,lambda1
 
     @staticmethod
     def ReadStru(stru:str = "STRU"):
@@ -761,6 +875,8 @@ class AbacusStru:
         velocity = []
         angle1 = []
         angle2 = []
+        constrain = [] # the constrain of each atom
+        lambda1 = [] # the lambda for delta spin
         coord_type = atom_positions[0].split("#")[0].strip().lower()
         if coord_type.startswith("dire"):
             cartesian = False
@@ -799,13 +915,16 @@ class AbacusStru:
                 
             i += 3
             for j in range(atom_number[-1]):
-                pos,imove,ivelocity,imag,iangle1,iangle2 = AbacusStru.parse_stru_pos(atom_positions[i+j])
+                pos,imove,ivelocity,imag,iangle1,iangle2,iconstrain,ilambda1 = AbacusStru.parse_stru_pos(atom_positions[i+j])
                 coords.append(pos)
                 move.append(imove)
                 velocity.append(ivelocity)
                 magmom.append(imag)
                 angle1.append(iangle1)
                 angle2.append(iangle2)
+                constrain.append(iconstrain)
+                lambda1.append(ilambda1)
+                
             i += atom_number[-1]
         
         return AbacusStru(label=real_label,
@@ -822,6 +941,8 @@ class AbacusStru:
                           velocity=velocity,
                           angle1=angle1,
                           angle2=angle2,
+                          constrain=constrain,
+                          lambda_=lambda1,
                           dpks=dpks,
                           cartesian=cartesian)
 

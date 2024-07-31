@@ -78,7 +78,7 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric44 = 'largest_gradient'
     AbacusMetric_metric45 = 'ds_lambda_step'
     AbacusMetric_metric46 = 'ds_lambda_rms'
-    AbacusMetric_metric47 = 'ds_optimal_lambda'
+    AbacusMetric_metric47 = 'ds_mag'
     AbacusMetric_metric48 = 'ds_mag_force'
     
     AbacusMetric_metric_mem1 = 'mem_vkb'

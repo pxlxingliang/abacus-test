@@ -222,7 +222,10 @@ class Qe(ResultQe):
                 if volume != None:
                     self['virial'] = [ float(i) * volume * comm.HARTREE2EV / comm.BOHR2A ** 3   for i in output.find('stress').text.split()]
 
-            self['total_mag'] = comm.ifloat(xfmlt(output,['magnetization','total']))
+            tot_mag = comm.ifloat(xfmlt(output,['magnetization','total']))
+            if tot_mag == None and output.find('magnetization/total_vec') != None:
+                tot_mag = [float(i) for i in output.find('magnetization/total_vec').text.split()]
+            self['total_mag'] = tot_mag if tot_mag != None else None
             self['absolute_mag'] = comm.ifloat(xfmlt(output,['magnetization','absolute']))
             atom_mags = output.findall('magnetization/Scalar_Site_Magnetic_Moments/SiteMagnetization')
             if atom_mags:
@@ -307,7 +310,11 @@ class Qe(ResultQe):
                 elif "number of atoms/cell" in iline:
                     natom = int(iline.split()[-1])
                 elif "total magnetization" in iline:
-                    tot_mag = float(iline.split()[3])
+                    sline = iline.split()
+                    if len(sline) == 8:
+                        tot_mag = [float(imag) for imag in sline[3:6]]
+                    else:
+                        tot_mag = float(sline[3])
                 elif "absolute magnetization" in iline:
                     abs_mag = float(iline.split()[3])
                 elif "iteration #" in iline:

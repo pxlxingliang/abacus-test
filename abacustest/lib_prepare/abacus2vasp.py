@@ -3,7 +3,7 @@ from . import abacus as MyAbacus
 from abacustest import constant
 from . import comm
 
-def ParamAbacus2Vasp(abacus_input,incar= None):
+def ParamAbacus2Vasp(abacus_input):
     '''
     Generate the vasp input from abacus input.
     
@@ -26,21 +26,22 @@ def ParamAbacus2Vasp(abacus_input,incar= None):
     lcao: decrease 1e-1
         < 1e-7 -> 1e-6
     '''
-    vasp_input = {
-        "LREAL": "Auto",
-        "PREC":  "Normal",
-        "ALGO":  "Normal" 
-    }
-    # job type
-    calculation = abacus_input.get("calculation","scf")
-    force = abacus_input.get("force",False)
-    stress = abacus_input.get("stress",False)
+    vasp_input = {}
+    vasp_input["SYSTEM"] = abacus_input.pop("suffix","VASP")
+    vasp_input["LREAL"] = "Auto"
+    vasp_input["PREC"] = "Normal"
+    vasp_input["ALGO"] = "Normal"
     
-    basis_type = abacus_input.get("basis_type","pw")
+    # job type
+    calculation = abacus_input.pop("calculation","scf")
+    force = abacus_input.pop("force",False)
+    stress = abacus_input.pop("stress",False)
+    
+    basis_type = abacus_input.pop("basis_type","pw")
     if basis_type == "pw":
-        vasp_input["EDIFF"] = abacus_input.get("scf_thr",1e-9)/1E-2
+        vasp_input["EDIFF"] = abacus_input.pop("scf_thr",1e-9)/1E-2
     else:
-        vasp_input["EDIFF"] = abacus_input.get("scf_thr",1e-7) / 1E-1
+        vasp_input["EDIFF"] = abacus_input.pop("scf_thr",1e-7) / 1E-1
     
     if calculation == "scf":
         vasp_input["IBRION"] = -1
@@ -53,7 +54,7 @@ def ParamAbacus2Vasp(abacus_input,incar= None):
         if calculation == "relax":
             vasp_input["ISIF"] = 2
         else:
-            fixed_axes = abacus_input.get("fixed_axes","None")
+            fixed_axes = abacus_input.pop("fixed_axes","None")
             if fixed_axes == "None":
                 vasp_input["ISIF"] = 3
             elif fixed_axes == "volume":
@@ -70,36 +71,38 @@ def ParamAbacus2Vasp(abacus_input,incar= None):
         raise ValueError(f"calculation {calculation} is not supported.")
     
     if "scf_nmax" in abacus_input:
-        vasp_input["NELM"] = abacus_input.get("scf_nmax",100)
-        
-    if "smearing_method" in abacus_input and abacus_input["smearing_method"] != "fixed":
-        if abacus_input["smearing_method"] == "gaussian":
+        vasp_input["NELM"] = abacus_input.pop("scf_nmax",100)
+    
+    smearing_method = abacus_input.pop("smearing_method",None)    
+    if smearing_method != None:
+        if smearing_method == "gaussian":
             vasp_input["ISMEAR"] = 0
-        elif abacus_input["smearing_method"] == "mp":
+        elif smearing_method == "mp":
             vasp_input["ISMEAR"] = 2
-        elif abacus_input["smearing_method"] == "fd":
+        elif smearing_method == "fd":
             vasp_input["ISMEAR"] = -1
         
-        vasp_input["SIGMA"] = abacus_input.get("smearing_sigma",0.015)*constant.RY2EV
+        vasp_input["SIGMA"] = abacus_input.pop("smearing_sigma",0.015)*constant.RY2EV
 
     if "symmetry" in abacus_input:
-        if abacus_input["symmetry"] == 0:
+        symmetry = abacus_input.pop("symmetry")
+        if symmetry == 0:
             vasp_input["ISYM"] = 0
-        elif abacus_input["symmetry"] == 1:
+        elif symmetry == 1:
             vasp_input["ISYM"] = 1
-        elif abacus_input["symmetry"] == -1:
+        elif symmetry == -1:
             vasp_input["ISYM"] = -1
         else:
             raise ValueError(f"symmetry {abacus_input['symmetry']} is not supported.")
     
     if calculation in ["relax","cell-relax"]:
         if "force_thr_ev" in abacus_input: 
-            vasp_input["EDIFFG"] = abacus_input["force_thr_ev"]*-1
+            vasp_input["EDIFFG"] = abacus_input.pop("force_thr_ev")*-1
         if "force_thr" in abacus_input:
-            vasp_input["EDIFFG"] = abacus_input["force_thr"]*-1*constant.RY2EV
+            vasp_input["EDIFFG"] = abacus_input.pop("force_thr")*-1*constant.RY2EV
            
     if "kspacing" in abacus_input:
-        kspacing = abacus_input["kspacing"]
+        kspacing = abacus_input.pop("kspacing")
         if isinstance(kspacing,list):
             kspacing = sum(kspacing)/3
         elif isinstance(kspacing,str):
@@ -113,38 +116,178 @@ def ParamAbacus2Vasp(abacus_input,incar= None):
         vasp_input["KSPACING"] = kspacing / constant.BOHR2A
         
     if calculation in ["relax","cell-relax"] and "relax_nmax" in abacus_input:
-        vasp_input["NSW"] = abacus_input["relax_nmax"]
+        vasp_input["NSW"] = abacus_input.pop("relax_nmax")
     
     if calculation == "md" and "md_nstep" in abacus_input:
-        vasp_input["NSW"] = abacus_input["md_nstep"]   
+        vasp_input["NSW"] = abacus_input.pop("md_nstep")   
     
     if "nspin" in abacus_input:
-        vasp_input["ISPIN"] = abacus_input["nspin"]
+        vasp_input["ISPIN"] = abacus_input.pop("nspin")
     
     if "dft_plus_u" in abacus_input:
-        if comm.IsTrue(abacus_input["dft_plus_u"]):
+        if comm.IsTrue(abacus_input.pop("dft_plus_u")):
             vasp_input["LDAU"] = ".TRUE."
             vasp_input["LDAUTYPE"] = 2
             if "orbital_corr" in abacus_input:
-                vasp_input["LDAUL"] = abacus_input["orbital_corr"]
+                vasp_input["LDAUL"] = abacus_input.pop("orbital_corr")
             if "hubbard_u" in abacus_input:
-                vasp_input["LDAUU"] = abacus_input["hubbard_u"]
-                vasp_input["LDAUJ"] = " ".join(["0" for i in abacus_input["hubbard_u"].split()])
+                vasp_input["LDAUU"] = abacus_input.pop("hubbard_u")
+                vasp_input["LDAUJ"] = " ".join(["0" for i in vasp_input["LDAUU"].split()])
+        else:
+            vasp_input["LDAU"] = ".FALSE."
+            abacus_input.pop("orbital_corr",None)
+            abacus_input.pop("hubbard_u",None)
     
     if "nupdown" in abacus_input:
-        vasp_input["NUPDOWN"] = abacus_input["nupdown"]
+        vasp_input["NUPDOWN"] = abacus_input.pop("nupdown")
     
     # lspinorb and nonclinear
-    if "lspinorb" in abacus_input and comm.IsTrue(abacus_input["lspinorb"]):
-        vasp_input["LSORBIT"] = ".TRUE."
-    if "noncolin" in abacus_input and comm.IsTrue(abacus_input["noncolin"]):
-        vasp_input["LNONCOLLINEAR"] = ".TRUE."
-
-    if incar != None:
-        with open(incar,"w") as f:
-            for key,value in vasp_input.items():
-                f.write(f"{key} = {value}\n")
+    if "lspinorb" in abacus_input:
+        if comm.IsTrue(abacus_input.pop("lspinorb")):
+            vasp_input["LSORBIT"] = ".TRUE."
+            vasp_input["ISYM"] = -1
+        else:
+            vasp_input["LSORBIT"] = ".FALSE."
+    if "noncolin" in abacus_input:
+        if comm.IsTrue(abacus_input.pop("noncolin")):
+            vasp_input["LNONCOLLINEAR"] = ".TRUE."
+        else:
+            vasp_input["LNONCOLLINEAR"] = ".FALSE."
+            
+    # delta spin
+    if "sc_mag_switch" in abacus_input:
+        if comm.IsTrue(abacus_input.pop("sc_mag_switch")):
+            vasp_input["SCTYPE"] = 1
+            if "nsc" in abacus_input:
+                vasp_input["NSC"] = abacus_input.pop("nsc")
+            if "nsc_min" in abacus_input:
+                vasp_input["NSCMIN"] = abacus_input.pop("nsc_min")
+            if "sc_thr" in abacus_input:
+                vasp_input["SCDIFF"] = abacus_input.pop("sc_thr")
+            if "alpha_trial" in abacus_input:
+                vasp_input["INISC"] = abacus_input.pop("alpha_trial")
+            if "sccut" in abacus_input:
+                vasp_input["SCCUT"] = abacus_input.pop("sccut")
+        else:
+            vasp_input["SCTYPE"] = 0
+            abacus_input.pop("nsc",None)
+            abacus_input.pop("nsc_min",None)
+            abacus_input.pop("sc_thr",None)
+            abacus_input.pop("alpha_trial",None)
+            abacus_input.pop("sccut",None)
+    
+    if len(abacus_input) > 0:
+        print("WARNING: The following parameters are not converted to VASP:")
+        for ip in abacus_input.keys():
+            if ip in ["kspacing"]: continue
+            print("         %s" % ip)
+    
     return vasp_input
+
+def GenIncarFromStru(stru,vasp_setting):
+    # if nspin != 1, then set the initial magmom
+    if vasp_setting.get("ISPIN",1) != 1:
+        mag = stru.get_atommag()  # mag is a list of list, eahc list is the magmom of one atom, for noncolinear, it should be [magx,magy,magz]
+        labels = stru.get_label(total=True)
+        label = []
+        for i in labels:
+            if i not in label:
+                label.append(i)
+        magmom = []
+        if vasp_setting.get("LNONCOLLINEAR",False):
+            # should create the magmom, a lisf of 3*N, N is the number of atoms
+            for imag in mag:
+                if isinstance(imag,float):
+                    magmom += [0,0,imag]
+                elif isinstance(imag,list):
+                    if len(imag) == 1:
+                        magmom += [0,0,imag[0]]
+                    elif len(imag) == 3:
+                        magmom += imag
+                    else:
+                        print("ERROR: The magmom should be a list of 1 or 3!!!")
+                        sys.exit(1)
+                else:
+                    print("ERROR: The magmom should be a list of float or list!!!")
+                    sys.exit(1)
+        else:
+            for imag in mag:
+                if isinstance(imag,float):
+                    magmom.append(imag)
+                elif isinstance(imag,list):
+                    if len(imag) == 1:
+                        magmom.append(imag[0])
+                    elif len(imag) == 3:
+                        magmom.append((imag[0]**2 + imag[1]**2 + imag[2]**2)**0.5)
+                    else:
+                        print("ERROR: The magmom should be a list of 1 or 3!!!")
+                        sys.exit(1)
+                else:
+                    print("ERROR: The magmom should be a list of float!!!")
+                    sys.exit(1)
+        
+        vasp_setting["MAGMOM"] = VaspList2String(magmom)
+        
+        if comm.IsTrue(vasp_setting.get("SCTYPE")):
+            # if sc_mag_switch is true, then set the initial magmom
+            vasp_setting["M_CONSTR"] = vasp_setting["MAGMOM"]
+            constrain = stru.get_constrain()
+            lambda_ = stru.get_lambda()
+            c = []
+            l = []
+            if not vasp_setting.get("LNONCOLLINEAR",False):
+                for ic in constrain:
+                    if isinstance(ic,list):
+                        if False in ic:
+                            c.append(0)
+                    else:
+                        c.append(1 if ic else 0)
+                for il in lambda_:
+                    if isinstance(il,list):
+                        l += il
+                    else:
+                        l.append(il)
+            else:
+                for ic in constrain:
+                    if isinstance(ic,bool):
+                        c += [1 if ic else 0]*3
+                    else:
+                        c += [1 if i else 0 for i in ic]
+                for il in lambda_:
+                    if isinstance(il,float):
+                        l += [il]*3
+                    else:
+                        l += il
+
+            vasp_setting["CONSTRL"] = VaspList2String(c)
+            vasp_setting["LAMBDA"] = VaspList2String(l)
+
+def VaspList2String(list1):
+    # convert the list1 to string
+    # need to merge the same value like: [1, 1, 1, 0, 0, 0, 0] to "3*1 4*0"
+    list1 = [str(i) for i in list1]
+    if len(list1) == 0:
+        return ""
+    
+    c = ""
+    v = list1[0]
+    n = 1
+    for i in list1[1:]:
+        if i == v:
+            n += 1
+        else:
+            if n == 1:
+                c += f"{v} "
+            else:
+                c += f"{n}*{v} "
+            v = i
+            n = 1
+    if n == 1:
+        c += f"{v} "
+    else:
+        c += f"{n}*{v} "
+    return c
+    
     
 
 def KptAbacus2Vasp(abacus_kpt,vasp_kpt="KPOINTS"):
@@ -305,21 +448,14 @@ def Abacus2Vasp(abacus_path:str, save_path:str=None, potcar=None, vasp_setting={
     # 4.2 set ENCUT
     if emax != None:
         vasp_input["ENCUT"] = emax * emax_coef
-        
-    # 4.3 if nspin != 1, then set the initial magmom
-    if abacus_input.get("nspin",1) != 1:
-        mag = stru.get_atommag()  # mag is a list of list, eahc list is the magmom of one atom, for noncolinear, it should be [magx,magy,magz]
-        labels = stru.get_label()
-        label = []
-        for i in labels:
-            if i not in label:
-                label.append(i)
-        atom_number = [labels.count(i) for i in label]
-        vasp_input["MAGMOM"] = " ".join([f"{mag[i][0]}" for i in range(len(mag))]) # only support the collinear case now.
+    
+    # 4.3 set MAGMOM and deltaspin    
+    GenIncarFromStru(stru,vasp_input)
         
     # 4.4 update the vasp_input by vasp_setting    
     if vasp_setting:
-        vasp_input.update(vasp_setting)
+        for ik,iv in vasp_setting.items():
+            vasp_input[ik.upper()] = iv
     if save_path != None:
         with open(os.path.join(save_path,"INCAR"),"w") as f:
             for key,value in vasp_input.items():

@@ -218,7 +218,13 @@ class Abacus(ResultAbacus):
                     'convergence has not been achieved' in line:
                     converge = False
                 elif 'total magnetism (Bohr mag/cell)' in line:
-                    total_mag = float(line.split()[-1])
+                    sline = line.split()
+                    if len(sline) == 5:
+                        total_mag = float(line.split()[-1])
+                    elif len(sline) == 7:
+                        total_mag = [float(imag) for imag in sline[-3:]] 
+                    else:
+                        total_mag = None
                 elif 'absolute magnetism' in line:
                     absolute_mag = float(line.split()[-1])
                 elif "!FINAL_ETOT_IS" in line:
@@ -671,10 +677,10 @@ class Abacus(ResultAbacus):
         
         if self.OUTPUT:
             for i,line in enumerate(self.OUTPUT):
-                if "ITER" in line and "ETOT(eV)" in line and "EDIFF(eV)" in line and "DRHO" in line and "TIME(s)" in line:
+                if "ITER" in line and "ETOT/eV" in line and "EDIFF/eV" in line and "DRHO" in line and "TIME/s" in line:
                     denergy = []
                     ncol = len(line.split())
-                    ediff_idx = line.split().index("EDIFF(eV)")
+                    ediff_idx = line.split().index("EDIFF/eV")
                     j = i + 1
                     while j < len(self.OUTPUT):
                         if "----------------------------" in self.OUTPUT[j]:
@@ -908,8 +914,8 @@ class AbacusDeltaSpin(ResultAbacus):
     
     @ResultAbacus.register(ds_lambda_step="a list of DeltaSpin converge step in each SCF step",
                            ds_lambda_rms="a list of DeltaSpin RMS in each SCF step",
-                           ds_optimal_lambda="a list of list, each element list is for each atom",
-                           ds_mag_force="a list of list, each element list is for each atom")
+                           ds_mag="a list of list, each element list is for each atom. Unit in uB",
+                           ds_mag_force="a list of list, each element list is for each atom. Unit in eV/uB")
     def GetDSOutput(self):
         '''
 Step (Outer -- Inner) =  16 -- 1           RMS = 1.057e-07
@@ -917,16 +923,10 @@ Step (Outer -- Inner) =  16 -- 2           RMS = 1.355e-07
 Step (Outer -- Inner) =  16 -- 3           RMS = 1.176e-07
 Step (Outer -- Inner) =  16 -- 4           RMS = 9.760e-08
 ...
-Final optimal lambda (Ry/uB): 
-ATOM 0         0.0000000000e+00    0.0000000000e+00   -3.5931898000e-05
-ATOM 1         0.0000000000e+00    0.0000000000e+00   -3.5939101250e-05
-Magnetic force (Ry/uB): 
-ATOM 0        -0.0000000000e+00   -0.0000000000e+00    3.5931898000e-05
-ATOM 1        -0.0000000000e+00   -0.0000000000e+00    3.5939101250e-05
         '''
         lambda_step = None 
         lambda_rms = None
-        optimal_lambda = None
+        ds_mag = None
         mag_force = None
         if self.OUTPUT:
             scf_step = []
@@ -945,20 +945,24 @@ ATOM 1        -0.0000000000e+00   -0.0000000000e+00    3.5939101250e-05
                     else:
                         lambda_step[-1] = lambdas
                         lambda_rms[-1] = rms
-                elif "Final optimal lambda (Ry/uB):" in i:
-                    optimal_lambda = []
+
+        if self.LOG:
+            natom = self["natom"]
+            for idx, i in enumerate(self.LOG):
+                if "Total Magnetism (uB)" in i:
+                    ds_mag = []
                     for j in range(natom):
-                        if len(self.OUTPUT[idx+j+1].split()) in [3,5] and self.OUTPUT[idx+j+1].split()[0] == "ATOM":
-                            optimal_lambda.append([float(ii) for ii in self.OUTPUT[idx+j+1].split()[2:]])
-                elif "Magnetic force (Ry/uB):" in i:
+                        if len(self.OUTPUT[idx+j+1].split()) in [2,4]:
+                            ds_mag.append([float(ii) for ii in self.OUTPUT[idx+j+1].split()[1:]])
+                elif "Magnetic force (eV/uB)" in i:
                     mag_force = []
                     for j in range(natom):
-                        if len(self.OUTPUT[idx+j+1].split()) in [3,5] and self.OUTPUT[idx+j+1].split()[0] == "ATOM":
-                            mag_force.append([float(ii) for ii in self.OUTPUT[idx+j+1].split()[2:]])
+                        if len(self.OUTPUT[idx+j+1].split()) in [2,4]:
+                            mag_force.append([float(ii) for ii in self.OUTPUT[idx+j+1].split()[1:]])
 
         self["ds_lambda_step"] = lambda_step
         self["ds_lambda_rms"] = lambda_rms
-        self["ds_optimal_lambda"] = optimal_lambda
+        self["ds_mag"] = ds_mag
         self["ds_mag_force"] = mag_force  
         
         
