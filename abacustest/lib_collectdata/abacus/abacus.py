@@ -952,13 +952,13 @@ Step (Outer -- Inner) =  16 -- 4           RMS = 9.760e-08
                 if "Total Magnetism (uB)" in i:
                     ds_mag = []
                     for j in range(natom):
-                        if len(self.LOG[idx+j+1].split()) in [2,4]:
-                            ds_mag.append([float(ii) for ii in self.LOG[idx+j+1].split()[1:]])
+                        if len(self.LOG[idx+j+2].split()) in [2,4]:
+                            ds_mag.append([float(ii) for ii in self.LOG[idx+j+2].split()[1:]])
                 elif "Magnetic force (eV/uB)" in i:
                     mag_force = []
                     for j in range(natom):
-                        if len(self.LOG[idx+j+1].split()) in [2,4]:
-                            mag_force.append([float(ii) for ii in self.LOG[idx+j+1].split()[1:]])
+                        if len(self.LOG[idx+j+2].split()) in [2,4]:
+                            mag_force.append([float(ii) for ii in self.LOG[idx+j+2].split()[1:]])
 
         self["ds_lambda_step"] = lambda_step
         self["ds_lambda_rms"] = lambda_rms
