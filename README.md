@@ -81,7 +81,7 @@ An example is like:
                     "before_command":true,
 			        "dft_type":"abacus",
 			        "metrics_name": [],
-			        "save_file": "result.json",
+			        "save_file": "metrics.json",
 			        "newmethods": []
 		        },
                 "outputs": []
@@ -159,7 +159,7 @@ optional arguments:
   -p PARAM, --param PARAM
                         the parameter file, should be .json type
   -o OUTPUT, --output OUTPUT
-                        the file name to store the output results, default is "result.json"
+                        the file name to store the output results, default is "metrics.json"
   -m [MODULES [MODULES ...]], --modules [MODULES [MODULES ...]]
                         add extra modules. Default only module 'job-type' will be loaded, such as: 'abacus' for abacus type. You can check all modules by --outparam
   --newmethods [NEWMETHODS [NEWMETHODS ...]]

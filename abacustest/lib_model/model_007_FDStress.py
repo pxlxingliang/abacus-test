@@ -184,9 +184,9 @@ class PostProcessFDStress:
         for job in self.jobs:
             for ijob in glob.glob(job):
                 if os.path.isdir(ijob) and ijob not in alljobs:
-                    alljobs.append(ijob)
-        version = None  
-        sm = {}          
+                    alljobs.append(ijob) 
+        sm = {}   
+        metrics = {}       
         for ijob in alljobs:
             if os.path.isdir(ijob):
                 jsonf = os.path.join(ijob,"results.json")
@@ -202,7 +202,11 @@ class PostProcessFDStress:
                     for cell in glob.glob(f"{ijob}/cell_*"):
                         values[os.path.basename(cell)] = self.get_value(cell)
                     json.dump(values,open(jsonf,"w"),indent=4)
-                version = values.get("cell_0",{}).get("version",None)
+                
+                for k,v in values.items():
+                    if k != "param":
+                        metrics[os.path.join(ijob,k)] = v
+                    
                 if "step" not in values.get("param",{}) or "number" not in values.get("param",{}):
                     print(f"param.json is not correct in {ijob}. Need step and number.")
                     continue
@@ -226,6 +230,7 @@ class PostProcessFDStress:
                 self.write2csv(ijob,results1,results2)
 
         # write the supermetrics.json
+        json.dump(metrics,open("metrics.json","w"),indent=4)
         json.dump(sm,open("supermetrics.json","w"),indent=4)
         
     def get_value(self,ipath):
@@ -242,7 +247,8 @@ class PostProcessFDStress:
         return {"stress": stress,
                 "energy": iresult["energy"],
                 "version": iresult["version"],
-                "volume": iresult["volume"],}
+                "volume": iresult["volume"],
+                "converge": iresult["converge"]}
 
     def gen_result1(self,value_dict,diff,number):
         # calculate the stress tensor of -number+1, ..., number-1,
@@ -286,10 +292,16 @@ class PostProcessFDStress:
                     print(i,j,v1,v2)
                     energy_k1 = value_dict.get(cell1,{}).get("energy",None)
                     energy_k2 = value_dict.get(cell2,{}).get("energy",None)
-                    if energy_k1 == None or energy_k2 == None or volume == None:
-                        stress_finite_diff = None
-                        print(f"cell_{i+1}_{j+1}_{k-1} or cell_{i+1}_{j+1}_{k+1} or cell_{i+1}_{j+1}_{k} is not exist.")
-                    else:
+                    
+                    stress_finite_diff = None
+                    if energy_k1 == None:
+                        print(f"Get energy from cell_{i+1}_{j+1}_{k-1} failed.")
+                    if energy_k2 == None:
+                        print(f"Get energy from cell_{i+1}_{j+1}_{k+1} failed.")
+                    if volume == None:
+                        print(f"Get volume from cell_{i+1}_{j+1}_{k} failed.")
+                        
+                    if not (energy_k1 == None or energy_k2 == None or volume == None):
                         if i == j:
                             rdiff = diff / (1 + k*diff)
                         else:
