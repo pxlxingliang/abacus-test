@@ -63,7 +63,7 @@ def FDStressModelRunner(opts:FDStressModel) -> int:
         pwd = os.getcwd()
         # prepare the fdforce
         os.chdir(work_path)
-        allfiles = datas["allfiles"]
+        allfiles = datas["all_files"]
         allexamples = [i for i in allfiles if os.path.isdir(i)]
         if len(allexamples) == 0:
             logs.iprint("no example found, exit! Please prepare the inputs of each example in each folder.")
