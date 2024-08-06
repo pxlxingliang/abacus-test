@@ -11,7 +11,12 @@ def parse_param(paramf):
         allparams = json.load(open(paramf))
         if 'PARAM' not in allparams:
             print("PARAM is not defined in %s" % paramf)
-            return []
+            if "post_dft" in allparams and isinstance(allparams["post_dft"],dict) and "metrics" in allparams["post_dft"] and \
+                isinstance(allparams["post_dft"]["metrics"],dict) and "metrics_name" in allparams["post_dft"]["metrics"]:
+                    print("Find post_dft/metrics/metrics_name, and will collectdata by these metrics")
+                    return allparams["post_dft"]["metrics"]["metrics_name"]
+            else:
+                return []
         else:
             return allparams["PARAM"]
     else:
