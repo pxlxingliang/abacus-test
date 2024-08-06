@@ -94,6 +94,8 @@ def FDStressModelRunner(opts:FDStressModel) -> int:
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
         os.chdir(work_path)
         FDStress.PostProcessFDStress(allexamples,False).run()
+        os.chdir(pwd)
+        
 
         reports = comm_pmetrics.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
         logfname = "output.log"
