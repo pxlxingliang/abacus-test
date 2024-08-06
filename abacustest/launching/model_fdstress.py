@@ -99,7 +99,7 @@ def FDStressModelRunner(opts:FDStressModel) -> int:
 
         reports = comm_pmetrics.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
         logfname = "output.log"
-        logs.write(os.path.join(str(opts.IO_output_path),logfname))
+        logs.write(os.path.join(output_path,logfname))
         log_section = ReportSection(title="",
                                   elements=[AutoReportElement(title='', path=logfname, description="")])
         reports.append(log_section)
