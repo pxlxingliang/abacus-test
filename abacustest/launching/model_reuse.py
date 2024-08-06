@@ -39,20 +39,20 @@ class MyModel(BaseModel):
 '''
 class NewSetting(BaseModel):
     predft_command: String = Field(default="",
-                            title="Predft Command",
-                            description="If you do not want to use the default command, please enter the new command here.",)
+                            title="New Predft Command",
+                            description="If you don't want to use the command from the previously uploaded setting file, you can fill in the new command here",)
     rundft_image: String = Field(default="",
-                          title="Rundft Image",
-                          description="If you do not want to use the default image, please enter the new image here.",)
+                          title="New Rundft Image",
+                          description="If you don't want to use the image from the previously uploaded setting file, you can fill in the new command here.",)
     rundft_command: String = Field(default="",
-                            title="Rundft Command",
-                            description="If you do not want to use the default command, please enter the new command here.",)
+                            title="New Rundft Command",
+                            description="If you don't want to use the command from the previously uploaded setting file, you can fill in the new command here",)
     rundft_machine: String = Field(default="",
-                            title="Rundft Machine",
-                            description="If you do not want to use the default rundft machine, please enter the new Bohrium machine here.",)
+                            title="New Rundft Machine",
+                            description="If you don't want to use the machine from the previously uploaded setting file, you can fill in the new command here.",)
     postdft_command: String = Field(default="",
-                            title="Postdft Command",
-                            description="If you do not want to use the default command, please enter the new command here.",)
+                            title="New Postdft Command",
+                            description="If you don't want to use the command from the previously uploaded setting file, you can fill in the new command here.",)
 
 '''
 group1 = ui.Group("if_use_reuse_dataset","test")
