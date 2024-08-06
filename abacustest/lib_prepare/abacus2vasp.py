@@ -123,6 +123,8 @@ def ParamAbacus2Vasp(abacus_input):
     
     if "nspin" in abacus_input:
         vasp_input["ISPIN"] = abacus_input.pop("nspin")
+        if vasp_input["ISPIN"] in [2,4]:
+            vasp_input["LORBIT"] = 11 # OUTPUT THE MAGNETIC MOMENT of each atom
     
     if "dft_plus_u" in abacus_input:
         if comm.IsTrue(abacus_input.pop("dft_plus_u")):
@@ -130,6 +132,10 @@ def ParamAbacus2Vasp(abacus_input):
             vasp_input["LDAUTYPE"] = 2
             if "orbital_corr" in abacus_input:
                 vasp_input["LDAUL"] = abacus_input.pop("orbital_corr")
+                if "2" in vasp_input["LDAUL"]:
+                    vasp_input["LMAXMIX"] = 4
+                if "3" in vasp_input["LDAUL"]:
+                    vasp_input["LMAXMIX"] = 6
             if "hubbard_u" in abacus_input:
                 vasp_input["LDAUU"] = abacus_input.pop("hubbard_u")
                 vasp_input["LDAUJ"] = " ".join(["0" for i in vasp_input["LDAUU"].split()])
@@ -254,10 +260,13 @@ def GenIncarFromStru(stru,vasp_setting):
                     else:
                         c += [1 if i else 0 for i in ic]
                 for il in lambda_:
-                    if isinstance(il,float):
+                    if isinstance(il,(float,int)):
                         l += [il]*3
-                    else:
+                    elif isinstance(il,list):
                         l += il
+                    else:
+                        print("ERROR: The lambda should be a list of float or list!!!")
+                        sys.exit(1)
 
             vasp_setting["CONSTRL"] = VaspList2String(c)
             vasp_setting["LAMBDA"] = VaspList2String(l)
@@ -265,7 +274,7 @@ def GenIncarFromStru(stru,vasp_setting):
 def VaspList2String(list1):
     # convert the list1 to string
     # need to merge the same value like: [1, 1, 1, 0, 0, 0, 0] to "3*1 4*0"
-    list1 = [str(i) for i in list1]
+    #list1 = [str(i) for i in list1]
     if len(list1) == 0:
         return ""
     
@@ -273,7 +282,7 @@ def VaspList2String(list1):
     v = list1[0]
     n = 1
     for i in list1[1:]:
-        if i == v:
+        if i == v or (isinstance(i,(float,int)) and isinstance(v,(float,int)) and abs(i-v) < 1E-6):
             n += 1
         else:
             if n == 1:

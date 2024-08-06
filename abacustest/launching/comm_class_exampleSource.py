@@ -60,11 +60,12 @@ class DatasetSet(BaseModel):
                             description="Please enter your dataset in launching.")
 
 class ExampleSourceSet(BaseModel):
-    ExampleSource_local: InputFilePath = Field(default=None,
-                                         title="Upload files locally",
+    ExampleSource_local: List[InputFilePath] = Field(
+                                        #default=None,
+                                         title="Examples and settings",
                                          st_kwargs_type=comm_func.unpack(
                                              None, None, get_support_filetype=True),
-                                         description="""A compressed file contains all required files.""",
+                                         description="""Upload one or some compressed files contianing all examples and the setting file.""",
                                          description_type="markdown")
     
 class ExampleSet(BaseModel):
@@ -361,10 +362,16 @@ def download_source(opts,
     if example_source_local_name and hasattr(opts,example_source_local_name) and getattr(opts,example_source_local_name) != None:
         if need_files == None: need_files = "*" 
         local_file_path = getattr(opts,example_source_local_name).get_path()
-        logs(f"\t{example_source_local_name}:",local_file_path)
-        comm_func.unpack(local_file_path, download_path)
+        logs(f"\t{example_source_local_name}:",local_file_path) 
+        if isinstance(local_file_path,list):
+            for i_local_file_path in need_files:
+                comm_func.unpack(i_local_file_path, download_path)
+        else:
+            comm_func.unpack(local_file_path, download_path)
+        
         all_directories_tmp, all_files_tmp = copy_download_to_work(
-            download_path, work_path,need_files,reverse=example_name_is_unneeded)
+                download_path, work_path,need_files,reverse=example_name_is_unneeded)
+            
         comm_func.clean_dictorys(download_path)
         if all_directories_tmp:
             if all_directories == None:

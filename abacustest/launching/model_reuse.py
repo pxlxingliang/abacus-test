@@ -14,6 +14,7 @@ from . import (comm_class,
                comm_class_exampleSource,
                readsetting) 
 
+'''
 class Models(String, Enum):
     model00 = " "
     model0 = "000-abacus-branch"
@@ -35,8 +36,8 @@ class MyModel(BaseModel):
     my_model: Models = Field(
         title="Model",
         default="",description="The model you want to use. If you have entered the dataset information in the previous step, here will be ignored. DOCs: https://dptechnology.feishu.cn/docx/I7NKdmURHosJSMxn7NCc5RsEnxb")
-
-class RundftImage(BaseModel):
+'''
+class NewSetting(BaseModel):
     predft_command: String = Field(default="",
                             title="Predft Command",
                             description="If you do not want to use the default command, please enter the new command here.",)
@@ -46,10 +47,14 @@ class RundftImage(BaseModel):
     rundft_command: String = Field(default="",
                             title="Rundft Command",
                             description="If you do not want to use the default command, please enter the new command here.",)
+    rundft_machine: String = Field(default="",
+                            title="Rundft Machine",
+                            description="If you do not want to use the default rundft machine, please enter the new Bohrium machine here.",)
     postdft_command: String = Field(default="",
                             title="Postdft Command",
                             description="If you do not want to use the default command, please enter the new command here.",)
 
+'''
 group1 = ui.Group("if_use_reuse_dataset","test")
 
 @group1
@@ -58,11 +63,12 @@ class ReuseDataset(BaseModel):
     reuse_dataset: DataSet = Field(title=None,
                              default="launching+datasets://reuse.abacustest@latest",
                             description="the reuse dataset")
+'''                            
         
 class ReuseModel(
     #comm_class.ConfigSetGithub,
     #comm_class.TrackingSet,
-    #RundftImage,
+    NewSetting,
     #comm_class_exampleSource.ScriptExampleSet,
     #comm_class_exampleSource.ScriptSourceSet,
     #comm_class_exampleSource.ScriptDatasetSet,
@@ -219,6 +225,53 @@ def ReuseModelRunner(opts:ReuseModel) -> int:
             #elif k in ["ABBREVIATION","save_path","run_dft","post_dft","report","dataset_info","upload_datahub","upload_tracking"]:
             else:
                 allparams[k] = v
+                
+        # modify the command and image
+        if opts.predft_command != None and opts.predft_command.strip() != "":
+            new_predft_command = opts.predft_command.strip()
+        else:
+            new_predft_command = None
+        if opts.rundft_image != None and opts.rundft_image.strip() != "":
+            new_rundft_image = opts.rundft_image.strip()
+        else:
+            new_rundft_image = None
+        if opts.rundft_command != None and opts.rundft_command.strip() != "":
+            new_rundft_command = opts.rundft_command.strip()
+        else:
+            new_rundft_command = None
+        if opts.rundft_machine != None and opts.rundft_machine.strip() != "":
+            new_rundft_machine = opts.rundft_machine.strip()
+        else:
+            new_rundft_machine = None
+        if opts.postdft_command != None and opts.postdft_command.strip() != "":
+            new_postdft_command = opts.postdft_command.strip()
+        else:
+            new_postdft_command = None
+        
+        if "pre_dft" in allparams:
+            if new_predft_command:
+                allparams["pre_dft"]["command"] = new_predft_command
+        
+        if "run_dft" in allparams:
+            if isinstance(allparams["run_dft"],list):
+                for idx in range(len(allparams["run_dft"])):
+                    if new_rundft_image:
+                        allparams["run_dft"][idx]["image"] = new_rundft_image
+                    if new_rundft_command:
+                        allparams["run_dft"][idx]["command"] = new_rundft_command
+                    if new_rundft_machine and "bohrium" in allparams["run_dft"][idx] and isinstance(allparams["run_dft"][idx]["bohrium"],dict):
+                        allparams["run_dft"][idx]["bohrium"]["scass_type"] = new_rundft_machine
+            elif isinstance(allparams["run_dft"],dict):
+                if new_rundft_image:
+                    allparams["run_dft"]["image"] = new_rundft_image
+                if new_rundft_command:
+                    allparams["run_dft"]["command"] = new_rundft_command
+                if new_rundft_machine and "bohrium" in allparams["run_dft"] and isinstance(allparams["run_dft"]["bohrium"],dict):
+                    allparams["run_dft"]["bohrium"]["scass_type"] = new_rundft_machine
+        
+        if "post_dft" in allparams:
+            if new_postdft_command:
+                allparams["post_dft"]["command"] = new_postdft_command
      
         #execut
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)

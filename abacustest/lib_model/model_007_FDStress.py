@@ -53,8 +53,8 @@ class fdstress(Model):
         The arguments can not be command, model, modelcommand '''
         
         parser.description = "Do the finite difference of stress test."
-        parser.add_argument('-d', '--diff', type=float, default=0.0001,help="the diff coef to change the cell, default 0.0001")
-        parser.add_argument('-n', '--number', type=int,  default=6,help='the number of points to calculate the stress tensor, default 6')
+        parser.add_argument('-d', '--step', type=float, default=0.0001,help="the step to change the cell, default 0.0001. This is a coefficient, the real step is step*cell_vector")
+        parser.add_argument('-n', '--number', type=int,  default=5,help='the number of points to calculate the stress tensor, default 5')
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder.')
         
         return parser
@@ -93,13 +93,14 @@ class fdstress(Model):
         The arguments can not be command, model, modelcommand'''
         parser.description = "Postprocess the finite difference of stress test. There should have several cell_* folders in the job folder."
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus results, default is current folder.')
+        parser.add_argument('--read',type=int, const=1, default=0,nargs="?",help='if read the results.json in each job folder, default is 0, no read.')
         return parser
 
     def run_postprocess(self,params):
         '''
         Parse the parameters and run the postprocess process'''
         jobs = ["."] if len(params.job) == 1 else params.job[1:]
-        PostProcessFDStress(jobs).run()
+        PostProcessFDStress(jobs,params.read).run()
     
 class PrepareFDStress:
     def __init__(self,jobs,step,number):
@@ -134,7 +135,7 @@ class PrepareFDStress:
                 input_param["cal_stress"] = 1
                 continue
             elif ifile != "STRU" and not ifile.startswith(".") and os.path.isfile(os.path.join(init_path,ifile)):
-                otherfiles.append(os.path.join(init_path,ifile))
+                otherfiles.append(os.path.abspath(os.path.join(init_path,ifile)))
                 
         stru = AbacusStru.ReadStru(os.path.join(init_path,"STRU"))
         if not stru:
@@ -156,10 +157,12 @@ class PrepareFDStress:
                     sub_folder = os.path.join(init_path,f"cell_{i+1}_{j+1}_{k}")
                     if k == 0:
                         sub_folder = os.path.join(init_path,f"cell_0")
+                    os.makedirs(sub_folder,exist_ok=True)
+                    
+                    if k == 0:
                         json.dump({"step":self.step,"number":self.number},open(os.path.join(sub_folder,"param.json"),"w"))
                         write_0 = True
-                        
-                    os.makedirs(sub_folder,exist_ok=True)
+
                     new_cell = copy.deepcopy(cell)
                     for m in range(3):
                         new_cell[m][i] += k * self.step * cell[m][j]
@@ -176,8 +179,9 @@ class PrepareFDStress:
         return subfolders
     
 class PostProcessFDStress:
-    def __init__(self,jobs):
+    def __init__(self,jobs,readr):
         self.jobs = jobs
+        self.readr = readr
         
     def run(self):
         alljobs = []
@@ -189,11 +193,11 @@ class PostProcessFDStress:
         metrics = {}       
         for ijob in alljobs:
             if os.path.isdir(ijob):
+                print("postprocess in ",ijob)
                 jsonf = os.path.join(ijob,"results.json")
-                if os.path.isfile(jsonf):
+                if self.readr and os.path.isfile(jsonf):
                     values = json.load(open(jsonf,"r"))
                 else:
-                    
                     if not os.path.isfile(os.path.join(ijob,"cell_0","param.json")):
                         print(f"param.json is not exist in {ijob}/cell_0")
                         continue
@@ -235,7 +239,7 @@ class PostProcessFDStress:
         
     def get_value(self,ipath):
         if not os.path.isdir(ipath):
-            return None
+            return {}
 
         iresult = RESULT(fmt="abacus",path=ipath)
         if iresult["stress"] != None:
@@ -248,7 +252,9 @@ class PostProcessFDStress:
                 "energy": iresult["energy"],
                 "version": iresult["version"],
                 "volume": iresult["volume"],
-                "converge": iresult["converge"]}
+                "converge": iresult["converge"],
+                "drho_last": iresult["drho_last"],
+                "denergy_last": iresult["denergy_last"],}
 
     def gen_result1(self,value_dict,diff,number):
         # calculate the stress tensor of -number+1, ..., number-1,
@@ -289,7 +295,7 @@ class PostProcessFDStress:
                         cell2 = "cell_0"
                     v1 = value_dict.get(cell1,{}).get("volume",None)
                     v2 = value_dict.get(cell2,{}).get("volume",None)
-                    print(i,j,v1,v2)
+                    #print(i,j,v1,v2)
                     energy_k1 = value_dict.get(cell1,{}).get("energy",None)
                     energy_k2 = value_dict.get(cell2,{}).get("energy",None)
                     

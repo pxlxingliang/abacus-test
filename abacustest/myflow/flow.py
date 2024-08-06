@@ -438,13 +438,12 @@ def DownloadFlow(param):
         
         for group_name,group_steps in download_groups.items():
             phases = [i.phase for i in group_steps]
-            if all([i == "Succeeded" for i in phases]):
-                comm.printinfo(f"Group {group_name} Succeeded, downloading ...")
-                download_artifact(group_steps[0].outputs.artifacts["outputs"],path=save_path)
-            else:
-                comm.printinfo(f"Group {group_name} is not all Succeeded")
+            if not all([bool(i in ["Succeeded"]) for i in phases]):
+                comm.printinfo(f"Below steps are not Succeeded:")
                 for step in group_steps:
-                    comm.printinfo(f"    phase of \"{step.name}\" (key: \"{step.key}\") is {step.phase}")
+                    if step.phase not in ["Succeeded"]:
+                        comm.printinfo(f"    phase of \"{step.name}\" (key: \"{step.key}\") is {step.phase}")
+            download_artifact(group_steps[0].outputs.artifacts["outputs"],path=save_path)
     else:
         comm.printinfo("The final step is not predft, rundft or postdft, can not download the results!")
         

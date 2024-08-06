@@ -665,7 +665,7 @@ class AbacusStru:
                 if self._constrain and self._constrain[icoord + j]:
                         cc += "sc " + " ".join(["1" if ic else "0" for ic in self._constrain[icoord + j]]) + " " 
                 if self._lambda and self._lambda[icoord + j]:
-                        cc += "lambda " + " ".join(["1" if ic else "0" for ic in self._lambda[icoord + j]]) + " "
+                        cc += "lambda " + " ".join([str(ic) for ic in self._lambda[icoord + j]]) + " "
                 cc += "\n"
             icoord += self._atom_number[i]
         

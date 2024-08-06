@@ -68,7 +68,7 @@ class fdforce(Model):
         
         parser.description = PREPARE_DOC
         parser.add_argument('-d', '--step', type=float, default=0.01,help="the step of finite difference (unit: bohr), default 0.01")
-        parser.add_argument('-n', '--number', type=int, default=2,help="the number of finite difference of one direction, default 2")
+        parser.add_argument('-n', '--number', type=int, default=5,help="the number of finite difference of one direction, default 5")
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder')
         
         return parser
@@ -392,11 +392,11 @@ class PostProcessFDForce:
             
             # plot_results2
             for i in range(1,maxnumber+1):
-                fdf_name_p = self.gen_fdf_name(example_name,case_name,i+1)
-                fdf_name_m = self.gen_fdf_name(example_name,case_name,-i-1)
+                fdf_name_p = self.gen_fdf_name(example_name,case_name,i)
+                fdf_name_m = self.gen_fdf_name(example_name,case_name,-i)
                 energy_p = allresults.get(fdf_name_p,{}).get("energy")
                 energy_m = allresults.get(fdf_name_m,{}).get("energy")
-                plot_results[case]["r2"]["step"].append(i)
+                plot_results[case]["r2"]["step"].append(i*step*2)
                 if energy_p != None and energy_m != None:
                     plot_results[case]["r2"]["fd_force"].append((energy_m - energy_p) / (2 * step * i))
                 else:
