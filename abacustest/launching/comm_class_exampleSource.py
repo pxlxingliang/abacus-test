@@ -369,7 +369,7 @@ def download_source(opts,
             local_file_path = [local_files.get_path()]
             
         logs(f"\t{example_source_local_name}:",local_file_path) 
-        for i_local_file_path in need_files:
+        for i_local_file_path in local_file_path:
             comm_func.unpack(i_local_file_path, download_path)
         
         all_directories_tmp, all_files_tmp = copy_download_to_work(
