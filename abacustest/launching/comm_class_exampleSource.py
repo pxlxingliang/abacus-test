@@ -361,7 +361,7 @@ def download_source(opts,
     
     if example_source_local_name and hasattr(opts,example_source_local_name) and getattr(opts,example_source_local_name) != None:
         if need_files == None: need_files = "*" 
-        local_files = getattr(opts,example_source_local_name).get_path()
+        local_files = getattr(opts,example_source_local_name)
         
         if isinstance(local_files,list):
             local_file_path = [i.get_path() for i in local_files]

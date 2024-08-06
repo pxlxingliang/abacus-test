@@ -157,7 +157,22 @@ class Vasp(ResultVasp):
                 self['ldauj'] = [float(j) for j in self.OUTCAR[i+3].split("=")[-1].split()]
                 break
 
-
+    @ResultVasp.register(denergy_last = 'The energy difference in SCF, eV',
+                         denergy = "The last energy difference in SCF, eV")
+    def GetDE(self):
+        des = []
+        for i in range(len(self.OSZICAR)):
+            line = self.OSZICAR[i]
+            if line[3] == ":" and len(line.split()) > 7:
+                de = float(line.split()[3])
+                des.append(de)
+        if len(des) > 0:
+            self['denergy_last'] = des[-1]
+            self['denergy'] = des
+        else:
+            self['denergy_last'] = None
+            self['denergy'] = None
+   
     @ResultVasp.register(scf_steps = 'the steps of SCF, if is relax or md job, only last ION step is read',
                          converge = "if the SCF is converged. If scf_steps is smaller than NELM, will be converged, else is not converged")
     def GetSCFInfo(self):
