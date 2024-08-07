@@ -116,6 +116,15 @@ class Abacus(ResultAbacus):
                 break     
         self["fft_grid"] = fft_grid
     
+    @ResultAbacus.register(nbase = "number of basis in LCAO")
+    def GetLogParamNBase(self): 
+        nbase = None
+        for i,line in enumerate(self.LOG):
+            if "NLOCAL =" in line:
+                nbase = int(line.split()[2])
+                break
+        self['nbase'] = nbase
+    
     @ResultAbacus.register(nbands="number of bands",
                            nkstot = "total K point number",
                            ibzk = "irreducible K point number",
