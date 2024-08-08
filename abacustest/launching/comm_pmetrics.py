@@ -20,6 +20,7 @@ METRICS_UNIT = {
     "scf_time": "s",
     "step1_time": "s",
     "lattice_constant": "A",
+    "denergy_last": "eV",
 }
 
 def add_unit_metrics(metrics):
@@ -554,6 +555,9 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
         if imetric in ref_metric_name:
             continue
         ivalue = pddata.loc[imetric, :].to_list()
+        y_type = "value"
+        if imetric in ["drho_last", "denergy_last"]:
+            y_type = "log"
         if False not in [isinstance(i, type_set) for i in ivalue]:
             #check if imetric has refence
             ref_type = []
@@ -589,7 +593,7 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
                     y_tmps.append(y_tmp)
                 for legend_tmp, x_tmp, y_tmp in zip(legend_tmps, x_tmps, y_tmps):
                     try:    
-                        options = comm_echarts.produce_multiple_y(add_unit(imetric), x_tmp, y_tmp, legend_tmp, x_type="category", y_type="value")
+                        options = comm_echarts.produce_multiple_y(add_unit(imetric), x_tmp, y_tmp, legend_tmp, x_type="category", y_type=y_type)
                         options["xAxis"][0]["axisLabel"] = {
                                 "rotate": 15,
                                 "interval": int(len(x_tmp)/15)

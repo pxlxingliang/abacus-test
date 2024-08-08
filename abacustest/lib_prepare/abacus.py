@@ -713,7 +713,7 @@ class AbacusStru:
       Fe
       1.0
       2
-      0.0 0.0 0.0 m 0 0 0 mag 1.0 angle1 90 angle2 0 constrain 0 0 0
+      0.0 0.0 0.0 m 0 0 0 mag 1.0 angle1 90 angle2 0 cs 0 0 0
       0.5 0.5 0.5 m 1 1 1 mag 1.0 angle1 90 angle2 180
       ```
         '''
