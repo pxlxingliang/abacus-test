@@ -233,6 +233,27 @@ class AbacusStru:
                         magmom[ii] = imag
         return magmom
     
+    def set_atommag(self,new_maglist):
+        '''set the magmom of each atom
+        The new_maglist should be a list of float or list of three float for each atom, or None
+        Will set angle1 and angle2 to None
+        '''
+        if len(new_maglist) != len(self._coord):
+            print("ERROR: the length of new_maglist is not equal to coord number")
+            sys.exit(1)
+        self._magmom_atom = new_maglist
+        self.angle1 = None
+        self.angle2 = None
+    
+    def set_constrain(self,new_constrain):
+        '''set the constrain of each atom
+        The new_constrain should be a list of bool or list of three bool for each atom, or None
+        '''
+        if len(new_constrain) != len(self._coord):
+            print("ERROR: the length of new_constrain is not equal to coord number")
+            sys.exit(1)
+        self._constrain = new_constrain
+    
     def get_constrain(self):
         # return a list of N bool values, each value is True or False or a list of three True or False
         if self._constrain:
@@ -650,11 +671,11 @@ class AbacusStru:
                 if self._magmom_atom:
                     if isinstance(self._magmom_atom[icoord + j],list):
                         if len(self._magmom_atom[icoord + j]) == 3:
-                            cc += "mag %f %f %f " % tuple(self._magmom_atom[icoord + j])
+                            cc += "mag %12.8f %12.8f %12.8f " % tuple(self._magmom_atom[icoord + j])
                         elif len(self._magmom_atom[icoord + j]) == 1:
-                            cc += "mag %f " % self._magmom_atom[icoord + j][0]
+                            cc += "mag %12.8f " % self._magmom_atom[icoord + j][0]
                     elif self._magmom_atom[icoord + j] != None:
-                        cc += "mag %f " % self._magmom_atom[icoord + j]
+                        cc += "mag %12.8f " % self._magmom_atom[icoord + j]
                 if self._velocity:
                     if self._velocity[icoord + j]:
                         cc += "v %f %f %f " % tuple(self._velocity[icoord + j])
