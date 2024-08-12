@@ -141,6 +141,7 @@ class Qe(ResultQe):
                        volume = "the volume of cell, unit in Angstrom^3",
                        coord = "list, the coordinate of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]. Unit in Angstrom",
                        label = "the label of each atom",
+                       atomlabel_list = "same as label",
                        element = "the element of each atom. Because QE do not output the element, we actually output the label.",
                        element_list = "same as element.",
                        total_mag="total magnization",
@@ -207,6 +208,7 @@ class Qe(ResultQe):
                     self["label"] = None
                     element = None
                     print("ERROR: the length of coord is not equal to natom")
+                self["atomlabel_list"] = self["label"]
             else:
                 self['cell'] = None
                 self['coord'] = None
@@ -245,7 +247,6 @@ class Qe(ResultQe):
             self["element"] = element
             self["element_list"] = element
             
-            print("find step")
             allsteps = self.XMLROOT.findall('step')
             energies = []
             forces = []
@@ -355,6 +356,13 @@ class Qe(ResultQe):
                         icoord = self.OUTPUT[self.OUTPUT.index(iline)+i+1].split()
                         label.append(icoord[0])
                         coord.append([float(j) for j in icoord[1:]])
+                elif "site n.     atom                  positions (alat units)" in iline:
+                    label = []
+                    j = idx + 1
+                    while self.OUTPUT[j].strip() != "":
+                        label.append(self.OUTPUT[j].split()[1])
+                        j += 1
+                        
             self["converge"] = converge
             self["energy"] = None if len(energies) == 0 else energies[-1]
             self["energies"] = None if len(energies) == 0 else energies
@@ -371,6 +379,7 @@ class Qe(ResultQe):
             self["cell"] = cell
             self["coord"] = coord
             self["label"] = label
+            self["atomlabel_list"] = label
             self["element"] = None if label ==None or element == None else [element[i] for i in label]
             self["element_list"] = label
             self["total_mag"] = tot_mag
@@ -420,6 +429,7 @@ class Qe(ResultQe):
             self["volume"] = None
             self["coord"] = None
             self["label"] = None
+            self["atomlabel_list"] = None
             self["element"] = None
             self["element_list"] = None
             self["total_mag"] = None

@@ -1,9 +1,10 @@
 from typing import List, Dict, Union
-import os,sys,traceback, re
+import os,sys,traceback, re,copy
 import numpy as np
 from pathlib import Path
 from .. import constant
 from . import comm
+
 
 class AbacusStru:
     def __init__(self,
@@ -207,30 +208,42 @@ class AbacusStru:
     def get_mass(self):
         return self._mass
 
-    def get_atommag(self):
+    def get_atommag(self,norm = False):
         # return the magmom of each atom
         # if non-colinear, then return a list of three float for that atom.
         # like: [0,0,0,[1,1,1],[1,1,1],0,0,0], which means the atom 1-3,6-8 has mag 0, and atom 4-5 has mag [1,1,1] 
+        # norm: if return the norm of the magmom of each atom
+        # for non-collinear case, if set the mag and angle1/angle2 at the same time, then firstly calculate the norm of magmom, then trasfer to magx, magy, magz based on angle1 and angle2
         magmom = []
         for i,ilabel in enumerate(self._label):
             magmom += [self._magmom[i]] * self._atom_number[i]
+        noncollinear = False
         if self._magmom_atom:
             for ii,i in enumerate(self._magmom_atom):
                 if i != None:
                     imag = None
                     if isinstance(i,(list,tuple)) and len(i) == 3: # for non-colinear case
-                        imag = i
+                        imag = list(i)
+                        noncollinear = True
                     elif isinstance(i,(list,tuple)) and len(i) == 1 and isinstance(i[0],(int,float)):
                         imag = float(i[0])
                     elif isinstance(i,(int,float)):
                         imag = float(i)
                     
-                    # if has set the total mag and angle1 and angle2, then transfer to magx,magy,magz    
-                    if imag != None and isinstance(imag,float) and self._angle1 and self._angle2 and self._angle1[ii] != None and self._angle2[ii] != None:
-                        imag = self.angle_to_mag(imag,self._angle1[ii],self._angle2[ii])
-                    
-                    if imag != None:    
+                    # if has set the total mag and angle1 and angle2, then transfer to magx,magy,magz 
+                    if imag is not None:
+                        angle1 = None if self._angle1 is None else self._angle1[ii]
+                        angle2 = None if self._angle2 is None else self._angle2[ii]
+                        if angle1 is not None or angle2 is not None:
+                            imag = self.angle_to_mag(np.linalg.norm(imag),angle1,angle2)   
                         magmom[ii] = imag
+                        
+        if noncollinear:
+            magmom = [[0,0,i] if not isinstance(i,list) else i for i in magmom]
+            
+        if norm:
+            magmom = [np.linalg.norm(i) for i in magmom]
+
         return magmom
     
     def set_atommag(self,new_maglist):
@@ -238,12 +251,36 @@ class AbacusStru:
         The new_maglist should be a list of float or list of three float for each atom, or None
         Will set angle1 and angle2 to None
         '''
+        if new_maglist is None:
+            self._magmom_atom = None
+            self.angle1 = None
+            self.angle2 = None
+            return
+        
         if len(new_maglist) != len(self._coord):
             print("ERROR: the length of new_maglist is not equal to coord number")
             sys.exit(1)
         self._magmom_atom = new_maglist
         self.angle1 = None
         self.angle2 = None
+    
+    def set_angle1(self,new_angle1):
+        if new_angle1 is None:
+            self._angle1 = None
+            return
+        if len(new_angle1) != len(self._coord):
+            print("ERROR: the length of new_angle1 is not equal to coord number")
+            sys.exit(1)
+        self._angle1 = new_angle1
+        
+    def set_angle2(self,new_angle2):
+        if new_angle2 is None:
+            self._angle2 = None
+            return
+        if len(new_angle2) != len(self._coord):
+            print("ERROR: the length of new_angle2 is not equal to coord number")
+            sys.exit(1)
+        self._angle2 = new_angle2
     
     def set_constrain(self,new_constrain):
         '''set the constrain of each atom
@@ -266,6 +303,27 @@ class AbacusStru:
                         c.append([bool(j) for j in i])
                     else:
                         c.append(bool(i))
+            return c
+        else:
+            return [False] * len(self._coord)
+    
+    def get_isconstrain (self):
+        # return a list of N bool values, each value is True or False
+        # for noncollinear case, if one component is constrained, then return True
+        if self._constrain:
+            c = []
+            for i in self._constrain:
+                if i == None:
+                    c.append(False)
+                elif isinstance(i,list):
+                    if True in [bool(j) for j in i]:
+                        c.append(True)
+                    else:
+                        c.append(False)
+                elif isinstance(i,(bool,int)):
+                    c.append(bool(i))
+                else:
+                    c.append(False in i)
             return c
         else:
             return [False] * len(self._coord)
@@ -304,6 +362,10 @@ class AbacusStru:
     @staticmethod
     def angle_to_mag(totmag,angle1,angle2):
         '''return the magnetization of the magnetization'''
+        if angle1 is None:
+            angle1 = 0
+        if angle2 is None:
+            angle2 = 0
         angle1 = angle1 * np.pi / 180
         angle2 = angle2 * np.pi / 180
         mag = np.array([np.sin(angle1)*np.cos(angle2),np.sin(angle1)*np.sin(angle2),np.cos(angle1)])
@@ -374,6 +436,86 @@ class AbacusStru:
             "lat": self._lattice_constant,
             "cartesian": self._cartesian,
         }
+    
+    def perturb_stru(self,pert_number,cell_pert_frac=None, atom_pert_dist=None, atom_pert_mode="normal",mag_rotate_angle=None,mag_tilt_angle=None,mag_norm_dist=None):
+        '''
+        perturb the structure
+        cell_pert_frac: the perturb fraction of the cell. Will generate a random perturb matrix.
+                        the diagonal part is between -cell_pert_frac and cell_pert_frac, and off-diagonal part is between -cell_pert_frac/2 and cell_pert_frac/2
+        atom_pert_dis: the perturb distance of each atom. Will generate a random perturb vector for each atom.
+        atom_pert_mode: the mode of the perturb distance. "normal", "uniform" or "const"
+        mag_rotat_angle: the rotation angle of the magnetization of all atom. 
+        
+        '''
+        if pert_number <= 0:
+            return [self]
+        new_stru = [copy.deepcopy(self) for i in range(pert_number)]
+        
+        if cell_pert_frac is not None:
+            for i in range(pert_number):
+                icell = new_stru[i].get_cell(bohr=False)
+                new_cell,_ = comm.perturb_cell(icell,cell_pert_frac)
+                new_stru[i].set_cell(new_cell,bohr=False,change_coord=True)
+        
+        if atom_pert_dist is not None:
+            for i in range(pert_number):
+                new_coord = comm.perturb_coord(new_stru[i].get_coord(bohr=False,direct=False),atom_pert_dist,atom_pert_mode)
+                new_stru[i].set_coord(new_coord,direct=False,bohr=False)
+        
+        # for perturbation of magnetization, only performed on the atom who's magmom is constrained
+        atom_mag = self.get_atommag()
+        is_sc = self.get_isconstrain()
+        if True not in is_sc:
+            return new_stru
+        
+        noncollinear = False
+        for i in atom_mag:
+            if isinstance(i,list) and len(i) == 3:
+                noncollinear = True
+                break
+    
+        if noncollinear and mag_rotate_angle is not None:
+            for i in range(pert_number):
+                # perturb all magmom with a same random angle
+                atom_mag = new_stru[i].get_atommag()
+                new_mag = comm.pert_vector(atom_mag,mag_rotate_angle)
+                new_mag = [new_mag[j] if is_sc[j] else atom_mag[j] for j in range(len(new_mag))]
+                new_stru[i].set_atommag(new_mag)
+                new_stru[i].set_angle1(None)
+                new_stru[i].set_angle2(None)
+
+        if noncollinear and mag_tilt_angle is not None:
+            for i in range(pert_number):
+                atom_mag = new_stru[i].get_atommag()
+                new_mag = []
+                for j in range(len(atom_mag)):
+                    if is_sc[j]:
+                        new_mag.append(comm.pert_vector([atom_mag[j]],mag_tilt_angle)[0])
+                    else:
+                        new_mag.append(atom_mag[j])
+                new_stru[i].set_atommag(new_mag)
+                new_stru[i].set_angle1(None)
+                new_stru[i].set_angle2(None)
+        
+        if mag_norm_dist is not None:
+            for i in range(pert_number):
+                atom_mag = new_stru[i].get_atommag() 
+                new_mag = []
+                for j in range(len(atom_mag)):
+                    if is_sc[j]:
+                        mag_norm_random = (np.random.rand() - 0.5) * mag_norm_dist * 2
+                        mag_norm = np.linalg.norm(atom_mag[j]) + mag_norm_random
+                        new_magj = np.array(atom_mag[j]) / np.linalg.norm(atom_mag[j]) * mag_norm
+                        new_mag.append(new_magj.tolist())
+                    else:
+                        new_mag.append(atom_mag[j])
+                        
+                new_stru[i].set_atommag(new_mag)
+                new_stru[i].set_angle1(None)
+                new_stru[i].set_angle2(None)
+        return new_stru
+         
+        
     
     def get_kline(self,orig_cell=False,
                   new_stru_file=None,
@@ -947,7 +1089,7 @@ class AbacusStru:
                 lambda1.append(ilambda1)
                 
             i += atom_number[-1]
-        
+            
         return AbacusStru(label=real_label,
                           atom_number=atom_number,
                           cell=cell,

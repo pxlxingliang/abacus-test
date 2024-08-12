@@ -108,13 +108,14 @@ class fdforce(Model):
         
         parser.description = POST_DOC
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder.')
+        parser.add_argument('-t', '--type',default=0,type=int ,help='the job type. 0:abaus, 1:qe. Default 0')
         return parser
 
     def run_postprocess(self,params):
         '''
         Parse the parameters and run the postprocess process'''
         jobs = ["."] if len(params.job) == 1 else params.job[1:]
-        PostProcessFDForce(jobs).run()
+        PostProcessFDForce(jobs,params.type).run()
     
 class PrepareFDForce:
     def __init__(self,infof,jobs,step,number):
@@ -273,8 +274,15 @@ class PrepareFDForce:
     
     
 class PostProcessFDForce:
-    def __init__(self,jobs):
+    def __init__(self,jobs,job_type):
         self.jobs = jobs
+        
+        job_type_dict = {0:"abacus",1:"qe"}
+        if job_type not in job_type_dict:
+            print(f"ERROR: job type {job_type} not supported")
+            job_type = 0
+        self.job_type_str = job_type_dict.get(job_type,"abacus")
+        
         pass
     
     def run(self):
@@ -313,7 +321,7 @@ class PostProcessFDForce:
                     job_name_list = job_name.split("_")
                     # job_name should be like fdf or fdf_Fe_x_1_+_1
                     if os.path.isdir(job) and (job_name == "fdf" or len(job_name_list) == 6):
-                        r = RESULT(path=job,fmt="abacus")
+                        r = RESULT(path=job,fmt=self.job_type_str)
                         allresults[job] = {
                             "converge": r["converge"],
                             "energy": r["energy"],

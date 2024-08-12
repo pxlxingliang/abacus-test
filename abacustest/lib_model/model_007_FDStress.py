@@ -94,13 +94,14 @@ class fdstress(Model):
         parser.description = "Postprocess the finite difference of stress test. There should have several cell_* folders in the job folder."
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus results, default is current folder.')
         parser.add_argument('--read',type=int, const=1, default=0,nargs="?",help='if read the results.json in each job folder, default is 0, no read.')
+        parser.add_argument('-t', '--type',default=0,type=int ,help='the job type. 0:abaus, 1:qe. Default 0')
         return parser
 
     def run_postprocess(self,params):
         '''
         Parse the parameters and run the postprocess process'''
         jobs = ["."] if len(params.job) == 1 else params.job[1:]
-        PostProcessFDStress(jobs,params.read).run()
+        PostProcessFDStress(jobs,params.read,params.type).run()
     
 class PrepareFDStress:
     def __init__(self,jobs,step,number):
@@ -179,9 +180,15 @@ class PrepareFDStress:
         return subfolders
     
 class PostProcessFDStress:
-    def __init__(self,jobs,readr):
+    def __init__(self,jobs,readr,jobtype):
         self.jobs = jobs
         self.readr = readr
+        
+        jobtype_dict = {0:"abacus",1:"qe"}
+        if jobtype not in jobtype_dict:
+            print(f"jobtype {jobtype} is not supported.")
+            jobtype = 0
+        self.jobtype = jobtype_dict[jobtype]
         
     def run(self):
         alljobs = []
@@ -241,7 +248,7 @@ class PostProcessFDStress:
         if not os.path.isdir(ipath):
             return {}
 
-        iresult = RESULT(fmt="abacus",path=ipath)
+        iresult = RESULT(fmt=self.jobtype,path=ipath)
         if iresult["stress"] != None:
             stress= [[iresult["stress"][0],iresult["stress"][1],iresult["stress"][2]],
                       [iresult["stress"][3],iresult["stress"][4],iresult["stress"][5]],
