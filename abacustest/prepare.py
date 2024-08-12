@@ -593,84 +593,7 @@ class PrepareAbacus:
                     
                     for stru_datai in stru_data_pert:
                         ipath += 1
-                        self.write_one_example(create_subpath,ipath,cwd,param_setting,istru,ikpt,iinput,linkstru,stru_datai,allfiles)
-
-                    ##create folder
-                    ##if not has_create_savepath:
-                    ##    if os.path.isdir(self.save_path):
-                    ##        bk = comm.GetBakFile(self.save_path)
-                    ##        shutil.move(self.save_path,bk)
-                    ##    has_create_savepath = True
-                    #
-                    ## if only one stru, then do not create subfolder
-                    #if stru_num > 1:
-                    #    save_path = os.path.join(self.save_path,str(ipath).zfill(5))
-                    #else:
-                    #    save_path = self.save_path
-                    #
-                    #if os.path.isdir(save_path) and \
-                    #    (not Path(save_path).samefile(cwd)) and \
-                    #    (self.bak_file) and \
-                    #    (not self.template_is_save_path):
-                    #        bk = comm.GetBakFile(save_path)
-                    #        shutil.move(save_path,bk)
-                    #        
-                    #if not os.path.isdir(save_path):
-                    #    os.makedirs(save_path)   
-#
-                    ##store the param setting and path
-                    #param_setting[save_path] = [os.path.relpath(istru, cwd),ikpt,{}]
-                    #for input_param in self.input_mix_param:
-                    #    param_setting[save_path][-1][input_param] = iinput.get(input_param)
-                    #
-                    ##create INPUT   
-                    #if iinput != None: 
-                    #    # if pseudo_dir and orbital_dir is defined in INPUT, then remove them
-                    #    iinput.pop("pseudo_dir","")
-                    #    iinput.pop("orbital_dir","")  
-                    #    PrepareAbacus.WriteInput(iinput,os.path.join(save_path,"INPUT"))
-                    #
-                    ##create KPT
-                    #if ikpt != None:
-                    #    kptf = os.path.join(save_path,"KPT")
-                    #    if isinstance(ikpt,str):
-                    #        if os.path.isfile(kptf) and (not Path(ikpt).samefile(Path(kptf))):
-                    #            os.unlink(kptf)
-                    #        
-                    #        if not os.path.isfile(kptf):
-                    #            if self.no_link:
-                    #                shutil.copy(os.path.abspath(ikpt),kptf)
-                    #            else:
-                    #                os.symlink(os.path.abspath(ikpt),kptf)
-                    #    elif isinstance(ikpt,list):
-                    #        PrepareAbacus.WriteKpt(ikpt,kptf)
-                    #
-                    ##create STRU
-                    #struf = os.path.join(os.path.join(save_path,"STRU"))
-                    #if linkstru:
-                    #    if os.path.isfile(struf) and (not Path(istru).samefile(Path(struf))):
-                    #        os.unlink(struf)
-                    #            
-                    #    if not os.path.isfile(struf):
-                    #        if self.no_link:
-                    #            shutil.copy(os.path.abspath(istru),struf)
-                    #        else:
-                    #            os.symlink(os.path.abspath(istru),struf)
-                    #else:
-                    #    stru_data.write(struf)
-                    #
-                    ##link other files
-                    #for ifile in allfiles:
-                    #    ifile = os.path.abspath(ifile)
-                    #    filename = os.path.basename(ifile)
-                    #    target_file = os.path.join(save_path,filename)
-                    #    if os.path.isfile(target_file) and not Path(ifile).samefile(Path(target_file)):
-                    #        os.unlink(target_file)
-                    #    if not os.path.isfile(target_file):
-                    #        if self.no_link:
-                    #            shutil.copy(ifile,target_file)
-                    #        else:
-                    #            os.symlink(ifile,target_file)         
+                        self.write_one_example(create_subpath,ipath,cwd,param_setting,istru,ikpt,iinput,linkstru,stru_datai,allfiles)        
         
         return param_setting
 
@@ -957,14 +880,15 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
         if not os.path.isdir(iexample):
             print("Can not find folder %s" % iexample)
             continue
-        if len(example_template) > 1:
-            save_path = os.path.join(save_folder,example_template_nocomm[idx])
-            print("\n%s" % iexample)
-        else:
-            if Path(save_folder) == Path("."):
-                save_path = commpath
-            else:
-                save_path = save_folder
+        #if len(example_template) > 1:
+        #    save_path = os.path.join(save_folder,example_template_nocomm[idx])
+        #    print("\n%s" % iexample)
+        #else:
+        #    if Path(save_folder) == Path("."):
+        #        save_path = commpath
+        #    else:
+        #        save_path = save_folder
+        save_path = os.path.join(save_folder,iexample)
         prepareabacus = PrepareAbacus(save_path=save_path,
                                   example_template=iexample,
                                   input_template=param_setting.get("input_template",None),
