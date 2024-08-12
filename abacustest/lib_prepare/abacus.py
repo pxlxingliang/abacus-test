@@ -451,13 +451,13 @@ class AbacusStru:
             return [self]
         new_stru = [copy.deepcopy(self) for i in range(pert_number)]
         
-        if cell_pert_frac is not None:
+        if cell_pert_frac is not None and cell_pert_frac > 0:
             for i in range(pert_number):
                 icell = new_stru[i].get_cell(bohr=False)
                 new_cell,_ = comm.perturb_cell(icell,cell_pert_frac)
                 new_stru[i].set_cell(new_cell,bohr=False,change_coord=True)
         
-        if atom_pert_dist is not None:
+        if atom_pert_dist is not None and atom_pert_dist > 0:
             for i in range(pert_number):
                 new_coord = comm.perturb_coord(new_stru[i].get_coord(bohr=False,direct=False),atom_pert_dist,atom_pert_mode)
                 new_stru[i].set_coord(new_coord,direct=False,bohr=False)
@@ -474,7 +474,7 @@ class AbacusStru:
                 noncollinear = True
                 break
     
-        if noncollinear and mag_rotate_angle is not None:
+        if noncollinear and mag_rotate_angle is not None and mag_rotate_angle > 0:
             for i in range(pert_number):
                 # perturb all magmom with a same random angle
                 atom_mag = new_stru[i].get_atommag()
@@ -484,7 +484,7 @@ class AbacusStru:
                 new_stru[i].set_angle1(None)
                 new_stru[i].set_angle2(None)
 
-        if noncollinear and mag_tilt_angle is not None:
+        if noncollinear and mag_tilt_angle is not None and mag_tilt_angle > 0:
             for i in range(pert_number):
                 atom_mag = new_stru[i].get_atommag()
                 new_mag = []
@@ -497,7 +497,7 @@ class AbacusStru:
                 new_stru[i].set_angle1(None)
                 new_stru[i].set_angle2(None)
         
-        if mag_norm_dist is not None:
+        if mag_norm_dist is not None and mag_norm_dist > 0:
             for i in range(pert_number):
                 atom_mag = new_stru[i].get_atommag() 
                 new_mag = []
