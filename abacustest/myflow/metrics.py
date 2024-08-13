@@ -17,6 +17,8 @@ class Metrics:
         print("os.listdir:",os.listdir("."))
         for ipath in self.path:
             for iipath in glob.glob(ipath):
+                if not os.path.isdir(iipath):
+                    continue
                 try:
                     print("get metrics from:",iipath)
                     result = RESULT(fmt=self.dft_type,newmethods=self.newmethods,path=iipath,modules=self.modules)
