@@ -274,7 +274,7 @@ class PrepareFDForce:
     
     
 class PostProcessFDForce:
-    def __init__(self,jobs,job_type):
+    def __init__(self,jobs,job_type=0):
         self.jobs = jobs
         
         job_type_dict = {0:"abacus",1:"qe"}

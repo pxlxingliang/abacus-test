@@ -180,7 +180,7 @@ class PrepareFDStress:
         return subfolders
     
 class PostProcessFDStress:
-    def __init__(self,jobs,readr,jobtype):
+    def __init__(self,jobs,readr,jobtype=0):
         self.jobs = jobs
         self.readr = readr
         
