@@ -31,12 +31,13 @@ def to_parser():
        # "SettingFileDatasets":SubParser(model_selfDefine.SelfDefineDatasetsModel,model_selfDefine.SelfDefineModelRunner,"run self-defined model(use launching datasets as input)"),
         #"UploadDatasets":SubParser(model_uploadDataset.UplaodDatasetModel,model_uploadDataset.UplaodDatasetModelRunner,"upload datasets to datahub"),
        # "Report":SubParser(model_report.ReportModel,model_report.ReportModelRunner,"report metrics.json"),
-        "00_Normal":SubParser(model_expert.ExpertModel,model_expert.ExpertModelRunner,"Run batch of abacus jobs"),
-        "01-Reuse":SubParser(model_reuse.ReuseModel,model_reuse.ReuseModelRunner,"reuse model, use model to run other datasets"),
-        "02-Report":SubParser(model_report.ReportModel,model_report.ReportModelRunner,"Show abacustest.html, supermetrics and metrics"),       
-        "03-Phonon": SubParser(model_phonon.PhononModel,model_phonon.PhononModelRunner,"Calculate phonon"),    
+         
+        "05-FDStress":  SubParser(model_fdstress.FDStressModel,model_fdstress.FDStressModelRunner,"Do finite difference stress calculation."), 
         "04-FDForce":  SubParser(model_fdforce.FDForceModel,model_fdforce.FDForceModelRunner,"Do finite difference force calculation. Need info.txt file in each example inputs."), 
-        "05-FDStress":  SubParser(model_fdstress.FDStressModel,model_fdstress.FDStressModelRunner,"Do finite difference stress calculation."),  
+        "03-Phonon": SubParser(model_phonon.PhononModel,model_phonon.PhononModelRunner,"Calculate phonon"),    
+        "02-Report":SubParser(model_report.ReportModel,model_report.ReportModelRunner,"Show abacustest.html, supermetrics and metrics"),
+        "01_Normal":SubParser(model_expert.ExpertModel,model_expert.ExpertModelRunner,"Run batch of abacus jobs"),
+        "00-Reuse":SubParser(model_reuse.ReuseModel,model_reuse.ReuseModelRunner,"reuse model, use model to run other datasets"),
         
         #"Summary":SubParser(model_summary.SummaryModel,model_summary.SummaryModelRunner,"summary abacustest results"),
 
