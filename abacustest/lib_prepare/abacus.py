@@ -450,6 +450,13 @@ class AbacusStru:
         if pert_number <= 0:
             return [self]
         new_stru = [copy.deepcopy(self) for i in range(pert_number)]
+        print(f"perturb {pert_number} new structures")
+        print(f"cell_pert_frac: {cell_pert_frac}")
+        print(f"atom_pert_dist: {atom_pert_dist}")
+        print(f"atom_pert_mode: {atom_pert_mode}")
+        print(f"mag_rotate_angle: {mag_rotate_angle}")
+        print(f"mag_tilt_angle: {mag_tilt_angle}")
+        print(f"mag_norm_dist: {mag_norm_dist}")
         
         if cell_pert_frac is not None and cell_pert_frac > 0:
             for i in range(pert_number):

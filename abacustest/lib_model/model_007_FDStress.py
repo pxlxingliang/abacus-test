@@ -190,6 +190,20 @@ class PostProcessFDStress:
             jobtype = 0
         self.jobtype = jobtype_dict[jobtype]
         
+        unit_trans = {
+            0: 1602.1757722389546,  # in abacus, the stress transfer to kbar is multiply a coef = ModuleBase::RYDBERG_SI / pow(ModuleBase::BOHR_RADIUS_SI, 3) * 1.0e-8;
+                 # = 4.35974394e-18 / 2 / pow(0.529177e-10, 3) * 1.0e-8
+                 # Ry to eV = 13.605698
+                 # bohr3 to angstrom3 = pow(ModuleBase::BOHR_TO_A, 3) = 0.5291770**3
+                 # so, when I get energy in eV and volume in angstrom3, I can get the stress = energy / 13.605698 / (volume/0.5291770**3)  * 4.35974394e-18 / 2 / pow(0.529177e-10, 3) * 1.0e-8
+                 # = energy / volume * 1602.1757722389546
+            1: 1602.1777023087203  # in QE, the energy and stress are transfered by abacustest
+                                    # KBAR2HARTREEPERBOHR3 = 3.398927420868445E-6
+                                    # BOHR2A = 0.52917721092, HARTREE2EV = 27.211396132
+                                    # so, stress = energy / 27.211396132 / (volume / 0.52917721092**3) / 3.398927420868445E-6 = energy / volume * 1602.1777023087203
+        }
+        self.unitcoef = unit_trans[jobtype]
+        
     def run(self):
         alljobs = []
         for job in self.jobs:
@@ -320,7 +334,7 @@ class PostProcessFDStress:
                         else:
                             rdiff = diff
                         #stress_finite_diff = (energy_k1 - energy_k2) / (2*diff) / volume * 1602.17662
-                        stress_finite_diff = (energy_k1 - energy_k2) / (2*rdiff) / volume * 1602.17662
+                        stress_finite_diff = (energy_k1 - energy_k2) / (2*rdiff) / volume * self.unitcoef
 
                     results[ij]["numerical"].append(stress_finite_diff)
         return results              
@@ -350,7 +364,7 @@ class PostProcessFDStress:
                     if e1 == None or e2 == None or volume == None or stress_analytical == None:
                         deviation = None
                     else:
-                        stress_finite_diff = (e1 - e2) / (2*k*diff) / volume * 1602.17662
+                        stress_finite_diff = (e1 - e2) / (2*k*diff) / volume * self.unitcoef
                         #stress_finite_diff = (e1 - e2) /(v2 - v1) * 1602.17662
                         deviation = stress_finite_diff - stress_analytical[i][j]
 

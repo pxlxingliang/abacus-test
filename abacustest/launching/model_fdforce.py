@@ -1,12 +1,11 @@
 import traceback,json,sys,os
 from dp.launching.typing.basic import BaseModel,String,Float,Int
-from dp.launching.typing import Field,DataSet
-from dp.launching.report import Report,AutoReportElement,ReportSection,ChartReportElement
+from dp.launching.typing import Field
 
 
 from . import (comm_class,
                comm_func,
-               comm_pmetrics,
+               comm_report,
                comm_class_exampleSource) 
 from abacustest.lib_model import model_006_FDForce as FDForce
 
@@ -96,22 +95,9 @@ def FDForceModelRunner(opts:FDForceModel) -> int:
         FDForce.PostProcessFDForce(allexamples).run()
         os.chdir(pwd)
 
-        reports = comm_pmetrics.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
-        logfname = "output.log"
-        logs.write(os.path.join(output_path,logfname))
-        log_section = ReportSection(title="",
-                                  elements=[AutoReportElement(title='', path=logfname, description="")])
-        reports.append(log_section)
-
-        if reports:
-            report = Report(title="abacus test report",
-                            sections=reports,
-                            description="a report of abacustest")
-            report.save(output_path)
-
-        # move results to output_path
-        comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
-        # comm_func.pack_results(output_path,allparams.get("save_path","results"))
+        
+        
+        comm_report.gen_report(opts,logs,work_path,output_path,allparams)
     except:
         traceback.print_exc()
         return 1

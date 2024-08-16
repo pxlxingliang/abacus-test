@@ -1,14 +1,13 @@
 import traceback,json,sys,glob
 from dp.launching.typing.basic import BaseModel,String
-from dp.launching.typing import Field,DataSet
+from dp.launching.typing import Field
 import os
 
-from dp.launching.report import Report,AutoReportElement,ReportSection
 from abacustest.lib_model.model_005_Phonon import PreparePhono,PostprocessPhonon
 
 from . import (comm_class,
                comm_func,
-               comm_pmetrics,
+               comm_report,
                comm_class_exampleSource,
                readsetting) 
 
@@ -71,21 +70,7 @@ def PhononModelRunner(opts:PhononModel) -> int:
         logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
         
         # produce metrics and superMetrics reports
-        reports = comm_pmetrics.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
-        logfname = "output.log"
-        logs.write(os.path.join(output_path,logfname))
-        log_section = ReportSection(title="",
-                                  elements=[AutoReportElement(title='', path=logfname, description="")])
-        reports.append(log_section)
-
-        if reports:
-            report = Report(title="abacus test report",
-                            sections=reports,
-                            description="a report of abacustest")
-            report.save(output_path)
-        #move results to output_path
-        comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
-        comm_func.pack_results(output_path,allparams.get("save_path","results"))
+        comm_report.gen_report(opts,logs,work_path,output_path,allparams)
     except:
         traceback.print_exc()
         return 1
