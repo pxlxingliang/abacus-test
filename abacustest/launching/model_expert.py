@@ -109,6 +109,7 @@ def ExpertModelRunner(opts) -> int:
                 "platform": "ali",
             },
         }
+        allparams["post_dft"]["image"] = "registry.dp.tech/dptech/abacustest:latest"
         
 
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)

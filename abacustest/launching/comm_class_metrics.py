@@ -99,7 +99,7 @@ class SuperMetrics(BaseModel):
 
 class MetricsSet(BaseModel):
     metrics: Set[AbacusMetricEnum] = Field(default=("version",'INPUT:ks_solver',"normal_end",'converge','energy','total_time','scf_steps'))
-    super_metrics: List[SuperMetrics] = Field(default=None)
+    #super_metrics: List[SuperMetrics] = Field(default=None)
 
 class metricsSaveFileSet(BaseModel):    
     metrics_savefile: String = Field(default=None,
@@ -143,7 +143,7 @@ def parse_metrics_set(metrics_set:MetricsSet):
         else:
             metrics = list(metrics_set.metrics)
         has_super_metrics = False
-        if metrics_set.super_metrics != None and len(metrics_set.super_metrics) > 0:
+        if hasattr(metrics_set,"super_metrics") and metrics_set.super_metrics != None and len(metrics_set.super_metrics) > 0:
             has_super_metrics = True
             #complete metrics
             for i in metrics_set.super_metrics:

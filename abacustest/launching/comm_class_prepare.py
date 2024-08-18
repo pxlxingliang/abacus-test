@@ -116,13 +116,14 @@ class PrepareOrbLibPathSet(BaseModel):
     PrepareOrbLibPath: String = Field(default=None,title="Orb Lib",description = "If you want to use Orbital library, please enter the path of Orb Lib here.")
 
 class PrepareSet(BaseModel):
-    prepare_mix_input: Optional[Dict[String,String]] = Field(default=None,title="Additional INPUT settings",description="You can set additional INPUT parameters for each examples. \
-You can set multiple values (separated by comma) for each parameter, which will generate a set of ABACUS inputs for each value. If you want to combine several parameters, you can connect the parameters with |, and also conbine values with |. Such as: key is ecutwfc|kspacing, and value is 50|0.1, 60|0.2, 70|0.3. Commonly used parameters: \
-\"calculation\", \"ecutwfc\", \"scf_thr\", \"scf_nmax\", \"basis_type\", \"smearing_method\", \"smearing_sigma\", \"mixing_type\", \"mixing_beta\",\"ks_solver\"")
+    
     prepare_mix_kpt: String = Field(default=None,title="Additional KPT settings",description="You can set additional KPT SETTING for each examples. \
 Please enter 1/3/6 values seperated by space (such as \"2\" means [2,2,2,0,0,0], which is 3 K ponits and the shift of mesh in K space; \"1 2 3\" means [1,2,3,0,0,0]; \"1 2 3 1 0 0\" means [1,2,3,1,0,0]).\
 You can set multiple values (separated by comma), which will generate a set of ABACUS inputs for each value. (Scuch as: \"3, 1 2 3\")")
 
+    prepare_mix_input: Optional[Dict[String,String]] = Field(default=None,title="Additional INPUT settings",description="You can set additional INPUT parameters for each examples. \
+You can set multiple values (separated by comma) for each parameter, which will generate a set of ABACUS inputs for each value. If you want to combine several parameters, you can connect the parameters with |, and also conbine values with |. Such as: key is ecutwfc|kspacing, and value is 50|0.1, 60|0.2, 70|0.3. Commonly used parameters: \
+\"calculation\", \"ecutwfc\", \"scf_thr\", \"scf_nmax\", \"basis_type\", \"smearing_method\", \"smearing_sigma\", \"mixing_type\", \"mixing_beta\",\"ks_solver\"")
     
 def parse_prepare(prepare_set,work_path,download_path,logs):
     prepare = {}
