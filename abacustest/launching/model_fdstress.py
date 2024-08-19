@@ -1,5 +1,5 @@
 import traceback,json,sys,os
-from dp.launching.typing.basic import BaseModel,String,Float,Int
+from dp.launching.typing.basic import BaseModel,String,Float,Int,Boolean
 from dp.launching.typing import Field
 
 
@@ -18,6 +18,10 @@ class NewSetting(BaseModel):
     fd_number: Int = Field(default=5,
                            titile= "FD Number",
                             description="The number of finite difference steps. Will calculate extra 2*Fd_Number structures.",)
+    
+    fd_full: Boolean = Field(default=False,
+                          title="Full component",
+                          description="If test on all stress components. For default, on do test on 11/12/13/22/23/33 components.",)
     
     abacus_image: String = Field(default="registry.dp.tech/deepmodeling/abacus-intel:latest",
                           title="Abacus Image",
@@ -67,7 +71,7 @@ def FDStressModelRunner(opts:FDStressModel) -> int:
         if len(allexamples) == 0:
             logs.iprint("no example found, exit! Please prepare the inputs of each example in each folder.")
             return 1
-        subfolders = FDStress.PrepareFDStress(allexamples,opts.fd_step,opts.fd_number).run()
+        subfolders = FDStress.PrepareFDStress(allexamples,opts.fd_step,opts.fd_number,opts.fd_full).run()
         if len(subfolders) == 0:
             logs.iprint("no example found, exit! Please prepare the inputs of each example in each folder.")
             return 1

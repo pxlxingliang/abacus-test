@@ -56,6 +56,8 @@ class fdstress(Model):
         parser.add_argument('-d', '--step', type=float, default=0.0001,help="the step to change the cell, default 0.0001. This is a coefficient, the real step is step*cell_vector")
         parser.add_argument('-n', '--number', type=int,  default=5,help='the number of points to calculate the stress tensor, default 5')
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder.')
+        parser.add_argument('--full',default=0, const=1,nargs="?" ,help='if do the teat for full stress components, 1: yes, 0: no. Default is 0, and only test on 11/12/13/22/23/33 components')
+        
         
         return parser
     
@@ -66,7 +68,7 @@ class fdstress(Model):
         '''
         jobs = ["."] if len(params.job) == 1 else params.job[1:]
 
-        subfolders = PrepareFDStress(jobs,params.step,params.number).run()
+        subfolders = PrepareFDStress(jobs,params.step,params.number,params.full).run()
 
         if subfolders:
             setting = {
@@ -104,10 +106,11 @@ class fdstress(Model):
         PostProcessFDStress(jobs,params.read,params.type).run()
     
 class PrepareFDStress:
-    def __init__(self,jobs,step,number):
+    def __init__(self,jobs,step,number,full=False):
         self.jobs = jobs
         self.step = step
         self.number = number
+        self.full = full  # if test on all stress components
     
     def run(self):
         print("prepare inputs")
@@ -155,6 +158,8 @@ class PrepareFDStress:
                     # k is the index of diff coef
                     if k == 0 and write_0:
                        continue
+                    if not self.full and i > j :  # only calculate upper trigle 
+                        continue
                     sub_folder = os.path.join(init_path,f"cell_{i+1}_{j+1}_{k}")
                     if k == 0:
                         sub_folder = os.path.join(init_path,f"cell_0")
@@ -275,7 +280,8 @@ class PostProcessFDStress:
                 "volume": iresult["volume"],
                 "converge": iresult["converge"],
                 "drho_last": iresult["drho_last"],
-                "denergy_last": iresult["denergy_last"],}
+                "denergy_last": iresult["denergy_last"],
+                "total_time": iresult["total_time"]}
 
     def gen_result1(self,value_dict,diff,number):
         # calculate the stress tensor of -number+1, ..., number-1,
@@ -386,10 +392,12 @@ class PostProcessFDStress:
         for i in range(3):
             for j in range(3):
                 ij = f"{i+1}{j+1}"
-                axs[0].plot(results["x"],results[ij]["analytical"],label=f"Ana. {ij}",linestyle="--",color=colors[i*3+j],marker="+")
-                axs[0].plot(results["x"],results[ij]["numerical"],label=f"F.D. {ij}",linestyle="-",color=colors[i*3+j],marker="o")
-                deviation = np.array(results[ij]["numerical"]) - np.array(results[ij]["analytical"])
-                axs[1].plot(results["x"],deviation,label=f"Dev. {ij}",linestyle="-",color=colors[i*3+j],marker="o")
+                x,y1,y2 = comm.clean_none_list(results["x"],results[ij]["analytical"],results[ij]["numerical"])
+                if len(x) > 0:
+                    axs[0].plot(x,y1,label=f"Ana. {ij}",linestyle="--",color=colors[i*3+j],marker="+")
+                    axs[0].plot(x,y2,label=f"F.D. {ij}",linestyle="-",color=colors[i*3+j],marker="o")
+                    deviation = np.array(y1) - np.array(y2)
+                    axs[1].plot(x,deviation,label=f"Dev. {ij}",linestyle="-",color=colors[i*3+j],marker="o")
         axs[0].legend(bbox_to_anchor=(1, 1), loc='upper left', borderaxespad=0.)
         axs[1].legend(bbox_to_anchor=(1, 1), loc='upper left', borderaxespad=0.)
         plt.savefig(fname)
@@ -409,7 +417,9 @@ class PostProcessFDStress:
         for i in range(3):
             for j in range(3):
                 ij = f"{i+1}{j+1}"
-                axs.plot(results["x"],results[ij],label=f"Dev. {ij}",linestyle="-",color=colors[i*3+j],marker="o")
+                x,y = comm.clean_none_list(results["x"],results[ij])
+                if len(x) > 0:
+                    axs.plot(x,y,label=f"Dev. {ij}",linestyle="-",color=colors[i*3+j],marker="o")
         axs.legend(bbox_to_anchor=(1, 1), loc='upper left', borderaxespad=0.)
         plt.savefig(fname)
         plt.close()
