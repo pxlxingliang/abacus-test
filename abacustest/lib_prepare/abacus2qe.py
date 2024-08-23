@@ -137,7 +137,13 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
     qp["control"]["pseudo_dir"] = param.pop("pseudo_dir",".")
     qp["control"]["tstress"] = ".true." if bool(int(param.pop("cal_stress",0))) else ".false."
     qp["control"]["tprnfor"] = ".true." if bool(int(param.pop("cal_force",0))) else ".false."
-    qp["system"]["nosym"] = ".false." if bool(int(param.pop("symmetry",0))) else ".true."
+    isymm = param.pop("symmetry",None)
+    if isymm is not None:
+        isymm = int(isymm)
+        if isymm > 0:
+            qp["system"]["nosym"] = ".false."
+        else:
+            qp["system"]["nosym"] = ".true."
     # these parameters will use the same value.
     for para_aba,para_qe in [["scf_nmax",("electrons","electron_maxstep")],
                              ["ecutwfc", ("system","ecutwfc")],

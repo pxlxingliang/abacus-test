@@ -108,7 +108,7 @@ class fdforce(Model):
         
         parser.description = POST_DOC
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder.')
-        parser.add_argument('-t', '--type',default=0,type=int ,help='the job type. 0:abaus, 1:qe. Default 0')
+        parser.add_argument('-t', '--type',default=0,type=int ,help='the job type. 0:abaus, 1:qe, 2:vasp. Default 0')
         return parser
 
     def run_postprocess(self,params):
@@ -277,7 +277,7 @@ class PostProcessFDForce:
     def __init__(self,jobs,job_type=0):
         self.jobs = jobs
         
-        job_type_dict = {0:"abacus",1:"qe"}
+        job_type_dict = {0:"abacus",1:"qe",2:"vasp"}
         if job_type not in job_type_dict:
             print(f"ERROR: job type {job_type} not supported")
             job_type = 0

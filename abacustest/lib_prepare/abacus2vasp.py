@@ -123,6 +123,7 @@ def ParamAbacus2Vasp(abacus_input):
     
     if "nspin" in abacus_input:
         vasp_input["ISPIN"] = abacus_input.pop("nspin")
+        if vasp_input["ISPIN"] == 4: vasp_input["ISPIN"] = 2
         if vasp_input["ISPIN"] in [2,4]:
             vasp_input["LORBIT"] = 11 # OUTPUT THE MAGNETIC MOMENT of each atom
     
