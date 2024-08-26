@@ -130,7 +130,7 @@ class RunDFT(OP):
             os.chdir(work_path)
             log = f"COMMAND: {op_in['command']}"
             if op_in["command"].strip() != "":
-                cmd = str(op_in["command"])
+                cmd = "ulimit -c 0; " + str(op_in["command"])
                 return_code, out, err = comm.run_command(cmd)
                 log += out + err
                 #log += os.popen("(%s) 2>&1" % cmd).read()

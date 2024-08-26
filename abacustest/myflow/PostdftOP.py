@@ -36,6 +36,128 @@ from dflow.python import (
 
 from . import comm,metrics,tracking
 
+def execute_postdft(work_path,allexample_path,extra_files,extra_files_art_root,tracking_setting,metrics_setting,super_metrics_setting,command,outputfiles):
+    """
+    should execute this function in abacustest submited path.
+    
+    
+    work_path: str, work path, should be a absolute path
+    allexample_path: list, all example path, should be relative path to work_path
+    extra_files: should be a list of extra files, and relative path to current path
+    
+    
+    """
+    
+    #copy extra_files to work path 
+    if extra_files:
+        for iextra in extra_files:
+            comm.CopyFiles(iextra,work_path,move=False)
+    if extra_files != None:
+        extra_file_path = extra_files_art_root
+        comm.CopyFiles(extra_file_path,work_path,move=False)
+    #check if need to upload to tracking
+    do_upload_tracking = False
+    if tracking_setting and tracking_setting.get("ifurn",True):
+        do_upload_tracking = True
+        
+    #read metrics
+    metrics_setting_list = metrics.Metrics.TransferMetricsOPIO(metrics_setting)
+    # need to split metrics_setting_list to before_command and after_command
+    metrics_setting_list_before_command = []
+    metrics_setting_list_after_command = []
+    for imetric in metrics_setting_list:
+        if imetric.get("before_command",True):
+            metrics_setting_list_before_command.append(imetric)
+        else:
+            metrics_setting_list_after_command.append(imetric)
+    tracking_values_before = tracking_values_after = None
+    if metrics_setting_list_before_command:
+        try:
+            os.chdir(work_path)
+            tracking_values_before = metrics.ReadMetrics(metrics_setting_list_before_command,do_upload_tracking,allexample_path)
+        except:
+            traceback.print_exc()
+    
+    #execute command
+    os.chdir(work_path)
+    log = f"COMMAND: {command}"
+    if command.strip() != "":
+        cmd = str(command)
+        return_code, out, err = comm.run_command(cmd)
+        log += out + err
+        #log += os.popen("(%s) 2>&1" % cmd).read()
+    
+    if metrics_setting_list_after_command:
+        try:
+            os.chdir(work_path)
+            tracking_values_after = metrics.ReadMetrics(metrics_setting_list_after_command,do_upload_tracking,allexample_path)
+        except:
+            traceback.print_exc()              
+    # merge tracking_values_before and tracking_values_after
+    tracking_values = []
+    if tracking_values_before:
+        tracking_values.extend(tracking_values_before)
+    if tracking_values_after:
+        tracking_values.extend(tracking_values_after)
+    if not tracking_values:
+        tracking_values = None
+    #calculate super_metrics
+    try:
+        os.chdir(work_path)
+        tracking_summary,report = metrics.ReadSuperMetrics(metrics.Metrics.TransferMetricsOPIO(super_metrics_setting),do_upload_tracking)  
+    except:
+        traceback.print_exc()
+        tracking_summary = None  
+                
+    #upload tracking
+    if do_upload_tracking:
+        try:
+            tracking.upload_to_tracking(tracking_setting,tracking_values,tracking_summary,AIM_ACCESS_TOKEN=None)
+        except:
+            traceback.print_exc() 
+              
+    # get cpuinfo to CPUINFO.log
+    os.chdir(work_path)
+    try:
+        os.system("lscpu > CPUINFO.log")
+    except:
+        pass
+    cpuinfo_log = None if not os.path.isfile("CPUINFO.log") else "CPUINFO.log" 
+    if cpuinfo_log:
+        with open(cpuinfo_log) as f1:
+            log += "\n\nCPUINFO:\n" + f1.read() 
+                            
+    #collect outputs
+    outpath = []
+    os.chdir(work_path)
+    logfile_name = "STDOUTER.log"
+    i = 1
+    while os.path.isfile(logfile_name):
+        logfile_name = "STDOUTER_%d.log" % i
+        i += 1
+    logfile = Path(logfile_name)
+    if len(outputfiles) == 0:
+        for ifile in glob.glob("*"):
+            if ifile.startswith("."):
+                continue 
+            outpath.append(Path(ifile))
+    else:
+        for i in outputfiles:
+            for j in glob.glob(i):
+                if os.path.exists(j):
+                    outpath.append(Path(j))
+                else:
+                    log += "\n%s is not exist" % j
+        outpath.append(logfile)
+        if cpuinfo_log:
+            outpath.append(Path(cpuinfo_log))
+        if os.path.isfile("version.dat"):
+            outpath.append(Path("version.dat"))
+    #print("log:",log,file=sys.stderr)
+    logfile.write_text(log)
+    print("outpath:",str(outpath),file=sys.stderr)
+    return outpath
+
 
 class PostDFT(OP):
     def __init__(self):
@@ -120,7 +242,7 @@ class PostDFT(OP):
         os.chdir(work_path)
         log = f"COMMAND: {op_in['command']}"
         if op_in["command"].strip() != "":
-            cmd = str(op_in["command"])
+            cmd = "ulimit -c 0; " + str(op_in["command"])
             return_code, out, err = comm.run_command(cmd)
             log += out + err
             #log += os.popen("(%s) 2>&1" % cmd).read()
