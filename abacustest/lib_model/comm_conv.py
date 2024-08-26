@@ -1,144 +1,75 @@
-from ..model import Model
-import numpy as np
-import os, glob, json
-from . import comm,comm_conv,comm_plot
+'''
+some comm functions for convegence test of kspacing and ecutwfc
+'''
+import glob,os,json
 from abacustest.lib_collectdata.collectdata import RESULT
+import numpy as np
 
-SETTING_TMP = {
-    "save_path": "results",
-    "bohrium_group_name": "convergence-ecutwfc",
-    "prepare": {"example_template": [], "mix_input": {"ecutwfc": []}},
-    "run_dft": {
-        "command": "OMP_NUM_THREADS=1 mpirun -n 16 abacus | tee out.log",
-        "image": "registry.dp.tech/deepmodeling/abacus-intel:latest",
-        "bohrium": {
-            "scass_type": "c32_m64_cpu",
-            "job_type": "container",
-            "platform": "ali",
-        },
-    },
-    "post_dft": {
-        "image": "registry.dp.tech/dptech/abacustest:latest",
-        "metrics": {
-            "dft_type": "abacus",
-            "metrics_name": [
-                "normal_end",
-                "converge",
-                "natom",
-                "scf_steps",
-                "total_time",
-                "scf_time",
-                {
-                    "scf_time/step": "{scf_time}/{scf_steps}",
-                    "ks_solver": "{INPUT}['ks_solver']",
-                    "ecutwfc": "{INPUT}['ecutwfc']",
-                },
-                "energy",
-                "energy_per_atom",
-                "force",
-                "stress",
-                "version",
-            ],
-            "save_file": "metrics.json",
-            "path": ["*/*"],
-        },
-    },
-}
+def collect_metrics(jobs):
+    allmetrics = {}
+    for job in jobs:
+            for ijob in glob.glob(os.path.join(job,"*")):
+                if os.path.isdir(ijob):
+                    results = RESULT(path=ijob,fmt="abacus")
+                    if results["INPUT"].get("kspacing",None) is None:
+                        kspacing = None
+                    else:
+                        kspacing = results["INPUT"]["kspacing"]
+                        if isinstance(kspacing,str):
+                            ksplit = [float(ik) for ik in kspacing.split()]
+                            if len(ksplit) == 1:
+                                kspacing = ksplit[0]
+                            elif len(ksplit) == 3:
+                                if ksplit[0] == ksplit[1] == ksplit[2]:
+                                    kspacing = ksplit[0]
+                    ecutwfc = results["INPUT"].get("ecutwfc",None)
+                    
+                    allmetrics[ijob] = {
+                        "ecutwfc": ecutwfc,
+                        "kspacing": kspacing,
+                        "energy_per_atom": results["energy_per_atom"],
+                        "energy": results["energy"],
+                        "natom": results["natom"],
+                        "normal_end": results["normal_end"],
+                        "converge": results["converge"],
+                        "scf_steps": results["scf_steps"],
+                        "total_time": results["total_time"],
+                        "scf_time": results["scf_time"],
+                        "force": results["force"],
+                        "stress": results["stress"],
+                        "atom_mag": None if results["ds_mag"] is None else np.array(results["ds_mag"]).flatten().tolist(),
+                        "mag_force": None if results["ds_mag_force"] is None else np.array(results["ds_mag_force"]).flatten().tolist(),
+                        "version": results["version"],
+                        "ks_solver": None if not isinstance(results["INPUT"],dict) else results["INPUT"].get("ks_solver",None),
+                        "scf_time/step": None if not results["scf_time"] or not results["scf_steps"] else results["scf_time"] / results["scf_steps"]
+                    }
+    return allmetrics
 
-
-class ConvEcutwfc(Model):
-    @staticmethod
-    def description():  # type: ignore
-        return "Do a convergence test of the ecutwfc"
-
-    @staticmethod
-    def model_name():  # type: ignore
-        return "convecutwfc"
-
-    @staticmethod
-    def prepare_args(parser):
-        parser.add_argument(
-            "-j",
-            "--jobs",
-            default=[],
-            help="the path of jobs",
-            action="extend",
-            nargs="*",
-        )
-        parser.add_argument(
-            "-v",
-            "--value",
-            default=[],
-            type=float,
-            help="the value of ecutwfc. Default is 50 to 100 in step 10",
-            action="extend",
-            nargs="*",
-        )
-        parser.add_argument(
-            "-r",
-            "--run",
-            default=0,
-            type=int,
-            help="run the calculation after prepare. Default is 0, not run. 1 is run."
-        )
-
-    def run_prepare(self, params):
-        jobs = params.jobs
-        if len(params.jobs) == 0:
-            print(
-                "Warning: have not set the jobs -j. Will find all folders in the current directory."
-            )
-            jobs = ["*"]
-
-        value = params.value if len(params.value) > 0 else list(range(50, 101, 10))
-        real_jobs = comm.get_job_list(jobs)
-        print("The jobs are:", ", ".join(real_jobs))
-
-        setting = SETTING_TMP
-        setting["prepare"]["example_template"] = real_jobs
-        setting["prepare"]["mix_input"]["ecutwfc"] = value
-        setting["post_dft"]["metrics"]["path"] = [
-            os.path.join(i, "*") for i in real_jobs
-        ]
-        comm.dump_setting(setting)
-        
-        comm.doc_after_prepare("convergence test of ecutwfc", real_jobs, ["setting.json"])
-        print("After finish the calculation, you can run below command to do the postprocess:")
-        print(f"    abacustest model {self.model_name()} post -j {' '.join(real_jobs)}\n")
-        
-        if params.run:
-            bash_script = "ecutwfc_convergence.sh"
-            with open(bash_script,"w") as f:
-                f.write("abacustest submit -p setting.json\n")
-                f.write("cd results\n")
-                f.write(f"abacustest model {self.model_name()} post -m metrics.json\n")
-            os.system(f"bash {bash_script} &")
-
+def shift_data(data_list, base_index=0):
+    # shift the data to the base_index
+    # data_list should a list of float or list of list of float
+    if not isinstance(data_list,list):
+        return None
+    if base_index < 0 or base_index >= len(data_list):
+        return None
     
-    @staticmethod
-    def postprocess_args(parser):
-        group = parser.add_mutually_exclusive_group()
-        
-        group.add_argument(
-            "-j",
-            "--jobs",
-            default=[],
-            help="the path of jobs. There should have several subfolders with different ecutwfc for each job.",
-            action="extend",
-            nargs="*",
-        )
-        group.add_argument(
-            "-m",
-            "--metric",
-            default=None,
-            help="the metrics.json file. Key is the examplename/subfolder and value is a dict of metrics value containing ecutwfc, energy_per_atom (or energy and natom).",
-        )
+    if isinstance(data_list[base_index],list):
+        # it is a list of list of float
+        new_list = []
+        if None in data_list[base_index]:
+            return None
+        for i in range(len(data_list)):
+            if len(data_list[i]) != len(data_list[base_index]):
+                new_list.append(None)
+            else:
+                new_list.append([data_list[i][j] - data_list[base_index][j] for j in range(len(data_list[i]))])
+    else:
+        if data_list[base_index] is None:
+            return None
+        new_list = [data_list[i] - data_list[base_index] for i in range(len(data_list))]
+    return new_list
 
-    def run_postprocess(self, params):
-        PostConvEcutwfc(params.jobs, params.metric).run()     
-
-
-class PostConvEcutwfc:
+class PostConv:
     def __init__(self, jobs, metric=None):
         self.jobs = jobs
         self.metric = metric
@@ -238,7 +169,7 @@ class PostConvEcutwfc:
         # plot each example in a subplot
         for i, ik in enumerate(allkeys):
             fname = ik.replace("/","_")+".png"
-            comm_plot.plot_line_point(plotdata[ik]["ecutwfc"], [plotdata[ik]["energy_per_atom"]],xtitle="Ecutwfc (Ry)",ytitle="Energy (meV/atom)",title=ik, 
+            comm_plot.plot_line_point(plotdata[ik]["ecutwfc"], [plotdata[ik]["energy_per_atom"]],xtitle="Kspacing (1/bohr)",ytitle="Energy (meV/atom)",title=ik, 
                                       fname=fname,figsize=(8,6),fontsize=16,grid=True)
             fnames[ik] = fname
             
@@ -247,7 +178,7 @@ class PostConvEcutwfc:
                 if ikey not in plotdata[ik] or len(plotdata[ik][ikey]) == 0:
                     continue
                 fname = ik.replace("/","_") + "-" + ikey + ".png"
-                comm_plot.plot_line_point(plotdata[ik]["ecutwfc"], plotdata[ik][ikey],xtitle="Ecutwfc (Ry)",ytitle=iunit,title=ik+"-"+ikey, 
+                comm_plot.plot_line_point(plotdata[ik]["ecutwfc"], plotdata[ik][ikey],xtitle="Kspacing (1/bohr)",ytitle=iunit,title=ik+"-"+ikey, 
                                       fname=fname,figsize=(8,6),fontsize=16,grid=True)
                 fnames[ik + "-" + ikey] = fname
         return fnames   
