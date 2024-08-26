@@ -874,6 +874,51 @@ class Abacus(ResultAbacus):
             pdos = {"energy":energy,"orbitals":all_orbitals}
         self["pdos"] = pdos
 
+    @ResultAbacus.register(charge="list, the charge of each atom.",
+                           charge_spd="list of list, the charge of each atom spd orbital.",
+                           atom_mag_spd="list of list, the magnization of each atom spd orbital.",
+                           )
+    def GetCharge(self):
+        '''
+-------------------------------------------------------------------------------------------
+Orbital Charge Analysis      Charge         Mag(x)         Mag(y)         Mag(z)
+-------------------------------------------------------------------------------------------
+Fe1
+                   s         1.0799        -0.0000         0.0000         0.0034
+                   p         5.9969        -0.0000         0.0000         0.0004
+                   d         6.5446        -0.0039         0.0013         3.0690
+                 Sum        13.6214        -0.0039         0.0013         3.0729
+Fe2
+                   s         1.0827         0.0000        -0.0000         0.0040
+                   p         5.9969         0.0000        -0.0000         0.0004
+                   d         6.6497         0.0025        -0.0002         2.9733
+                 Sum        13.7294         0.0025        -0.0002         2.9776
+-------------------------------------------------------------------------------------------        
+        '''
+        charge = None
+        charge_spd = None
+        atom_mag_spd = None
+        for i, line in enumerate(self.LOG):
+            if "Orbital Charge Analysis      Charge" in line:
+                charge = []
+                charge_spd = []
+                atom_mag_spd = []
+                j = i + 2
+                while "-------" not in self.LOG[j]:
+                    sline = self.LOG[j].split()
+                    if len(sline) == 1:
+                        charge_spd.append([])
+                        atom_mag_spd.append([])
+                    else:
+                        if "Sum" in sline:
+                            charge.append(float(sline[1]))
+                        else:
+                            charge_spd[-1].append(float(sline[1]))
+                            atom_mag_spd[-1].append([float(ii) for ii in sline[2:]])
+                    j += 1
+        self["charge"] = charge
+        self["charge_spd"] = charge_spd
+        self["atom_mag_spd"] = atom_mag_spd
 
 class AbacusRelax(ResultAbacus):
     
@@ -963,6 +1008,12 @@ Step (Outer -- Inner) =  16 -- 4           RMS = 9.760e-08
                     for j in range(natom):
                         if len(self.LOG[idx+j+2].split()) in [2,4]:
                             ds_mag.append([float(ii) for ii in self.LOG[idx+j+2].split()[1:]])
+                elif "Orbital Charge Analysis      Charge" in i:
+                    ds_mag = []
+                    j = idx +2
+                    while "-------" not in self.LOG[j]:
+                        if "Sum" in self.LOG[j]:
+                            ds_mag.append([float(ii) for ii in self.LOG[j].split()[2:]])        
                 elif "Magnetic force (eV/uB)" in i:
                     mag_force = []
                     for j in range(natom):
