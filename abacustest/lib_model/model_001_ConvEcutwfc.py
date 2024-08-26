@@ -1,5 +1,4 @@
 from ..model import Model
-import numpy as np
 import os, glob, json
 from . import comm,comm_conv,comm_plot
 from abacustest.lib_collectdata.collectdata import RESULT
