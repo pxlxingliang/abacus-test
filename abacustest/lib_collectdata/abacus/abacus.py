@@ -1013,7 +1013,8 @@ Step (Outer -- Inner) =  16 -- 4           RMS = 9.760e-08
                     j = idx +2
                     while "-------" not in self.LOG[j]:
                         if "Sum" in self.LOG[j]:
-                            ds_mag.append([float(ii) for ii in self.LOG[j].split()[2:]])        
+                            ds_mag.append([float(ii) for ii in self.LOG[j].split()[2:]])   
+                        j += 1     
                 elif "Magnetic force (eV/uB)" in i:
                     mag_force = []
                     for j in range(natom):

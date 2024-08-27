@@ -20,12 +20,13 @@ def ParamParser(param):
         "run_dft" : {},
         "post_dft": {},
         "report":{},
-        "remote": {}
+        "remote": {},
+        "compress": False, # if compress the inputs and outputs
     }
     """
     
     alljobs = {}
-
+    alljobs["compress"] = param.get("compress",False)
     alljobs["save_path"] = param.get("save_path",None)
     alljobs["prepare"] = param.get("prepare",{"ifrun":False})
     alljobs["pre_dft"] = param.get("pre_dft",{"ifrun":False})
@@ -63,7 +64,7 @@ def SetSaveFolder(storefolder=None):
         #storefolder = os.path.join("result",today)
         storefolder = "results"
     globV.set_value("RESULT",storefolder)
-    comm.printinfo("set save floder: %s" % storefolder)
+    comm.printinfo("set save folder: %s" % storefolder)
 
 def MakeSaveFolder(storefolder=None):
     storefolder = globV.get_value("RESULT") if storefolder == None else storefolder
@@ -220,6 +221,11 @@ def set_env(param):
     remote = param_context.get("remote",{})
     if "remote" in param_context and remote.get("ifrun",True):
         globV.set_value("REMOTE", remote)
+        
+    compress = None if not param_context.get("compress",False) else "default"
+    globV.set_value("COMPRESS",compress)
+    if compress:
+        comm.printinfo("Compress the inputs to upload.")
 
 
 def waitrun(wf,stepnames,allsave_path):

@@ -199,7 +199,7 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
         pt = PythonOPTemplate(PreDFT,image=image,envs=comm.SetEnvs())
         artifacts={}
         if iexample_name:
-            artifacts["examples"] = upload_artifact(iexample_name,archive=None)
+            artifacts["examples"] = upload_artifact(iexample_name,archive=globV.get_value("COMPRESS"))
 
         #artifacts={"examples": upload_artifact(iexample_name,archive=None)}
         

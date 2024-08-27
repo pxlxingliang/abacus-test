@@ -246,13 +246,13 @@ def FindLocalExamples_new(example,only_folder=False,oneartifact=False):
         if oneartifact:
             examples_name = list(set(examples_name1))
             examples_name.sort()
-            examples = [[upload_artifact(examples_name,archive=None)]]
+            examples = [[upload_artifact(examples_name,archive=globV.get_value("COMPRESS"))]]
             examples_name = [examples_name]
         else:
             examples = []
             examples_name.sort()
             for ii in examples_name:
-                examples.append([upload_artifact(iii,archive=None) for iii in ii])    
+                examples.append([upload_artifact(iii,archive=globV.get_value("COMPRESS")) for iii in ii])    
     
     # if oneartifact is True, examples = [[artifact]], examples_name = [[example1,example2,...]]
     # else examples = [[artifact1,artifact2,...],[artifact3,artifact4,...],...], examples_name = [[example1,example2,...],[example3,example4,...],...]
