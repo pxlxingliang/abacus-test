@@ -1,6 +1,7 @@
 import traceback,json,sys,os
 from dp.launching.typing.basic import BaseModel,String,Float,Int,Boolean
 from dp.launching.typing import Field
+from enum import Enum
 
 
 from . import (comm_class,
