@@ -10,6 +10,17 @@ from . import (comm_class,
 from abacustest.lib_model import model_007_FDStress as FDStress
 
 
+class ComponentEnum(String, Enum):
+    comp11 = '11'
+    comp12 = '12'
+    comp13 = '13'
+    comp21 = '21'
+    comp22 = '22'
+    comp23 = '23'
+    comp31 = '31'
+    comp32 = '32'
+    comp33 = '33'
+
 class NewSetting(BaseModel):
     fd_step: Float = Field(default=0.0001,
                             title="FD Step (ratio of cell deformation)",
@@ -18,10 +29,8 @@ class NewSetting(BaseModel):
     fd_number: Int = Field(default=5,
                            titile= "FD Number",
                             description="The number of finite difference steps. Will calculate extra 2*Fd_Number structures.",)
-    
-    fd_full: Boolean = Field(default=False,
-                          title="Full component",
-                          description="If test on all stress components. For default, on do test on 11/12/13/22/23/33 components.",)
+
+    stress_comp: Set[ComponentEnum] = Field(default=("11","12","13","22","23","33"),title="Stress Components",description="The stress components to test.",)
     
     abacus_image: String = Field(default="registry.dp.tech/deepmodeling/abacus-intel:latest",
                           title="Abacus Image",
@@ -71,7 +80,10 @@ def FDStressModelRunner(opts:FDStressModel) -> int:
         if len(allexamples) == 0:
             logs.iprint("no example found, exit! Please prepare the inputs of each example in each folder.")
             return 1
-        subfolders = FDStress.PrepareFDStress(allexamples,opts.fd_step,opts.fd_number,opts.fd_full).run()
+        if len(opts.stress_comp) == 0:
+            logs.iprint("no stress component found, exit! Please specify the stress components.")
+            return 1
+        subfolders = FDStress.PrepareFDStress(allexamples,opts.fd_step,opts.fd_number,list(opts.stress_comp)).run()
         if len(subfolders) == 0:
             logs.iprint("no example found, exit! Please prepare the inputs of each example in each folder.")
             return 1

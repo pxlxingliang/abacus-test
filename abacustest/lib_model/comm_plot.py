@@ -2,7 +2,7 @@ from . import comm
 import matplotlib.pyplot as plt
 
 def plot_line_point(x,ys, legends=None, title=None, xtitle=None, ytitle=None, xlabels=None,
-                    fname=None,figsize=(8,6),fontsize=18,colors=None, markers=None,grid=True):
+                    fname=None,figsize=(8,6),fontsize=18,colors=None, markers=None,grid=True,legend_outbox=False):
     if colors == None:
         colors = ["b","g","r","c","m","y","k"]
     if markers == None:
@@ -24,7 +24,7 @@ def plot_line_point(x,ys, legends=None, title=None, xtitle=None, ytitle=None, xl
         else:
             ilegend = None
         
-        plt.plot(ix,iy, label=ilegend, color=colors[i%len(colors)], marker=markers[i%len(markers)])
+        plt.plot(ix,iy, label=ilegend, color=colors[i%len(colors)], marker=markers[(i//len(colors))%len(markers)])
 
     if title is not None:
         plt.title(title, fontsize=fontsize)
@@ -33,7 +33,10 @@ def plot_line_point(x,ys, legends=None, title=None, xtitle=None, ytitle=None, xl
     if ytitle is not None:
         plt.ylabel(ytitle, fontsize=fontsize)
     if legends is not None:
-        plt.legend(fontsize=fontsize-2)
+        if legend_outbox:
+            plt.legend(fontsize=fontsize-2, loc="upper left", bbox_to_anchor=(1, 1))
+        else:
+            plt.legend(fontsize=fontsize-2)
     if xlabels is not None:
         plt.xticks(x, xlabels, fontsize=fontsize-2)
     if grid:

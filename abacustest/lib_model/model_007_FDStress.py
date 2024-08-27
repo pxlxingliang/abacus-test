@@ -56,9 +56,7 @@ class fdstress(Model):
         parser.add_argument('-d', '--step', type=float, default=0.0001,help="the step to change the cell, default 0.0001. This is a coefficient, the real step is step*cell_vector")
         parser.add_argument('-n', '--number', type=int,  default=5,help='the number of points to calculate the stress tensor, default 5')
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder.')
-        parser.add_argument('--full',default=0, const=1,nargs="?" ,help='if do the teat for full stress components, 1: yes, 0: no. Default is 0, and only test on 11/12/13/22/23/33 components')
-        
-        
+        parser.add_argument('--comp',type=str,default=["11","12","13","22","23","33"], nargs="*" ,help='the stress components to test, default is 11 12 13 22 23 33.')
         return parser
     
     def run_prepare(self,params):
@@ -68,7 +66,7 @@ class fdstress(Model):
         '''
         jobs = ["."] if len(params.job) == 1 else params.job[1:]
 
-        subfolders = PrepareFDStress(jobs,params.step,params.number,params.full).run()
+        subfolders = PrepareFDStress(jobs,params.step,params.number,params.comp).run()
 
         if subfolders:
             setting = {
@@ -106,11 +104,11 @@ class fdstress(Model):
         PostProcessFDStress(jobs,params.read,params.type).run()
     
 class PrepareFDStress:
-    def __init__(self,jobs,step,number,full=False):
+    def __init__(self,jobs,step,number,comp=["11","12","13","22","23","33"]):
         self.jobs = jobs
         self.step = step
         self.number = number
-        self.full = full  # if test on all stress components
+        self.comp = comp
     
     def run(self):
         print("prepare inputs")
@@ -158,7 +156,7 @@ class PrepareFDStress:
                     # k is the index of diff coef
                     if k == 0 and write_0:
                        continue
-                    if not self.full and i > j :  # only calculate upper trigle 
+                    if f"{i+1}{j+1}" not in self.comp:
                         continue
                     sub_folder = os.path.join(init_path,f"cell_{i+1}_{j+1}_{k}")
                     if k == 0:

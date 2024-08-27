@@ -21,12 +21,12 @@ def ParamParser(param):
         "post_dft": {},
         "report":{},
         "remote": {},
-        "compress": False, # if compress the inputs and outputs
+        "compress": true, # if compress the inputs and outputs
     }
     """
     
     alljobs = {}
-    alljobs["compress"] = param.get("compress",False)
+    alljobs["compress"] = param.get("compress",True) # if use slice, we can compress the inputs
     alljobs["save_path"] = param.get("save_path",None)
     alljobs["prepare"] = param.get("prepare",{"ifrun":False})
     alljobs["pre_dft"] = param.get("pre_dft",{"ifrun":False})
@@ -222,10 +222,10 @@ def set_env(param):
     if "remote" in param_context and remote.get("ifrun",True):
         globV.set_value("REMOTE", remote)
         
-    compress = None if not param_context.get("compress",False) else "default"
+    compress = "default" if param_context.get("compress",True) else None
     globV.set_value("COMPRESS",compress)
-    if compress:
-        comm.printinfo("Compress the inputs to upload.")
+    #if compress:
+    #    comm.printinfo("Compress the inputs to upload.")
 
 
 def waitrun(wf,stepnames,allsave_path):
