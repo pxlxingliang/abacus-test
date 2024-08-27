@@ -234,13 +234,13 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
                 example_source = rundft_set.get("example_source")
                 example_source_type = rundft_set.get("example_source_type", "local")
             
-            examples, examples_name = comm.transfer_source_to_artifact(
-                example_list,
-                source=example_source,
-                source_type=example_source_type,
-                only_folder=True,
-                oneartifact=False)
-            assert len(examples) > 0, "example in run_dft is not defined or the defined example is not exist!!!"
+            #examples, examples_name = comm.transfer_source_to_artifact(
+            #    example_list,
+            #    source=example_source,
+            #    source_type=example_source_type,
+            #    only_folder=True,
+            #    oneartifact=False)
+            #assert len(examples) > 0, "example in run_dft is not defined or the defined example is not exist!!!"
             '''
             new_examples,new_examples_name = comm.SplitGroupSize(examples,examples_name,group_size)
             istep = 0
