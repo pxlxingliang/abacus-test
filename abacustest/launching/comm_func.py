@@ -121,6 +121,8 @@ def exec_abacustest(allparams, work_path, command="abacustest submit -p param.js
     '''
     import abacustest.abacustest as abatest
     import argparse
+    from abacustest.main import print_head
+    print_head()
     parser = argparse.ArgumentParser(description="abacustest")
     subparser = parser.add_subparsers(dest="command")
     abatest.AbacusTestArgs(subparser.add_parser("submit"))
