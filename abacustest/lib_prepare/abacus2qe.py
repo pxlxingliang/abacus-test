@@ -30,6 +30,9 @@ def set_smearing(param,qp):
         qp["system"]["smearing"] = "gauss"
         if "smearing_sigma" in param:
             qp["system"]["degauss"] = param.pop("smearing_sigma")
+        else:
+            print("WARNING: smearing_sigma is not set in abacus input, will set degauss to 0.015 in QE.")
+            qp["system"]["degauss"] = 0.015
     else:
         print("WARNING: smearing_method %s is not supported now! Will not set occupations in QE." % smearing)
 
