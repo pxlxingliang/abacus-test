@@ -129,8 +129,10 @@ def ProduceExecutor(param,group_name="abacustesting"):
                     },
                 image_pull_policy = "Always",
                 retry_on_submission_error=3,
-                image=param["bohrium"].get("dispatcher_image","registry.dp.tech/public/dptechnology/dpdispatcher:v0.6.0"),
+                #image=param["bohrium"].get("dispatcher_image","registry.dp.tech/public/dptechnology/dpdispatcher:v0.6.0"),
             )
+            if "dispatcher_image" in param["bohrium"]:
+                dispatcher_executor.image = param["bohrium"]["dispatcher_image"]
             #comm.printinfo("set bohrium: %s"%str(bohrium_set))
             return dispatcher_executor,bohrium_set
         else:

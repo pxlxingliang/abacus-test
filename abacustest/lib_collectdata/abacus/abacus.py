@@ -399,6 +399,7 @@ class Abacus(ResultAbacus):
         for i,line in enumerate(self.LOG):
             if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
                 nspin = int(line.split()[-1])
+                if nspin == 4: nspin=1  # for nspin4, only total band is output
                 band = []
                 band_weight = []
                 for ispin in range(nspin):
@@ -572,11 +573,11 @@ class Abacus(ResultAbacus):
         if not os.path.isfile(mullikenf):
             self['atom_mag'] = None
             self["atom_mags"] = None
-            self["atom_electron"] = None
+            self["atom_elec"] = None
             return
         
         atom_mag = []
-        atom_electron = []
+        atom_elec = []
         with open(mullikenf) as f1: lines = f1.readlines()
         for idx,line in enumerate(lines):
             if line[:5] == "STEP:":
@@ -591,15 +592,15 @@ class Abacus(ResultAbacus):
                     atom_mag[-1].append(float(line.split()[-1]))
             elif "Zeta of" in line:
                 two_spin = True if "Spin 2" in line else False
-                atom_electron.append([])
+                atom_elec.append([])
                 j = idx + 1
                 while j < len(lines) and lines[j].strip() != "":
                     if "Zeta of" in lines[j]:
                         break
                     if "sum over m+zeta" in lines[j]:
-                        atom_electron[-1].append([float(lines[j].split()[3])])
+                        atom_elec[-1].append([float(lines[j].split()[3])])
                         if two_spin:
-                            atom_electron[-1][-1].append(float(lines[j].split()[4]))
+                            atom_elec[-1][-1].append(float(lines[j].split()[4]))
                     j += 1
         
         if len(atom_mag) == 0:
@@ -609,13 +610,13 @@ class Abacus(ResultAbacus):
             self['atom_mags'] = atom_mag
             self["atom_mag"] = atom_mag[-1]
         
-        if not atom_electron:
+        if not atom_elec:
             self["atom_elec"] = None
             self["atom_orb_elec"] = None
         else:
-            self["atom_orb_elec"] = atom_electron
+            self["atom_orb_elec"] = atom_elec
             atom_elec = []
-            for i in atom_electron:
+            for i in atom_elec:
                 t = 0
                 for j in i:
                     t += sum(j)
