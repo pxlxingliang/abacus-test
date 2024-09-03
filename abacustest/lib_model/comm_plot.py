@@ -8,6 +8,12 @@ def plot_line_point(x,ys, legends=None, title=None, xtitle=None, ytitle=None, xl
     if markers == None:
         markers = ["o","*","+","x","s","p","d"]
 
+    # if x is a list of string, then convert it to a list of int, and set xlabels to x
+    if isinstance(x[0],str):
+        if xlabels is None:
+            xlabels = x
+        x = list(range(len(x)))
+    
     plt.figure(figsize=figsize)
     for i in range(len(ys)):
         if len(x) != len(ys[i]):
@@ -38,7 +44,7 @@ def plot_line_point(x,ys, legends=None, title=None, xtitle=None, ytitle=None, xl
         else:
             plt.legend(fontsize=fontsize-2)
     if xlabels is not None:
-        plt.xticks(x, xlabels, fontsize=fontsize-2)
+        plt.xticks(x, xlabels, fontsize=fontsize-2,rotation=30)
     if grid:
         plt.grid()
     plt.tick_params(axis='x', labelsize=fontsize-2)

@@ -1,49 +1,7 @@
-'''
-some comm functions for convegence test of kspacing and ecutwfc
-'''
 import glob,os,json
-from abacustest.lib_collectdata.collectdata import RESULT
 import numpy as np
-
-def collect_metrics(jobs):
-    allmetrics = {}
-    for job in jobs:
-            for ijob in glob.glob(os.path.join(job,"*")):
-                if os.path.isdir(ijob):
-                    results = RESULT(path=ijob,fmt="abacus")
-                    if results["INPUT"].get("kspacing",None) is None:
-                        kspacing = None
-                    else:
-                        kspacing = results["INPUT"]["kspacing"]
-                        if isinstance(kspacing,str):
-                            ksplit = [float(ik) for ik in kspacing.split()]
-                            if len(ksplit) == 1:
-                                kspacing = ksplit[0]
-                            elif len(ksplit) == 3:
-                                if ksplit[0] == ksplit[1] == ksplit[2]:
-                                    kspacing = ksplit[0]
-                    ecutwfc = results["INPUT"].get("ecutwfc",None)
-                    
-                    allmetrics[ijob] = {
-                        "ecutwfc": ecutwfc,
-                        "kspacing": kspacing,
-                        "energy_per_atom": results["energy_per_atom"],
-                        "energy": results["energy"],
-                        "natom": results["natom"],
-                        "normal_end": results["normal_end"],
-                        "converge": results["converge"],
-                        "scf_steps": results["scf_steps"],
-                        "total_time": results["total_time"],
-                        "scf_time": results["scf_time"],
-                        "force": results["force"],
-                        "stress": results["stress"],
-                        "atom_mag": None if results["ds_mag"] is None else np.array(results["ds_mag"]).flatten().tolist(),
-                        "mag_force": None if results["ds_mag_force"] is None else np.array(results["ds_mag_force"]).flatten().tolist(),
-                        "version": results["version"],
-                        "ks_solver": None if not isinstance(results["INPUT"],dict) else results["INPUT"].get("ks_solver",None),
-                        "scf_time/step": None if not results["scf_time"] or not results["scf_steps"] else results["scf_time"] / results["scf_steps"]
-                    }
-    return allmetrics
+from abacustest.lib_collectdata.collectdata import RESULT
+from . import comm_plot,comm
 
 def shift_data(data_list, base_index=0):
     # shift the data to the base_index
@@ -70,115 +28,298 @@ def shift_data(data_list, base_index=0):
     return new_list
 
 class PostConv:
-    def __init__(self, jobs, metric=None):
-        self.jobs = jobs
-        self.metric = metric
+    """
+    Used to do the postprocess of convergence test of ecutwfc and kspacing.
     
-    def run(self):
-        if self.metric:
-            allmetrics = json.load(open(self.metric))
-        else:
-            allmetrics = self._collect_metrics()
-            json.dump(allmetrics, open("metrics.json", "w"), indent=4)
+    It will firstly collect the metrics of the jobs, and save the results to metrics.json file.
+    If the metric_file is defined, it will also read the results in file, and merge the results. This file should have the same format as metrics.json.
+    
+    The it will rearrnge the results to plotdata, and plot the results.
+    
+    For default, energy/force/stress/atom_mag/mag_force/band_gap will be plotted.
+    
+    Args:
+        test_key: str, the key of the test, ecutwfc or kspacing. It should be a parameter name of INPUT.
+        jobs: list of str, the list of the job folders.
+        metric_file: str, the file of the metrics. or a liat of metrics files.
+        extra_y: dict, the extra y to plot. The key is the metric name, and the value is the y title.
+        job_type: str, abacus or qe or vasp, the type of the job.
+        shift_data: max/min/False, whether to shift the data. Default is None.
+            None: will shift the data to VALUE with max ecutwfc or min kspacing.
+            max: will shift the data to the max test_key.
+            min: will shift the data to the min test_key
+            False: will not shift the data.
+    """
+    def __init__(self, test_key="ecutwfc",jobs=None, metric_file=None, extra_y=None, job_type="abacus",shift_data=None,x_name=None):
+        self.test_key = test_key
+        self.jobs = jobs
+        self.metric_file = None
+        if metric_file is not None:
+            if isinstance(metric_file,str):
+                self.metric_file = [metric_file]
+            elif isinstance(metric_file,list):
+                self.metric_file = metric_file
+                
+        self.extra_y = [extra_y] if isinstance(extra_y,str) else extra_y
+        self.job_type = job_type
+
+        self.plot_keys = {"energy_per_atom":"Energy (meV/atom)", 
+                          "force":"Force (eV/$\AA$)", 
+                          "stress":"Stress (kbar)", 
+                          "atom_mag":"Atomic maganetic moment ($\mu$B)", 
+                          "ds_mag_force": "Maganetic force ($\mu$B/$\AA$)",
+                          "band_gap":"Band gap (eV)"}
+        # key is the metric name, value is the y title
         
-        plotdata = self._metrics2plotdata(allmetrics)
-        fnames = self._plot_ecutwfc(plotdata)
+        if self.extra_y is not None:
+            for iey,iey_unit in self.extra_y:
+                self.plot_keys[iey] = iey_unit
+        
+        self.shift_idx = None
+        if shift_data == "max":
+            self.shift_idx = -1
+        elif shift_data == "min":
+            self.shift_idx = 0
+        elif shift_data == None:
+            if self.test_key == "ecutwfc":
+                self.shift_idx = -1
+            elif self.test_key == "kspacing":
+                self.shift_idx = 0
+        
+        if x_name is not None:
+            self.x_name = x_name.capitalize()
+        else:
+            if test_key == "ecutwfc":
+                self.x_name = "Ecutwfc (Ry)"
+            elif test_key == "kspacing":
+                self.x_name = "Kspacing (1/bohr)"
+            else:
+                self.x_name = test_key.capitalize()
+
+    def run(self):
+        metrics_jobs = None
+        metrics_file = []
+        if self.jobs is not None:
+            metrics_jobs = self._collect_metrics()
+            json.dump(metrics_jobs, open("metrics.json", "w"), indent=4)
+        if self.metric_file is not None:
+            metrics_file = [json.load(open(i)) for i in self.metric_file if os.path.isfile(i)]
+        
+        if metrics_jobs is None and len(metrics_file)==0:
+            print("No metrics are found.")
+            return
+        
+        plotdata = self.rearrage_data(metrics_jobs, metrics_file)
+        plotdata = self.sort_plotdata(plotdata)
+        fnames = self.plot_data(plotdata)
+        
         # write a supermetrics.json
         json.dump(plotdata, open("result.json", "w"), indent=4)
-        json.dump({k:{"type": "image", "file": v}  for k,v in fnames.items()}, open("supermetrics.json","w"),indent=4)
+        if fnames:
+            json.dump({k:{"type": "image", "file": k}  for k in fnames}, open("supermetrics.json","w"),indent=4)
     
     def _collect_metrics(self):
         jobs = self.jobs
-        if len(jobs) == 0:
-            print(
-                "Warning: have not set the jobs -j. Try to find the results in current folder."
-            )
-            jobs = ["."]
-        return comm_conv.collect_metrics(jobs)
-
-    def _metrics2plotdata(self, allmetrics):
-        # transfer the allmetrics to plotdata, which is a dict where key is example name 
-        # and value is a dict of ecutwfc, energy_per_atom, and subfolder.
-        plotdata = {}
-        for i, iv in allmetrics.items():
-            example_name = os.path.dirname(i.rstrip("/"))
-            if example_name not in plotdata:
-                plotdata[example_name] = {
-                    "subfolder": [],
-                    "ecutwfc": [],
-                    "energy_per_atom": [],
-                    "force": [],
-                    "stress": [],
-                    "atom_mag": [],
-                    "mag_force": [],
-                }
-            ecutwfc = iv.get("ecutwfc", None)
-            if "energy_per_atom" in iv:
-                energy_per_atom = iv.get("energy_per_atom", None)
-            elif "energy" in iv and "natom" in iv:
-                try:
-                    energy_per_atom = iv["energy"] / iv["natom"]
-                except:
-                    print(f"Warning: {i} has no energy_per_atom, and energy ({iv['energy']}) can not devided by natom ({iv['natom']}).")
-                    energy_per_atom = None
-            else:
-                energy_per_atom = None
-                print(f"Warning: {i} has no energy_per_atom or energy and natom.")
-            
-            if ecutwfc ==None or energy_per_atom == None:
-                print(f"Warning: {i} has no ecutwfc or energy_per_atom.")
-                continue
-            plotdata[example_name]["subfolder"].append(os.path.basename(i.rstrip("/")))
-            plotdata[example_name]["ecutwfc"].append(iv.get("ecutwfc"))
-            plotdata[example_name]["energy_per_atom"].append(energy_per_atom)
-            plotdata[example_name]["force"].append(iv.get("force"))
-            plotdata[example_name]["stress"].append(iv.get("stress"))
-            plotdata[example_name]["atom_mag"].append(iv.get("atom_mag"))
-            plotdata[example_name]["mag_force"].append(iv.get("mag_force"))
-            
-
-        # sort the subfolder/energy_per_atom by ecutwfc
-        allkeys = list(plotdata.keys())
-        allkeys.sort()
-        sorteddata = {}
-        for ik,iv in plotdata.items():
-            if len(iv["ecutwfc"]) == 0:
-                print(f"Warning: {ik} has no ecutwfc.")
-                continue
-            idx = sorted(range(len(iv["ecutwfc"])), key=lambda k: iv["ecutwfc"][k])
-            sorteddata[ik] = {
-                "subfolder": [iv["subfolder"][i] for i in idx],
-                "ecutwfc": [iv["ecutwfc"][i] for i in idx],
-                "energy_per_atom": [(iv["energy_per_atom"][i] - iv["energy_per_atom"][idx[-1]])*1000  for i in idx], # shift energy to the last one
-            }
-            for ikk in ["force","stress","atom_mag","mag_force"]:
-                if len(iv[ikk]) == 0:
-                    continue
-                idata = comm_conv.shift_data(iv[ikk],base_index=idx[-1])
-                if idata is None:
-                    continue
-                # rotate the data
-                sorteddata[ik][ikk] = [[idata[j][i] for j in idx] for i in range(len(idata[0]))]
-        return sorteddata
-    
-    def _plot_ecutwfc(self, plotdata):
-        allkeys = list(plotdata.keys())
-        allkeys.sort()
+        test_key = self.test_key
+        job_type = self.job_type
         
-        fnames = {}
-        # plot each example in a subplot
-        for i, ik in enumerate(allkeys):
-            fname = ik.replace("/","_")+".png"
-            comm_plot.plot_line_point(plotdata[ik]["ecutwfc"], [plotdata[ik]["energy_per_atom"]],xtitle="Kspacing (1/bohr)",ytitle="Energy (meV/atom)",title=ik, 
-                                      fname=fname,figsize=(8,6),fontsize=16,grid=True)
-            fnames[ik] = fname
+        allmetrics = {}
+        for job in jobs:
+                for ijob in glob.glob(os.path.join(job,"*")):
+                    if os.path.isdir(ijob):
+                        results = RESULT(path=ijob,fmt=job_type)
+                        if job_type == "abacus":
+                            test_key_v = results["INPUT"].get(test_key,None)
+                        else:
+                            test_key_v = results[test_key]
+                        allmetrics[ijob] = {
+                            test_key: test_key_v,
+                            "energy_per_atom": results["energy_per_atom"],
+                            "energy": results["energy"],
+                            "natom": results["natom"],
+                            "normal_end": results["normal_end"],
+                            "denergy_last": results["denergy_last"],
+                            "drho_last": results["drho_last"],
+                            "converge": results["converge"],
+                            "band_gap": results["band_gap"],
+                            "scf_steps": results["scf_steps"],
+                            "total_time": results["total_time"],
+                            "scf_time": results["scf_time"],
+                            "force": results["force"],
+                            "stress": results["stress"],
+                            "ds_mag_force": results["ds_mag_force"],
+                            "version": results["version"],
+                            "ks_solver": None if not isinstance(results["INPUT"],dict) else results["INPUT"].get("ks_solver",None),
+                            "scf_time/step": None if not results["scf_time"] or not results["scf_steps"] else results["scf_time"] / results["scf_steps"]
+                        }
+                        for ikey in self.plot_keys:
+                            if ikey not in allmetrics[ijob]:
+                                allmetrics[ijob][ikey] = results[ikey]         
+        return allmetrics
+
+    def get_xkey_v(self, iv):
+        # we need deal with the x_key value to transfer it to a float or int or string
+        x_key_v = iv.get(self.test_key,None)
+        if x_key_v is None:
+            return None
+        
+        if self.test_key == "kspacing":
+            kspacing = x_key_v
+            if isinstance(kspacing,str):
+                try:
+                    ksplit = [float(ik) for ik in kspacing.split()]
+                    if len(ksplit) == 1:
+                        kspacing = ksplit[0]
+                    elif len(ksplit) == 3:
+                        if ksplit[0] == ksplit[1] == ksplit[2]:
+                            kspacing = ksplit[0]
+                except:
+                    return kspacing
+            return kspacing
+        elif isinstance(x_key_v,str):
+            x_key_v_split = x_key_v.split()
+            if len(x_key_v_split) == 1:
+                try:
+                    return float(x_key_v)
+                except:
+                    return x_key_v
+            elif len(x_key_v_split) > 1:
+                try:
+                    return tuple([float(i) for i in x_key_v_split])
+                except:
+                    return x_key_v
+
+        return x_key_v
+                
+    def get_ykey_v(self, iv, y_key):
+        y_key_v = iv.get(y_key,None)
+        if y_key_v is None:
+            return None
+        
+        if y_key in ["energy","energy_per_atom"]:
+            # here will actually use energy_per_atom in unit meV/atom
+            if "energy_per_atom" in iv:
+                y_key_v = iv["energy_per_atom"]
+            else:
+                e = iv.get("energy",None)
+                na = iv.get("natom",None)
+                if e is not None and na is not None:
+                    y_key_v = e / na
+                elif e is not None and na is None:
+                    y_key_v = e
+                    self.plot_keys[y_key] = "meV"
+                else:
+                    y_key_v = None
+            if y_key_v is not None:
+                y_key_v *= 1000 # transfer to meV/atom
+        elif y_key == "mag_force":
+            return iv.get("ds_mag_force",None)
+        
+        # if y_key_v is a list of list, we should transfer it to one list
+        if isinstance(y_key_v,list):
+            y_key_v = np.array(y_key_v).flatten().tolist()
+                
+        return y_key_v   
+    
+    def rearrage_data(self, metrics_jobs, metrics_file):
+        # transfer the metrics to a dict with key is example name and value is a dict of subfolder, x_key, and y_keys
+        '''
+        {
+            "example_name": {
+                "subfolder": [],
+                "x_key": [],  # x_key should be a list of float or int or string
+                "y_key1": [], # y_key should be a list of float or int or list, element of y_key is matched with x_key
+                "y_key2": [],
+                ...
+            }
+        }
+        '''
+        plotdata = {}
+        x_key = self.test_key
+        for allmetrics in [metrics_jobs] + metrics_file:
+            if allmetrics is None:
+                continue
             
-            for ikey,iunit in zip(["force", "stress","atom_mag", "mag_force"],
-                                  ["Force (eV/Ang)", "Stress (kbar)","Atom magnetic moment (uB)","Magnetic force (uB/A)"]):
-                if ikey not in plotdata[ik] or len(plotdata[ik][ikey]) == 0:
+            for i, iv in allmetrics.items():
+                x_value = self.get_xkey_v(iv)
+                if x_value is None: # do not save the data if the x_key is None
                     continue
-                fname = ik.replace("/","_") + "-" + ikey + ".png"
-                comm_plot.plot_line_point(plotdata[ik]["ecutwfc"], plotdata[ik][ikey],xtitle="Kspacing (1/bohr)",ytitle=iunit,title=ik+"-"+ikey, 
+                example_name = os.path.dirname(i.rstrip("/"))
+                if example_name not in plotdata:
+                    plotdata[example_name] = {
+                        "subfolder": [],
+                        x_key: [],
+                    }
+                    for ik in self.plot_keys:
+                        plotdata[example_name][ik] = []
+
+                if x_value in plotdata[example_name][x_key]: # if one x_value is already in the plotdata, skip it. For case value from jobs and file are the same.
+                    continue
+                plotdata[example_name]["subfolder"].append(os.path.basename(i.rstrip("/")))
+                plotdata[example_name][x_key].append(x_value)
+                for ik in self.plot_keys:
+                    plotdata[example_name][ik].append(self.get_ykey_v(iv,ik))   
+        return plotdata
+    
+    def sort_plotdata(self, plotdata):
+        # we need sort the plotdata by x_key
+        # and if shift_idx is not False, we need shift the data to the shift_idx
+        new_plotdata = {}
+        for ik,iv in plotdata.items():
+            x_values = iv[self.test_key]
+            sort_idx = sorted(range(len(x_values)), key=lambda k: x_values[k])
+            new_plotdata[ik] = {
+                "subfolder": [iv["subfolder"][i] for i in sort_idx],
+                self.test_key: [iv[self.test_key][i] for i in sort_idx]
+            }
+            for ikey in self.plot_keys:
+                if self.shift_idx is None or ikey in ["band_gap"]:
+                    new_plotdata[ik][ikey] = [iv[ikey][i] for i in sort_idx]
+                else:
+                    new_plotdata[ik][ikey] = shift_data(iv[ikey],base_index=sort_idx[self.shift_idx])
+        return new_plotdata
+    
+    def plot_data(self, plotdata):
+        allexamples = list(plotdata.keys())
+        allexamples.sort()
+        fnames = []
+        ykeys = list(self.plot_keys.keys())
+        ykeys.sort()
+        
+        for ik in allexamples:
+            
+            x = plotdata[ik][self.test_key]
+            
+            for ykey in ykeys:
+                fname = ik.replace("/","_") + f"-{ykey}.png"
+                y = plotdata[ik][ykey]
+                if y is None:
+                    continue
+                
+                ix, iy = comm.clean_none_list(x,y)
+                if len(ix) == 0:
+                    continue
+                if isinstance(ix[0],(tuple,list)):
+                    ix = [str(i) for i in ix]
+                
+                # if iy is a list of list, we should rotate it
+                if isinstance(iy[0],list):
+                    iys = np.array(iy).T
+                else:
+                    iys = [iy]
+
+                title = f"{ik}({ykey})"
+                ytitle = self.plot_keys[ykey]
+                if self.shift_idx is None or ykey in ["band_gap"]:
+                    ytitle = ytitle.capitalize()
+                else:
+                    ytitle = "Relative " + ytitle
+                        
+                comm_plot.plot_line_point(ix, iys,xtitle=self.x_name,ytitle=ytitle,title=title, 
                                       fname=fname,figsize=(8,6),fontsize=16,grid=True)
-                fnames[ik + "-" + ikey] = fname
-        return fnames   
+                fnames.append(fname)
+        
+        return fnames        
+                
+                
+            
