@@ -970,19 +970,50 @@ class AbacusDeltaSpin(ResultAbacus):
     @ResultAbacus.register(ds_lambda_step="a list of DeltaSpin converge step in each SCF step",
                            ds_lambda_rms="a list of DeltaSpin RMS in each SCF step",
                            ds_mag="a list of list, each element list is for each atom. Unit in uB",
-                           ds_mag_force="a list of list, each element list is for each atom. Unit in eV/uB")
+                           ds_mag_force="a list of list, each element list is for each atom. Unit in eV/uB",
+                           ds_time="a list of the total time of inner loop in deltaspin for each scf step.")
     def GetDSOutput(self):
         '''
 Step (Outer -- Inner) =  16 -- 1           RMS = 1.057e-07
 Step (Outer -- Inner) =  16 -- 2           RMS = 1.355e-07
 Step (Outer -- Inner) =  16 -- 3           RMS = 1.176e-07
 Step (Outer -- Inner) =  16 -- 4           RMS = 9.760e-08
+
+
+===============================================================================
+ DA13     1.98e+00  -7.38e-10   3.44e+00   4.88e+00  -6.81997451e+03   1.78754645e-06   2.5764e-09 108.32
+===============================================================================
+Inner optimization for lambda begins ...
+Covergence criterion for the iteration: 1e-08
+initial lambda (eV/uB):
+ATOM      1         0.1482429405         0.0000000026         0.0156735253
+ATOM      2        -0.0605498198         0.0000000025         0.1362180540
+initial spin (uB):
+ATOM      1         0.0000367975        -0.0000000063         2.4319892847
+ATOM      2         2.1061545741        -0.0000000061         1.2160301143
+target spin (uB):
+ATOM      1         0.0000000000         0.0000000000         2.4320000000
+ATOM      2         2.1061737820         0.0000000000         1.2160000000
+Step (Outer -- Inner) =  13 -- 1           RMS = 3.70452e-05     TIME(s) = 24.4197
+Step (Outer -- Inner) =  13 -- 2           RMS = 3.15459e-06     TIME(s) = 16.202
+Step (Outer -- Inner) =  13 -- 3           RMS = 8.99985e-07     TIME(s) = 16.2116
+Step (Outer -- Inner) =  13 -- 4           RMS = 1.42306e-07     TIME(s) = 16.2354
+Step (Outer -- Inner) =  13 -- 5           RMS = 3.15143e-08     TIME(s) = 16.2353
+Meet convergence criterion ( < 3.70452e-08 ), exit.       Total TIME(s) = 89.304
+after-optimization spin (uB): (print in the inner loop):
+ATOM      1        -0.0000000053        -0.0000000001         2.4319999813
+ATOM      2         2.1061737840        -0.0000000001         1.2159999599
+after-optimization lambda (eV/uB): (print in the inner loop):
+ATOM      1         0.1482675982        -0.0000000006         0.0156621842
+ATOM      2        -0.0605667962        -0.0000000007         0.1362365586
+Inner optimization for lambda ends.  
 ...
         '''
         lambda_step = None 
         lambda_rms = None
         ds_mag = None
         mag_force = None
+        ds_time = None
         if self.OUTPUT:
             scf_step = []
             lambda_step = []
@@ -1000,6 +1031,10 @@ Step (Outer -- Inner) =  16 -- 4           RMS = 9.760e-08
                     else:
                         lambda_step[-1] = lambdas
                         lambda_rms[-1] = rms
+                elif "Meet convergence criterion" in i and "Total TIME(s) =" in i:
+                    if ds_time is None:
+                        ds_time = []
+                    ds_time.append(float(i.split()[-1]))
 
         if self.LOG:
             natom = self["natom"]
@@ -1025,7 +1060,8 @@ Step (Outer -- Inner) =  16 -- 4           RMS = 9.760e-08
         self["ds_lambda_step"] = lambda_step
         self["ds_lambda_rms"] = lambda_rms
         self["ds_mag"] = ds_mag
-        self["ds_mag_force"] = mag_force  
+        self["ds_mag_force"] = mag_force     
+        self["ds_time"] = ds_time
         
         
 class AbacusMemory(ResultAbacus):
