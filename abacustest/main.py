@@ -24,7 +24,7 @@ def print_head():
     print("+        ABACUSTEST")
     print(f"+ version: {__version__}")
     print(f"+ GITHUB: https://github.com/pxlxingliang/abacus-test/tree/develop")
-    print(f"+ BohriumApp: https://app.bohrium.dp.tech/abacustest/?request=GET%3A%2Fapplications%2Fabacustest")
+    print(f"+ BohriumApp: https://bohrium.dp.tech/apps/abacustest")
     print("--"*30+"\n")
     
     
