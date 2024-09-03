@@ -1,6 +1,9 @@
 import os,sys,glob,re,traceback
 from ..resultAbacus import ResultAbacus
 from .. import comm
+import numpy as np
+
+KS_SOLVER_LIST = ['DA','DS','GE','GV','BP','CG','CU','PE','LA']
 
 class Abacus(ResultAbacus):
     
@@ -108,10 +111,19 @@ class Abacus(ResultAbacus):
     def GetGridInfo(self):
         fft_grid = None
         for i,line in enumerate(self.LOG):
-            if "[fft grid for charge/potential] =" in line:
-                fft_grid = [float(i.strip()) for i in line.split('=')[1].split(',')]
+            if "fft grid for charge/potential =" in line:
+                fft_grid = [float(i.strip()) for i in line.split('=')[1].replace("[","").replace("]","").split(',')]
                 break     
         self["fft_grid"] = fft_grid
+    
+    @ResultAbacus.register(nbase = "number of basis in LCAO")
+    def GetLogParamNBase(self): 
+        nbase = None
+        for i,line in enumerate(self.LOG):
+            if "NLOCAL =" in line:
+                nbase = int(line.split()[2])
+                break
+        self['nbase'] = nbase
     
     @ResultAbacus.register(nbands="number of bands",
                            nkstot = "total K point number",
@@ -176,6 +188,8 @@ class Abacus(ResultAbacus):
                            total_mag="total magnetism (Bohr mag/cell)",
                            absolute_mag="absolute magnetism (Bohr mag/cell)",
                            energy = "the total energy (eV)",
+                           energy_ks = "the E_KohnSham, unit in eV",
+                           energies = "list of total energy of each ION step",
                            volume = "the volume of cell, in A^3",
                            efermi = "the fermi energy (eV). If has set nupdown, this will be a list of two values. The first is up, the second is down.",
                            energy_per_atom="the total energy divided by natom, (eV)")
@@ -186,10 +200,10 @@ class Abacus(ResultAbacus):
             self["total_mag"] = output_final.get("total_mag",None)
             self["absolute_mag"] = output_final.get("absolute_mag",None)
             self["energy"] = output_final.get("energy",None)
+            self["energies"] = [i.get("energy",None) for i in self.JSON.get("output")]
             self["efermi"] = output_final.get("e_fermi",None)
             cell  = output_final.get("cell",None)
             if cell:
-                import numpy as np
                 self["volume"] = abs(np.linalg.det(cell))
             else:
                 self["volume"] = None
@@ -203,6 +217,8 @@ class Abacus(ResultAbacus):
             efermi = None
             converge = None
             energy = None
+            energies = []
+            energies_ks = []
             volume = None
             for i,line in enumerate(self.LOG):
                 if 'charge density convergence is achieved' in line:
@@ -211,11 +227,21 @@ class Abacus(ResultAbacus):
                     'convergence has not been achieved' in line:
                     converge = False
                 elif 'total magnetism (Bohr mag/cell)' in line:
-                    total_mag = float(line.split()[-1])
+                    sline = line.split()
+                    if len(sline) == 5:
+                        total_mag = float(line.split()[-1])
+                    elif len(sline) == 7:
+                        total_mag = [float(imag) for imag in sline[-3:]] 
+                    else:
+                        total_mag = None
                 elif 'absolute magnetism' in line:
                     absolute_mag = float(line.split()[-1])
                 elif "!FINAL_ETOT_IS" in line:
                     energy = float(line.split()[1])
+                elif "final etot is" in line:
+                    energies.append(float(line.split()[-2]))
+                elif "E_KohnSham" in line:
+                    energies_ks.append(float(line.split()[-1]))
                 elif "Volume (A^3) =" in line:
                     volume = float(line.split()[-1])
                 elif 'E_Fermi' in line:
@@ -233,6 +259,15 @@ class Abacus(ResultAbacus):
             self["energy"] = energy
             self["converge"] = converge
             self["volume"] = volume
+            if energies:
+                self["energies"] = energies
+            else:
+                self["energies"] = None
+
+            if energies_ks:
+                self["energy_ks"] = energies_ks[-1]
+            else:
+                self["energy_ks"] = None
 
             self['total_mag'] = total_mag
             self['absolute_mag'] = absolute_mag
@@ -244,11 +279,12 @@ class Abacus(ResultAbacus):
             if self["natom"] != None and self['energy'] != None:
                 self["energy_per_atom"] = self['energy']/self["natom"]
     
-    @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one")
+    @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one",
+                           forces = "list of force, the force of each ION step. Dimension is [nstep,3*natom]")
     def GetForceFromLog(self):
-        force = None
+        forces = []
         for i in range(len(self.LOG)):
-            i = -1*i - 1
+            #i = -1*i - 1
             line = self.LOG[i]
             if 'TOTAL-FORCE (eV/Angstrom)' in line:
                 #head_pattern = re.compile(r'^\s*atom\s+x\s+y\s+z\s*$')
@@ -264,21 +300,28 @@ class Abacus(ResultAbacus):
                 if noforce:
                     break
                 
+                force = []
                 while value_pattern.match(self.LOG[j]):
-                    if force == None:
-                        force = []
                     force += [float(ii) for ii in self.LOG[j].split()[1:4]]
                     j += 1
-                break
-        self['force'] = force
+                if force: forces.append(force)
+        if forces:        
+            self['force'] = forces[-1]
+            self["forces"] = forces
+        else:
+            self['force'] = None
+            self["forces"] = None
     
     @ResultAbacus.register(stress="list[9], stress of the system, if is MD or RELAX calculation, this is the last one",
-                           virial="list[9], virial of the system,  = stress * volume, which is the last one.",
-                           pressure="the pressure of the system, unit in kbar.")
+                           virial="list[9], virial of the system,  = stress * volume, and is the last one.",
+                           pressure="the pressure of the system, unit in kbar.",
+                           stresses="list of stress, the stress of each ION step. Dimension is [nstep,9]",
+                           virials="list of virial, the virial of each ION step. Dimension is [nstep,9]",
+                           pressures="list of pressure, the pressure of each ION step.")
     def GetStessFromLog(self):
-        stress = None
+        stresses = []
         for i in range(len(self.LOG)):
-            i = -1*i - 1
+            #i = -1*i - 1
             line = self.LOG[i]
             if 'TOTAL-STRESS (KBAR)' in line:
                 value_pattern = re.compile(r'^\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$')
@@ -293,20 +336,37 @@ class Abacus(ResultAbacus):
                         break
                 if nostress:
                     break
-                
+                stress = []
                 while value_pattern.match(self.LOG[j]):
-                    if stress == None:
-                        stress = []
                     stress += [float(ii) for ii in self.LOG[j].split()[:3]]
                     j += 1
-                break
-        self['stress'] = stress
-        if stress != None and self["volume"] != None:
-            self['virial'] = [i * self["volume"] * comm.KBAR2EVPERANGSTROM3 for i in stress]
-            self["pressure"] = (stress[0] + stress[4] + stress[8]) / 3.0
+                if stress: stresses.append(stress)
+        
+        virials = []
+        pressures = []
+        for stress in stresses:
+            if self["volume"] != None:
+                virial = [i * self["volume"] * comm.KBAR2EVPERANGSTROM3 for i in stress]
+                virials.append(virial)
+            pressures.append((stress[0] + stress[4] + stress[8]) / 3.0)
+            
+        if stresses:
+            self['stress'] = stresses[-1]
+            self["stresses"] = stresses
+            self["pressure"] = pressures[-1]
+            self["pressures"] = pressures
+        else:
+            self["stress"] = None
+            self["stresses"] = None
+            self["pressure"] = None
+            self["pressures"] = None
+
+        if virials:
+            self['virial'] = virials[-1]
+            self["virials"] = virials
         else:
             self['virial'] = None
-            self["pressure"] = None
+            self["virials"] = None
         
     @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
     def GetLargestGradientFromLog(self):
@@ -339,6 +399,7 @@ class Abacus(ResultAbacus):
         for i,line in enumerate(self.LOG):
             if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
                 nspin = int(line.split()[-1])
+                if nspin == 4: nspin=1  # for nspin4, only total band is output
                 band = []
                 band_weight = []
                 for ispin in range(nspin):
@@ -493,11 +554,10 @@ class Abacus(ResultAbacus):
         for i,line in enumerate(self.OUTPUT):
             if line[1:5] == 'ITER':
                 for j in range(i+1,len(self.OUTPUT)):
-                    if self.OUTPUT[j][1:3] in ['CG','DA','DS','GE','GV','BP']:
+                    if self.OUTPUT[j][1:3] in KS_SOLVER_LIST:
                         scftime.append(float(self.OUTPUT[j].split()[-1]))
                 break
         if len(scftime) > 0:
-            import numpy as np
             self['scf_time'] = np.array(scftime).sum()
             self['step1_time'] = scftime[0]
             self['scf_steps'] = len(scftime)
@@ -513,11 +573,11 @@ class Abacus(ResultAbacus):
         if not os.path.isfile(mullikenf):
             self['atom_mag'] = None
             self["atom_mags"] = None
-            self["atom_electron"] = None
+            self["atom_elec"] = None
             return
         
         atom_mag = []
-        atom_electron = []
+        atom_elec = []
         with open(mullikenf) as f1: lines = f1.readlines()
         for idx,line in enumerate(lines):
             if line[:5] == "STEP:":
@@ -532,15 +592,15 @@ class Abacus(ResultAbacus):
                     atom_mag[-1].append(float(line.split()[-1]))
             elif "Zeta of" in line:
                 two_spin = True if "Spin 2" in line else False
-                atom_electron.append([])
+                atom_elec.append([])
                 j = idx + 1
                 while j < len(lines) and lines[j].strip() != "":
                     if "Zeta of" in lines[j]:
                         break
                     if "sum over m+zeta" in lines[j]:
-                        atom_electron[-1].append([float(lines[j].split()[3])])
+                        atom_elec[-1].append([float(lines[j].split()[3])])
                         if two_spin:
-                            atom_electron[-1][-1].append(float(lines[j].split()[4]))
+                            atom_elec[-1][-1].append(float(lines[j].split()[4]))
                     j += 1
         
         if len(atom_mag) == 0:
@@ -550,13 +610,13 @@ class Abacus(ResultAbacus):
             self['atom_mags'] = atom_mag
             self["atom_mag"] = atom_mag[-1]
         
-        if not atom_electron:
+        if not atom_elec:
             self["atom_elec"] = None
             self["atom_orb_elec"] = None
         else:
-            self["atom_orb_elec"] = atom_electron
+            self["atom_orb_elec"] = atom_elec
             atom_elec = []
-            for i in atom_electron:
+            for i in atom_elec:
                 t = 0
                 for j in i:
                     t += sum(j)
@@ -627,15 +687,15 @@ class Abacus(ResultAbacus):
         
         if self.OUTPUT:
             for i,line in enumerate(self.OUTPUT):
-                if "ITER" in line and "ETOT(eV)" in line and "EDIFF(eV)" in line and "DRHO" in line and "TIME(s)" in line:
+                if "ITER" in line and "ETOT/eV" in line and "EDIFF/eV" in line and "DRHO" in line and "TIME/s" in line:
                     denergy = []
                     ncol = len(line.split())
-                    ediff_idx = line.split().index("EDIFF(eV)")
+                    ediff_idx = line.split().index("EDIFF/eV")
                     j = i + 1
                     while j < len(self.OUTPUT):
                         if "----------------------------" in self.OUTPUT[j]:
                             break
-                        if self.OUTPUT[j][1:3] in ['CG','DA','DS','GE','GV','BP'] and len(self.OUTPUT[j].split()) == ncol:
+                        if self.OUTPUT[j][1:3] in KS_SOLVER_LIST and len(self.OUTPUT[j].split()) == ncol:
                             denergy.append(float(self.OUTPUT[j].split()[ediff_idx]))
                         j += 1
                     break
@@ -645,8 +705,10 @@ class Abacus(ResultAbacus):
         else:
             self["denergy_last"] = None
 
-    @ResultAbacus.register(lattice_constant="unit in angstrom",
+    @ResultAbacus.register(lattice_constant="a list of six float which is a/b/c,alpha,beta,gamma of cell. If has more than one ION step, will output the last one.",
+                           lattice_constants="a list of list of six float which is a/b/c,alpha,beta,gamma of cell",
                            cell = "[[],[],[]], two-dimension list, unit in Angstrom. If is relax or md, will output the last one.",
+                           cells = "a list of [[],[],[]], which is a two-dimension list of cell vector, unit in Angstrom.",
                            cell_init = "[[],[],[]], two-dimension list, unit in Angstrom. The initial cell",
                            coordinate = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. If is relax or md, will output the last one",
                            coordinate_init = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. The initial coordinate",
@@ -658,19 +720,40 @@ class Abacus(ResultAbacus):
         lc = 1   
         for line in self.LOG:
             if "lattice constant (Angstrom)" in line:
-                self["lattice_constant"] = lc = float(line.split()[-1])
+                lc = float(line.split()[-1])
                 break
         
-        cell = None
+        cells = []
         for i in range(len(self.LOG)): 
             iline = -i - 1 
             line = self.LOG[iline]
             if "Lattice vectors: (Cartesian coordinate: in unit of a_0)" in line:
-                cell = []
+                icell = []
                 for k in range(1, 4):
-                    cell.append([float(x) * lc for x in self.LOG[iline + k].split()[0:3]])
+                    icell.append([float(x) * lc for x in self.LOG[iline + k].split()[0:3]])
+                cells.append(icell)
                 break
-        self['cell'] = cell
+                    
+        if cells:
+            self['cells'] = cells
+            self['cell'] = cells[-1]
+            # calculate a/b/c,alpha,beta,gamma
+            lattice_constants = []
+            for cell in cells:
+                a = np.linalg.norm(cell[0])
+                b = np.linalg.norm(cell[1])
+                c = np.linalg.norm(cell[2])
+                alpha = np.arccos(np.dot(cell[1],cell[2])/(b*c))*180/np.pi
+                beta = np.arccos(np.dot(cell[0],cell[2])/(a*c))*180/np.pi
+                gamma = np.arccos(np.dot(cell[0],cell[1])/(a*b))*180/np.pi
+                lattice_constants.append([a,b,c,alpha,beta,gamma])
+            self['lattice_constants'] = lattice_constants
+            self['lattice_constant'] = lattice_constants[-1]
+        else:
+            self["cells"] = None
+            self["cell"] = None
+            self['lattice_constants'] = None
+            self['lattice_constant'] = None
         
         cell_init = None
         for i in range(len(self.LOG)): 
@@ -696,7 +779,6 @@ class Abacus(ResultAbacus):
                         if line.split()[0] == "DIRECT":
                             for k in range(2, 2 + natom):
                                 coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                            import numpy as np
                             coordinate = np.array(coordinate).dot(np.array(cell)).tolist()
                         elif line.split()[0] == "CARTESIAN":
                             for k in range(2, 2 + natom):
@@ -718,7 +800,6 @@ class Abacus(ResultAbacus):
                         if line.split()[0] == "DIRECT":
                             for k in range(2, 2 + natom):
                                 coordinate_init.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                            import numpy as np
                             coordinate_init = np.array(coordinate_init).dot(np.array(cell)).tolist()
                         elif line.split()[0] == "CARTESIAN":
                             for k in range(2, 2 + natom):
@@ -794,6 +875,51 @@ class Abacus(ResultAbacus):
             pdos = {"energy":energy,"orbitals":all_orbitals}
         self["pdos"] = pdos
 
+    @ResultAbacus.register(charge="list, the charge of each atom.",
+                           charge_spd="list of list, the charge of each atom spd orbital.",
+                           atom_mag_spd="list of list, the magnization of each atom spd orbital.",
+                           )
+    def GetCharge(self):
+        '''
+-------------------------------------------------------------------------------------------
+Orbital Charge Analysis      Charge         Mag(x)         Mag(y)         Mag(z)
+-------------------------------------------------------------------------------------------
+Fe1
+                   s         1.0799        -0.0000         0.0000         0.0034
+                   p         5.9969        -0.0000         0.0000         0.0004
+                   d         6.5446        -0.0039         0.0013         3.0690
+                 Sum        13.6214        -0.0039         0.0013         3.0729
+Fe2
+                   s         1.0827         0.0000        -0.0000         0.0040
+                   p         5.9969         0.0000        -0.0000         0.0004
+                   d         6.6497         0.0025        -0.0002         2.9733
+                 Sum        13.7294         0.0025        -0.0002         2.9776
+-------------------------------------------------------------------------------------------        
+        '''
+        charge = None
+        charge_spd = None
+        atom_mag_spd = None
+        for i, line in enumerate(self.LOG):
+            if "Orbital Charge Analysis      Charge" in line:
+                charge = []
+                charge_spd = []
+                atom_mag_spd = []
+                j = i + 2
+                while "-------" not in self.LOG[j]:
+                    sline = self.LOG[j].split()
+                    if len(sline) == 1:
+                        charge_spd.append([])
+                        atom_mag_spd.append([])
+                    else:
+                        if "Sum" in sline:
+                            charge.append(float(sline[1]))
+                        else:
+                            charge_spd[-1].append(float(sline[1]))
+                            atom_mag_spd[-1].append([float(ii) for ii in sline[2:]])
+                    j += 1
+        self["charge"] = charge
+        self["charge_spd"] = charge_spd
+        self["atom_mag_spd"] = atom_mag_spd
 
 class AbacusRelax(ResultAbacus):
     
@@ -843,26 +969,51 @@ class AbacusDeltaSpin(ResultAbacus):
     
     @ResultAbacus.register(ds_lambda_step="a list of DeltaSpin converge step in each SCF step",
                            ds_lambda_rms="a list of DeltaSpin RMS in each SCF step",
-                           ds_optimal_lambda="a list of list, each element list is for each atom",
-                           ds_mag_force="a list of list, each element list is for each atom")
+                           ds_mag="a list of list, each element list is for each atom. Unit in uB",
+                           ds_mag_force="a list of list, each element list is for each atom. Unit in eV/uB",
+                           ds_time="a list of the total time of inner loop in deltaspin for each scf step.")
     def GetDSOutput(self):
         '''
 Step (Outer -- Inner) =  16 -- 1           RMS = 1.057e-07
 Step (Outer -- Inner) =  16 -- 2           RMS = 1.355e-07
 Step (Outer -- Inner) =  16 -- 3           RMS = 1.176e-07
 Step (Outer -- Inner) =  16 -- 4           RMS = 9.760e-08
+
+
+===============================================================================
+ DA13     1.98e+00  -7.38e-10   3.44e+00   4.88e+00  -6.81997451e+03   1.78754645e-06   2.5764e-09 108.32
+===============================================================================
+Inner optimization for lambda begins ...
+Covergence criterion for the iteration: 1e-08
+initial lambda (eV/uB):
+ATOM      1         0.1482429405         0.0000000026         0.0156735253
+ATOM      2        -0.0605498198         0.0000000025         0.1362180540
+initial spin (uB):
+ATOM      1         0.0000367975        -0.0000000063         2.4319892847
+ATOM      2         2.1061545741        -0.0000000061         1.2160301143
+target spin (uB):
+ATOM      1         0.0000000000         0.0000000000         2.4320000000
+ATOM      2         2.1061737820         0.0000000000         1.2160000000
+Step (Outer -- Inner) =  13 -- 1           RMS = 3.70452e-05     TIME(s) = 24.4197
+Step (Outer -- Inner) =  13 -- 2           RMS = 3.15459e-06     TIME(s) = 16.202
+Step (Outer -- Inner) =  13 -- 3           RMS = 8.99985e-07     TIME(s) = 16.2116
+Step (Outer -- Inner) =  13 -- 4           RMS = 1.42306e-07     TIME(s) = 16.2354
+Step (Outer -- Inner) =  13 -- 5           RMS = 3.15143e-08     TIME(s) = 16.2353
+Meet convergence criterion ( < 3.70452e-08 ), exit.       Total TIME(s) = 89.304
+after-optimization spin (uB): (print in the inner loop):
+ATOM      1        -0.0000000053        -0.0000000001         2.4319999813
+ATOM      2         2.1061737840        -0.0000000001         1.2159999599
+after-optimization lambda (eV/uB): (print in the inner loop):
+ATOM      1         0.1482675982        -0.0000000006         0.0156621842
+ATOM      2        -0.0605667962        -0.0000000007         0.1362365586
+Inner optimization for lambda ends.  
 ...
-Final optimal lambda (Ry/uB): 
-ATOM 0         0.0000000000e+00    0.0000000000e+00   -3.5931898000e-05
-ATOM 1         0.0000000000e+00    0.0000000000e+00   -3.5939101250e-05
-Magnetic force (Ry/uB): 
-ATOM 0        -0.0000000000e+00   -0.0000000000e+00    3.5931898000e-05
-ATOM 1        -0.0000000000e+00   -0.0000000000e+00    3.5939101250e-05
         '''
         lambda_step = None 
         lambda_rms = None
-        optimal_lambda = None
+        ds_mag = None
         mag_force = None
+        ds_time = None
         if self.OUTPUT:
             scf_step = []
             lambda_step = []
@@ -880,18 +1031,50 @@ ATOM 1        -0.0000000000e+00   -0.0000000000e+00    3.5939101250e-05
                     else:
                         lambda_step[-1] = lambdas
                         lambda_rms[-1] = rms
-                elif "Final optimal lambda (Ry/uB):" in i:
-                    optimal_lambda = []
+                elif "Meet convergence criterion" in i and "Total TIME(s) =" in i:
+                    if ds_time is None:
+                        ds_time = []
+                    ds_time.append(float(i.split()[-1]))
+
+        if self.LOG:
+            natom = self["natom"]
+            for idx, i in enumerate(self.LOG):
+                if "Total Magnetism (uB)" in i:
+                    ds_mag = []
                     for j in range(natom):
-                        if len(self.OUTPUT[idx+j+1].split()) in [3,5] and self.OUTPUT[idx+j+1].split()[0] == "ATOM":
-                            optimal_lambda.append([float(ii) for ii in self.OUTPUT[idx+j+1].split()[2:]])
-                elif "Magnetic force (Ry/uB):" in i:
+                        if len(self.LOG[idx+j+2].split()) in [2,4]:
+                            ds_mag.append([float(ii) for ii in self.LOG[idx+j+2].split()[1:]])
+                elif "Orbital Charge Analysis      Charge" in i:
+                    ds_mag = []
+                    j = idx +2
+                    while "-------" not in self.LOG[j]:
+                        if "Sum" in self.LOG[j]:
+                            ds_mag.append([float(ii) for ii in self.LOG[j].split()[2:]])   
+                        j += 1     
+                elif "Magnetic force (eV/uB)" in i:
                     mag_force = []
                     for j in range(natom):
-                        if len(self.OUTPUT[idx+j+1].split()) in [3,5] and self.OUTPUT[idx+j+1].split()[0] == "ATOM":
-                            mag_force.append([float(ii) for ii in self.OUTPUT[idx+j+1].split()[2:]])
+                        if len(self.LOG[idx+j+2].split()) in [2,4]:
+                            mag_force.append([float(ii) for ii in self.LOG[idx+j+2].split()[1:]])
 
         self["ds_lambda_step"] = lambda_step
         self["ds_lambda_rms"] = lambda_rms
-        self["ds_optimal_lambda"] = optimal_lambda
-        self["ds_mag_force"] = mag_force   
+        self["ds_mag"] = ds_mag
+        self["ds_mag_force"] = mag_force     
+        self["ds_time"] = ds_time
+        
+        
+class AbacusMemory(ResultAbacus):
+    
+    @ResultAbacus.register(mem_vkb="the memory of VNL::vkb, unit it MB",
+                           mem_psipw="the memory of PsiPW, unit it MB",)
+    def GetMemory(self):
+        if self.LOG:
+            for line in self.LOG:
+                if "Warning_Memory_Consuming allocated:  VNL::vkb" in line:
+                    self["mem_vkb"] = float(line.split()[-2])
+                elif "Warning_Memory_Consuming allocated:  Psi_PW" in line:
+                    self["mem_psipw"] = float(line.split()[-2])
+                    
+
+         

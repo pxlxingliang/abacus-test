@@ -17,6 +17,8 @@ class Metrics:
         print("os.listdir:",os.listdir("."))
         for ipath in self.path:
             for iipath in glob.glob(ipath):
+                if not os.path.isdir(iipath):
+                    continue
                 try:
                     print("get metrics from:",iipath)
                     result = RESULT(fmt=self.dft_type,newmethods=self.newmethods,path=iipath,modules=self.modules)
@@ -162,7 +164,7 @@ def ReadMetrics(poin_metrics,do_upload_tracking,example_path):
             "metrics_name": [],     #the name of metrics that will collected from dft job
             "newmethods": [str],    # self-defined methods used in abacustest collectdata
             "modules": [str],       # the modules that abacustest collectdata will load
-            "save_file": "result.json",  #file to store the value of metrics
+            "save_file": "metrics.json",  #file to store the value of metrics
         },
         {"path": ["*"], ...}, ...
     ]
@@ -178,7 +180,7 @@ def ReadMetrics(poin_metrics,do_upload_tracking,example_path):
 
         metric_form_calc = Metrics.ParseMetricsOPIO(imetric,example_path)
         if metric_form_calc:
-            value = metric_form_calc.get_metrics(save_file=imetric.get("save_file","result.json"))
+            value = metric_form_calc.get_metrics(save_file=imetric.get("save_file","metrics.json"))
         else:
             value = {}
 
@@ -224,7 +226,7 @@ def ReadSuperMetrics(poin_super_metrics,do_upload_tracking):
         "value_from_file": str, # self-defined super metrics, can also define some files
                                 # {key:{"type":"image","file":"file.png"}}
         "save_file": "superMetric.json",    #same as that defined in outresult report
-        "result_file": ["result.json"],
+        "result_file": ["metrics.json"],
         "example_name_idx":0,
         "outparams":[
             ["ScfSteps", ["scf_steps"], 0],...

@@ -40,7 +40,7 @@
                 "converge",
                 "normal_end"
             ],
-            "save_file": "result.json"
+            "save_file": "metrics.json"
         },
         "outputs": []
     }

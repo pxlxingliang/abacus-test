@@ -20,12 +20,13 @@ def ParamParser(param):
         "run_dft" : {},
         "post_dft": {},
         "report":{},
-        "remote": {}
+        "remote": {},
+        "compress": true, # if compress the inputs and outputs
     }
     """
     
     alljobs = {}
-
+    alljobs["compress"] = param.get("compress",True) # if use slice, we can compress the inputs
     alljobs["save_path"] = param.get("save_path",None)
     alljobs["prepare"] = param.get("prepare",{"ifrun":False})
     alljobs["pre_dft"] = param.get("pre_dft",{"ifrun":False})
@@ -63,7 +64,7 @@ def SetSaveFolder(storefolder=None):
         #storefolder = os.path.join("result",today)
         storefolder = "results"
     globV.set_value("RESULT",storefolder)
-    comm.printinfo("set save floder: %s" % storefolder)
+    comm.printinfo("set save folder: %s" % storefolder)
 
 def MakeSaveFolder(storefolder=None):
     storefolder = globV.get_value("RESULT") if storefolder == None else storefolder
@@ -184,7 +185,6 @@ def set_config(param_context,debug):
     return 
     
 def set_env(param):
-    globV.set_value("OUTINFO", param.outinfo)
     globV.set_value("OVERRIDE", param.override)
     comm.printinfo("\nSet enviroment ...")
     comm.printinfo(param)
@@ -221,6 +221,11 @@ def set_env(param):
     remote = param_context.get("remote",{})
     if "remote" in param_context and remote.get("ifrun",True):
         globV.set_value("REMOTE", remote)
+        
+    compress = "default" if param_context.get("compress",True) else None
+    globV.set_value("COMPRESS",compress)
+    #if compress:
+    #    comm.printinfo("Compress the inputs to upload.")
 
 
 def waitrun(wf,stepnames,allsave_path):
@@ -269,8 +274,8 @@ def waitrun(wf,stepnames,allsave_path):
                         comm.printinfo("    This job is not Succeeded, please check on: %s, workflow ID is: %s" %
                               (globV.get_value("HOST"),wfid))  
                     try:
-                        #print(step.outputs.artifacts["outputs"])
-                        #print(step.outputs)
+                        print("artifacts outputs:",step.outputs.artifacts["outputs"])
+                        print("step.outputs:",step.outputs)
                         download_artifact(step.outputs.artifacts["outputs"],path=save_path)
                     except:
                         traceback.print_exc()
@@ -326,20 +331,24 @@ def RunJobs(param):
     if len(allstep) == 0:
         comm.printinfo("No step is produced, exit!!!")
     else:
-        dflow_labels = globV.get_value("PRIVATE_SET",{}).get("dflow_labels",None)
+        dflow_labels = globV.get_value("PRIVATE_SET",{}).get("dflow_labels",{})
+        if "launching-application" not in dflow_labels:
+            dflow_labels["launching-application"] = "abacustest"
+        max_para = globV.get_value("PARAM").get("max_parallel",100)
         if globV.get_value("BOHRIUM_EXECUTOR"):
-            wf = Workflow(name="abacustest",context=globV.get_value("BRM_CONTEXT"),labels=dflow_labels)
+            wf = Workflow(name="abacustest",context=globV.get_value("BRM_CONTEXT"),labels=dflow_labels,parallelism=max_para)
         else:
-            wf = Workflow(name="abacustest",labels=dflow_labels)
+            wf = Workflow(name="abacustest",labels=dflow_labels,parallelism=max_para)
 
         wf.add(allstep)
         wf.submit()
-        if param.command == 'mlops-submit':
-            return
+        
         comm.printinfo("job ID: %s, UID: %s" % (wf.id,wf.uid))
         job_address = globV.get_value("HOST") + "/%s?tab=workflow" % wf.id
         comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % job_address)
 
+        if not param.download:
+            return
         waitrun(wf,stepname,allsave_path)
     
     #if globV.get_value("REPORT"):
@@ -384,7 +393,7 @@ def CheckStatus(param):
         print("config file is not found!\nUse the default setting!")
         private_set = {}
         
-    dflowOP.SetConfig(private_set,debug=False) 
+    set_config(private_set,False) 
     
     jobid = param.job_id
     
@@ -393,7 +402,54 @@ def CheckStatus(param):
     try:
         return wf.query_status()
     except:
-        comm.printinfo("Query status error")
-        traceback.print_exc()
-        return "not-running"
+        #comm.printinfo("Query status error")
+        #traceback.print_exc()
+        return "The flow is not running now!!!"
+        
+
+def DownloadFlow(param):
+    if os.path.isfile(param.param):
+        private_set = json.load(open(param.param))
+        if "config" in private_set:
+            private_set = private_set["config"]
+        elif "USER" in private_set:
+            private_set = private_set["USER"]
+    else:
+        print("config file is not found!\nUse the default setting!")
+        private_set = {}
+    set_config(private_set,False)   
+    
+    save_path = comm.ParseSavePath(private_set.get("save_path",None)) 
+    
+    jobid = param.job_id
+    wf = Workflow(id = jobid)
+    allkeys = wf.query_keys_of_steps()
+    if len(allkeys) == 0:
+        comm.printinfo("No step is produced, exit!!!")
+        return
+    
+    final_step = allkeys[-1].split("-")[0] # key: rundft-1-1,.. (rundft use slice, so the key is rundft-1-1,..)
+    if final_step in ["predft", "rundft", "postdft"]:
+        download_steps = [i for i in wf.query_step() if i.key is not None and i.key.split("-")[0] == final_step]
+        # because in rundft step, it use slice, so each rundft group only download once is ok.
+        # then based on the step name, seperate the steps to different group
+        download_groups = {}
+        
+        for step in download_steps:
+            # the group_name is like: abacustest-7589t[0].abacustesting[1].rundft-2(1:1)
+            group_name = step.name.split(".")[-1].split("(")[0]
+            if group_name not in download_groups:
+                download_groups[group_name] = []
+            download_groups[group_name].append(step)
+        
+        for group_name,group_steps in download_groups.items():
+            phases = [i.phase for i in group_steps]
+            if not all([bool(i in ["Succeeded"]) for i in phases]):
+                comm.printinfo(f"Below steps are not Succeeded:")
+                for step in group_steps:
+                    if step.phase not in ["Succeeded"]:
+                        comm.printinfo(f"    phase of \"{step.name}\" (key: \"{step.key}\") is {step.phase}")
+            download_artifact(group_steps[0].outputs.artifacts["outputs"],path=save_path)
+    else:
+        comm.printinfo("The final step is not predft, rundft or postdft, can not download the results!")
         

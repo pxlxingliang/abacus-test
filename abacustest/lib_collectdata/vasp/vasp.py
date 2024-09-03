@@ -157,7 +157,23 @@ class Vasp(ResultVasp):
                 self['ldauj'] = [float(j) for j in self.OUTCAR[i+3].split("=")[-1].split()]
                 break
 
-
+    @ResultVasp.register(denergy_last = 'The energy difference in SCF, eV',
+                         denergy = "The last energy difference in SCF, eV")
+    def GetDE(self):
+        des = []
+        for i in range(len(self.OSZICAR)):
+            line = self.OSZICAR[i]
+            if line.strip() == "": continue
+            if line[3] == ":" and len(line.split()) == 7:
+                de = float(line.split()[3])
+                des.append(de)
+        if len(des) > 0:
+            self['denergy_last'] = des[-1]
+            self['denergy'] = des
+        else:
+            self['denergy_last'] = None
+            self['denergy'] = None
+   
     @ResultVasp.register(scf_steps = 'the steps of SCF, if is relax or md job, only last ION step is read',
                          converge = "if the SCF is converged. If scf_steps is smaller than NELM, will be converged, else is not converged")
     def GetSCFInfo(self):
@@ -263,6 +279,9 @@ class Vasp(ResultVasp):
     @ResultVasp.register(atom_name = 'list, the element name of each atom' ,
                          atom_type = 'list, the element name of each atomtype',
                          element_list = 'list, the element name of all atoms',
+                         element = "list[], a list of the element name of all atoms",
+                           abel = "list[], a list of atom label of all atoms",
+                           atomlabel_list = "same as label",
                          efermi     = 'the fermi energy, eV')
     def GetXMLInfo(self):
         if self.XMLROOT != None:
@@ -280,7 +299,10 @@ class Vasp(ResultVasp):
             element = []
             for i in self.XMLROOT.findall("./atominfo/array[@name='atoms']/set/rc/c[1]"):
                 element.append(i.text)
-            self['element_list'] = element
+            self["element"] = element
+            self["label"] = element
+            self["element_list"] = element
+            self["atomlabel_list"] = element
         else:
             # read from OUTCAR
             atom_name = None
@@ -300,7 +322,10 @@ class Vasp(ResultVasp):
                         atom_type.append(i)
             self['atom_type'] = atom_type
             self['atom_name'] = atom_name
+            self["element"] = atom_name
+            self["label"] = atom_name
             self["element_list"] = atom_name
+            self["atomlabel_list"] = atom_name
             self['efermi'] = efermi
 
     @ResultVasp.register(band = '[[[]]], list with three dimension spin*kpoint*band')
@@ -436,4 +461,3 @@ class Vasp(ResultVasp):
             else:
                 self["relax_converge"] = True
             self["relax_steps"] = relax_steps
-                

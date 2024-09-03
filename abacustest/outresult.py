@@ -660,7 +660,7 @@ def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=Tru
         pddata = pd.DataFrame.from_dict(normal_result,orient='index')
         if savefile:
             savefile_name_final = check_file(savefile)
-            pddata.to_csv(savefile_name_final)
+            pddata.to_csv(savefile_name_final, index_label="example")
             savefile_names.insert(0,savefile_name_final)
         normal_result = str(pddata)
         
@@ -678,7 +678,9 @@ def OutResultArgs(parser):
     parser.add_argument('-r', '--result', type=str, help='the result file from collectdata, should be .json type',action="extend",nargs="*")
     parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type')
     parser.add_argument('-m', '--metrics', default=["ALL"], help='The metrics that needed to be shown. Use ALL to show all metrics, default is ALL.', action="extend",nargs="*")
-    parser.add_argument('-o', '--output', type=str, help='output the metrics')
+    parser.add_argument('-o', '--output', type=str, help='output the selected metrics to a json file')
+    parser.add_argument('--csv', type=str, help='if output the selected metrics to csv file')
+    
     return parser
 
 def outresult(param):
@@ -708,7 +710,7 @@ def outresult(param):
             allresult = new_result
         if param.output != None:
             json.dump(allresult,open(param.output,'w'),indent=4)
-        pandas_out(allresult)
+        pandas_out(allresult,param.csv)
     
     if param.param!= None:
         if not CheckFile(param.param):
@@ -731,6 +733,7 @@ def outresult(param):
         output_value['param_value'] = allparam_value
         output_value['metrics_value'] = allmetric_value
         
+        json.dump(allmetric_value,open("superMetrics.json","w"),indent=4)
         if param.output != None:
             json.dump(output_value,open(param.output,'w'),indent=4)
         if allmetric_value:

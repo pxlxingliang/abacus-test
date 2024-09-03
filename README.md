@@ -9,12 +9,13 @@ The sub_commands:
 - `outresult`
 - `status`
 - `prepare`
+- `download`
 
 Please use `abacustest -h` to get the usages
 
 ## 1. submit
 ```
-usage: abacustest submit [-h] [-p PARAM] [-s SAVE] [--override OVERRIDE] [--outinfo OUTINFO] [--debug [DEBUG]]
+usage: abacustest submit [-h] [-p PARAM] [-s SAVE] [--override OVERRIDE] [--debug [DEBUG]] [--download DOWNLOAD]
 
 This script is used to run a testing
 
@@ -24,7 +25,7 @@ optional arguments:
                         the job setting file, default is job.json
   -s SAVE, --save SAVE  the folder where the results will be put in, default: result/date_of_today (e.g. result/20230101)
   --override OVERRIDE   when the save folder exists, if override it. 0: no, 1: yes.
-  --outinfo OUTINFO     if output detail informations, 0: no, 1: yes
+  --download DOWNLOAD   if wait the finish of flow and download the results, 0: no, 1: yes. Default is 1
   --debug [DEBUG]       debug mode for dflow
 ```
 job.json (-p) is needed as input \
@@ -47,6 +48,7 @@ An example is like:
     },
 
     "save_path":"result/abacus-pw",
+    "max_parallel": 100,
 
     "run_dft":[
         {"ifrun": true,
@@ -57,7 +59,7 @@ An example is like:
          "bohrium": {"scass_type":"c8_m16_cpu","job_type":"container","platform":"ali"},
          "command": "mpirun -np 8 abacus > log",
          "extra_files":[],
-         "outputs":["log","result.json","OUT.*"]
+         "outputs":[]
         },
         {"ifrun": true,
          "image": "ABACUS310_IMAGE",
@@ -72,14 +74,14 @@ An example is like:
 
     "post_dft":{
                 "ifrun": false,
-                "command": "collectdata.py collectdata-abacus.json -o result.json -j 00*",
+                "command": "ls",
                 "extra_files": [],
                 "image":   "python:3.8",
                 "metrics":{
                     "before_command":true,
 			        "dft_type":"abacus",
 			        "metrics_name": [],
-			        "save_file": "result.json",
+			        "save_file": "metrics.json",
 			        "newmethods": []
 		        },
                 "outputs": []
@@ -88,8 +90,13 @@ An example is like:
 ```
 - ``bohrium_group_name``: If use bohrium, you can define the group name at here.
 - `ABBREVIATION`: define some abbreviation, and is only valid for `image`.
-- `config`: The setting of config information.
+- `config`: The setting of config information. If you do not use bohrium, this key can be removed.
+  - `bohrium_username`: the username to login Bohrium (the email or phone number that used to register Bohrium).
+  - `bohrium_password`: the password of Bohrium.
+  - `bohrium_project_id`: the project id of Bohrium. \
+  Besides, you can set the bash environment variables (uppercase letter) to replace the value of `config`, such as: ```export BOHRIUM_USERNAME="xxx"```, and then you can remove the key `config` in job.json. If both are defined, the value in job.json will be used.
 - `save_path`: define the path to save the results of this test. If this key is not defined or if is deined to be "" or None, the value will be replaced to be the path defined by "-s" (the param of abacustest, the default of "-s" is "result/date_of_today" like "result/20230101")
+- `max_parallel`: define the max number of parallel jobs. Default is 100.
 - `run_dft`: define the detail of the running of your jobs. The value is a list of dictionaries. You can set any number of dictionaries.
   - `ifrun`: if set it to be `false`, will skip this part. 
   - `sub_save_path`: the path to save the results of this part in `save_path`, which means the real save path will be "save_path/sub_save_path". If this key is not defined, or is defined to be "" ornull, the real save path will be "save_path".
@@ -152,7 +159,7 @@ optional arguments:
   -p PARAM, --param PARAM
                         the parameter file, should be .json type
   -o OUTPUT, --output OUTPUT
-                        the file name to store the output results, default is "result.json"
+                        the file name to store the output results, default is "metrics.json"
   -m [MODULES [MODULES ...]], --modules [MODULES [MODULES ...]]
                         add extra modules. Default only module 'job-type' will be loaded, such as: 'abacus' for abacus type. You can check all modules by --outparam
   --newmethods [NEWMETHODS [NEWMETHODS ...]]
@@ -294,22 +301,30 @@ A template of param.json is:
 ```
 {
   "prepare":{
-      "example_template":["example_path"],
+      "example_template":["example1","example2"],
       "input_template":"INPUT",
       "kpt_template":"KPT",
-      "stru_template":"STRU",
       "mix_input":{
           "ecutwfc":[50,60,70],
           "kspacing":[0.1,0.12,0.13]
       },
       "mix_kpt":[],
-      "mix_stru":[],
+      "pert_stru":{
+            "pert_number": 0,
+            "cell_pert_frac": null,
+            "atom_pert_dist": null,
+            "atom_pert_mode": "normal",
+            "mag_rotate_angle": null,
+            "mag_tilt_angle": null,
+            "mag_norm_dist": null
+            },
       "pp_dict":{},
       "orb_dict":{},
       "pp_path":,
       "orb_path":,
       "dpks_descriptor":,
       "extra_files":[],
+      "link_example_template_extra_files":true,
       "abacus2qe": false,
       "qe_setting":{
         "version": 7.0,
@@ -320,29 +335,43 @@ A template of param.json is:
       "potcar": , // the path of POTCARs, or a dict of POTCAR, such as: {"H":"H.psp8","O":"O.psp8"}
       "vasp_setting": {
         "emax_coef": 1.5  // the coefficient of ecutwfc, the real ENCUT = E_MAX * emax_coef, where E_MAX is the recommended value in POTCAR
-      }
+      },
+      "abacus2cp2k": false,
+      "cp2k_setting":{},
+      "link_example_template_extra_files":true
   }
 }
 ```
 Only key "prepare" is recongnized by `abacustest prepare`.    
 
-- `example_template`: the template of example folder, such as: ["example_path"], ["example_path1","example_path2"]. 
+- `example_template`: a list of examples, should at least has `STRU` file in each example folder. 
 - `input_template`: the template of INPUT file. If is not null, all example will use this file as INPUT file. 
 - `kpt_template`: the template of KPT file. If is not null, all example will use this file as KPT file. 
-- `stru_template`: the template of STRU file. If is not null, all example will use this file as STRU file. 
-- `mix_input`: the mix of INPUT parameters. If is not null, will generate all combinations of the parameters for each example. Such as: {"ecutwfc":[50,60,70],"kspacing":[0.1,0.12,0.13]}, will generate 9 INPUTs. 
+- `mix_input`: the mix of INPUT parameters. If is not null, will generate all combinations of the parameters for each example. Such as: {"ecutwfc":[50,60,70],"kspacing":[0.1,0.12,0.13]}, will generate 9 INPUTs. If one need combine the parameters, should use '|' to connect them, and the value should be also combined by '|'. Such as: {"ecutwfc|kspacing":["50|0.1","60|0.12","70|0.13"]}. 
 - `mix_kpt`: the mix of KPT parameters. If is not null, will generate all combinations of the parameters for each example. There are three types to define the kpt parameters: 
     - One Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: 4, means 4 4 4 0 0 0. 
     - Three Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: [4,4,4], means 4 4 4 0 0 0. 
     - Three Int number defines the K points in a/b/c direction, and three Float defines the shift in G space. Such as: [4,4,4,1,1,1], means 4 4 4 1 1 1.  
     So, an example of mix_kpt can be: [2,[3,3,3],[4,4,4,1,1,1]] 
-- `mix_stru`: the mix of STRU file. If is not null, will generate all combinations for each example.
+- `pert_stru`: the perturbation of structure. If is not null, will generate the perturbed structure for each example. 
+    - `pert_number`: the number of perturbed structures. If is 0, will not generate the perturbed structure. This is the final number of examples, and each new structure will be perturbed based on below parameters.
+    - `cell_pert_frac`: the maximum perturbation of cell. If is null, will not perturb the cell. Such as 0.01, means the cell vector will be perturbed by maximum 1%. 
+    - `atom_pert_dist`: the maximum perturbation distance of atom. Unit in Angstrom.
+    - `atom_pert_mode`: the mode of perturbation of atom. Can be one of: "normal", "uniform", "const". Default is "normal". 
+      - `normal`: for each atom, plus a random vector who's three components are random numbers in (-atom_pert_dist,atom_pert_dist).
+      - `uniform`: for each atom, move to a random position in a sphere with radius of atom_pert_dist.
+      - `const`: for each atom, move to a random direction with a distance of atom_pert_dist.
+    - `mag_rotate_angle`: the angle of rotation of magnetic moment. Unit in degree. If is null, will not rotate the magnetic moment. 
+    - `mag_tilt_angle`: the angle of tilt of magnetic moment. Unit in degree. If is null, will not tilt the magnetic moment. 
+    - `mag_norm_dist`: the distance of magnetic moment to the normal direction. If is null, will not move the magnetic moment. Unit in $\mu_B$.\
+    Note: the perturbation of magnetic moment is only valid for the spin-constrained atom that the "sc" of at leaset one magnetic component is 1.
 - `pp_dict`: the pseudopotential dict. The key is the element name, and the value is the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}. 
 - `orb_dict`: the orbital dict. The key is the element name, and the value is the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}. 
 - `pp_path`: the path of pseudopotential files. There should has an extra "element.json" file that defines the element name and the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}, or abacustest will read the first two letters of the pseudopotential file name as the element name. If one element has been defined in both `pp_dict` and `pp_path`, the value in `pp_dict` will be used. 
 - `orb_path`: the path of orbital files. There should has an extra "element.json" file that defines the element name and the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}, or abacustest will read the first two letters of the orbital file name as the element name. If one element has been defined in both `orb_dict` and `orb_path`, the value in `orb_dict` will be used. 
 - `dpks_descriptor`: the descriptor of dpks. If is not null, will link the dpks file for each example. 
-- `extra_files`: the extra files that will be lniked to each example folder. Such as: ["abc.py","def.json"]. 
+- `extra_files`: the extra files that will be lniked to each example folder. Such as: ["abc.py","def.json"].
+- `link_example_template_extra_files`: if link the extra files in each example folder. Default is true (will link or copy all files in example folder). If is false, will only copy or link the required files for ABACUS job, such as: INPUT/KPT/STRU/.upf/.orb. 
 - `abacus2qe`: if convert the ABACUS input to QE input. Default is false. Now support the convert of cell, coordinate, kpt, pp, and normal scf/relax/cell-relax calculation, and settings of symmetry/smearing/mixing/scf_thr/force_thr/stress_thr, and the magnetic setting of atom type.
 - `qe_setting`: the setting of QE input. Here has three types settings: 
     - specify params in "system","control","electrons","ions","cell". Like: "system": {"ibrav":0},...
@@ -355,10 +384,29 @@ Only key "prepare" is recongnized by `abacustest prepare`.
     - specify the value if INCAR. Like: "ENCUT": 500, "EDIFF": 1e-5, ...
     - some special settings:
         - "emax_coef": the coefficient of ecutwfc, the real ENCUT = E_MAX * emax_coef, where E_MAX is the recommended value in POTCAR. Default is 1.5.
+- `abacus2cp2k`: if convert the abacus input to cp2k input. Detault is false. Now support the convert of cell/coordinate/kpt/calculation/force_thr/stress_thr/smearing/mixing/scf_thr(for PW = abacus_value*1e3, for LCAO=abacus_value*1e2).
+- `cp2k_setting`: some extra setting of cp2k. Should be a dict, and the key is the name of cp2k input, and the value is the value of the input. Such as: {"FORCE_EVAL": {"DFT": {"SCF": {"EPS_SCF": 1e-6}}}}.
+- `link_example_template_extra_files`: if link the extra files in each example folder. Default is true (will link or copy all files in example folder). If is false, will only copy or link the required files for ABACUS job, such as: INPUT/KPT/STRU/.upf/.orb.
 
 If there has more than two types of mixing, will put inputs in a subfolder named by 00000, 00001, 00002, ...
 
+## 6. download
+``` 
+usage: abacustest download [-h] [-p PARAM] [-s SAVE] job_id
 
-## 6. example
+Download the results of the dflow job
+
+positional arguments:
+  job_id                the job id of dflow
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PARAM, --param PARAM
+                        the file for bohrium account information, default is "job.json"
+  -s SAVE, --save SAVE  the folder where the results will be put in, default: result
+```
+The job_id is the job id of dflow, and the param file is the same as the param file of `submit`. \
+
+## 7. example
 [examples](https://github.com/pxlxingliang/abacus-test/tree/develop/example)
 

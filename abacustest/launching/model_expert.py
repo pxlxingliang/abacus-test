@@ -1,8 +1,8 @@
 import traceback
-from dp.launching.typing.basic import BaseModel
-import os
+from dp.launching.typing.basic import BaseModel,String
+from dp.launching.typing import Field
 
-from dp.launching.report import Report,AutoReportElement,ReportSection,ChartReportElement
+from . import comm_report
 
 
 from . import (comm_class,
@@ -16,30 +16,41 @@ from . import (comm_class,
                comm_class_metrics,
                readsetting)
 
+class NewSetting(BaseModel):
+    abacus_image: String = Field(default="registry.dp.tech/deepmodeling/abacus-intel:latest",
+                          title="Abacus Image",
+                          description="The image to run abaucs.",)
+    abacus_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
+                            title="Abacus Command",
+                            description="The command to execute abacus",)
+    bohrium_machine: String = Field(default="c32_m64_cpu",
+                            title="Bohrium Machine",
+                            description="The bohrium machine type to run abacus",)
 
 class ExpertModel(
-    comm_class.TrackingSet,
-    comm_class_metrics.metricsSaveFileSet,
+    #comm_class.TrackingSet,
+    #comm_class_metrics.metricsSaveFileSet,
     comm_class_metrics.MetricsSet,
-    comm_class_postdft.PostdftImageSet,
-    comm_class_postdft.PostdftCommandSet,
-    comm_class_exampleSource.PostdftExtraFileSet,
-    comm_class_rundft.RundftImageSet,
-    comm_class_rundft.RundftCommandSet,
-    comm_class_rundft.RundftGroupSizeSet,
-    comm_class_exampleSource.RundftExtraFileSet,
-    comm_class_predft.PredftImageSet,
-    comm_class_predft.PredftCommandSet,
-    comm_class_exampleSource.PredftExtraFileSet,
+    #comm_class_postdft.PostdftImageSet,
+    #comm_class_postdft.PostdftCommandSet,
+    #comm_class_exampleSource.PostdftExtraFileSet,
+    #comm_class_rundft.RundftImageSet,
+    #comm_class_rundft.RundftCommandSet,
+    #comm_class_rundft.RundftGroupSizeSet,
+    #comm_class_exampleSource.RundftExtraFileSet,
+    #comm_class_predft.PredftImageSet,
+    #comm_class_predft.PredftCommandSet,
+    #comm_class_exampleSource.PredftExtraFileSet,
+    NewSetting,
     comm_class_prepare.PrepareSet,
-    comm_class_prepare.PrepareOrbLibSet,
-    comm_class_prepare.PreparePPLibSet,
-    comm_class_prepare.PrepareDPKSDescriptorSet,
-    comm_class_prepare.PrepareKptTemplateSet,
-    comm_class_prepare.PrepareStruTemplateSet,
-    comm_class_prepare.PrepareInputTemplateSet,
-    comm_class_exampleSource.PrepareExtraFileSet,
-    comm_class_exampleSource.PrepareExampleSet,
+    #comm_class_prepare.PrepareOrbLibSet,
+    #comm_class_prepare.PreparePPLibSet,
+    #comm_class_prepare.PrepareDPKSDescriptorSet,
+    #comm_class_prepare.PrepareKptTemplateSet,
+    #comm_class_prepare.PrepareStruTemplateSet,
+    #comm_class_prepare.PrepareInputTemplateSet,
+    #comm_class_exampleSource.PrepareExtraFileSet,
+    #comm_class_exampleSource.PrepareExampleSet,
     comm_class_exampleSource.PrepareExampleSourceSet,
     comm_class.OutputSet,
     comm_class.ConfigSet,
@@ -88,26 +99,23 @@ def ExpertModelRunner(opts) -> int:
         allparams = readsetting.ReadSetting(logs,opts,work_path,download_path)
         if allparams == None:
             return 1
+        
+        allparams["run_dft"] = {
+            "command": opts.abacus_command,
+            "image": opts.abacus_image,
+            "bohrium": {
+                "scass_type": opts.bohrium_machine,
+                "job_type": "container",
+                "platform": "ali",
+            },
+        }
+        allparams["post_dft"]["image"] = "registry.dp.tech/dptech/abacustest:latest"
+        
 
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
         logs.iprint(f"{stdout}\n{stderr}\nrun abacustest over!\n")
-        reports = comm_pmetrics.produce_metrics_superMetrics_reports(allparams,work_path,output_path)
-
-        logfname = "output.log"
-        logs.write(os.path.join(str(opts.IO_output_path),logfname))
-        log_section = ReportSection(title="",
-                                  elements=[AutoReportElement(title='', path=logfname, description="")])
-        reports.append(log_section)
-
-        if reports:
-            report = Report(title="abacus test report",
-                            sections=reports,
-                            description="a report of abacustest")
-            report.save(output_path)
-            
-        #move results to output_path
-        comm_func.move_results_to_output(work_path,output_path,allparams.get("save_path","results"))
-        comm_func.pack_results(output_path,allparams.get("save_path","results"))
+        
+        comm_report.gen_report(opts,logs,work_path,output_path,allparams)
         
         
     except:

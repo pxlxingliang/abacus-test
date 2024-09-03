@@ -157,12 +157,28 @@ class QeInputs:
                 cell_bohr = self.get_cell(bohr=True)
                 return np.array(coord_bohr).dot(np.linalg.inv(np.array(cell_bohr))).tolist()
     
+    def _str_value(self,value):
+        # if value is float or int then return str(value)
+        # if value is string and not ".true.", ".false." then return "'%s'" % value
+        
+        if isinstance(value,str):
+            try:
+                float(value)
+                return value
+            except:
+                if value.lower() in [".true.",".false."]:
+                    return value
+                else:
+                    return "'%s'" % value
+        else:
+            return str(value)
+    
     def write(self,filename="input"):
         with open(filename,"w") as f:
             for param_key in ["control","system","electrons","ions","cell"]:
                 f.write("&%s\n" % param_key.upper())
                 for key,value in self.param.get(param_key,{}).items():
-                    f.write("%17s = %s\n" % (key,str(value)))
+                    f.write("%17s = %s\n" % (key,self._str_value(value)))
                 f.write("/\n\n")
             
             f.write("\nCELL_PARAMETERS (%s)\n" % self.cell_type)
@@ -182,9 +198,9 @@ class QeInputs:
                     
             f.write("\nK_POINTS %s\n" % self.kpt_type)
             if self.kpt_type == "automatic":
-                f.write("%d %d %d %f %f %f\n" % tuple(self.kpt))
-            elif self.kpt_type == "crystal":
-                f.write("%d %d %d %f %f %f\n" % tuple(self.kpt))    
+                kpoints = self.kpt[:3]
+                offset = [0 if ioff == 0 else 1 for ioff in self.kpt[3:]]
+                f.write("%d %d %d %d %d %d\n" % tuple(kpoints + offset))   
             elif self.kpt_type == "gamma":
                 f.write("0\n")
             else:

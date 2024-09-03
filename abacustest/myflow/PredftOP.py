@@ -95,7 +95,7 @@ class PreDFT(OP):
             os.chdir(iexample)
             log += "COMMAND: %s\n" % str(op_in["command"])
             if op_in["command"] != None and op_in["command"].strip() != "":
-                cmd = str(op_in["command"])
+                cmd = "ulimit -c 0; " + str(op_in["command"])
                 return_code, out, err = comm.run_command(cmd)
                 log += out + err
                 #log += os.popen("(%s) 2>&1" % cmd).read()
@@ -199,7 +199,7 @@ def produce_predft(predft_set,stepname,example_path,gather_result=False):
         pt = PythonOPTemplate(PreDFT,image=image,envs=comm.SetEnvs())
         artifacts={}
         if iexample_name:
-            artifacts["examples"] = upload_artifact(iexample_name,archive=None)
+            artifacts["examples"] = upload_artifact(iexample_name,archive=globV.get_value("COMPRESS"))
 
         #artifacts={"examples": upload_artifact(iexample_name,archive=None)}
         

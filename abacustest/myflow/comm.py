@@ -7,8 +7,7 @@ def printinfo(istr,*args):
     output = " ".join([str(istr)]+[str(i) for i in args])
     with open(LOGFILE,'a+') as f1:
         f1.write(output + "\n")
-    if globV.get_value("OUTINFO"):
-        print(output,flush=True)
+    print(output,flush=True)
         
 def GetBakFile(sfile):
     while sfile[-1] == '/':
@@ -76,6 +75,21 @@ def CopyFiles(path1,path2,move = False):
                 #shutil.copytree(abspath1,abspath2,dirs_exist_ok=True)
                 CopyFile(abspath1,abspath2)
 
+def LinkFiles(src_list, dst_path):
+    # the src_list should be a list of relative path, and the dst_path should be a absolute path
+    # will create the soft link in dst_path with the same path tree as src_list
+    for src in src_list:
+        src = src.rstrip("/")
+        src_root, src_name = os.path.split(src)   
+        if os.path.isfile(os.path.join(dst_path,src)):
+            os.remove(os.path.join(dst_path,src))
+        elif os.path.isdir(os.path.join(dst_path,src)):
+            shutil.rmtree(os.path.join(dst_path,src))
+                        
+        if not os.path.exists(os.path.join(dst_path,src_root)):
+            os.makedirs(os.path.join(dst_path,src_root))
+        os.symlink(os.path.abspath(src),os.path.join(dst_path,src))           
+
 def CollectFileName(paths):
     #Recursively find all files under the paths
     allfiles = []
@@ -115,8 +129,10 @@ def ProduceExecutor(param,group_name="abacustesting"):
                     },
                 image_pull_policy = "Always",
                 retry_on_submission_error=3,
-                image=param["bohrium"].get("dispatcher_image","registry.dp.tech/public/dptechnology/dpdispatcher:v0.6.0"),
+                #image=param["bohrium"].get("dispatcher_image","registry.dp.tech/public/dptechnology/dpdispatcher:v0.6.0"),
             )
+            if "dispatcher_image" in param["bohrium"]:
+                dispatcher_executor.image = param["bohrium"]["dispatcher_image"]
             #comm.printinfo("set bohrium: %s"%str(bohrium_set))
             return dispatcher_executor,bohrium_set
         else:
@@ -232,13 +248,13 @@ def FindLocalExamples_new(example,only_folder=False,oneartifact=False):
         if oneartifact:
             examples_name = list(set(examples_name1))
             examples_name.sort()
-            examples = [[upload_artifact(examples_name,archive=None)]]
+            examples = [[upload_artifact(examples_name,archive=globV.get_value("COMPRESS"))]]
             examples_name = [examples_name]
         else:
             examples = []
             examples_name.sort()
             for ii in examples_name:
-                examples.append([upload_artifact(iii,archive=None) for iii in ii])    
+                examples.append([upload_artifact(iii,archive=globV.get_value("COMPRESS")) for iii in ii])    
     
     # if oneartifact is True, examples = [[artifact]], examples_name = [[example1,example2,...]]
     # else examples = [[artifact1,artifact2,...],[artifact3,artifact4,...],...], examples_name = [[example1,example2,...],[example3,example4,...],...]

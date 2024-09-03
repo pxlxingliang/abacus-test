@@ -18,6 +18,7 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric4_3 = 'INPUT:kspacing'
     AbacusMetric_metric4_4 = 'INPUT:lcao_ecut'
     AbacusMetric_metric5 = 'kpt'
+    AbacusMetric_metric6_0 = 'nbase'
     AbacusMetric_metric6 = 'nbands'
     AbacusMetric_metric7 = 'converge'
     AbacusMetric_metric8 = 'total_mag'
@@ -35,6 +36,11 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric19_1 = 'virial'
     AbacusMetric_metric19_2 = 'pressure'
     AbacusMetric_metric20 = 'force'
+    AbacusMetric_metric20_1 = 'energies'
+    AbacusMetric_metric20_2 = 'forces'
+    AbacusMetric_metric20_3 = 'stresses'
+    AbacusMetric_metric20_4 = 'virials'
+    AbacusMetric_metric20_5 = 'pressures'
     AbacusMetric_metric21 = 'band_gap'
     AbacusMetric_metric22 = 'total_time'
     AbacusMetric_metric23 = 'stress_time'
@@ -54,8 +60,10 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric30_2 = 'denergy'
     AbacusMetric_metric30_3 = 'denergy_last'
     AbacusMetric_metric31 = 'lattice_constant'
+    AbacusMetric_metric31_1 = 'lattice_constants'
     AbacusMetric_metric32 = 'cell'
-    AbacusMetric_metric32_1 = 'cell_init'
+    AbacusMetric_metric32_1 = 'cells'
+    AbacusMetric_metric32_2 = 'cell_init'
     AbacusMetric_metric33 = 'coordinate'
     AbacusMetric_metric33_1 = 'coordinate_init'
     AbacusMetric_metric34 = 'element_list'
@@ -71,10 +79,11 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric44 = 'largest_gradient'
     AbacusMetric_metric45 = 'ds_lambda_step'
     AbacusMetric_metric46 = 'ds_lambda_rms'
-    AbacusMetric_metric47 = 'ds_optimal_lambda'
+    AbacusMetric_metric47 = 'ds_mag'
     AbacusMetric_metric48 = 'ds_mag_force'
     
-    
+    AbacusMetric_metric_mem1 = 'mem_vkb'
+    AbacusMetric_metric_mem2 = 'mem_psipw'
 
 class SuperMetricMethodEnum(String, Enum):
     SuperMetricMethod_method1 = "iGM"
@@ -90,7 +99,7 @@ class SuperMetrics(BaseModel):
 
 class MetricsSet(BaseModel):
     metrics: Set[AbacusMetricEnum] = Field(default=("version",'INPUT:ks_solver',"normal_end",'converge','energy','total_time','scf_steps'))
-    super_metrics: List[SuperMetrics] = Field(default=None)
+    #super_metrics: List[SuperMetrics] = Field(default=None)
 
 class metricsSaveFileSet(BaseModel):    
     metrics_savefile: String = Field(default=None,
@@ -134,7 +143,7 @@ def parse_metrics_set(metrics_set:MetricsSet):
         else:
             metrics = list(metrics_set.metrics)
         has_super_metrics = False
-        if metrics_set.super_metrics != None and len(metrics_set.super_metrics) > 0:
+        if hasattr(metrics_set,"super_metrics") and metrics_set.super_metrics != None and len(metrics_set.super_metrics) > 0:
             has_super_metrics = True
             #complete metrics
             for i in metrics_set.super_metrics:

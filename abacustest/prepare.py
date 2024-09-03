@@ -8,6 +8,7 @@ from abacustest.myflow import comm
 from abacustest.lib_prepare import abacus as MyAbacus
 from abacustest.lib_prepare import abacus2qe as Aba2Qe
 from abacustest.lib_prepare import abacus2vasp as Aba2Vasp
+from abacustest.lib_prepare import abacus2cp2k as Aba2Cp2k
 
 def Direct2Cartesian(coord:List[List[float]],cell:List[List[float]]):
     return np.array(coord).dot(np.array(cell)).tolist()
@@ -26,6 +27,7 @@ class PrepareAbacus:
                  mix_input: Dict[str,any] = {},
                  mix_kpt: List[Union[int,List[int]]] = [],
                  mix_stru: List[str]=[],
+                 pert_stru: Dict[str,any] = {},
                  pp_dict: Dict[str,str]= {},
                  orb_dict: Dict[str,str]= {},
                  paw_dict: Dict[str,str]= {},
@@ -34,7 +36,8 @@ class PrepareAbacus:
                  dpks_descriptor:str=None,
                  extra_files: List[str] = [],
                  bak_file = True,
-                 no_link = False):
+                 no_link = False,
+                 link_example_template_extra_files=True,):
         """To prepare the inputs of abacus
 
         Parameters
@@ -78,7 +81,10 @@ class PrepareAbacus:
             a list of STRU files, by default []. If this parameter is defined
             then stru_template will be invalide.
             Such as: ["a/STRU","b/STRU"]
-
+            
+        pert_stru : Dict, optional
+            perturbation setting of structure, by default {}.
+            
         pp_dict : Dict, optional
             a dictionary specify the pseudopotential files, by default {}
 
@@ -109,6 +115,9 @@ class PrepareAbacus:
             
         no_link: bool, optional
             if True, then will not link the files in example_template to save_path,
+            
+        link_example_template_extra_files: bool, optional
+            if True, then will link the extra files in example_template to save_path,
         """        
         self.save_path = save_path
         self.example_template = example_template
@@ -122,6 +131,7 @@ class PrepareAbacus:
         self.extra_files = self.CheckExtrafile(extra_files)
         self.mix_kpt = mix_kpt
         self.mix_stru = mix_stru
+        self.pert_stru = pert_stru
         self.dpks_descriptor = dpks_descriptor if dpks_descriptor else None
         
         self.pp_path = None if not pp_path else pp_path.strip()
@@ -139,6 +149,22 @@ class PrepareAbacus:
         # when read the template file, will check if the template file folder is same with save_path
         # if same and final structures only one, then will not bak the template folder
         self.template_is_save_path = self.CheckIfTemplateIsSavePath()
+        self.example_template_extra_files = self.CheckExampleTemplateExtraFiles(link_example_template_extra_files)
+    
+    def CheckExampleTemplateExtraFiles(self,link_example_template_extra_files):
+        # check the extra files in example_template except for INPUT, KPT, STRU
+        if (not link_example_template_extra_files) or (not self.example_template):
+            return []
+        if not os.path.isdir(self.example_template):
+            return []
+        allfiles = os.listdir(self.example_template)
+        extrafiles = []
+        for ifile in allfiles:
+            if ifile in ["INPUT","STRU","KPT"]:
+                continue
+            if os.path.isfile(os.path.join(self.example_template,ifile)):
+                extrafiles.append(os.path.abspath(os.path.join(self.example_template,ifile)))
+        return extrafiles
         
     def CheckIfTemplateIsSavePath(self):
         if not os.path.exists(self.save_path):
@@ -249,6 +275,22 @@ class PrepareAbacus:
         else:
             print("Not find paw dir: %s" % self.paw_path) 
             
+    def parse_combine_input(self,input_dict, combine_str="|"):
+        #parse the combine input, such as "ecutwfc|kspacing": "50|0.2"
+        new_input_dict = {}
+        for key,value in input_dict.items():
+            if combine_str in key and isinstance(value,str):
+                keys = key.split(combine_str)
+                vs = value.split(combine_str)
+                if len(keys) != len(vs):
+                    print(f"ERROR: number of keys and values are not equal in {key}={value}")
+                    new_input_dict[key] = value
+                else:
+                    for i in range(len(keys)):
+                        new_input_dict[keys[i]] = vs[i]
+            else:
+                new_input_dict[key] = value
+        return new_input_dict
             
     def Construct_input_list(self):
         all_inputs = []
@@ -287,6 +329,8 @@ class PrepareAbacus:
             else:
                 print("WARNING: type of '%s' is" % str(v),type(v),"will not add to INPUT")
                 input_constant[k] = v
+                
+        input_constant = self.parse_combine_input(input_constant) # parse the combine input
         print("Invariant INPUT setting:",str(input_constant))
 
         all_inputs.append(input_constant)
@@ -303,8 +347,13 @@ class PrepareAbacus:
                     for iinput in tmp_inputs:
                         iinput[k] = iv
                     all_inputs += copy.deepcopy(tmp_inputs)
-        
-        return all_inputs,[i for i in list_param.keys()]
+        list_param_new = []
+        for k in list_param:
+            if "|" in k:
+                list_param_new += k.split("|")
+            else:
+                list_param_new.append(k)
+        return [self.parse_combine_input(i) for i in all_inputs],list_param_new
 
     def Construct_kpt_list(self):
         """
@@ -407,6 +456,9 @@ class PrepareAbacus:
         stru_num = len(self.stru_list) * len(kpt_list) * len(input_list)
         for istru in self.stru_list:  #iteration of STRU
             stru_data = MyAbacus.AbacusStru.ReadStru(istru)
+            if not stru_data:
+                print(f"ERROR: read STRU failed in {istru}")
+                continue
             stru_path = os.path.split(istru)[0]
             if stru_path == "": stru_path = os.getcwd()
             labels = []
@@ -415,22 +467,28 @@ class PrepareAbacus:
                     labels.append(ilabel)
             linkstru = True
             skipstru = False
-            allfiles = self.extra_files  #files that will be linked
+            allfiles = self.example_template_extra_files + self.extra_files  #files that will be linked
             pp_list = []   #pp file name
             orb_list = []  #orb file name
             paw_list = [] #paw file name
             dpks = None    #dpks file name
+            input_in_stru_path = {}
+            if os.path.isfile(os.path.join(stru_path,"INPUT")):
+                input_in_stru_path = PrepareAbacus.ReadInput(os.path.join(stru_path,"INPUT"))
+            print(input_in_stru_path)
             for i,ilabel in enumerate(labels):
                 #check pp file 
                 if ilabel not in self.pp_dict:
                     #print("label '%s' is found in '%s', but not defined in pp_dict." % (ilabel,istru))
                     if stru_data.get_pp():
                         os.chdir(stru_path)
-                        pp_in_stru = stru_data.get_pp()[i]
+                        pp_in_stru = os.path.join(input_in_stru_path.get("pseudo_dir",""),stru_data.get_pp()[i])
                         if os.path.isfile(pp_in_stru):
                             print("label '%s': link the pseudopotential file '%s' defined in %s" % (ilabel,pp_in_stru,istru))
-                            pp_list.append(os.path.split(pp_in_stru)[1])
+                            pp_list.append(os.path.basename(pp_in_stru))
                             allfiles.append(os.path.abspath(pp_in_stru))
+                            if pp_list[-1] != stru_data.get_pp()[i]:
+                                linkstru = False
                         else:
                             print("label '%s': the pseudopotential file '%s' defined in %s is not found" % (ilabel,pp_in_stru,istru))
                             #skipstru = True
@@ -438,7 +496,7 @@ class PrepareAbacus:
                             #break
                         os.chdir(cwd)
                 else:
-                    pp_list.append(os.path.split(self.pp_dict[ilabel])[1])  #only store the file name to pp_list
+                    pp_list.append(os.path.basename(self.pp_dict[ilabel]))  #only store the file name to pp_list
                     allfiles.append(self.pp_dict[ilabel]) #store the whole pp file to allfiles                    
                     if not stru_data.get_pp() or pp_list[-1] != stru_data.get_pp()[i]:
                         linkstru = False
@@ -448,10 +506,10 @@ class PrepareAbacus:
                     if stru_data.get_orb():
                         #print("label '%s' is found in '%s', but not defined in orb_dict." % (ilabel,istru))
                         os.chdir(stru_path)
-                        orb_in_stru = stru_data.get_orb()[i]
+                        orb_in_stru = os.path.join(input_in_stru_path.get("orbital_dir",""),stru_data.get_orb()[i])
                         if os.path.isfile(orb_in_stru):
                             print("label '%s': link the orb file '%s' defined in %s" % (ilabel,orb_in_stru,istru))
-                            orb_list.append(os.path.split(orb_in_stru)[1])
+                            orb_list.append(os.path.basename(orb_in_stru))
                             allfiles.append(os.path.abspath(orb_in_stru))
                             if orb_list[-1] != stru_data.get_orb()[i]:  
                                 linkstru = False
@@ -459,7 +517,7 @@ class PrepareAbacus:
                             print("label '%s': the orbital file '%s' defined in %s is not found." % (ilabel,orb_in_stru,istru))
                         os.chdir(cwd)
                 else:
-                    orb_list.append(os.path.split(self.orb_dict[ilabel])[1]) 
+                    orb_list.append(os.path.basename(self.orb_dict[ilabel])) 
                     allfiles.append(self.orb_dict[ilabel])
                     if not stru_data.get_orb() or orb_list[-1] != stru_data.get_orb()[i]:  
                         linkstru = False
@@ -471,7 +529,7 @@ class PrepareAbacus:
                         paw_in_stru = stru_data.get_paw()[i]
                         if os.path.isfile(paw_in_stru):
                             print("label '%s': link the paw file '%s' defined in %s" % (ilabel,paw_in_stru,istru))
-                            paw_list.append(os.path.split(paw_in_stru)[1])
+                            paw_list.append(os.path.basename(paw_in_stru))
                             allfiles.append(os.path.abspath(paw_in_stru))
                             if paw_list[-1] != stru_data.get_paw()[i]:  
                                 linkstru = False
@@ -479,7 +537,7 @@ class PrepareAbacus:
                             print("label '%s': the paw file '%s' defined in %s is not found." % (ilabel,paw_in_stru,istru))
                         os.chdir(cwd)
                 else:
-                    paw_list.append(os.path.split(self.paw_dict[ilabel])[1]) 
+                    paw_list.append(os.path.basename(self.paw_dict[ilabel])) 
                     allfiles.append(self.paw_dict[ilabel])
                     if not stru_data.get_paw() or paw_list[-1] != stru_data.get_paw()[i]:  
                         linkstru = False
@@ -490,7 +548,7 @@ class PrepareAbacus:
             #check dpks 
             if self.dpks_descriptor:
                 if os.path.isfile(self.dpks_descriptor):
-                    dpks = os.path.split(self.dpks_descriptor)[1]
+                    dpks = os.path.basename(self.dpks_descriptor)
                     allfiles.append(self.dpks_descriptor)
                 else:
                     print("Error: Can not find file %s, skip the prepare of dpks_descriptor" % self.dpks_descriptor)
@@ -501,7 +559,7 @@ class PrepareAbacus:
                 if dpks:
                     if os.path.isfile(dpks):
                         allfiles.append(os.path.abspath(dpks))
-                        dpks = os.path.split(dpks)[1]
+                        dpks = os.path.basename(dpks)
                     else:
                         print("Error: deepks descriptor is defined in %s/STRU, but can not find the file, skip the prepare" % stru_path)
                         dpks = None
@@ -519,83 +577,107 @@ class PrepareAbacus:
             
             for ikpt in kpt_list:  #iteration of KPT 
                 for iinput in input_list: #iteration of INPUT
-                    ipath += 1
-                    #create folder
-                    #if not has_create_savepath:
-                    #    if os.path.isdir(self.save_path):
-                    #        bk = comm.GetBakFile(self.save_path)
-                    #        shutil.move(self.save_path,bk)
-                    #    has_create_savepath = True
-                    
-                    # if only one stru, then do not create subfolder
-                    if stru_num > 1:
-                        save_path = os.path.join(self.save_path,str(ipath).zfill(5))
+                    if self.pert_stru and self.pert_stru.get("pert_number",0) > 0:
+                        stru_data_pert = stru_data.perturb_stru(self.pert_stru.get("pert_number",0),
+                                                                cell_pert_frac=self.pert_stru.get("cell_pert_frac",None),
+                                                                atom_pert_dist=self.pert_stru.get("atom_pert_dist",None),
+                                                                atom_pert_mode=self.pert_stru.get("atom_pert_mode","normal"),
+                                                                mag_rotate_angle=self.pert_stru.get("mag_rotate_angle",None),
+                                                                mag_tilt_angle=self.pert_stru.get("mag_tilt_angle",None),
+                                                                mag_norm_dist=self.pert_stru.get("mag_norm_dist",None))
+                        linkstru = False
+                        create_subpath = True
                     else:
-                        save_path = self.save_path
+                        stru_data_pert = [stru_data]
+                        create_subpath = bool(stru_num > 1)
                     
-                    if os.path.isdir(save_path) and \
-                        (not Path(save_path).samefile(cwd)) and \
-                        (self.bak_file) and \
-                        (not self.template_is_save_path):
-                            bk = comm.GetBakFile(save_path)
-                            shutil.move(save_path,bk)
-                            
-                    if not os.path.isdir(save_path):
-                        os.makedirs(save_path)   
-
-                    #store the param setting and path
-                    param_setting[save_path] = [os.path.relpath(istru, cwd),ikpt,{}]
-                    for input_param in self.input_mix_param:
-                        param_setting[save_path][-1][input_param] = iinput.get(input_param)
-                    
-                    #create INPUT   
-                    if iinput != None: 
-                        PrepareAbacus.WriteInput(iinput,os.path.join(save_path,"INPUT"))
-                    
-                    #create KPT
-                    if ikpt != None:
-                        kptf = os.path.join(save_path,"KPT")
-                        if isinstance(ikpt,str):
-                            if os.path.isfile(kptf) and (not Path(ikpt).samefile(Path(kptf))):
-                                os.unlink(kptf)
-                            
-                            if not os.path.isfile(kptf):
-                                if self.no_link:
-                                    shutil.copy(os.path.abspath(ikpt),kptf)
-                                else:
-                                    os.symlink(os.path.abspath(ikpt),kptf)
-                        elif isinstance(ikpt,list):
-                            PrepareAbacus.WriteKpt(ikpt,kptf)
-                    
-                    #create STRU
-                    struf = os.path.join(os.path.join(save_path,"STRU"))
-                    if linkstru:
-                        if os.path.isfile(struf) and (not Path(istru).samefile(Path(struf))):
-                            os.unlink(struf)
-                                
-                        if not os.path.isfile(struf):
-                            if self.no_link:
-                                shutil.copy(os.path.abspath(istru),struf)
-                            else:
-                                os.symlink(os.path.abspath(istru),struf)
-                    else:
-                        stru_data.write(struf)
-                    
-                    #link other files
-                    for ifile in allfiles:
-                        ifile = os.path.abspath(ifile)
-                        filename = os.path.split(ifile)[1]
-                        target_file = os.path.join(save_path,filename)
-                        if os.path.isfile(target_file) and not Path(ifile).samefile(Path(target_file)):
-                            os.unlink(target_file)
-                        if not os.path.isfile(target_file):
-                            if self.no_link:
-                                shutil.copy(ifile,target_file)
-                            else:
-                                os.symlink(ifile,target_file)         
+                    for stru_datai in stru_data_pert:
+                        ipath += 1
+                        self.write_one_example(create_subpath,ipath,cwd,param_setting,istru,ikpt,iinput,linkstru,stru_datai,allfiles)        
         
         return param_setting
 
+    def write_one_example(self,create_subpath,ipath,cwd,param_setting,stru_path,ikpt,iinput,linkstru,stru_data,allfiles):
+        """
+        create_subpath: bool, if True, then create subpath for each example. This is True when there are more than one example or more than one inputs/kpt/stru setting.
+        ipath: int, the index for example_template
+        cwd: str, the current working directory, used to check if the save_path is current path and get the relative path of stru file
+        param_setting: dict, to store the param setting of each new abacus job
+        stru_path: str, the path of STRU file
+        ikpt: KPT setting
+        iinput: INPUT setting
+        linkstru: bool, if True, then link the STRU file, else copy the STRU file
+        stru_data: AbacusStru, the structure data
+        allfiles: List, the list of all files that will be linked to the save
+        """
+        if create_subpath:
+                save_path = os.path.join(self.save_path,str(ipath).zfill(5))
+        else:
+            save_path = self.save_path
+        
+        if os.path.isdir(save_path) and \
+            (not Path(save_path).samefile(cwd)) and \
+            (self.bak_file) and \
+            (not self.template_is_save_path):
+                bk = comm.GetBakFile(save_path)
+                shutil.move(save_path,bk)
+                
+        if not os.path.isdir(save_path):
+            os.makedirs(save_path)   
+        #store the param setting and path
+        param_setting[save_path] = [os.path.relpath(stru_path, cwd),ikpt,{}]
+        for input_param in self.input_mix_param:
+            param_setting[save_path][-1][input_param] = iinput.get(input_param)
+        
+        #create INPUT   
+        if iinput != None: 
+            # if pseudo_dir and orbital_dir is defined in INPUT, then remove them
+            iinput.pop("pseudo_dir","")
+            iinput.pop("orbital_dir","")  
+            PrepareAbacus.WriteInput(iinput,os.path.join(save_path,"INPUT"))
+        
+        #create KPT
+        if ikpt != None:
+            kptf = os.path.join(save_path,"KPT")
+            if isinstance(ikpt,str):
+                if os.path.isfile(kptf) and (not Path(ikpt).samefile(Path(kptf))):
+                    os.unlink(kptf)
+                
+                if not os.path.isfile(kptf):
+                    if self.no_link:
+                        shutil.copy(os.path.abspath(ikpt),kptf)
+                    else:
+                        os.symlink(os.path.abspath(ikpt),kptf)
+            elif isinstance(ikpt,list):
+                PrepareAbacus.WriteKpt(ikpt,kptf)
+        
+        #create STRU
+        struf = os.path.join(os.path.join(save_path,"STRU"))
+        if linkstru:
+            if os.path.isfile(struf) and (not Path(stru_path).samefile(Path(struf))):
+                os.unlink(struf)
+                    
+            if not os.path.isfile(struf):
+                if self.no_link:
+                    shutil.copy(os.path.abspath(stru_path),struf)
+                else:
+                    os.symlink(os.path.abspath(stru_path),struf)
+        else:
+            stru_data.write(struf)
+        
+        #link other files
+        for ifile in allfiles:
+            ifile = os.path.abspath(ifile)
+            filename = os.path.basename(ifile)
+            target_file = os.path.join(save_path,filename)
+            if os.path.isfile(target_file) and not Path(ifile).samefile(Path(target_file)):
+                os.unlink(target_file)
+            if not os.path.isfile(target_file):
+                if self.no_link:
+                    shutil.copy(ifile,target_file)
+                else:
+                    os.symlink(ifile,target_file)  
+    
     @staticmethod
     def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT", model:str = "gamma"):
         MyAbacus.WriteKpt(kpoint_list,file_name,model)
@@ -732,16 +814,34 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
         },
         "mix_kpt":[],
         "mix_stru":[],
+        "pert_stru":{
+            "pert_number": 0,
+            "cell_pert_frac": null,
+            "atom_pert_dist": null,
+            "atom_pert_mode": "normal",
+            "mag_rotate_angle": null,
+            "mag_tilt_angle": null,
+            "mag_norm_dist": null
+            },
         "pp_dict":{},
         "orb_dict":{},
         "pp_path": str,
         "orb_path": str,
         "dpks_descriptor":"",
         "extra_files":[],
+        "link_example_template_extra_files":true,
+        "bak_file":true,
         "abacus2qe": bool,
+        "qe_setting":{},
+        "abacus2vasp": bool,
+        "potcar": str,
+        "vasp_setting":{},
+        "abacus2cp2k": bool,
+        "cp2k_setting":{},
         "mix_input_comment":"Do mixing for several input parameters. The diffrent values of one parameter should put in a list.",
         "mix_kpt_comment":"If need the mixing of several kpt setting. The element should be an int (eg 2 means [2,2,2,0,0,0]), or a list of 3 or 6 elements (eg [2,2,2] or [2,2,2,0,0,0]).",
-        "mix_stru_commnet":"If need the mixing of several stru files. Like: ["a/stru","b/stru"],       
+        "mix_stru_comment":"If need the mixing of several stru files. Like: ["a/stru","b/stru"], 
+        "bak_file_comment":"If need to bak the old folder if the new folder is exist.",      
     },
 
     save_folder specifies the destination of the new created examples.
@@ -777,14 +877,18 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
     commpath,example_template_nocomm = CommPath(example_template)
     print(commpath,example_template_nocomm)
     for idx,iexample in enumerate(example_template):
-        if len(example_template) > 1:
-            save_path = os.path.join(save_folder,example_template_nocomm[idx])
-            print("\n%s" % iexample)
-        else:
-            if Path(save_folder) == Path("."):
-                save_path = commpath
-            else:
-                save_path = save_folder
+        if not os.path.isdir(iexample):
+            print("Can not find folder %s" % iexample)
+            continue
+        #if len(example_template) > 1:
+        #    save_path = os.path.join(save_folder,example_template_nocomm[idx])
+        #    print("\n%s" % iexample)
+        #else:
+        #    if Path(save_folder) == Path("."):
+        #        save_path = commpath
+        #    else:
+        #        save_path = save_folder
+        save_path = os.path.join(save_folder,iexample)
         prepareabacus = PrepareAbacus(save_path=save_path,
                                   example_template=iexample,
                                   input_template=param_setting.get("input_template",None),
@@ -793,6 +897,7 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
                                   mix_input=param_setting.get("mix_input",{}),
                                   mix_kpt=param_setting.get("mix_kpt",[]),
                                   mix_stru=param_setting.get("mix_stru",[]),
+                                  pert_stru=param_setting.get("pert_stru",{}),
                                   pp_dict=param_setting.get("pp_dict",{}),
                                   orb_dict=param_setting.get("orb_dict",{}),
                                   pp_path=param_setting.get("pp_path",None),
@@ -800,20 +905,21 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
                                   dpks_descriptor=param_setting.get("dpks_descriptor",None),
                                   extra_files=param_setting.get("extra_files",[]),
                                   bak_file = param_setting.get("bak_file",True),
-                                  no_link=no_link
+                                  no_link=no_link,
+                                  link_example_template_extra_files=param_setting.get("link_example_template_extra_files",True)
                                   )
         all_path_setting.append(prepareabacus.prepare())
-
+            
     if param_setting.get("abacus2qe",False):
         print("\nConvert ABACUS inputs to QE inputs")
         for isetting in all_path_setting:
             if isetting:
-                ipath = list(isetting.keys())[0]
-                print(ipath)
-                try:
-                    Aba2Qe.Abacus2Qe(ipath,save_path=os.path.join(ipath,"input"),qe_param=param_setting.get("qe_setting",{}))
-                except:
-                    traceback.print_exc()
+                for ipath in list(isetting.keys()):
+                    print(ipath)
+                    try:
+                        Aba2Qe.Abacus2Qe(ipath,save_path=os.path.join(ipath,"input"),qe_param=param_setting.get("qe_setting",{}))
+                    except:
+                        traceback.print_exc()
     
     if param_setting.get("abacus2vasp",False):
         print("\nConvert ABACUS inputs to VASP inputs")
@@ -821,12 +927,24 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
         vasp_setting = param_setting.get("vasp_setting",{})
         for isetting in all_path_setting:
             if isetting:
-                ipath = list(isetting.keys())[0]
-                print(ipath)
-                try:
-                    Aba2Vasp.Abacus2Vasp(ipath,save_path=ipath,potcar=potcar,vasp_setting=vasp_setting)
-                except:
-                    traceback.print_exc()
+                for ipath in list(isetting.keys()):
+                    print(ipath)
+                    try:
+                        Aba2Vasp.Abacus2Vasp(ipath,save_path=ipath,potcar=potcar,vasp_setting=vasp_setting)
+                    except:
+                        traceback.print_exc()
+    
+    if param_setting.get("abacus2cp2k",False):
+        print("\nConvert ABACUS inputs to CP2K inputs")
+        cp2k_setting = param_setting.get("cp2k_setting",{})
+        for isetting in all_path_setting:
+            if isetting:
+                for ipath in list(isetting.keys()):
+                    print(ipath)
+                    try:
+                        Aba2Cp2k.Abacus2Cp2k(ipath,save_path=os.path.join(ipath,"cp2k.inp"),cp2k_setting=cp2k_setting)
+                    except:
+                        traceback.print_exc()
                       
     return all_path_setting
 
@@ -851,7 +969,7 @@ def PrepareArgs(parser):
     parser.description = "This script is used to prepare the INPUTS OF ABACUS JOB"
     parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type',required=True)
     parser.add_argument('-s', '--save', type=str,  default="abacustest",help='where to store the inputs, default is abacustest ')
-    parser.add_argument('--nolink', type=int,  default=0,help='if link the files in the example folder, default is 0')
+    parser.add_argument('--nolink',  nargs='?',type=int, const=1, default=0,help='if link the files in the example folder, default is 0')
     return parser
 
 def main():
