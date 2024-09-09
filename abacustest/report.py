@@ -277,9 +277,10 @@ def get_test_date():
 def keys2html(keys):
     html = ""
     html += """\t<table id="keys">\n"""
-    comm_keys = ["test_date","version","job_address"]
-    if not keys.get("job_address",""):
-        keys["job_address"] = get_job_address()
+    comm_keys = ["test_date","version"]
+    #if not keys.get("job_address",""):
+    #    keys["job_address"] = get_job_address()
+        
     if not keys.get("version",""):
         keys["version"] = get_version()
     if not keys.get("test_date",""):

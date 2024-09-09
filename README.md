@@ -383,7 +383,7 @@ Only key "prepare" is recongnized by `abacustest prepare`.
 - `vasp_setting`: two types of settings:
     - specify the value if INCAR. Like: "ENCUT": 500, "EDIFF": 1e-5, ...
     - some special settings:
-        - "emax_coef": the coefficient of ecutwfc, the real ENCUT = E_MAX * emax_coef, where E_MAX is the recommended value in POTCAR. Default is 1.5.
+        - "emax_coef": the coefficient of ecutwfc, the real ENCUT = E_MAX * emax_coef, where E_MAX is the recommended value in POTCAR. If it is not defined, then ENCUT=ecutwfc * Ry2eV
 - `abacus2cp2k`: if convert the abacus input to cp2k input. Detault is false. Now support the convert of cell/coordinate/kpt/calculation/force_thr/stress_thr/smearing/mixing/scf_thr(for PW = abacus_value*1e3, for LCAO=abacus_value*1e2).
 - `cp2k_setting`: some extra setting of cp2k. Should be a dict, and the key is the name of cp2k input, and the value is the value of the input. Such as: {"FORCE_EVAL": {"DFT": {"SCF": {"EPS_SCF": 1e-6}}}}.
 - `link_example_template_extra_files`: if link the extra files in each example folder. Default is true (will link or copy all files in example folder). If is false, will only copy or link the required files for ABACUS job, such as: INPUT/KPT/STRU/.upf/.orb.

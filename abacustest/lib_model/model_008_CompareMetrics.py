@@ -66,11 +66,12 @@ class CompareMetrics:
         for ie in examples:
             report[ie] = {}
             for ic in self.const_metrics:
-                report[ie][ic] = m1.get(ie,{}).get(ic,None)
+                report[ie][ic] = [m1.get(ie,{}).get(ic,None),m2.get(ie,{}).get(ic,None)]
             for ic in self.compare_metrics:
                 value1 = m1.get(ie,{}).get(ic,None)
                 value2 = m2.get(ie,{}).get(ic,None)
-                report[ie][f"MaxDev({ic})"] = self.max_dev(value1,value2)
+                itype,ivalue = self.max_dev(value1,value2)
+                report[ie][f"{itype}({ic})"] = ivalue
         json.dump(report,open("report.json","w"),indent=4)    
         pandas_out(report)    
     
@@ -92,16 +93,16 @@ class CompareMetrics:
 
     def max_dev(self,v1,v2):
         if None in [v1,v2]:
-            return None
+            return "Dev",None
         try:
             if isinstance(v1,str) or isinstance(v2,str):
                 return f"{v1}|{v2}"
             elif isinstance(v1,(int,float)) and isinstance(v2,(int,float)):
-                return v1-v2
+                return "Dev",v1-v2
             else:
-                return abs(np.array(v1)-np.array(v2)).max().tolist()
+                return "MaxDev",abs(np.array(v1)-np.array(v2)).max().tolist()
         except:
-            return None            
+            return "Dev",None            
     
             
     

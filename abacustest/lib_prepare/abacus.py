@@ -512,7 +512,11 @@ class AbacusStru:
                     if is_sc[j]:
                         mag_norm_random = (np.random.rand() - 0.5) * mag_norm_dist * 2
                         mag_norm = np.linalg.norm(atom_mag[j]) + mag_norm_random
-                        new_magj = np.array(atom_mag[j]) / np.linalg.norm(atom_mag[j]) * mag_norm
+                        if mag_norm != mag_norm_random:
+                            new_magj = np.array(atom_mag[j]) / np.linalg.norm(atom_mag[j]) * mag_norm
+                        else: # if the original mag is 0, then generate a random mag
+                            tmp_mag = np.random.rand(3) - 0.5
+                            new_magj = tmp_mag / np.linalg.norm(tmp_mag) * mag_norm
                         new_mag.append(new_magj.tolist())
                     else:
                         new_mag.append(atom_mag[j])

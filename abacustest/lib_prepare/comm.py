@@ -187,12 +187,19 @@ def pert_vector(vectors:List[List[float]],max_angle):
          [ky*kx*(1-cos(theta))+kz*sin(theta), ky^2*(1-cos(theta))+cos(theta), ky*kz*(1-cos(theta))-kx*sin(theta)],
          [kz*kx*(1-cos(theta))-ky*sin(theta), kz*ky*(1-cos(theta))+kx*sin(theta), kz^2*(1-cos(theta))+cos(theta)]]
     """
-
+    ref_vector = None
+    for ivector in vectors:
+        if np.array(ivector).any() != 0:
+            ref_vector = ivector
+            break
+    if ref_vector is None:
+        return vectors
+    
     axis = np.random.rand(3)
-
-    while np.linalg.norm(axis) < 0.1 or np.cross(axis,np.array(vectors[0])).any() == 0:
+    while np.linalg.norm(axis) < 0.1 or np.cross(axis,ref_vector).any() == 0:
         axis = np.random.rand(3)
-    axis = np.cross(axis,vectors[0])
+    
+    axis = np.cross(axis,ref_vector)
     axis = axis / np.linalg.norm(axis)
     angle = np.random.rand() * max_angle * np.pi / 180
     skew_symmetric_matrix = np.array([[0, -axis[2], axis[1]],
