@@ -72,7 +72,7 @@ class PostConv:
         # key is the metric name, value is the y title
         
         if self.extra_y is not None:
-            for iey,iey_unit in self.extra_y:
+            for iey,iey_unit in self.extra_y.items():
                 self.plot_keys[iey] = iey_unit
         
         self.shift_idx = None
