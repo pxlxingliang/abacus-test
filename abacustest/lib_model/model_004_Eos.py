@@ -47,7 +47,7 @@ class Eos(Model):
         parser.add_argument('-d', '--step', type=float,  default=0.025,help='the step size of volume scaling, default is 0.025')
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is the current path.')
         parser.add_argument('--kspacing', default=0, type=int, help="if kspacing is defined in INPUT, then use the this kspacing in all EOS calculation. If set to 0, then will generate the KPT file by kspacing and use this KPT for all EOS calculation. 0: not use; 1: use. default 0")
-        parser.add_argument('--relax',default=0, type=int,help='the calculation type. -1:use the setting in INPUT; 0: scf; 1: relax; 2:cell-relax with fixed volume; default -1')
+        parser.add_argument('--relax',default=-1, type=int,help='the calculation type. -1:use the setting in INPUT; 0: scf; 1: relax; 2:cell-relax with fixed volume; default -1')
         parser.add_argument('--clean',default=1, type=int,help='if clean the eos folder in each example path, 0: not clean; 1: clean. default 1')
         #parser.add_argument("-r", "--run", default=0, help="if run the test. Default is 0.", type=int)
     

@@ -112,6 +112,19 @@ class ConvEcutwfc(Model):
             default=None,
             help="the metrics.json file. Key is the examplename/subfolder and value is a dict of metrics value containing kspacing, energy_per_atom (or energy and natom).",
         )
+        parser.add_argument(
+            "-e",
+            "--extra",
+            nargs="*",
+            action="extend",
+            help="the extra metrics that need to be ploted. The format is \"metrics_name:title of metrics\"",
+        )
         
     def run_postprocess(self, params):
-        comm_conv.PostConv(test_key=params.key,jobs=params.jobs,metric_file=params.metric).run()
+        extra_y = None
+        if params.extra:
+            extra_y = {}
+            for e in params.extra:
+                e = e.split(":")
+                extra_y[e[0]] = e[1].strip()
+        comm_conv.PostConv(test_key=params.key,jobs=params.jobs,metric_file=params.metric,extra_y=extra_y).run()
