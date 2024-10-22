@@ -25,14 +25,14 @@ def set_smearing(param,qp):
         pass
     elif smearing.lower() == "fixed":
         qp["system"]["occupations"] = "fixed"
-    elif smearing.lower().startswith("gauss"):
+    elif smearing.lower().startswith("gauss") or smearing.lower() in ["mp", "fd", "mv"]:
         qp["system"]["occupations"] = "smearing"
-        qp["system"]["smearing"] = "gauss"
+        qp["system"]["smearing"] = "gauss" if smearing.lower() == "gauss" else smearing.lower()
         if "smearing_sigma" in param:
             qp["system"]["degauss"] = param.pop("smearing_sigma")
         else:
             print("WARNING: smearing_sigma is not set in abacus input, will set degauss to 0.015 in QE.")
-            qp["system"]["degauss"] = 0.015
+            qp["system"]["degauss"] = 0.015 
     else:
         print("WARNING: smearing_method %s is not supported now! Will not set occupations in QE." % smearing)
 
