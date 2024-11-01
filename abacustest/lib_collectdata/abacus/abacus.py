@@ -684,7 +684,6 @@ class Abacus(ResultAbacus):
                            denergy_last="denergy of the last scf step")
     def GetDenergy(self):
         denergy = None
-        
         if self.OUTPUT:
             for i,line in enumerate(self.OUTPUT):
                 if "ITER" in line and "ETOT/eV" in line and "EDIFF/eV" in line and "DRHO" in line and "TIME/s" in line:
@@ -704,6 +703,22 @@ class Abacus(ResultAbacus):
             self["denergy_last"] = denergy[-1]
         else:
             self["denergy_last"] = None
+    
+    @ResultAbacus.register(denergy_womix="[], denergy (calculated by rho without mixed) of each scf step",
+                           denergy_womix_last="float, denergy (calculated by rho without mixed) of last scf step")
+    def GetDenergyWOMIX(self):
+        des = []
+        if self.LOG:
+            for line in self.LOG:
+                if "DeltaE_womix" in line:
+                    des.append(float(line.split()[-2]))
+        if len(des) == 0:
+            self["denergy_womix"]    = None
+            self["denergy_womix_last"] = None
+        else:
+            self["denergy_womix"]    = des
+            self["denergy_womix_last"] = des[-1]
+
 
     @ResultAbacus.register(lattice_constant="a list of six float which is a/b/c,alpha,beta,gamma of cell. If has more than one ION step, will output the last one.",
                            lattice_constants="a list of list of six float which is a/b/c,alpha,beta,gamma of cell",

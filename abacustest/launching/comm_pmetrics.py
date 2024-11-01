@@ -21,6 +21,7 @@ METRICS_UNIT = {
     "step1_time": "s",
     "lattice_constant": "A",
     "denergy_last": "eV",
+    "denergy_womix_last": "eV"
 }
 
 def add_unit_metrics(metrics):
@@ -556,7 +557,7 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
             continue
         ivalue = pddata.loc[imetric, :].to_list()
         y_type = "value"
-        if imetric in ["drho_last", "denergy_last"]:
+        if imetric in ["drho_last", "denergy_last", "denergy_womix_last"]:
             y_type = "log"
         if False not in [isinstance(i, type_set) for i in ivalue]:
             #check if imetric has refence
