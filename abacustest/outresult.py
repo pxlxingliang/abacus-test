@@ -614,7 +614,7 @@ def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=Tru
                 allkeys_seperate[-1] = True
                 break
             elif isinstance(allresult[i].get(ikey,None),list):
-                if len(allresult[i][ikey]) > 0 and isinstance(allresult[i][ikey][0],(list,dict)):
+                #if len(allresult[i][ikey]) > 0 and isinstance(allresult[i][ikey][0],(list,dict)):
                     allkeys_seperate[-1] = True
                     break
     nsample = 0    

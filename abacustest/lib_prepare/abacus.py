@@ -437,36 +437,53 @@ class AbacusStru:
             "cartesian": self._cartesian,
         }
     
-    def perturb_stru(self,pert_number,cell_pert_frac=None, atom_pert_dist=None, atom_pert_mode="normal",mag_rotate_angle=None,mag_tilt_angle=None,mag_norm_dist=None):
+    def perturb_stru(self,pert_number,cell_pert_frac=None, atom_pert_dist=None,mag_rotate_angle=None,mag_tilt_angle=None,mag_norm_dist=None):
         '''
         perturb the structure
         cell_pert_frac: the perturb fraction of the cell. Will generate a random perturb matrix.
                         the diagonal part is between -cell_pert_frac and cell_pert_frac, and off-diagonal part is between -cell_pert_frac/2 and cell_pert_frac/2
         atom_pert_dis: the perturb distance of each atom. Will generate a random perturb vector for each atom.
-        atom_pert_mode: the mode of the perturb distance. "normal", "uniform" or "const"
-        mag_rotat_angle: the rotation angle of the magnetization of all atom. 
-        
+        mag_rotate_angle: the rotation angle of the magnetization of all atom. 
+        mag_tilt_angle: the tilt angle of the magnetization of all atom.
+        mag_norm_dist: the perturb distance of the norm of the magnetization of all atom.
         '''
+        def transfer_range(number):
+            if number is None:
+                return None
+            elif isinstance(number, (float,int)):
+                return [0, abs(number)]
+            elif isinstance(number, (list,tuple)):
+                return [min(number), max(number)]
+            else:
+                print(f"ERROR: the type of {number} {type(number)} is not supported")
+                return None
+        
         if pert_number <= 0:
             return [self]
+        
+        cell_pert_frac = transfer_range(cell_pert_frac)
+        atom_pert_dist = transfer_range(atom_pert_dist)
+        mag_rotate_angle = transfer_range(mag_rotate_angle)
+        mag_tilt_angle = transfer_range(mag_tilt_angle)
+        mag_norm_dist = transfer_range(mag_norm_dist)
+        
         new_stru = [copy.deepcopy(self) for i in range(pert_number)]
         print(f"perturb {pert_number} new structures")
         print(f"cell_pert_frac: {cell_pert_frac}")
         print(f"atom_pert_dist: {atom_pert_dist}")
-        print(f"atom_pert_mode: {atom_pert_mode}")
         print(f"mag_rotate_angle: {mag_rotate_angle}")
         print(f"mag_tilt_angle: {mag_tilt_angle}")
         print(f"mag_norm_dist: {mag_norm_dist}")
         
-        if cell_pert_frac is not None and cell_pert_frac > 0:
+        if cell_pert_frac is not None:
             for i in range(pert_number):
                 icell = new_stru[i].get_cell(bohr=False)
                 new_cell,_ = comm.perturb_cell(icell,cell_pert_frac)
                 new_stru[i].set_cell(new_cell,bohr=False,change_coord=True)
         
-        if atom_pert_dist is not None and atom_pert_dist > 0:
+        if atom_pert_dist is not None:
             for i in range(pert_number):
-                new_coord = comm.perturb_coord(new_stru[i].get_coord(bohr=False,direct=False),atom_pert_dist,atom_pert_mode)
+                new_coord = comm.perturb_coord(new_stru[i].get_coord(bohr=False,direct=False),atom_pert_dist)
                 new_stru[i].set_coord(new_coord,direct=False,bohr=False)
         
         # for perturbation of magnetization, only performed on the atom who's magmom is constrained
@@ -481,7 +498,7 @@ class AbacusStru:
                 noncollinear = True
                 break
     
-        if noncollinear and mag_rotate_angle is not None and mag_rotate_angle > 0:
+        if noncollinear and mag_rotate_angle is not None:
             for i in range(pert_number):
                 # perturb all magmom with a same random angle
                 atom_mag = new_stru[i].get_atommag()
@@ -491,7 +508,7 @@ class AbacusStru:
                 new_stru[i].set_angle1(None)
                 new_stru[i].set_angle2(None)
 
-        if noncollinear and mag_tilt_angle is not None and mag_tilt_angle > 0:
+        if noncollinear and mag_tilt_angle is not None:
             for i in range(pert_number):
                 atom_mag = new_stru[i].get_atommag()
                 new_mag = []
@@ -504,13 +521,13 @@ class AbacusStru:
                 new_stru[i].set_angle1(None)
                 new_stru[i].set_angle2(None)
         
-        if mag_norm_dist is not None and mag_norm_dist > 0:
+        if mag_norm_dist is not None:
             for i in range(pert_number):
                 atom_mag = new_stru[i].get_atommag() 
                 new_mag = []
                 for j in range(len(atom_mag)):
                     if is_sc[j]:
-                        mag_norm_random = (np.random.rand() - 0.5) * mag_norm_dist * 2
+                        mag_norm_random = np.random.uniform(mag_norm_dist[0],mag_norm_dist[1]) * np.random.choice([-1,1])
                         mag_norm = np.linalg.norm(atom_mag[j]) + mag_norm_random
                         if mag_norm != mag_norm_random:
                             new_magj = np.array(atom_mag[j]) / np.linalg.norm(atom_mag[j]) * mag_norm

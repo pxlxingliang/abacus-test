@@ -66,13 +66,25 @@ class CompareMetrics:
         for ie in examples:
             report[ie] = {}
             for ic in self.const_metrics:
-                report[ie][ic] = [m1.get(ie,{}).get(ic,None),m2.get(ie,{}).get(ic,None)]
+                v1 = m1.get(ie,{}).get(ic,None)
+                v2 = m2.get(ie,{}).get(ic,None)
+                if v1 == v2:
+                    report[ie][ic] = v1
+                else:
+                    report[ie][ic] = [v1,v2]
             for ic in self.compare_metrics:
                 value1 = m1.get(ie,{}).get(ic,None)
                 value2 = m2.get(ie,{}).get(ic,None)
-                itype,ivalue = self.max_dev(value1,value2)
+                itype,ivalue,ivalue_ratio = self.max_dev(value1,value2)
                 report[ie][f"{itype}({ic})"] = ivalue
+                if ivalue_ratio is not None:
+                    report[ie][f"{itype}Ratio({ic})"] = ivalue_ratio
         json.dump(report,open("report.json","w"),indent=4)    
+        print("The report is saved in report.json")
+        print(f"The results of {self.m1f} and {self.m2f} are compared, and the deviation between them.") 
+        print("  Dev means the difference between two values.")
+        print("  MaxDev means the maximum absolue difference between two values.")
+        print(f"  DevRatio means the difference ratio between two values from {self.m2f}")
         pandas_out(report)    
     
     def show(self):
@@ -93,16 +105,19 @@ class CompareMetrics:
 
     def max_dev(self,v1,v2):
         if None in [v1,v2]:
-            return "Dev",None
+            return "Dev",None,None
         try:
             if isinstance(v1,str) or isinstance(v2,str):
-                return f"{v1}|{v2}"
+                return "", f"{v1}|{v2}",None
             elif isinstance(v1,(int,float)) and isinstance(v2,(int,float)):
-                return "Dev",v1-v2
+                if v2 == 0:
+                    return "Dev",v1-v2, None
+                else:
+                    return "Dev",v1-v2, (v1-v2)/v2
             else:
-                return "MaxDev",abs(np.array(v1)-np.array(v2)).max().tolist()
+                return "MaxDev",abs(np.array(v1)-np.array(v2)).max().tolist(), None
         except:
-            return "Dev",None            
+            return "Dev",None  ,None          
     
             
     

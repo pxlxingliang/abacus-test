@@ -581,7 +581,6 @@ class PrepareAbacus:
                         stru_data_pert = stru_data.perturb_stru(self.pert_stru.get("pert_number",0),
                                                                 cell_pert_frac=self.pert_stru.get("cell_pert_frac",None),
                                                                 atom_pert_dist=self.pert_stru.get("atom_pert_dist",None),
-                                                                atom_pert_mode=self.pert_stru.get("atom_pert_mode","normal"),
                                                                 mag_rotate_angle=self.pert_stru.get("mag_rotate_angle",None),
                                                                 mag_tilt_angle=self.pert_stru.get("mag_tilt_angle",None),
                                                                 mag_norm_dist=self.pert_stru.get("mag_norm_dist",None))
@@ -818,7 +817,6 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
             "pert_number": 0,
             "cell_pert_frac": null,
             "atom_pert_dist": null,
-            "atom_pert_mode": "normal",
             "mag_rotate_angle": null,
             "mag_tilt_angle": null,
             "mag_norm_dist": null

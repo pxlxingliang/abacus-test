@@ -105,17 +105,26 @@ def perturb_cell(cell, perturb_ratio,coord=None):
     
     cell: 3x3 list, the cell vectors.
     coord: Nx3 list, the coordinates.
-    perturb_ratio: float, the perturb ratio.
+    perturb_ratio: float, the perturb ratio; or list, the perturb ratio range.
     perturb_num: int, the number of perturbation.
     
     Return:
     new_cell: list, the perturbed cell.
     new_coord: list, the perturbed coord
     '''
-    perturb_ratio = abs(perturb_ratio)
+    if isinstance(perturb_ratio, (float,int)):
+        pratio = [0, abs(perturb_ratio)]
+    elif isinstance(perturb_ratio, list):
+        pratio = [abs(i) for i in perturb_ratio]
+        pratio = [min(pratio),max(pratio)]
+    else:
+        print("ERROR: perturb_ratio should be a float or a list, but not %s" % str(perturb_ratio))
+        return cell, coord
+
     cell = np.array(cell)
 
-    r6 = (np.random.rand(6) - 0.5 ) * 2 * perturb_ratio
+    r6 = np.random.uniform(pratio[0],pratio[1],6) * (np.random.randint(0,2,6)*2-1)
+    
     perturb_matrix = np.array([[1+r6[0], 0.5*r6[3], 0.5*r6[4]],
                                   [0.5*r6[3], 1+r6[1], 0.5*r6[5]],
                                   [0.5*r6[4], 0.5*r6[5], 1+r6[2]]])
@@ -127,43 +136,32 @@ def perturb_cell(cell, perturb_ratio,coord=None):
         new_coord = np.dot(coord, perturb_matrix).tolist()  
     return new_cell, new_coord   
 
-def perturb_coord(coord:List[List], atom_pert_distance, atom_pert_style="normal"):
+def perturb_coord(coord:List[List], atom_pert_distance):
     '''
-    atom_pert_style: str, the style of perturbation.
-        - `'normal'`: the `distance` will be object to `chi-square distribution with 3 degrees of freedom` after normalization.
-            The mean value of the distance is `atom_pert_fraction*side_length`
-        - `'uniform'`: will generate uniformly random points in a 3D-balls with radius as `atom_pert_distance`.
-            These points are treated as vector used by atoms to move.
-            Obviously, the max length of the distance atoms move is `atom_pert_distance`.
-        - `'const'`: The distance atoms move will be a constant `atom_pert_distance`.
+    Perturb the coordinates with the max distance in the range of atom_pert_distance.
+    
+    coord: Nx3 list, the coordinates.
+    atom_pert_distance: float, the maximum perturb distance; or list, the perturb distance range.
     '''
-    atom_pert_distance = abs(atom_pert_distance)
+    if isinstance(atom_pert_distance, (float,int)):
+        atom_pert_distance = [0, abs(atom_pert_distance)]
+    elif isinstance(atom_pert_distance, list):
+        atom_pert_distance = [abs(i) for i in atom_pert_distance]
+        atom_pert_distance = [min(atom_pert_distance),max(atom_pert_distance)]
+    else:
+        print("ERROR: atom_pert_distance should be a float or a list, but not %s" % str(atom_pert_distance))
+        return coord
 
     new_coord = []
     for icoord in coord:
         icoord = np.array(icoord)
         random_vector = np.array([0,0,0])
-        if atom_pert_style == "normal":
-            e = np.random.rand(3) * 2 - 1 
-            random_vector = (atom_pert_distance / np.sqrt(3)) * e
-        elif atom_pert_style == "uniform":
+        e = np.random.rand(3) 
+        while np.linalg.norm(e) < 0.1:
             e = np.random.rand(3)
-            while np.linalg.norm(e) < 0.1:
-                e = np.random.rand(3) 
-            e = e * 2 - 1
-            random_unit_vector = e / np.linalg.norm(e)
-            v0 = np.random.rand(1)
-            v = np.power(v0, 1 / 3)
-            random_vector = atom_pert_distance * v * random_unit_vector
-        elif atom_pert_style == "const":
-            e = np.random.rand(3) 
-            while np.linalg.norm(e) < 0.1:
-                e = np.random.rand(3)
-            e = e * 2 - 1
-            random_unit_vector = e / np.linalg.norm(e)
-            random_vector = atom_pert_distance * random_unit_vector
-        else:
-            print(f"unsupported options atom_pert_style={atom_pert_style}")
+        e = e * 2 - 1
+        random_unit_vector = e / np.linalg.norm(e)
+        random_vector = random_unit_vector * np.random.uniform(atom_pert_distance[0],atom_pert_distance[1])
         new_coord.append((icoord + random_vector).tolist())
     return new_coord
 
@@ -172,7 +170,7 @@ def pert_vector(vectors:List[List[float]],max_angle):
     perturb the vectors with a random angle.
     
     vectors: list, the vectors.
-    max_angle: float, the max angle.
+    max_angle: float, the max angle; or list, the angle range.
         
     Based on Rodrigues' Rotation Formula to rotate a vector.
     assume rotate angle is theta, rotate axis is k, the vector is v.
@@ -187,6 +185,15 @@ def pert_vector(vectors:List[List[float]],max_angle):
          [ky*kx*(1-cos(theta))+kz*sin(theta), ky^2*(1-cos(theta))+cos(theta), ky*kz*(1-cos(theta))-kx*sin(theta)],
          [kz*kx*(1-cos(theta))-ky*sin(theta), kz*ky*(1-cos(theta))+kx*sin(theta), kz^2*(1-cos(theta))+cos(theta)]]
     """
+    if isinstance(max_angle, (float,int)):
+        max_angle = [0, abs(max_angle)]
+    elif isinstance(max_angle, list):
+        max_angle = [abs(i) for i in max_angle]
+        max_angle = [min(max_angle),max(max_angle)]
+    else:
+        print("ERROR: max_angle should be a float or a list, but not %s" % str(max_angle))
+        return vectors
+    
     ref_vector = None
     for ivector in vectors:
         if np.array(ivector).any() != 0:
@@ -201,7 +208,7 @@ def pert_vector(vectors:List[List[float]],max_angle):
     
     axis = np.cross(axis,ref_vector)
     axis = axis / np.linalg.norm(axis)
-    angle = np.random.rand() * max_angle * np.pi / 180
+    angle = np.random.uniform(max_angle[0],max_angle[1]) * np.pi / 180
     skew_symmetric_matrix = np.array([[0, -axis[2], axis[1]],
                                       [axis[2], 0, -axis[0]],
                                       [-axis[1], axis[0], 0]])

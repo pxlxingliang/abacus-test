@@ -313,7 +313,6 @@ A template of param.json is:
             "pert_number": 0,
             "cell_pert_frac": null,
             "atom_pert_dist": null,
-            "atom_pert_mode": "normal",
             "mag_rotate_angle": null,
             "mag_tilt_angle": null,
             "mag_norm_dist": null
@@ -357,14 +356,11 @@ Only key "prepare" is recongnized by `abacustest prepare`.
     - `pert_number`: the number of perturbed structures. If is 0, will not generate the perturbed structure. This is the final number of examples, and each new structure will be perturbed based on below parameters.
     - `cell_pert_frac`: the maximum perturbation of cell. If is null, will not perturb the cell. Such as 0.01, means the cell vector will be perturbed by maximum 1%. 
     - `atom_pert_dist`: the maximum perturbation distance of atom. Unit in Angstrom.
-    - `atom_pert_mode`: the mode of perturbation of atom. Can be one of: "normal", "uniform", "const". Default is "normal". 
-      - `normal`: for each atom, plus a random vector who's three components are random numbers in (-atom_pert_dist,atom_pert_dist).
-      - `uniform`: for each atom, move to a random position in a sphere with radius of atom_pert_dist.
-      - `const`: for each atom, move to a random direction with a distance of atom_pert_dist.
     - `mag_rotate_angle`: the angle of rotation of magnetic moment. Unit in degree. If is null, will not rotate the magnetic moment. 
     - `mag_tilt_angle`: the angle of tilt of magnetic moment. Unit in degree. If is null, will not tilt the magnetic moment. 
     - `mag_norm_dist`: the distance of magnetic moment to the normal direction. If is null, will not move the magnetic moment. Unit in $\mu_B$.\
-    Note: the perturbation of magnetic moment is only valid for the spin-constrained atom that the "sc" of at leaset one magnetic component is 1.
+    Note1: the perturbation of magnetic moment is only valid for the spin-constrained atom that the "sc" of at leaset one magnetic component is 1.
+    Note2: the value can also be a list of two values, which means the minimum and maximum value of perturbation. Such as for `atom_pert_dist`: [0.1,0.15], means the perturbation distance of atom is between 0.1 and 0.15 Angstrom, and if the two values are same, the perturbation distance is fixed.
 - `pp_dict`: the pseudopotential dict. The key is the element name, and the value is the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}. 
 - `orb_dict`: the orbital dict. The key is the element name, and the value is the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}. 
 - `pp_path`: the path of pseudopotential files. There should has an extra "element.json" file that defines the element name and the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}, or abacustest will read the first two letters of the pseudopotential file name as the element name. If one element has been defined in both `pp_dict` and `pp_path`, the value in `pp_dict` will be used. 
