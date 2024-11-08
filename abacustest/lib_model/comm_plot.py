@@ -2,8 +2,8 @@ from . import comm
 import matplotlib.pyplot as plt
 from typing import List
 
-def plot_line_point(x:List[str|float|int],
-                    ys:List[List[float|int]],
+def plot_line_point(x,
+                    ys,
                     legends:List[str]=None, 
                     title: str=None, 
                     xtitle: str=None, 
@@ -87,8 +87,8 @@ def plot_line_point(x:List[str|float|int],
         plt.show()
     plt.close()
     
-def plot_bar(x:List[str|float|int],
-             ys:List[List[float|int]],
+def plot_bar(x,
+             ys,
              legends:List[str]=None, 
              title: str=None, 
              xtitle: str=None, 
@@ -148,8 +148,8 @@ def plot_bar(x:List[str|float|int],
         plt.xlabel(xtitle, fontsize=fontsize)
 
 
-def plot_boxplot(x:List[str|float|int], 
-                 ys:List[List[float|int]],
+def plot_boxplot(x, 
+                 ys,
                  title: str=None, 
                  xtitle: str=None, 
                  ytitle: str=None,
