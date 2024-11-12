@@ -716,6 +716,7 @@ class Abacus(ResultAbacus):
             self["denergy_womix"]    = None
             self["denergy_womix_last"] = None
         else:
+            des[0] = 0
             self["denergy_womix"]    = des
             self["denergy_womix_last"] = des[-1]
 
