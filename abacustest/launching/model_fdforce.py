@@ -12,8 +12,8 @@ from abacustest.lib_model import model_006_FDForce as FDForce
 
 class NewSetting(BaseModel):
     fd_step: Float = Field(default=0.01,
-                            title="FD Step (bohr)",
-                            description="The finite difference step size. Unit in bohr",)
+                            title="FD Step (Angstrom)",
+                            description="The finite difference step size. Unit in angstrom",)
     
     fd_number: Int = Field(default=5,
                            titile= "FD Number",

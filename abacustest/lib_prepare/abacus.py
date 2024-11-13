@@ -930,18 +930,25 @@ class AbacusStru:
                 # firstly read the label
                 if sline[i] == "m":
                     label = "move"
+                    move_list = []
                 elif sline[i] in ["v","vel","velocity"]:
                     label = "velocity"
+                    velocity_list = []
                 elif sline[i] in ["mag","magmom"]:
                     label = "magmom"
+                    mag_list = []
                 elif sline[i] == "angle1":
                     label = "angle1"
+                    angle1_list = []
                 elif sline[i] == "angle2":
                     label = "angle2"
+                    angle2_list = []
                 elif sline[i] in ["constrain","sc"]:
                     label = "constrain"
+                    constrain_list = []
                 elif sline[i] in ["lambda"]:
                     label = "lambda"
+                    lambda_list = []
                 
                 # the read the value to the list    
                 elif label == "move":
