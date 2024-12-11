@@ -793,7 +793,75 @@ class AbacusStru:
             self._cell = np.array(cell) / constant.BOHR2A
             self._cell = self._cell.tolist()
         self._check()        
+    
+    def split_list(self, alist, indices):
+        '''
+        split a list to several sublists based on the indices
+        '''
+        if not indices:
+            return [alist]
+        if len(alist) != sum(indices):
+            print("ERROR: the sum of indices is not equal to the length of alist")
+            print("indices:",indices)
+            print("alist",alist)
+            sys.exit(1)
+        new_list = []
+        start_idx = 0
+        for i in indices:
+            new_list.append(alist[start_idx:start_idx+i])
+            start_idx += i
+        return new_list
+    
+    def supercell(self,nabc = [1,1,1]):
+        '''
+        generate a supercell
         
+        na,nb,nc: the number of the supercell in a,b,c direction
+        '''
+        # be careful, the real coord should be coord * lattice_constant
+        na, nb, nc = nabc
+        new_stru = copy.deepcopy(self)
+        cell = np.array(new_stru._cell)
+        coord = np.array(new_stru._coord)
+        new_stru._cell = cell * np.array([[na],[nb],[nc]])
+        
+        # split the coord to coords by each atom type
+        coords = self.split_list(new_stru._coord,new_stru._atom_number)
+        key_p = ["_move","_magmom_atom","_velocity","_angle1","_angle2","_constrain","_lambda"]
+        kv = {i:None if getattr(new_stru,i) is None else self.split_list(getattr(new_stru,i), new_stru._atom_number) for i in key_p}
+        
+        
+        if not new_stru._cartesian:
+            # if the coord is direct type, then transfer the original coord based on new cell
+            new_stru._coord = coord / np.array([na,nb,nc])
+        
+        for ia in range(na):
+            for ib in range(nb):
+                for ic in range(nc):
+                    if ia == 0 and ib == 0 and ic == 0:
+                        continue
+                    
+                    start_idx = 0
+                    for idx, iatomn in enumerate(new_stru._atom_number):
+                        if new_stru._cartesian:
+                            add_coord = coord[start_idx:start_idx+iatomn] + np.array([ia,ib,ic]).dot(cell) 
+                        else:
+                            add_coord = coord[start_idx:start_idx+iatomn] + np.array([ia/na,ib/nb,ic/nc])
+                        add_coord = add_coord.tolist()
+                        coords[idx] += add_coord
+
+                        for attri in key_p:
+                            if kv[attri] is not None:
+                                kv[attri][idx] += getattr(self,attri)[start_idx:start_idx+iatomn]                               
+                        start_idx += iatomn
+
+        new_stru._coord = [j for i in coords for j in i]
+        for attri in key_p:
+            if kv[attri] is not None:
+                setattr(new_stru,attri,[j for i in kv[attri] for j in i])
+        new_stru._atom_number = [len(i) for i in coords]
+        new_stru._check()
+        return new_stru   
      
     def write(self,struf="STRU"):
         cc = ""

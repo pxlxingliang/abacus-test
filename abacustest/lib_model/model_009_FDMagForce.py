@@ -3,6 +3,7 @@ from abacustest import constant
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,WriteInput,WriteKpt
 from abacustest.lib_collectdata.collectdata import RESULT
 from abacustest.prepare import PrepareAbacus
+import numpy as np
 from ..model import Model
 from . import comm
 
@@ -67,9 +68,10 @@ class fdmagforce(Model):
         The arguments can not be command, model, modelcommand '''
         
         parser.description = PREPARE_DOC
-        parser.add_argument('-d', '--step', type=float, default=0.01,help="the step of finite difference (unit: uB), default 0.01")
+        parser.add_argument('-d', '--step', type=float, default=0.1,help="the step of finite difference (unit: uB), default 0.1")
         parser.add_argument('-n', '--number', type=int, default=5,help="the number of finite difference of one direction, default 5")
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder')
+        parser.add_argument('-t', '--type', type=int, default=0,help="the type of finite difference. 0: cartesian, 1: angle1, 2: angle2, 3: norm. Default 0")
         
         return parser
     
@@ -154,6 +156,16 @@ class PrepareFDMagForce:
         the txt.info should be like:
         C 2 x y z
         H 1 x y
+        
+        or 
+        
+        C 2
+        
+        Return:
+        [["C",2,["x","y","z"]],["H",1,["x","y"]]]
+        or 
+        [["C", 2]]
+        The label, number of atom, and the xyz component of the magnetic force.
         """
         def print_error(path,line):
             print("ERROR: mag_force_info.txt format error in ",path)
@@ -163,23 +175,28 @@ class PrepareFDMagForce:
             with open(os.path.join(path,self.infof)) as f:
                 lines = f.readlines()
                 info = []
+                # each atom has a line append to info with a lit like: ["Fe", 1, ["x", "y", "z"]]
+                # if not define the component, then only the label and number
                 for line in lines:
                     if line.strip() == "":
                         continue
                     sline = line.strip().split()
-                    if len(sline) < 3 or not sline[1].isdigit():
+                    if len(sline) < 2 or not sline[1].isdigit():
                         print_error(path,line)
                         continue
-                    xyz = [i.lower() for i in sline[2:]]
-                    # if xyz has other character, then error
-                    has_error = False
-                    for i in xyz:
-                        if i not in ["x","y","z"]:
-                            print_error(path,line)
-                            has_error = True
-                            break
-                    if not has_error:
-                        info.append([sline[0],int(sline[1]),xyz])
+                    if len(sline) == 2:
+                        info.append([sline[0],int(sline[1]),["x","y","z"]])
+                    else:
+                        xyz = [i.lower() for i in sline[2:]]
+                        # if xyz has other character, then error
+                        has_error = False
+                        for i in xyz:
+                            if i not in ["x","y","z"]:
+                                print_error(path,line)
+                                has_error = True
+                                break
+                        if not has_error:
+                            info.append([sline[0],int(sline[1]),xyz])
                 return info
         else:
             print("ERROR: mag_force_info.txt not found in ",path)
@@ -225,7 +242,11 @@ class PrepareFDMagForce:
         xyz_idx = {"x":0,"y":1,"z":2}
         # write other inputs
         for info in infos:
-            label_name, label_idx, xyz = info
+            if len(info) == 2:
+                label_name, label_idx = info
+                xyz = [None]
+            else:
+                label_name, label_idx, xyz = info
             if label_name not in label:
                 print(f"ERROR: label {label_name} not in STRU")
                 continue
@@ -240,17 +261,26 @@ class PrepareFDMagForce:
                     if atom_idx == label_idx:
                         break
             atom_idx = i
+            atom_mag_norm = norm = np.linalg.norm(atom_mag[atom_idx])
 
             for ixyz in xyz:
                 for inum in range(num):
-                    subfolder_name1 = f"fdf_{label_name}_{label_idx}_{ixyz}_+_{inum+1}"
-                    subfolder_name2 = f"fdf_{label_name}_{label_idx}_{ixyz}_-_{inum+1}"
+                    if ixyz == None:
+                        subfolder_name1 = f"fdf_{label_name}_{label_idx}_norm_+_{inum+1}"
+                        subfolder_name2 = f"fdf_{label_name}_{label_idx}_norm_-_{inum+1}"
+                    else:
+                        subfolder_name1 = f"fdf_{label_name}_{label_idx}_{ixyz}_+_{inum+1}"
+                        subfolder_name2 = f"fdf_{label_name}_{label_idx}_{ixyz}_-_{inum+1}"
+                        
                     subfolders.append(os.path.join(init_path,subfolder_name1))
                     subfolders.append(os.path.join(init_path,subfolder_name2))
 
                     # write stru
                     new_atommag = copy.deepcopy(atom_mag)
-                    new_atommag[atom_idx][xyz_idx[ixyz]] += step * (inum+1)
+                    if ixyz == None:
+                        new_atommag[atom_idx] = (np.array(atom_mag[atom_idx]) / atom_mag_norm * (atom_mag_norm + step * (inum+1))).tolist()
+                    else:
+                        new_atommag[atom_idx][xyz_idx[ixyz]] += step * (inum+1)
                     new_stru = copy.deepcopy(stru)
                     new_stru.set_atommag(new_atommag)
                     self.prepare_one_stru_abacus(new_stru,
@@ -259,7 +289,10 @@ class PrepareFDMagForce:
                             input_param)
                     
                     new_atommag = copy.deepcopy(atom_mag)
-                    new_atommag[atom_idx][xyz_idx[ixyz]] -= step * (inum+1)
+                    if ixyz == None:
+                        new_atommag[atom_idx] = (np.array(atom_mag[atom_idx]) / atom_mag_norm * (atom_mag_norm - step * (inum+1))).tolist()
+                    else:
+                        new_atommag[atom_idx][xyz_idx[ixyz]] -= step * (inum+1)
                     new_stru = copy.deepcopy(stru)
                     new_stru.set_atommag(new_atommag)
                     self.prepare_one_stru_abacus(new_stru,
@@ -447,7 +480,7 @@ class PostProcessFDMagForce:
             ymin1 = min(e)
             ymax2 = max(max(f),max(fd))
             ymin2 = min(min(f),min(fd))
-            ax1.set_xlabel(f"Magnetic ({ub_unit})")
+            ax1.set_xlabel(f"Magnetic moment variation ({ub_unit})")
             ax1.set_ylabel("Energy (eV)",color="b")
             ax2.set_ylabel(f"Magnetic Force (eV/{ub_unit})",color="r")
             ax1.spines['left'].set_color('blue')

@@ -11,7 +11,7 @@ from abacustest.lib_model import model_009_FDMagForce as FDMagForce
 
 
 class NewSetting(BaseModel):
-    fd_step: Float = Field(default=0.01,
+    fd_step: Float = Field(default=0.1,
                             title="FD Step (uB)",
                             description="The finite difference step size. Unit in uB",)
     
