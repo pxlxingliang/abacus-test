@@ -228,12 +228,11 @@ class Abacus(ResultAbacus):
                     converge = False
                 elif 'total magnetism (Bohr mag/cell)' in line:
                     sline = line.split()
-                    if len(sline) == 5:
-                        total_mag = float(line.split()[-1])
-                    elif len(sline) == 7:
-                        total_mag = [float(imag) for imag in sline[-3:]] 
-                    else:
-                        total_mag = None
+                    # if the last three are float, then it is the noncollinear case, else it is collinear case
+                    try:
+                        total_mag = [float(imag) for imag in sline[-3:]]
+                    except:
+                        total_mag = float(sline[-1])
                 elif 'absolute magnetism' in line:
                     absolute_mag = float(line.split()[-1])
                 elif "!FINAL_ETOT_IS" in line:

@@ -825,16 +825,15 @@ class AbacusStru:
         coord = np.array(new_stru._coord)
         new_stru._cell = cell * np.array([[na],[nb],[nc]])
         
-        # split the coord to coords by each atom type
-        coords = self.split_list(new_stru._coord,new_stru._atom_number)
-        key_p = ["_move","_magmom_atom","_velocity","_angle1","_angle2","_constrain","_lambda"]
-        kv = {i:None if getattr(new_stru,i) is None else self.split_list(getattr(new_stru,i), new_stru._atom_number) for i in key_p}
-        
-        
         if not new_stru._cartesian:
             # if the coord is direct type, then transfer the original coord based on new cell
-            new_stru._coord = coord / np.array([na,nb,nc])
-        
+            coord = coord / np.array([na,nb,nc])
+
+        # split the coord to coords by each atom type
+        coords = self.split_list(coord.tolist(),new_stru._atom_number)
+        key_p = ["_move","_magmom_atom","_velocity","_angle1","_angle2","_constrain","_lambda"]
+        kv = {i:None if getattr(new_stru,i) is None else self.split_list(getattr(new_stru,i), new_stru._atom_number) for i in key_p}
+
         for ia in range(na):
             for ib in range(nb):
                 for ic in range(nc):

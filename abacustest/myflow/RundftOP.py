@@ -213,6 +213,12 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
         executor, bohrium_set = comm.ProduceExecutor(rundft_set, group_name=bohri_stepname)
         image = globV.get_value("ABBREVIATION").get(rundft_set.get("image"), rundft_set.get("image"))
         group_size = int(rundft_set.get("group_size",1))
+
+        # when use merge_sliced_step, the group_size is None
+        if "dispatcher" in rundft_set and rundft_set["dispatcher"].get("merge_sliced_step",False):
+            if "group_size" in rundft_set:
+                comm.printinfo("group_size is not used when merge_sliced_step is True")
+            group_size = None
         parameters = {
             "command": rundft_set.get("command", ""),
             "outputfiles": rundft_set.get("outputs", []),
