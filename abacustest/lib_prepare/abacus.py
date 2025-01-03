@@ -746,7 +746,7 @@ class AbacusStru:
     def set_element(self,element):
         self._element = element
     
-    def set_coord(self,coord,direct=False,bohr=True):
+    def set_coord(self,coord,direct=False,bohr=True, keep_lattice_constant=True):
         '''
         set the coordinate of each atom
         
@@ -754,44 +754,56 @@ class AbacusStru:
         else the coord is cartesian type, and will modify self._cartesian to True, and will set lattice_constant to 1.0, and modify cell *= lattice_constant
         
         if bohr is False, then will transfer the coord to Bohr unit
+        
+        if keep_lattice_constant is True, then will keep the lattice constant, else will set the lattice constant to 1.0
         '''
+        unit_coef = 1 if bohr else constant.A2BOHR # need save the unit with bohr
         if direct:
             self._cartesian = False
             self._coord = coord
         else:
             self._cartesian = True
-            self._cell = np.array(self._cell) * self._lattice_constant
-            self._lattice_constant = 1.0
-            if bohr:
-                self._coord = coord
+            if keep_lattice_constant:
+                new_coord = np.array(coord) / self._lattice_constant * unit_coef
+                self._coord = new_coord.tolist()
             else:
-                self._coord = np.array(coord) / constant.BOHR2A
-                self._coord = self._coord.tolist()
+                self._cell = (np.array(self._cell) * self._lattice_constant).tolist()
+                self._coord = (np.array(coord) * unit_coef).tolist()
+                self._lattice_constant = 1.0  
         self._check()
     
-    def set_cell(self,cell,bohr=True,change_coord=True):
+    def set_cell(self,cell,bohr=True,change_coord=True,keep_lattice_constant=True):
         '''
         set the lattice of a, b, c
         
-        Will set the lattice_constant to 1.0
-        
         if bohr is False, then will transfer the cell to Bohr unit
         
-        if change_coord is True, then will set the coord to direct type
-        else will firstly transfer the coord to cartesian type.
+        if change_coord is True, then will transfer the coord based on the new cell and keep the relative position of each atom
+        if change_coord is False, then will not modify the coord, which means the coord is not changed whatever is direct or cartesian type
         '''
-        if change_coord:
-            if self._cartesian:
+        unit_coef = 1 if bohr else constant.A2BOHR # need save the unit with bohr
+        
+        cell = np.array(cell) * unit_coef # now cell is in Bohr unit
+        if keep_lattice_constant:
+            if change_coord and self._cartesian: 
                 coord = self.get_coord(bohr=bohr,direct=True)
-                self._coord = coord
-                self._cartesian = False
-                
-        self._lattice_constant = 1.0
-        if bohr:
-            self._cell = cell
+                new_coord = np.array(coord).dot(cell) / self._lattice_constant
+                self._coord = new_coord.tolist()
+
+            self._cell = (cell / self._lattice_constant ).tolist()
         else:
-            self._cell = np.array(cell) / constant.BOHR2A
-            self._cell = self._cell.tolist()
+            # will change the lattice constant to 1.0
+            if self._cartesian:
+                if change_coord:
+                    coord = self.get_coord(bohr=bohr,direct=True)
+                    new_coord = np.array(coord).dot(cell)
+                    self._coord = new_coord.tolist()
+                else:
+                    self._coord = (np.array(self._coord) * self._lattice_constant).tolist()
+                    
+            self._cell = cell.tolist()
+            self._lattice_constant = 1.0
+
         self._check()        
     
     def split_list(self, alist, indices):

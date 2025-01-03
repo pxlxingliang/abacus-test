@@ -20,4 +20,4 @@ package-dir = {"abacustest" = "abacustest"}
 package-data = {"abacustest" = ["*.py", "*/*.py", "*/*/*.py", "version"]}
 
 [project.optional-dependencies]
-dev = ["pydflow>=1.8.45", "numpy", "pandas", "pyecharts", "seekpath", "phonopy","pydflow"]
+dev = ["pydflow>=1.8.45", "numpy", "pandas", "pyecharts", "seekpath", "phonopy"]

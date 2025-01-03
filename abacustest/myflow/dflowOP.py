@@ -55,7 +55,7 @@ def SetConfig(private_set,debug=False):
         if private_set.get("dflow_host","").strip() != "":
             config["host"] = private_set.get("dflow_host","").strip()
         else:
-            config["host"] = "https://lbg-workflow-deepmodeling.dp.tech"
+            config["host"] = "https://workflows.deepmodeling.com"
     
         host = config["host"] + "/workflows/argo"
         
@@ -67,7 +67,7 @@ def SetConfig(private_set,debug=False):
         if private_set.get("dflow_k8s_api_server","").strip() != "":
             config["k8s_api_server"] = private_set.get("dflow_k8s_api_server","").strip()
         else:
-            config["k8s_api_server"] = "https://lbg-workflow-deepmodeling.dp.tech"
+            config["k8s_api_server"] = "https://workflows.deepmodeling.com"
             
         if private_set.get("dflow_token","").strip() != "":
             config["token"] = private_set.get("dflow_token","").strip()
