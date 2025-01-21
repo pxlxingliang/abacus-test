@@ -101,8 +101,6 @@ def set_fixed_axes(param,qp):
             qp["cell"]["cell_dofree"] = {"a","b","c"}.difference(set(fixed_axes)).pop()
         else:
             print("WARNING: fixed_axes %s is not supported now, will not set cell_dofree in QE." % fixed_axes)
-            
-    
 
 def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
     '''transfer the abacus input to qe input
@@ -173,6 +171,7 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
                              ["nx",("system","nr1")],
                              ["ny",("system","nr2")],
                              ["nz",("system","nr3")],
+                             ["dft_functional",("system","input_dft")],
                              ]:
         if para_aba in param:
             qp[para_qe[0]][para_qe[1]] = param.pop(para_aba)
