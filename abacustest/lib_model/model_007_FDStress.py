@@ -4,6 +4,7 @@ from abacustest.lib_collectdata.collectdata import RESULT
 from abacustest.prepare import PrepareAbacus
 from ..model import Model
 from . import comm
+from abacustest.lib_prepare.comm import kspacing2kpt
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -126,6 +127,9 @@ class PrepareFDStress:
                 if ifolders:
                     subfolders.extend(ifolders)
         return subfolders
+    
+    def gen_kpt(self, init_path, kspacing, cell):
+        kpt = kspacing2kpt(kspacing, cell)
                 
     def preapre_stru(self,init_path):
         input_param = {"calculation": "scf","cal_stress":1}
@@ -146,6 +150,15 @@ class PrepareFDStress:
                 
         cell = stru.get_cell(bohr=True)  # need use cell as the input of AbacusStru
         #print(label,atom_num,pp,orb,mass,dpks,coord,cell)
+        
+        # we need to fix the kpt.
+        kspacing = input_param.pop("kspacing",None)
+        if kspacing is not None:
+            kpt = kspacing2kpt(kspacing, cell)
+            kptf = (os.path.abspath(os.path.join(init_path,"KPT")))
+            WriteKpt(kpt,kptf)
+            if kptf not in otherfiles:
+                otherfiles.append(kptf)
 
         write_0 = False
         subfolders = []
