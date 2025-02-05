@@ -182,7 +182,8 @@ class Vasp(ResultVasp):
             line = self.OUTCAR[j]
             if 'Iteration' in line:
                 self['scf_steps'] = int(line.split('(')[1].split(')')[0])
-                if self['scf_steps'] < self['nelm']:
+                if self['scf_steps'] < self['nelm'] and self['efermi'] is not None:
+                    # in some case the SCF is not converged but terminated, so we need to check the fermi energy
                     self['converge'] = True
                 else:
                     self['converge'] = False
@@ -280,7 +281,7 @@ class Vasp(ResultVasp):
                          atom_type = 'list, the element name of each atomtype',
                          element_list = 'list, the element name of all atoms',
                          element = "list[], a list of the element name of all atoms",
-                           abel = "list[], a list of atom label of all atoms",
+                           label = "list[], a list of atom label of all atoms",
                            atomlabel_list = "same as label",
                          efermi     = 'the fermi energy, eV')
     def GetXMLInfo(self):
