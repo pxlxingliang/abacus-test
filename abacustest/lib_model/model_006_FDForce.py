@@ -422,6 +422,12 @@ class PostProcessFDForce:
     
     def plot_force(self, results):
         import matplotlib.pyplot as plt
+        try:
+            from matplotlib import rc
+            rc('font',**{'family':'sans-serif'})
+            rc('text', usetex=True)
+        except:
+            pass
         
         allpngs = []
         for case in results:

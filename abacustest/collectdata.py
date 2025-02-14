@@ -91,6 +91,18 @@ def CollectDataArgs(parser):
     parser.add_argument('--ref', type=str, nargs='?',default=None,const="resultREF.json",help='A json file includes the reference value of some keys. Generally, get values of keys start with \"delta_\" require this file. Default is resultREF.json')
     return parser
 
+NO_PARAM_WARNING = """
+WARNING: you have not defined the parameters to collect.
+         You can specify by -p or --param. The context can be like: 
+         {
+             "PARAM":["natom","total_time"]
+         }
+         Only collect some common parameters, such as natom, total_time, converge, normal_end, etc.
+         
+         You can execute below commnd to get all the parameters that can be collected:
+             abacustest collectdata --outparam
+"""
+
 def collectdata(param):    
     outputf = param.output
     paramf = param.param
@@ -101,22 +113,15 @@ def collectdata(param):
     
     if param.outparam:
         RESULT(fmt=jobtype,outparam=True,newmethods=param.newmethods,modules=param.modules)
-        return
-            
+        return   
     if paramf == None:
-        error_message = """ERROR: you have not defined the parameter file.
-        You can specify by -p or --param. The context can be like: 
-        {
-            "PARAM":["natom","total_time"]
-        }
-        """
-        print(error_message)
-        return
-    if not os.path.isfile(paramf):
+        allparams = []
+    elif not os.path.isfile(paramf):
         print("ERROR: can not find parameter file %s!!!" % paramf)
         return
-
-    allparams = parse_param(paramf)
+    else:
+        allparams = parse_param(paramf)
+        
     allresult = {}
     for ipath in alljobs:
         if not os.path.isdir(ipath):
@@ -127,7 +132,23 @@ def collectdata(param):
     
         result = RESULT(fmt=jobtype, path=ipath,newmethods=param.newmethods,modules=param.modules,resultREF=param.ref)
         if len(allparams) == 0:
-            allparams = list(result.AllMethod().keys())
+            print(NO_PARAM_WARNING)
+            allparams = ["normal_end","converge","nkstot","ibzk",
+                "nbands","nelec","natom","scf_steps","total_time",
+                "scf_time",
+                {
+                    "scf_time/step": "{scf_time}/{scf_steps}",
+                    "ks_solver": "{INPUT}['ks_solver']"
+                },
+                "stress_time",
+                "energy",
+                "energy_per_atom",
+                "force",
+                "stress",
+                "drho_last",
+                "denergy_last",
+                "version"]
+            #allparams = list(result.AllMethod().keys())
         allresult[ipath] = parse_value(result,allparams)
 
     print("Write the results to %s" % outputf)

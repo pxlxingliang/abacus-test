@@ -379,7 +379,8 @@ class Abacus(ResultAbacus):
 
     
     @ResultAbacus.register(band = "Band of system. Dimension is [nspin,nk,nband].",
-                           band_weight = "Band weight of system. Dimension is [nspin,nk,nband].")
+                           band_weight = "Band weight of system. Dimension is [nspin,nk,nband]."
+                           )
     def GetBandFromLog(self): 
         nband = self['nbands']  
         if self["ibzk"] != None:    
@@ -416,7 +417,18 @@ class Abacus(ResultAbacus):
                 break
         self['band'] = band
         self['band_weight'] = band_weight
-        
+    
+    @ResultAbacus.register(band_plot="Will plot the band structure. Return the file name of the plot.")
+    def PlotBandFromLog(self):  
+        band = self['band']  
+        efermi = self['efermi']
+        if band == None:
+            print("no band, and skip the plot of band")
+            self['band_plot'] = None
+            return
+        band_plot = os.path.join(self.PATH,"band.png")
+        comm.plot_band(band, band_plot, efermi)
+        self['band_plot'] = band_plot     
     
     @ResultAbacus.register(band_gap = "band gap of the system")
     def GetBandGapFromLog(self):

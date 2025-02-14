@@ -592,8 +592,9 @@ def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=Tru
     If value is a list, will print out separately.
     """
     import pandas as pd
-    pd.set_option('display.max_columns', 30)
+    pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
+    pd.set_option('display.width', 200)
 
     normal_result = {}
     list_result = []
