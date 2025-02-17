@@ -1,0 +1,22 @@
+INPUT_PARAMETERS
+#Parameters (1.General)
+calculation     	scf
+symmetry   		0
+
+#Parameters (2.Iteration)
+ecutwfc			100
+scf_thr			1e-8
+scf_nmax		10
+cal_force 		1
+cal_stress 		1
+#Parameters (3.Basis)
+basis_type		pw
+
+#Parameters (4.Smearing)
+smearing_method		gauss
+smearing_sigma		0.002
+
+#Parameters (5.Mixing)
+ks_solver 		dav_subspace
+pw_diag_ndim 2
+diago_dav_method 2

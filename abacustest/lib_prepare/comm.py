@@ -1,5 +1,52 @@
 import numpy as np
 from typing import List
+import dpdata
+import os, glob
+import traceback
+
+def translate_strus(input_strus, input_stru_type, output_path = "."):
+    """
+    Translate the structure from one format to ABACUS stru.
+    
+    input_strus: str/list, the input structure.
+    input_stru_type: str, the input structure type.
+    output_stru_type: str, the output structure type.
+    
+    Return:
+    output_strus: list, the output structure.
+    """
+    dpdata_formats = dpdata.format.Format.get_formats()
+    if input_stru_type not in dpdata_formats and input_stru_type.lower() != "cif":
+        print("ERROR: input_stru_type should be in cif, %s, but not %s" % (str(dpdata_formats),input_stru_type))
+        return None
+    
+    if isinstance(input_strus,str):
+        input_strus = [input_strus]
+        
+    output_folders = []
+    idx = 0
+    try:
+        for istru in input_strus:
+            for iistru in glob.glob(istru):
+                if input_stru_type in dpdata_formats:
+                    stru = dpdata.System(iistru,fmt=input_stru_type)
+                elif input_stru_type.lower() == "cif":
+                    from ase.io import read as ase_read
+                    stru = ase_read(iistru)
+                    stru = dpdata.System(stru, fmt="ase")
+                
+                for i in range(stru.get_nframes()):
+                    tpath = os.path.join(output_path,"%06d" % idx)
+                    os.makedirs(tpath,exist_ok=True)
+                    stru.to("abacus/stru", os.path.join(tpath,"STRU"),i)
+                    output_folders.append(tpath)
+                    idx += 1
+    except:
+        traceback.print_exc()
+        print("ERROR: %s to ABACUS STRU failed" % (input_stru_type))
+        return None
+    return output_folders
+
 
 def kspacing2kpt(kspacing, cell):
     """

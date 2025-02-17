@@ -1,0 +1,8 @@
+{
+	"prepare":{
+		"strus": ["*.vasp"],
+		"stru_format": "poscar",
+		"input_template": "INPUT",
+		"pp_path": "pp_lib"
+	}
+}

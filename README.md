@@ -304,6 +304,8 @@ A template of param.json is:
       "example_template":["example1","example2"],
       "input_template":"INPUT",
       "kpt_template":"KPT",
+      "strus": ["1.vasp","2.vasp"],
+      "stru_format": "vasp",
       "mix_input":{
           "ecutwfc":[50,60,70],
           "kspacing":[0.1,0.12,0.13]
@@ -346,6 +348,7 @@ Only key "prepare" is recongnized by `abacustest prepare`.
 - `example_template`: a list of examples, should at least has `STRU` file in each example folder. 
 - `input_template`: the template of INPUT file. If is not null, all example will use this file as INPUT file. 
 - `kpt_template`: the template of KPT file. If is not null, all example will use this file as KPT file. 
+- `strus`/`stru_format`: Translate the structure file from `stru_format` to ABACUS stru. `strus` should be str or list of str which is the path that dpdata can read, and `stru_format` should be str that dpdata supportted. The common format is "poscar" for POSCAR, "deepmd/npy" for deepmd npy. Special format is "cif" for CIF file. If these two keys are setted, then `example_template` will be ignored, and the translated STRU will be put in a new folder named by 000000, 000001, 000002, ...
 - `mix_input`: the mix of INPUT parameters. If is not null, will generate all combinations of the parameters for each example. Such as: {"ecutwfc":[50,60,70],"kspacing":[0.1,0.12,0.13]}, will generate 9 INPUTs. If one need combine the parameters, should use '|' to connect them, and the value should be also combined by '|'. Such as: {"ecutwfc|kspacing":["50|0.1","60|0.12","70|0.13"]}. 
 - `mix_kpt`: the mix of KPT parameters. If is not null, will generate all combinations of the parameters for each example. There are three types to define the kpt parameters: 
     - One Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: 4, means 4 4 4 0 0 0. 
