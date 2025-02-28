@@ -258,7 +258,7 @@ def gen_force_fd_1(ax1, ax2, x, e, ana, fd,
     ax2.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
     
 
-def auto_set_yaxis(ax, ys, margin1=0.1, margin2=0.3):
+def auto_set_yaxis(ax, ys, margin1=0.1, margin2=0.3, log_scale_threshold=1000):
     """Auto set y limit.
 
     Args:
@@ -272,12 +272,12 @@ def auto_set_yaxis(ax, ys, margin1=0.1, margin2=0.3):
     ax.yaxis.get_offset_text().set_visible(False)
     ax.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
     # if the y values has a large range, then use scientific notation, and set log scale
-    if ymax * ymin > 0 and ymax/ymin > 1000:
+    if ymax * ymin > 0 and ymax/ymin > log_scale_threshold:
         ax.set_yscale('log')
         ax.set_ylim(ymin,ymax*10)
-        ax.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
-        ax.yaxis.set_minor_formatter(ScalarFormatter(useOffset=False))
-        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        #ax.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
+        #ax.yaxis.set_minor_formatter(ScalarFormatter(useOffset=False))
+        #ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
     else:
         ax.set_ylim(ymin-(ymax-ymin)*margin1,ymax+(ymax-ymin)*margin2)
         ax.yaxis.set_major_locator(MaxNLocator(nbins=5))

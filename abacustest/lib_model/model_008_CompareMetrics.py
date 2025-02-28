@@ -72,6 +72,7 @@ class CompareMetrics:
         
         report, sm = self.cal_dev(m1,m2)
         self.plot_metrics(report,"compare_metrics.png")
+        json.dump({"fig_results":{"type": "image", "file": "compare_metrics.png"}}, open("supermetrics.json", "w"), indent=4)
         
         json.dump(report,open("report.json","w"),indent=4)    
         json.dump(sm,open("summary.json","w"),indent=4)
@@ -92,6 +93,13 @@ class CompareMetrics:
                   },
                  "abacustest.html")
         print("The html file is saved in abacustest.html")   
+    
+    def is_float(self, v):
+        try:
+            float(v)
+            return True
+        except:
+            return False
     
     def plot_metrics(self,report,fname):
         nmetrics = len(self.compare_metrics)
@@ -115,6 +123,7 @@ class CompareMetrics:
         for im in self.compare_metrics:
             x1 = range(len(examples))
             x2 = range(len(examples))
+            
             y1 = [self.m1[ie].get(im,None) for ie in examples]
             y2 = [self.m2[ie].get(im,None) for ie in examples]
             x1, y1 = comm.clean_none_list(x1,y1)
@@ -122,7 +131,11 @@ class CompareMetrics:
             if len(x1) == 0 or len(x2) == 0:
                 continue
             # check if y is str
-            if any([isinstance(iv,str) for iv in y1+y2]):
+            #if any([isinstance(iv,str) for iv in y1+y2]):
+            #    continue
+            
+            # only plot the scalar
+            if any([not self.is_float(iv) for iv in y1+y2]):
                 continue
             
             plot_values.append({"name":im,"x1": x1, "y1": y1, "x2": x2, "y2": y2})
@@ -145,6 +158,9 @@ class CompareMetrics:
         while nrow*ncol < len(plot_values): nrow += 1   
         
         width = max(6, 0.4*len(examples))
+        if width > 12:
+            ncol = 1
+            nrow = len(plot_values)
         
         import matplotlib.pyplot as plt
         

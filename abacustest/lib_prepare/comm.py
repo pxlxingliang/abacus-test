@@ -1,7 +1,7 @@
 import numpy as np
 from typing import List
 import dpdata
-import os, glob
+import os, glob, re
 import traceback
 
 def translate_strus(input_strus, input_stru_type, output_path = "."):
@@ -47,6 +47,20 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
         return None
     return output_folders
 
+def read_pp_valence(pp_file):
+    if not os.path.isfile(pp_file):
+        print("ERROR: %s is not a file" % pp_file)
+        return None
+    
+    with open(pp_file) as f: lines = f.readlines()
+    for iline in lines:
+        if "z_valence" in iline:
+            #split the line by z_valence and get the second part, then split by ", and get the second part
+            zv = re.split("z_valence",iline)[1].split("\"")[1]
+            return float(zv)
+        elif "Z valence" in iline:
+            return int(iline.split()[0])
+    return None
 
 def kspacing2kpt(kspacing, cell):
     """
