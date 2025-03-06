@@ -585,15 +585,16 @@ def check_file(ifile):
             i += 1
     return ifile
 
-def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=True):
+def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=True, print_list_seperate = False):
     """
     allresult = {sample1: {key1:value,key2:value},
                  sample2: {key1:value,key2:value}}
     If value is a list, will print out separately.
     """
     import pandas as pd
-    pd.set_option('display.max_columns', 30)
+    pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
+    pd.set_option('display.width', 200)
 
     normal_result = {}
     list_result = []
@@ -609,12 +610,14 @@ def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=Tru
     savefile_names = []
     for ikey in allkeys:
         allkeys_seperate.append(False)
+        if not print_list_seperate: # if not print list separately, then print out the list together
+            continue
         for i in allsamples:
             if isinstance(allresult[i].get(ikey,None),dict):
                 allkeys_seperate[-1] = True
                 break
             elif isinstance(allresult[i].get(ikey,None),list):
-                if len(allresult[i][ikey]) > 0 and isinstance(allresult[i][ikey][0],(list,dict)):
+                #if len(allresult[i][ikey]) > 0 and isinstance(allresult[i][ikey][0],(list,dict)):
                     allkeys_seperate[-1] = True
                     break
     nsample = 0    
@@ -680,6 +683,7 @@ def OutResultArgs(parser):
     parser.add_argument('-m', '--metrics', default=["ALL"], help='The metrics that needed to be shown. Use ALL to show all metrics, default is ALL.', action="extend",nargs="*")
     parser.add_argument('-o', '--output', type=str, help='output the selected metrics to a json file')
     parser.add_argument('--csv', type=str, help='if output the selected metrics to csv file')
+    parser.add_argument("--list_sep", default=0, const=1, nargs='?', type=int, help="if print the list separately, default is 0")
     
     return parser
 
@@ -710,7 +714,7 @@ def outresult(param):
             allresult = new_result
         if param.output != None:
             json.dump(allresult,open(param.output,'w'),indent=4)
-        pandas_out(allresult,param.csv)
+        pandas_out(allresult,param.csv,print_list_seperate=param.list_sep)
     
     if param.param!= None:
         if not CheckFile(param.param):

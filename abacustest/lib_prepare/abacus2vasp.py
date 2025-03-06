@@ -36,6 +36,9 @@ def ParamAbacus2Vasp(abacus_input):
     calculation = abacus_input.pop("calculation","scf")
     force = abacus_input.pop("force",False)
     stress = abacus_input.pop("stress",False)
+
+    if "ecutwfc" in abacus_input:
+        vasp_input["ENCUT"] = abacus_input.pop("ecutwfc") * constant.RY2EV
     
     basis_type = abacus_input.pop("basis_type","pw")
     if basis_type == "pw":
@@ -453,10 +456,10 @@ def Abacus2Vasp(abacus_path:str, save_path:str=None, potcar=None, vasp_setting={
     if "LCHARG" not in vasp_input: vasp_input["LCHARG"] = ".FALSE."
     
     # 4.1 special setting in vasp_setting
-    emax_coef = vasp_setting.pop("emax_coef",1.5)
+    emax_coef = vasp_setting.pop("emax_coef",None)
     
     # 4.2 set ENCUT
-    if emax != None:
+    if emax != None and emax_coef != None:
         vasp_input["ENCUT"] = emax * emax_coef
     
     # 4.3 set MAGMOM and deltaspin    

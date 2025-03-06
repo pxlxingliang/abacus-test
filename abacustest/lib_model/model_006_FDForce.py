@@ -67,7 +67,7 @@ class fdforce(Model):
         The arguments can not be command, model, modelcommand '''
         
         parser.description = PREPARE_DOC
-        parser.add_argument('-d', '--step', type=float, default=0.01,help="the step of finite difference (unit: bohr), default 0.01")
+        parser.add_argument('-d', '--step', type=float, default=0.01,help="the step of finite difference (unit: Angstrom), default 0.01")
         parser.add_argument('-n', '--number', type=int, default=5,help="the number of finite difference of one direction, default 5")
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder')
         
@@ -127,7 +127,7 @@ class PrepareFDForce:
     def run(self):
         step = self.step
         num = self.number
-        print("step(bohr):",self.step)
+        print("step(Angstrom):",self.step)
 
         subfolders = []
         for job in self.jobs:
@@ -215,10 +215,10 @@ class PrepareFDForce:
 
         label = stru.get_label()
         atom_num = [label.count(i) for i in label] # the number of atoms for each element
-        coord = stru.get_coord(direct=False,bohr=True)
+        coord = stru.get_coord(direct=False,bohr=False)
         cell = stru.get_cell(bohr=True)  # need use cell as the input of AbacusStru
         new_stru = copy.deepcopy(stru)
-        new_stru.set_coord(coord,bohr=True,direct=False)
+        new_stru.set_coord(coord,bohr=False,direct=False)
 
         # write original input
         self.prepare_one_stru_abacus(new_stru,os.path.join(init_path,"fdf"),otherfiles,input_param)
@@ -256,7 +256,7 @@ class PrepareFDForce:
 
                     new_coord[atom_idx][xyz_idx[ixyz]] += step * (inum+1)
                     new_stru = copy.deepcopy(stru)
-                    new_stru.set_coord(new_coord,bohr=True,direct=False)
+                    new_stru.set_coord(new_coord,bohr=False,direct=False)
                     self.prepare_one_stru_abacus(new_stru,
                             os.path.join(init_path,subfolder_name1),
                             otherfiles,
@@ -265,7 +265,7 @@ class PrepareFDForce:
                     new_coord = copy.deepcopy(coord)
                     new_coord[atom_idx][xyz_idx[ixyz]] -= step * (inum+1)
                     new_stru = copy.deepcopy(stru)
-                    new_stru.set_coord(new_coord,bohr=True,direct=False)
+                    new_stru.set_coord(new_coord,bohr=False,direct=False)
                     self.prepare_one_stru_abacus(new_stru,
                             os.path.join(init_path,subfolder_name2),
                             otherfiles,
@@ -314,7 +314,7 @@ class PostProcessFDForce:
                     print(f"ERROR: {iijob} does not have step.txt")
                     continue
                 
-                step = float(open(os.path.join(iijob,"fdf","step.txt")).readline()) * constant.BOHR2A # the unit from step.txt is bohr, need to transfer to angstrom
+                step = float(open(os.path.join(iijob,"fdf","step.txt")).readline()) # the unit from step.txt is Angstrom
                 print(f"get results in {iijob}")
                 for job in glob.glob(os.path.join(iijob,"fdf*")):
                     job_name = os.path.basename(job)
@@ -422,6 +422,12 @@ class PostProcessFDForce:
     
     def plot_force(self, results):
         import matplotlib.pyplot as plt
+        try:
+            from matplotlib import rc
+            rc('font',**{'family':'sans-serif'})
+            rc('text', usetex=True)
+        except:
+            pass
         
         allpngs = []
         for case in results:

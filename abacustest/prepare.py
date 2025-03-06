@@ -9,14 +9,14 @@ from abacustest.lib_prepare import abacus as MyAbacus
 from abacustest.lib_prepare import abacus2qe as Aba2Qe
 from abacustest.lib_prepare import abacus2vasp as Aba2Vasp
 from abacustest.lib_prepare import abacus2cp2k as Aba2Cp2k
+from abacustest.lib_prepare.comm import translate_strus
 
 def Direct2Cartesian(coord:List[List[float]],cell:List[List[float]]):
     return np.array(coord).dot(np.array(cell)).tolist()
 
 def Cartesian2Direct(coord:List[List[float]],cell:List[List[float]]):
     return np.array(coord).dot(np.linalg.inv(np.array(cell))).tolist()
-    
-        
+ 
 class PrepareAbacus:
     def __init__(self,
                  save_path: str = Path("."),
@@ -185,16 +185,22 @@ class PrepareAbacus:
     
     def GetElementNameFromFileName(self,filename):
         #the filename should be started with the element name and followed by character non-alpha
-        if len(filename) < 2:
+        def check_element(element):
+            if element.capitalize() in constant.MASS_DICT:
+                return element.capitalize()
+            else:
+                return None
+        
+        if filename == "":
             return None
+        if len(filename) == 1:
+            return check_element(filename)
+        
         element_name = filename[:2]
-        if not element_name[-1].isalpha():
-            element_name = element_name[:-1]
-        if element_name.isalpha():
-            element_name = element_name.capitalize()
-        if element_name not in constant.MASS_DICT:
-            return None
-        return element_name
+        if element_name[-1].isalpha():
+            return check_element(element_name)
+        else:
+            return check_element(filename[0])
     
     def CheckExtrafile(self,extrafiles):
         if not extrafiles:
@@ -581,7 +587,6 @@ class PrepareAbacus:
                         stru_data_pert = stru_data.perturb_stru(self.pert_stru.get("pert_number",0),
                                                                 cell_pert_frac=self.pert_stru.get("cell_pert_frac",None),
                                                                 atom_pert_dist=self.pert_stru.get("atom_pert_dist",None),
-                                                                atom_pert_mode=self.pert_stru.get("atom_pert_mode","normal"),
                                                                 mag_rotate_angle=self.pert_stru.get("mag_rotate_angle",None),
                                                                 mag_tilt_angle=self.pert_stru.get("mag_tilt_angle",None),
                                                                 mag_norm_dist=self.pert_stru.get("mag_norm_dist",None))
@@ -808,6 +813,8 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
         "input_template":"INPUT",
         "kpt_template":"KPT",
         "stru_template":"STRU",
+        "strus": str/list,  # the stru file of other format, like cif, vasp, etc.
+        "stru_format": "cif",  # the format of stru file, should be cif or dpdata supportted format, if strus is setted, then example_template is not needed.
         "mix_input":{
             "ecutwfc":[50,60,70],
             "kspacing":[0.1,0.12,0.13]
@@ -818,7 +825,6 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
             "pert_number": 0,
             "cell_pert_frac": null,
             "atom_pert_dist": null,
-            "atom_pert_mode": "normal",
             "mag_rotate_angle": null,
             "mag_tilt_angle": null,
             "mag_norm_dist": null
@@ -845,11 +851,25 @@ def DoPrepare(param_setting: Dict[str, any], save_folder: str, no_link: bool = F
     },
 
     save_folder specifies the destination of the new created examples.
+    
+    if strus and stru_format is setted, then will firstly convert it to ABACUS format, and save to new folder named by %06d.
 
     Return a list of dict, which is related to each example_template element. The key of the dict is the newcreated example path, and the value
     is the STRU/KPT/INPUT settings. 
     """
-    example_template = param_setting.get("example_template",None)
+    strus = param_setting.get("strus",None)
+    stru_format = param_setting.get("stru_format",None)
+    if strus is not None:
+        assert stru_format is not None, "If strus is setted, then stru_format should be setted."
+        example_template = translate_strus(strus,stru_format)
+        if example_template is None:
+            print("Convert strus to ABACUS format failed.")
+            return []
+        if param_setting.get("example_template",None) is not None:
+            print("WARNING: strus is setted, example_template is not used.")
+    else:
+        example_template = param_setting.get("example_template",None)
+        
     if isinstance(example_template,str):
         example_template = glob.glob(example_template)
         # if __MACOSX folder is exist, then remove it

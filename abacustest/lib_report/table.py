@@ -260,7 +260,7 @@ def gen_criteria_sm(criteria,sm):
         else:
             html += f'''<tr>
                     <td>{ik}</td>
-                    <td>{iv}</td> 
+                    <td>{output_float(iv)}</td> 
                     <td>---</td>
                 </tr>
             '''

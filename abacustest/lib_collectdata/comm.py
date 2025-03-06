@@ -191,6 +191,40 @@ def cal_band_gap(band,efermi):
         if band_gap < 0: band_gap = 0 
     return band_gap
 
+def plot_band(band,fname,efermi=None):
+    """
+    band: NSPIN X NKPTS X NBAND
+    fname: the file name of the band plot
+    efermi: float or [float, float]
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    band = np.array(band)
+    nband = len(band)
+    fig, axs = plt.subplots(1, nband, figsize=(nband*5,4))
+    for i in range(nband):
+        if nband == 1:
+            ax = axs
+        else:
+            ax = axs[i]
+        iband = np.array(band[i])
+        iband = iband.T
+        for j in range(len(iband)):
+            ax.plot(iband[j], "--o", linewidth=0.3, markersize=0.3)
+        if efermi != None:
+            if nband == 1:
+                ax.axhline(y=efermi, color='r', linestyle='--', linewidth=0.3)
+                ax.text(int(len(iband[0])/3), efermi, f'Efermi={efermi:.3f} eV', color='r', fontsize=8)
+            else:
+                ax.axhline(y=efermi[i], color='r', linestyle='--', linewidth=0.3)
+                ax.text(int(len(iband[0])/3), efermi[i], f'Efermi={efermi[i]:.3f} eV', color='r', fontsize=8)
+        ax.set_ylabel('Energy (eV)')
+        ax.set_xlabel('k point')
+        
+    fig.tight_layout()
+    plt.savefig(fname, dpi=400)
+    plt.close()
+
 def abacus_orb_label(l,m):
     if l == 0:
         return "s"

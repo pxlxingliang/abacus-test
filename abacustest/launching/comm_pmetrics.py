@@ -21,6 +21,7 @@ METRICS_UNIT = {
     "step1_time": "s",
     "lattice_constant": "A",
     "denergy_last": "eV",
+    "denergy_womix_last": "eV"
 }
 
 def add_unit_metrics(metrics):
@@ -478,39 +479,38 @@ def plot_two_metrics(pddata,
     return chart_elements
 
 
-def plot_drho(drho_input, example_input):
-    # drho_input: a list of drho of all examples
+def plot_trend(data_input, example_input,data_name,logy = True):
+    # data_input: a list of data of all examples
     # example_input: a list of example name
     # return a list of ChartReportElement
 
     chart_report = []
-    # only plot drho if drho is not None
-    drho_list = []
+    # only plot data if data is not None
+    data_list = []
     example_name = []
-    for i in range(len(drho_input)):
-        if isinstance(drho_input[i], list):
-            drho_list.append(drho_input[i])
+    for i in range(len(data_input)):
+        if isinstance(data_input[i], list):
+            data_list.append(data_input[i])
             example_name.append(example_input[i])
-    if len(drho_list) == 0:
+    if len(data_list) == 0:
         return []
 
-    # sort the example_name and drho_list
-    example_name, drho_list = zip(*sorted(zip(example_name, drho_list)))
+    # sort the example_name and data_list
+    example_name, data_list = zip(*sorted(zip(example_name, data_list)))
     max_example_in_one_chart = 10
     all_data = []
     for i in range(0, len(example_name), max_example_in_one_chart):
         end = i+max_example_in_one_chart if i + \
             max_example_in_one_chart < len(example_name) else len(example_name)
-        all_data.append([example_name[i:end], drho_list[i:end]])
-    idrho = 0
-    for legend, drho in all_data:
-        x = [i+1 for i in range(max([len(j) for j in drho]))]
-        # print(x,drho,legend)
+        all_data.append([example_name[i:end], data_list[i:end]])
+    idata = 0
+    for legend, data in all_data:
+        x = [i+1 for i in range(max([len(j) for j in data]))]
         options = comm_echarts.produce_multiple_y(
-            f"drho{idrho}", x, drho, legend, x_type="category", y_type="log")
+            f"{data_name}{idata}", x, data, legend, x_type="category", y_type="log" if logy else "value")
         chart_report.append(ChartReportElement(
-            options=options, title=f"drho{idrho}"))
-        idrho += 1
+            options=options, title=f"{data_name}{idata}"))
+        idata += 1
     return chart_report
 
 def fill_none(allresults):
@@ -556,7 +556,7 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
             continue
         ivalue = pddata.loc[imetric, :].to_list()
         y_type = "value"
-        if imetric in ["drho_last", "denergy_last"]:
+        if imetric in ["drho_last", "denergy_last", "denergy_womix_last"]:
             y_type = "log"
         if False not in [isinstance(i, type_set) for i in ivalue]:
             #check if imetric has refence
@@ -640,15 +640,15 @@ def produce_metrics(metric_file, output_path, ref_data={}, report_titile="metric
             traceback.print_exc()
             print("Error: plot two metrics failed!", x_name, y_name)
 
-    # if drho in metric_name, plot the drho
-    # drho should be a list
-    if "drho" in metric_name:
-        try:
-            drho_list = pddata.loc["drho", :].to_list()
-            chart_elements += plot_drho(drho_list, example_name)
-        except:
-            traceback.print_exc()
-            print("Error: plot drho failed!")
+    # plot the trend of drho, denergy, denergy_womix
+    for trend_chart in ["drho", "denergy", "denergy_womix"]:
+        if trend_chart in metric_name:
+            try:
+                data_list = pddata.loc[trend_chart, :].to_list()
+                chart_elements += plot_trend(data_list, example_name, trend_chart)
+            except:
+                traceback.print_exc()
+                print(f"Error: plot {trend_chart} failed!")
 
     return report_elements, chart_elements
 

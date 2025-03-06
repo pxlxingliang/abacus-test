@@ -7,9 +7,8 @@
             "pert_number": 3,
             "cell_pert_frac": 0.01,
             "atom_pert_dist": 0.05,
-            "atom_pert_mode": "normal",
             "mag_rotate_angle": 10,
-            "mag_tilt_angle": 10,
+            "mag_tilt_angle": [50,90],
             "mag_norm_dist": 0.5
         }
     }

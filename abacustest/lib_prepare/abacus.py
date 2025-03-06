@@ -437,36 +437,53 @@ class AbacusStru:
             "cartesian": self._cartesian,
         }
     
-    def perturb_stru(self,pert_number,cell_pert_frac=None, atom_pert_dist=None, atom_pert_mode="normal",mag_rotate_angle=None,mag_tilt_angle=None,mag_norm_dist=None):
+    def perturb_stru(self,pert_number,cell_pert_frac=None, atom_pert_dist=None,mag_rotate_angle=None,mag_tilt_angle=None,mag_norm_dist=None):
         '''
         perturb the structure
         cell_pert_frac: the perturb fraction of the cell. Will generate a random perturb matrix.
                         the diagonal part is between -cell_pert_frac and cell_pert_frac, and off-diagonal part is between -cell_pert_frac/2 and cell_pert_frac/2
         atom_pert_dis: the perturb distance of each atom. Will generate a random perturb vector for each atom.
-        atom_pert_mode: the mode of the perturb distance. "normal", "uniform" or "const"
-        mag_rotat_angle: the rotation angle of the magnetization of all atom. 
-        
+        mag_rotate_angle: the rotation angle of the magnetization of all atom. 
+        mag_tilt_angle: the tilt angle of the magnetization of all atom.
+        mag_norm_dist: the perturb distance of the norm of the magnetization of all atom.
         '''
+        def transfer_range(number):
+            if number is None:
+                return None
+            elif isinstance(number, (float,int)):
+                return [0, abs(number)]
+            elif isinstance(number, (list,tuple)):
+                return [min(number), max(number)]
+            else:
+                print(f"ERROR: the type of {number} {type(number)} is not supported")
+                return None
+        
         if pert_number <= 0:
             return [self]
+        
+        cell_pert_frac = transfer_range(cell_pert_frac)
+        atom_pert_dist = transfer_range(atom_pert_dist)
+        mag_rotate_angle = transfer_range(mag_rotate_angle)
+        mag_tilt_angle = transfer_range(mag_tilt_angle)
+        mag_norm_dist = transfer_range(mag_norm_dist)
+        
         new_stru = [copy.deepcopy(self) for i in range(pert_number)]
         print(f"perturb {pert_number} new structures")
         print(f"cell_pert_frac: {cell_pert_frac}")
         print(f"atom_pert_dist: {atom_pert_dist}")
-        print(f"atom_pert_mode: {atom_pert_mode}")
         print(f"mag_rotate_angle: {mag_rotate_angle}")
         print(f"mag_tilt_angle: {mag_tilt_angle}")
         print(f"mag_norm_dist: {mag_norm_dist}")
         
-        if cell_pert_frac is not None and cell_pert_frac > 0:
+        if cell_pert_frac is not None:
             for i in range(pert_number):
                 icell = new_stru[i].get_cell(bohr=False)
                 new_cell,_ = comm.perturb_cell(icell,cell_pert_frac)
                 new_stru[i].set_cell(new_cell,bohr=False,change_coord=True)
         
-        if atom_pert_dist is not None and atom_pert_dist > 0:
+        if atom_pert_dist is not None:
             for i in range(pert_number):
-                new_coord = comm.perturb_coord(new_stru[i].get_coord(bohr=False,direct=False),atom_pert_dist,atom_pert_mode)
+                new_coord = comm.perturb_coord(new_stru[i].get_coord(bohr=False,direct=False),atom_pert_dist)
                 new_stru[i].set_coord(new_coord,direct=False,bohr=False)
         
         # for perturbation of magnetization, only performed on the atom who's magmom is constrained
@@ -481,7 +498,7 @@ class AbacusStru:
                 noncollinear = True
                 break
     
-        if noncollinear and mag_rotate_angle is not None and mag_rotate_angle > 0:
+        if noncollinear and mag_rotate_angle is not None:
             for i in range(pert_number):
                 # perturb all magmom with a same random angle
                 atom_mag = new_stru[i].get_atommag()
@@ -491,7 +508,7 @@ class AbacusStru:
                 new_stru[i].set_angle1(None)
                 new_stru[i].set_angle2(None)
 
-        if noncollinear and mag_tilt_angle is not None and mag_tilt_angle > 0:
+        if noncollinear and mag_tilt_angle is not None:
             for i in range(pert_number):
                 atom_mag = new_stru[i].get_atommag()
                 new_mag = []
@@ -504,15 +521,19 @@ class AbacusStru:
                 new_stru[i].set_angle1(None)
                 new_stru[i].set_angle2(None)
         
-        if mag_norm_dist is not None and mag_norm_dist > 0:
+        if mag_norm_dist is not None:
             for i in range(pert_number):
                 atom_mag = new_stru[i].get_atommag() 
                 new_mag = []
                 for j in range(len(atom_mag)):
                     if is_sc[j]:
-                        mag_norm_random = (np.random.rand() - 0.5) * mag_norm_dist * 2
+                        mag_norm_random = np.random.uniform(mag_norm_dist[0],mag_norm_dist[1]) * np.random.choice([-1,1])
                         mag_norm = np.linalg.norm(atom_mag[j]) + mag_norm_random
-                        new_magj = np.array(atom_mag[j]) / np.linalg.norm(atom_mag[j]) * mag_norm
+                        if mag_norm != mag_norm_random:
+                            new_magj = np.array(atom_mag[j]) / np.linalg.norm(atom_mag[j]) * mag_norm
+                        else: # if the original mag is 0, then generate a random mag
+                            tmp_mag = np.random.rand(3) - 0.5
+                            new_magj = tmp_mag / np.linalg.norm(tmp_mag) * mag_norm
                         new_mag.append(new_magj.tolist())
                     else:
                         new_mag.append(atom_mag[j])
@@ -725,7 +746,7 @@ class AbacusStru:
     def set_element(self,element):
         self._element = element
     
-    def set_coord(self,coord,direct=False,bohr=True):
+    def set_coord(self,coord,direct=False,bohr=True, keep_lattice_constant=True):
         '''
         set the coordinate of each atom
         
@@ -733,46 +754,125 @@ class AbacusStru:
         else the coord is cartesian type, and will modify self._cartesian to True, and will set lattice_constant to 1.0, and modify cell *= lattice_constant
         
         if bohr is False, then will transfer the coord to Bohr unit
+        
+        if keep_lattice_constant is True, then will keep the lattice constant, else will set the lattice constant to 1.0
         '''
+        unit_coef = 1 if bohr else constant.A2BOHR # need save the unit with bohr
         if direct:
             self._cartesian = False
             self._coord = coord
         else:
             self._cartesian = True
-            self._cell = np.array(self._cell) * self._lattice_constant
-            self._lattice_constant = 1.0
-            if bohr:
-                self._coord = coord
+            if keep_lattice_constant:
+                new_coord = np.array(coord) / self._lattice_constant * unit_coef
+                self._coord = new_coord.tolist()
             else:
-                self._coord = np.array(coord) / constant.BOHR2A
-                self._coord = self._coord.tolist()
+                self._cell = (np.array(self._cell) * self._lattice_constant).tolist()
+                self._coord = (np.array(coord) * unit_coef).tolist()
+                self._lattice_constant = 1.0  
         self._check()
     
-    def set_cell(self,cell,bohr=True,change_coord=True):
+    def set_cell(self,cell,bohr=True,change_coord=True,keep_lattice_constant=True):
         '''
         set the lattice of a, b, c
         
-        Will set the lattice_constant to 1.0
-        
         if bohr is False, then will transfer the cell to Bohr unit
         
-        if change_coord is True, then will set the coord to direct type
-        else will firstly transfer the coord to cartesian type.
+        if change_coord is True, then will transfer the coord based on the new cell and keep the relative position of each atom
+        if change_coord is False, then will not modify the coord, which means the coord is not changed whatever is direct or cartesian type
         '''
-        if change_coord:
-            if self._cartesian:
-                coord = self.get_coord(bohr=bohr,direct=True)
-                self._coord = coord
-                self._cartesian = False
-                
-        self._lattice_constant = 1.0
-        if bohr:
-            self._cell = cell
-        else:
-            self._cell = np.array(cell) / constant.BOHR2A
-            self._cell = self._cell.tolist()
-        self._check()        
+        unit_coef = 1 if bohr else constant.A2BOHR # need save the unit with bohr
         
+        cell = np.array(cell) * unit_coef # now cell is in Bohr unit
+        if keep_lattice_constant:
+            if change_coord and self._cartesian: 
+                coord = self.get_coord(bohr=bohr,direct=True)
+                new_coord = np.array(coord).dot(cell) / self._lattice_constant
+                self._coord = new_coord.tolist()
+
+            self._cell = (cell / self._lattice_constant ).tolist()
+        else:
+            # will change the lattice constant to 1.0
+            if self._cartesian:
+                if change_coord:
+                    coord = self.get_coord(bohr=bohr,direct=True)
+                    new_coord = np.array(coord).dot(cell)
+                    self._coord = new_coord.tolist()
+                else:
+                    self._coord = (np.array(self._coord) * self._lattice_constant).tolist()
+                    
+            self._cell = cell.tolist()
+            self._lattice_constant = 1.0
+
+        self._check()        
+    
+    def split_list(self, alist, indices):
+        '''
+        split a list to several sublists based on the indices
+        '''
+        if not indices:
+            return [alist]
+        if len(alist) != sum(indices):
+            print("ERROR: the sum of indices is not equal to the length of alist")
+            print("indices:",indices)
+            print("alist",alist)
+            sys.exit(1)
+        new_list = []
+        start_idx = 0
+        for i in indices:
+            new_list.append(alist[start_idx:start_idx+i])
+            start_idx += i
+        return new_list
+    
+    def supercell(self,nabc = [1,1,1]):
+        '''
+        generate a supercell
+        
+        na,nb,nc: the number of the supercell in a,b,c direction
+        '''
+        # be careful, the real coord should be coord * lattice_constant
+        na, nb, nc = nabc
+        new_stru = copy.deepcopy(self)
+        cell = np.array(new_stru._cell)
+        coord = np.array(new_stru._coord)
+        new_stru._cell = cell * np.array([[na],[nb],[nc]])
+        
+        if not new_stru._cartesian:
+            # if the coord is direct type, then transfer the original coord based on new cell
+            coord = coord / np.array([na,nb,nc])
+
+        # split the coord to coords by each atom type
+        coords = self.split_list(coord.tolist(),new_stru._atom_number)
+        key_p = ["_move","_magmom_atom","_velocity","_angle1","_angle2","_constrain","_lambda"]
+        kv = {i:None if getattr(new_stru,i) is None else self.split_list(getattr(new_stru,i), new_stru._atom_number) for i in key_p}
+
+        for ia in range(na):
+            for ib in range(nb):
+                for ic in range(nc):
+                    if ia == 0 and ib == 0 and ic == 0:
+                        continue
+                    
+                    start_idx = 0
+                    for idx, iatomn in enumerate(new_stru._atom_number):
+                        if new_stru._cartesian:
+                            add_coord = coord[start_idx:start_idx+iatomn] + np.array([ia,ib,ic]).dot(cell) 
+                        else:
+                            add_coord = coord[start_idx:start_idx+iatomn] + np.array([ia/na,ib/nb,ic/nc])
+                        add_coord = add_coord.tolist()
+                        coords[idx] += add_coord
+
+                        for attri in key_p:
+                            if kv[attri] is not None:
+                                kv[attri][idx] += getattr(self,attri)[start_idx:start_idx+iatomn]                               
+                        start_idx += iatomn
+
+        new_stru._coord = [j for i in coords for j in i]
+        for attri in key_p:
+            if kv[attri] is not None:
+                setattr(new_stru,attri,[j for i in kv[attri] for j in i])
+        new_stru._atom_number = [len(i) for i in coords]
+        new_stru._check()
+        return new_stru   
      
     def write(self,struf="STRU"):
         cc = ""
@@ -909,18 +1009,25 @@ class AbacusStru:
                 # firstly read the label
                 if sline[i] == "m":
                     label = "move"
+                    move_list = []
                 elif sline[i] in ["v","vel","velocity"]:
                     label = "velocity"
+                    velocity_list = []
                 elif sline[i] in ["mag","magmom"]:
                     label = "magmom"
+                    mag_list = []
                 elif sline[i] == "angle1":
                     label = "angle1"
+                    angle1_list = []
                 elif sline[i] == "angle2":
                     label = "angle2"
+                    angle2_list = []
                 elif sline[i] in ["constrain","sc"]:
                     label = "constrain"
+                    constrain_list = []
                 elif sline[i] in ["lambda"]:
                     label = "lambda"
+                    lambda_list = []
                 
                 # the read the value to the list    
                 elif label == "move":

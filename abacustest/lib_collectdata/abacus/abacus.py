@@ -228,12 +228,11 @@ class Abacus(ResultAbacus):
                     converge = False
                 elif 'total magnetism (Bohr mag/cell)' in line:
                     sline = line.split()
-                    if len(sline) == 5:
-                        total_mag = float(line.split()[-1])
-                    elif len(sline) == 7:
-                        total_mag = [float(imag) for imag in sline[-3:]] 
-                    else:
-                        total_mag = None
+                    # if the last three are float, then it is the noncollinear case, else it is collinear case
+                    try:
+                        total_mag = [float(imag) for imag in sline[-3:]]
+                    except:
+                        total_mag = float(sline[-1])
                 elif 'absolute magnetism' in line:
                     absolute_mag = float(line.split()[-1])
                 elif "!FINAL_ETOT_IS" in line:
@@ -380,7 +379,8 @@ class Abacus(ResultAbacus):
 
     
     @ResultAbacus.register(band = "Band of system. Dimension is [nspin,nk,nband].",
-                           band_weight = "Band weight of system. Dimension is [nspin,nk,nband].")
+                           band_weight = "Band weight of system. Dimension is [nspin,nk,nband]."
+                           )
     def GetBandFromLog(self): 
         nband = self['nbands']  
         if self["ibzk"] != None:    
@@ -417,7 +417,18 @@ class Abacus(ResultAbacus):
                 break
         self['band'] = band
         self['band_weight'] = band_weight
-        
+    
+    @ResultAbacus.register(band_plot="Will plot the band structure. Return the file name of the plot.")
+    def PlotBandFromLog(self):  
+        band = self['band']  
+        efermi = self['efermi']
+        if band == None:
+            print("no band, and skip the plot of band")
+            self['band_plot'] = None
+            return
+        band_plot = os.path.join(self.PATH,"band.png")
+        comm.plot_band(band, band_plot, efermi)
+        self['band_plot'] = band_plot     
     
     @ResultAbacus.register(band_gap = "band gap of the system")
     def GetBandGapFromLog(self):
@@ -684,7 +695,6 @@ class Abacus(ResultAbacus):
                            denergy_last="denergy of the last scf step")
     def GetDenergy(self):
         denergy = None
-        
         if self.OUTPUT:
             for i,line in enumerate(self.OUTPUT):
                 if "ITER" in line and "ETOT/eV" in line and "EDIFF/eV" in line and "DRHO" in line and "TIME/s" in line:
@@ -704,6 +714,23 @@ class Abacus(ResultAbacus):
             self["denergy_last"] = denergy[-1]
         else:
             self["denergy_last"] = None
+    
+    @ResultAbacus.register(denergy_womix="[], denergy (calculated by rho without mixed) of each scf step",
+                           denergy_womix_last="float, denergy (calculated by rho without mixed) of last scf step")
+    def GetDenergyWOMIX(self):
+        des = []
+        if self.LOG:
+            for line in self.LOG:
+                if "DeltaE_womix" in line:
+                    des.append(float(line.split()[-2]))
+        if len(des) == 0:
+            self["denergy_womix"]    = None
+            self["denergy_womix_last"] = None
+        else:
+            des[0] = 0
+            self["denergy_womix"]    = des
+            self["denergy_womix_last"] = des[-1]
+
 
     @ResultAbacus.register(lattice_constant="a list of six float which is a/b/c,alpha,beta,gamma of cell. If has more than one ION step, will output the last one.",
                            lattice_constants="a list of list of six float which is a/b/c,alpha,beta,gamma of cell",

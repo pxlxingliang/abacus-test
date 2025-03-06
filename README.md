@@ -304,6 +304,8 @@ A template of param.json is:
       "example_template":["example1","example2"],
       "input_template":"INPUT",
       "kpt_template":"KPT",
+      "strus": ["1.vasp","2.vasp"],
+      "stru_format": "vasp",
       "mix_input":{
           "ecutwfc":[50,60,70],
           "kspacing":[0.1,0.12,0.13]
@@ -313,7 +315,6 @@ A template of param.json is:
             "pert_number": 0,
             "cell_pert_frac": null,
             "atom_pert_dist": null,
-            "atom_pert_mode": "normal",
             "mag_rotate_angle": null,
             "mag_tilt_angle": null,
             "mag_norm_dist": null
@@ -347,6 +348,7 @@ Only key "prepare" is recongnized by `abacustest prepare`.
 - `example_template`: a list of examples, should at least has `STRU` file in each example folder. 
 - `input_template`: the template of INPUT file. If is not null, all example will use this file as INPUT file. 
 - `kpt_template`: the template of KPT file. If is not null, all example will use this file as KPT file. 
+- `strus`/`stru_format`: Translate the structure file from `stru_format` to ABACUS stru. `strus` should be str or list of str which is the path that dpdata can read, and `stru_format` should be str that dpdata supportted. The common format is "poscar" for POSCAR, "deepmd/npy" for deepmd npy. Special format is "cif" for CIF file. If these two keys are setted, then `example_template` will be ignored, and the translated STRU will be put in a new folder named by 000000, 000001, 000002, ...
 - `mix_input`: the mix of INPUT parameters. If is not null, will generate all combinations of the parameters for each example. Such as: {"ecutwfc":[50,60,70],"kspacing":[0.1,0.12,0.13]}, will generate 9 INPUTs. If one need combine the parameters, should use '|' to connect them, and the value should be also combined by '|'. Such as: {"ecutwfc|kspacing":["50|0.1","60|0.12","70|0.13"]}. 
 - `mix_kpt`: the mix of KPT parameters. If is not null, will generate all combinations of the parameters for each example. There are three types to define the kpt parameters: 
     - One Int number defines the K points in a/b/c direction, and the shift in G space is (0 0 0). Such as: 4, means 4 4 4 0 0 0. 
@@ -357,14 +359,11 @@ Only key "prepare" is recongnized by `abacustest prepare`.
     - `pert_number`: the number of perturbed structures. If is 0, will not generate the perturbed structure. This is the final number of examples, and each new structure will be perturbed based on below parameters.
     - `cell_pert_frac`: the maximum perturbation of cell. If is null, will not perturb the cell. Such as 0.01, means the cell vector will be perturbed by maximum 1%. 
     - `atom_pert_dist`: the maximum perturbation distance of atom. Unit in Angstrom.
-    - `atom_pert_mode`: the mode of perturbation of atom. Can be one of: "normal", "uniform", "const". Default is "normal". 
-      - `normal`: for each atom, plus a random vector who's three components are random numbers in (-atom_pert_dist,atom_pert_dist).
-      - `uniform`: for each atom, move to a random position in a sphere with radius of atom_pert_dist.
-      - `const`: for each atom, move to a random direction with a distance of atom_pert_dist.
     - `mag_rotate_angle`: the angle of rotation of magnetic moment. Unit in degree. If is null, will not rotate the magnetic moment. 
     - `mag_tilt_angle`: the angle of tilt of magnetic moment. Unit in degree. If is null, will not tilt the magnetic moment. 
     - `mag_norm_dist`: the distance of magnetic moment to the normal direction. If is null, will not move the magnetic moment. Unit in $\mu_B$.\
-    Note: the perturbation of magnetic moment is only valid for the spin-constrained atom that the "sc" of at leaset one magnetic component is 1.
+    Note1: the perturbation of magnetic moment is only valid for the spin-constrained atom that the "sc" of at leaset one magnetic component is 1.
+    Note2: the value can also be a list of two values, which means the minimum and maximum value of perturbation. Such as for `atom_pert_dist`: [0.1,0.15], means the perturbation distance of atom is between 0.1 and 0.15 Angstrom, and if the two values are same, the perturbation distance is fixed.
 - `pp_dict`: the pseudopotential dict. The key is the element name, and the value is the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}. 
 - `orb_dict`: the orbital dict. The key is the element name, and the value is the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}. 
 - `pp_path`: the path of pseudopotential files. There should has an extra "element.json" file that defines the element name and the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}, or abacustest will read the first two letters of the pseudopotential file name as the element name. If one element has been defined in both `pp_dict` and `pp_path`, the value in `pp_dict` will be used. 
@@ -383,7 +382,7 @@ Only key "prepare" is recongnized by `abacustest prepare`.
 - `vasp_setting`: two types of settings:
     - specify the value if INCAR. Like: "ENCUT": 500, "EDIFF": 1e-5, ...
     - some special settings:
-        - "emax_coef": the coefficient of ecutwfc, the real ENCUT = E_MAX * emax_coef, where E_MAX is the recommended value in POTCAR. Default is 1.5.
+        - "emax_coef": the coefficient of ecutwfc, the real ENCUT = E_MAX * emax_coef, where E_MAX is the recommended value in POTCAR. If it is not defined, then ENCUT=ecutwfc * Ry2eV
 - `abacus2cp2k`: if convert the abacus input to cp2k input. Detault is false. Now support the convert of cell/coordinate/kpt/calculation/force_thr/stress_thr/smearing/mixing/scf_thr(for PW = abacus_value*1e3, for LCAO=abacus_value*1e2).
 - `cp2k_setting`: some extra setting of cp2k. Should be a dict, and the key is the name of cp2k input, and the value is the value of the input. Such as: {"FORCE_EVAL": {"DFT": {"SCF": {"EPS_SCF": 1e-6}}}}.
 - `link_example_template_extra_files`: if link the extra files in each example folder. Default is true (will link or copy all files in example folder). If is false, will only copy or link the required files for ABACUS job, such as: INPUT/KPT/STRU/.upf/.orb.

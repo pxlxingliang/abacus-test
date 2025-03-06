@@ -1,8 +1,0 @@
-{
-	"prepare":{
-		"example_template":["example1","example2"],
-        "abacus2qe":true
-	},
-	"comment": "Translates Abacus output to Quantum Espresso input for example1 and example2"
-}
-

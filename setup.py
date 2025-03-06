@@ -18,5 +18,5 @@ setuptools.setup(
     package_data = {"abacustest":["*.py","*/*.py","*/*/*.py","version"]},
     entry_points = {'console_scripts': ['abacustest = abacustest.main:main'],},
     python_requires='>=3.6',
-    install_requires=["pydflow>=1.8.45","numpy","pandas","pyecharts","seekpath","phonopy"]
+    install_requires=["pydflow>=1.8.45","numpy","pandas","pyecharts","seekpath","phonopy", "dpdata","ase"]
 )

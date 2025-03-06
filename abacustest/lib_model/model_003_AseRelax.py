@@ -1,5 +1,5 @@
 from ..model import Model
-import os, json, sys
+import os, json, sys, inspect
 from . import comm
 
 
@@ -259,7 +259,7 @@ class ExeAseRelax:
         orb = stru.get_orb()
         input_param["pp"] = {labels[i]:os.path.abspath(os.path.join(init_path,input_param.get("pseudo_dir",""),pp[i])) for i in range(len(labels))}
         if input_param.get("basis_type") in ["lcao"] and orb:
-            input_param["basis"]  = {labels[i]:os.path.abspath(os.path.join(init_path,input_param.get("pseudo_dir",""),orb[i])) for i in range(len(labels))}
+            input_param["basis"]  = {labels[i]:os.path.abspath(os.path.join(init_path,input_param.get("orbital_dir",""),orb[i])) for i in range(len(labels))}
 
         kpt = ReadKpt(init_path)
         if kpt:
@@ -306,8 +306,13 @@ class ExeAseRelax:
         from ase.constraints import UnitCellFilter, ExpCellFilter
 
         os.environ['OMP_NUM_THREADS'] = f'{self.omp}'
-        profile = AbacusProfile(
-            argv=['mpirun', '-np', f'{self.mpi}', self.abacus])
+        init_signature = inspect.signature(AbacusProfile.__init__)
+        if "command" in init_signature.parameters:
+            command = f'mpirun -np {self.mpi} {self.abacus}'
+            profile = AbacusProfile(command=command)
+        else:
+            profile = AbacusProfile(
+                argv=['mpirun', '-np', f'{self.mpi}', self.abacus])
         atoms.calc = Abacus(profile=profile, directory=self.work_path,
                          **input_param)
 

@@ -1,0 +1,15 @@
+{
+	"prepare":{
+		"example_template":["0", "1"],
+        "abacus2qe":true,
+		"qe_setting":{
+			"version": 7.0,
+			"system":{
+				"nosymm": false,
+				"ecutwfc": 100
+			}
+		}
+	},
+	"comment": "Translates Abacus input to Quantum Espresso input. The qe_setting can specify some extra parameters for QE."
+}
+

@@ -55,7 +55,7 @@ def SetConfig(private_set,debug=False):
         if private_set.get("dflow_host","").strip() != "":
             config["host"] = private_set.get("dflow_host","").strip()
         else:
-            config["host"] = "https://lbg-workflow-deepmodeling.dp.tech"
+            config["host"] = "https://workflows.deepmodeling.com"
     
         host = config["host"] + "/workflows/argo"
         
@@ -67,7 +67,7 @@ def SetConfig(private_set,debug=False):
         if private_set.get("dflow_k8s_api_server","").strip() != "":
             config["k8s_api_server"] = private_set.get("dflow_k8s_api_server","").strip()
         else:
-            config["k8s_api_server"] = "https://lbg-workflow-deepmodeling.dp.tech"
+            config["k8s_api_server"] = "https://workflows.deepmodeling.com"
             
         if private_set.get("dflow_token","").strip() != "":
             config["token"] = private_set.get("dflow_token","").strip()
@@ -215,17 +215,17 @@ def ProduceOneSteps(stepname,param):
                 if os.path.isdir(os.path.join(save_path,relative_path)):
                     shutil.rmtree(os.path.join(save_path,relative_path))
                 shutil.copytree(iexample,os.path.join(save_path,relative_path))
-        elif post_dft:
-            # check the path of metrics, if no path, then use example_path as input
-            if "metrics" in post_dft:
-                if isinstance(post_dft["metrics"],dict):
-                    if "path" not in post_dft["metrics"]:
-                        post_dft["metrics"]["path"] = example_path
-                elif isinstance(post_dft["metrics"],list):
-                    for imetric in range(len(post_dft["metrics"])):
-                        if isinstance(post_dft["metrics"][imetric],dict):
-                            if "path" not in post_dft["metrics"][imetric]:
-                                post_dft["metrics"][imetric]["path"] = example_path
+        #elif post_dft:
+        #    # check the path of metrics, if no path, then use example_path as input
+        #    if "metrics" in post_dft:
+        #        if isinstance(post_dft["metrics"],dict):
+        #            if "path" not in post_dft["metrics"]:
+        #                post_dft["metrics"]["path"] = example_path
+        #        elif isinstance(post_dft["metrics"],list):
+        #            for imetric in range(len(post_dft["metrics"])):
+        #                if isinstance(post_dft["metrics"][imetric],dict):
+        #                    if "path" not in post_dft["metrics"][imetric]:
+        #                        post_dft["metrics"][imetric]["path"] = example_path
     else:
         example_path = None  
     

@@ -59,6 +59,8 @@ class AbacusMetricEnum(String, Enum):
     AbacusMetric_metric30_1 = 'drho_last'
     AbacusMetric_metric30_2 = 'denergy'
     AbacusMetric_metric30_3 = 'denergy_last'
+    AbacusMetric_metric30_4 = 'denergy_womix'
+    AbacusMetric_metric30_5 = 'denergy_womix_last'
     AbacusMetric_metric31 = 'lattice_constant'
     AbacusMetric_metric31_1 = 'lattice_constants'
     AbacusMetric_metric32 = 'cell'

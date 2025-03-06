@@ -410,10 +410,8 @@ def CheckStatus(param):
 def DownloadFlow(param):
     if os.path.isfile(param.param):
         private_set = json.load(open(param.param))
-        if "config" in private_set:
-            private_set = private_set["config"]
-        elif "USER" in private_set:
-            private_set = private_set["USER"]
+        if "USER" in private_set:
+            private_set = {"config":private_set["USER"]}
     else:
         print("config file is not found!\nUse the default setting!")
         private_set = {}

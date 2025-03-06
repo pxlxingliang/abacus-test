@@ -25,14 +25,14 @@ def set_smearing(param,qp):
         pass
     elif smearing.lower() == "fixed":
         qp["system"]["occupations"] = "fixed"
-    elif smearing.lower().startswith("gauss"):
+    elif smearing.lower().startswith("gauss") or smearing.lower() in ["mp", "fd", "mv"]:
         qp["system"]["occupations"] = "smearing"
-        qp["system"]["smearing"] = "gauss"
+        qp["system"]["smearing"] = "gauss" if smearing.lower() == "gauss" else smearing.lower()
         if "smearing_sigma" in param:
             qp["system"]["degauss"] = param.pop("smearing_sigma")
         else:
             print("WARNING: smearing_sigma is not set in abacus input, will set degauss to 0.015 in QE.")
-            qp["system"]["degauss"] = 0.015
+            qp["system"]["degauss"] = 0.015 
     else:
         print("WARNING: smearing_method %s is not supported now! Will not set occupations in QE." % smearing)
 
@@ -85,6 +85,22 @@ def set_spin_soc(param,qp):
             qp["system"]["nspin"] = 4
         else:
             qp["system"]["lspinorb"] = ".false."   
+
+def set_fixed_axes(param,qp):
+    if "fixed_axes" in param:
+        fixed_axes = param.pop("fixed_axes")
+        if fixed_axes == "None":
+            qp["cell"]["cell_dofree"] = "all"
+        elif fixed_axes == "volume":
+            qp["cell"]["cell_dofree"] = "shape"
+        elif fixed_axes == "shape":
+            qp["cell"]["cell_dofree"] = "volume"
+        elif fixed_axes in ["a","b","c"]:
+            qp["cell"]["cell_dofree"] = f"fix{fixed_axes}"
+        elif fixed_axes in ["ab","ac","bc"]:
+            qp["cell"]["cell_dofree"] = {"a","b","c"}.difference(set(fixed_axes)).pop()
+        else:
+            print("WARNING: fixed_axes %s is not supported now, will not set cell_dofree in QE." % fixed_axes)
 
 def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
     '''transfer the abacus input to qe input
@@ -152,6 +168,10 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
                              ["ecutwfc", ("system","ecutwfc")],
                              ["scf_thr", ("electrons","conv_thr")],
                              ["nspin", ("system","nspin")],
+                             ["nx",("system","nr1")],
+                             ["ny",("system","nr2")],
+                             ["nz",("system","nr3")],
+                             ["dft_functional",("system","input_dft")],
                              ]:
         if para_aba in param:
             qp[para_qe[0]][para_qe[1]] = param.pop(para_aba)
@@ -166,6 +186,7 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
     set_mixing_type(param,qp)
     set_relax_param(param,qp,calculation)
     set_spin_soc(param,qp)
+    set_fixed_axes(param,qp)
     
     # these paramters will be ignored    
     for ip in ["suffix","basis_type","gamma_only","kpt_file","dft_plus_u","orbital_corr","hubbard_u"]:
