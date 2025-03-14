@@ -430,6 +430,15 @@ class Abacus(ResultAbacus):
         comm.plot_band(band, band_plot, efermi)
         self['band_plot'] = band_plot     
     
+    @ResultAbacus.register(e_bandgap= "The band gap outputted in running_xxx.log, unit in eV")
+    def GetEBandGapFromLog(self):
+        ebandgap = None 
+        for line in self.LOG[::-1]:
+            if "E_bandgap" in line:
+                ebandgap = float(line.split()[-1])
+                break
+        self['e_bandgap'] = ebandgap
+    
     @ResultAbacus.register(band_gap = "band gap of the system")
     def GetBandGapFromLog(self):
         def ErrorReturn(strinfo):

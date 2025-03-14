@@ -33,7 +33,7 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
                 elif input_stru_type.lower() == "cif":
                     from ase.io import read as ase_read
                     stru = ase_read(iistru)
-                    stru = dpdata.System(stru, fmt="ase")
+                    stru = dpdata.System(stru, fmt="ase/structure")
                 
                 for i in range(stru.get_nframes()):
                     tpath = os.path.join(output_path,"%06d" % idx)
