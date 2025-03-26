@@ -57,15 +57,17 @@ class SPTest:
         json.dump(report, open("report.json", "w"), indent=4)
         
         # 2. plot the statistical results
-        self.plot_report(report, cretria_set, "sptest.png")
-        json.dump({"fig_results":{"type": "image", "file": "sptest.png"}}, open("supermetrics.json", "w"), indent=4)
+        self.plot_report(report, cretria_set, "acc.png", "perf.png")
+        json.dump({"acc_results":{"type": "image", "file": "acc.png"},
+                   "per_results": {"type": "image", "file": "perf.png"}}, open("supermetrics.json", "w"), indent=4)
         
         # 3. generate the abacus.html
         gen_html({"content": [{"type": "metrics",
                                "content": "report.json",
                                "title": "Table of results.",
                                "criteria": cretria_set},
-                              {"type": "image","content": "sptest.png"}]
+                              {"type": "image","content": "acc.png"},
+                              {"type": "image","content": "perf.png"}]
                   },
                  "abacustest.html")
         
@@ -108,8 +110,8 @@ class SPTest:
         for i in job_path:
             try:
                 result = RESULT(path = i, fmt = jobtype)
-                ir = {key: result[key] for key in ["natom","label","nelec","normal_end", "converge", "total_time", "scf_steps", 
-                                                   "energy", "force", "stress", "virial"]}
+                ir = {key: result[key] for key in ["natom","label","nelec","normal_end", "converge", "volume","total_time", "scf_steps", 
+                                                   "energy", "force", "stress", "virial", "ds_mag_force"]}
                 r.update({i: ir})
             except:
                 traceback.print_exc()
@@ -136,7 +138,7 @@ class SPTest:
         if None in [r1, r2]:
             return None
         if isinstance(r1, (int, float)) and isinstance(r2, (int, float)):
-            return r1 - r2
+            return abs(r1 - r2)
         if isinstance(r1, list) and isinstance(r2, list):
             r1 = np.array(r1).flatten()
             r2 = np.array(r2).flatten()
@@ -161,25 +163,31 @@ class SPTest:
         
     def gen_report(self):
         report = {}
+        has_mf = False
         for example, result in self.test_r.items():
             report[example] = {
                 "label": self.gen_label(result.get("label")),
                 "natom": result.get("natom"),
                 "nelec": result.get("nelec"),
+                "volume(A^3)": result.get("volume"),
                 "NormalEnd": result.get("normal_end"),
                 "Converge": result.get("converge"),
-                "TotTime(s)": result.get("total_time"),
+                "TotTime(s)": result.get("total_time") if result.get("normal_end") else None,
                 "SCFSteps": result.get("scf_steps"),
             }
+            if result.get("ds_mag_force") is not None:
+                has_mf = True
             
             if self.ref_r is not None:
                 for key,key_result in zip(["NormalEnd", "Converge", "TotTime(s)", "SCFSteps"],
                                           ["normal_end", "converge", "total_time", "scf_steps"]):
                     report[example][f"{key}({self.testn})"] = report[example].pop(key)
                     report[example][f"{key}({self.refn})"] = self.ref_r.get(example, {}).get(key_result)
+                if report[example][f"NormalEnd({self.testn})"] in [None, False]:
+                    report[example][f"TotTime(s)({self.testn})"] = None
                 
-                for key, name in zip(["energy", "force", "stress"],
-                                     ["DevE(eV)", "MaxDevF(eV/A)", "MaxDevS(kbar)"]):
+                for key, name in zip(["energy", "force", "stress", "ds_mag_force"],
+                                     ["DevE(eV)", "MaxDevF(eV/A)", "MaxDevS(kbar)", "MaxDevMagF(eV/uB)"]):
                     report[example][name] = self.cal_dev(result.get(key), self.ref_r.get(example, {}).get(key))
                 
                 if None in [report[example]["natom"], report[example]["DevE(eV)"]]:
@@ -198,12 +206,11 @@ class SPTest:
         # remove the key with all None
         report = self.remove_none(report)
         # now sort the keys, if key is not in report, then it will be ignored
-        report = self.sort_report(report, ["label", "natom", "nelec", 
-                                           "NormalEnd", "Converge", "TotTime(s)","SCFSteps", "Time/step(s)",
-                                           f"NormalEnd({self.testn})", f"Converge({self.testn})", f"TotTime(s)({self.testn})", f"SCFSteps({self.testn})", f"Time/step(s)({self.testn})",
-                                           f"NormalEnd({self.refn})", f"Converge({self.refn})", f"TotTime(s)({self.refn})", f"SCFSteps({self.refn})", f"Time/step(s)({self.refn})",
-                                           "DevE(eV)", "DevE(meV/atom)", "MaxDevF(eV/A)", "MaxDevS(kbar)"])
-        metric_keys = list(report[list(report.keys())[0]].keys())
+        sort_keys = ["label", "natom", "nelec", "volume(A^3)",
+                     "NormalEnd", "Converge", "TotTime(s)","SCFSteps", "Time/step(s)",
+                     f"NormalEnd({self.testn})", f"Converge({self.testn})", f"TotTime(s)({self.testn})", f"SCFSteps({self.testn})", f"Time/step(s)({self.testn})",
+                     f"NormalEnd({self.refn})", f"Converge({self.refn})", f"TotTime(s)({self.refn})", f"SCFSteps({self.refn})", f"Time/step(s)({self.refn})",
+                     "DevE(eV)", "DevE(meV/atom)", "MaxDevF(eV/A)", "MaxDevS(kbar)"]
         cretria_set = {
             "NormalEnd": "bool(x)",
             "Converge": "bool(x)",
@@ -213,93 +220,125 @@ class SPTest:
             "MaxDevF(eV/A)": "x < 0.01",
             "MaxDevS(kbar)": "x < 1",
         }
+        if has_mf:
+            sort_keys.append("MaxDevMagF(eV/uB)")
+            cretria_set["MaxDevMagF(eV/uB)"] = "x < 0.01"
+        report = self.sort_report(report, sort_keys)
+        metric_keys = list(report[list(report.keys())[0]].keys())
+        
         cretria_set = {k: v for k, v in cretria_set.items() if k in metric_keys}
         return report, cretria_set
     
-    def plot_report(self, report, cretria_set, fname):
+    def cal_row_col(self, nfig, nexample):
+        ncol = min(2, nfig)
+        nrow = nfig//ncol
+        while nrow*ncol < nfig: nrow += 1   
+        width = max(6, 0.4*nexample)
+        if width > 12:
+            ncol = 1
+            nrow = nfig
+                
+        return nrow, ncol
+    
+    def plot_report(self, report, cretria_set, acc_fname="acc.png", perf_fname="perf.png"):
         metric_keys = list(report[list(report.keys())[0]].keys())
         example_name = list(report.keys())
         example_idx = np.arange(len(example_name))
         
         # accuracy results
         acc_keys = ["DevE(meV/atom)", "MaxDevF(eV/A)", "MaxDevS(kbar)"]
+        if "MaxDevMagF(eV/uB)" in metric_keys:
+            acc_keys.append("MaxDevMagF(eV/uB)")
         acc_data = [None if i not in metric_keys else [report[k][i] for k in example_name] for i in acc_keys]
         acc_ifplot = [True if i is not None else False for i in acc_data]
         
         # performance results
         per_keys = ["TotTime(s)", "SCFSteps", "Time/step(s)"]
-        per_data1 = [None if f"{i}({self.testn})" not in metric_keys else [report[k][f"{i}({self.testn})"] for k in example_name] for i in per_keys]
+        if self.ref_r is not None:
+            per_data1 = [None if f"{i}({self.testn})" not in metric_keys else [report[k][f"{i}({self.testn})"] for k in example_name] for i in per_keys]
+        else:
+            per_data1 = [None if i not in metric_keys else [report[k][i] for k in example_name] for i in per_keys]
         per_data2 = [None if f"{i}({self.refn})" not in metric_keys else [report[k][f"{i}({self.refn})"] for k in example_name] for i in per_keys]
         per_ifplot = [True if per_data1[i] is not None else False for i in range(len(per_keys))]
         
         nfig = sum(acc_ifplot) + sum(per_ifplot)
         if nfig == 0:
             print("No data to plot")
-            return
+            return None, None
         
-        ncol = min(2, nfig)
-        nrow = nfig//ncol
-        while nrow*ncol < nfig: nrow += 1   
-        
-        width = max(6, 0.4*len(example_name))
-        if width > 12:
-            ncol = 1
-            nrow = nfig
-        fontsize = 18
         import matplotlib.pyplot as plt
-        fig, axs = plt.subplots(nrow,ncol,figsize=(width*ncol,6*nrow))
-        axs = np.array(axs).flatten()
-        for i in range(len(acc_keys)):
-            if acc_ifplot[i]:
-                criteria_line = float(cretria_set[acc_keys[i]].split("<")[-1])
-                x, y = comm.clean_none_list(example_idx, acc_data[i])
-                axs[i].bar(x, y, label=acc_keys[i])
-                axs[i].set_xticks(example_idx)
-                axs[i].set_xticklabels(example_name, rotation=30, fontsize=fontsize-2, ha="right")
-                axs[i].set_title(acc_keys[i], fontsize=fontsize)
-                auto_set_yaxis(axs[i], y, log_scale_threshold=100)
-                axs[i].axhline(criteria_line, color="red", linestyle="--", label=f"{criteria_line}")
-                
-                axs[i].set_xlabel("Example", fontsize=fontsize)
-                axs[i].set_ylabel(acc_keys[i], fontsize=fontsize)
-                axs[i].legend(fontsize=fontsize-2)
-                
-        for i in range(len(per_keys)):
-            if per_ifplot[i]:
-                idx = i + sum(acc_ifplot)
-                if per_data2[i] is None:
-                    x, tot_y = comm.clean_none_list(example_idx, per_data1[i])
-                    axs[idx].bar(x, y, label=f"{self.testn}")
-                else:
-                    tot_y = []
-                    x, y = comm.clean_none_list(example_idx, per_data1[i])
-                    tot_y += y
-                    axs[idx].bar(np.array(x)-0.2, y, label=f"{self.testn}", width=0.4)
-                    x, y = comm.clean_none_list(example_idx, per_data2[i])
-                    tot_y += y
-                    axs[idx].bar(np.array(x)+0.2, y, label=f"{self.refn}", width=0.4)
+        fontsize = 18
+        width = max(6, 0.4*len(example_name))
+        
+        # plot accuracy results
+        nfig = sum(acc_ifplot)
+        if nfig > 0:
+            nrow, ncol = self.cal_row_col(nfig, len(example_name))
+            fig, axs = plt.subplots(nrow,ncol,figsize=(width*ncol,6*nrow))
+            axs = np.array(axs).flatten()
+            for i in range(len(acc_keys)):
+                if acc_ifplot[i]:
+                    ax = axs[i]
+                    criteria_line = float(cretria_set[acc_keys[i]].split("<")[-1])
+                    x, y = comm.clean_none_list(example_idx, acc_data[i])
+                    ax.bar(x, y, label=acc_keys[i])
+                    ax.set_xticks(example_idx)
+                    ax.set_xticklabels(example_name, rotation=30, fontsize=fontsize-2, ha="right")
+                    ax.set_title(acc_keys[i], fontsize=fontsize)
+                    #ymin, ymax = auto_set_yaxis(ax, y, log_scale_threshold=1000)
+                    ax.axhline(criteria_line, color="red", linestyle="--", label=f"{criteria_line}")
+                    ax.set_yscale("log")
                     
-                axs[idx].set_xticks(example_idx)
-                axs[idx].set_xticklabels(example_name, rotation=30, fontsize=fontsize-2, ha="right")
-                axs[idx].set_title(per_keys[i], fontsize=fontsize)
-                axs[idx].set_xlabel("Example", fontsize=fontsize)
-                axs[idx].set_ylabel(per_keys[i], fontsize=fontsize)
-                axs[idx].legend(fontsize=fontsize-2, loc="upper left")
-                auto_set_yaxis(axs[idx], tot_y,log_scale_threshold=100)
-                
-                if per_data2[i] is not None:
-                    ratio = [None if per_data1[i][j] is None or per_data2[i][j] is None else per_data1[i][j]/per_data2[i][j] for j in range(len(example_name))]
-                    x, y = comm.clean_none_list(example_idx, ratio)
-                    if len(y) == 0: continue
-                    # calculate the geometric mean of ratio
-                    ratio = np.prod(y)**(1/len(y))
-                    axs1 = axs[idx].twinx()
-                    axs1.plot(x, y, color="red", linestyle="--", label=f"{self.testn}/{self.refn}={output_float(ratio)}")
-                    axs1.legend(fontsize=fontsize-2, loc="upper right")
-                    auto_set_yaxis(axs1, y,log_scale_threshold=100)
-        plt.tight_layout()
-        plt.savefig(fname)
-        plt.close()
+
+                    ax.set_xlabel("Example", fontsize=fontsize)
+                    ax.set_ylabel(acc_keys[i], fontsize=fontsize)
+                    ax.legend(fontsize=fontsize-2)
+            plt.tight_layout()
+            plt.savefig(acc_fname)
+            plt.close()
+        
+        nfig = sum(per_ifplot)
+        if nfig > 0:
+            nrow, ncol = self.cal_row_col(nfig, len(example_name))
+            fig, axs = plt.subplots(nrow,ncol,figsize=(width*ncol,6*nrow))
+            axs = np.array(axs).flatten()
+            for i in range(len(per_keys)):
+                if per_ifplot[i]:
+                    ax = axs[i]
+                    if per_data2[i] is None:
+                        x, tot_y = comm.clean_none_list(example_idx, per_data1[i])
+                        ax.bar(x, tot_y, label=f"{self.testn}")
+                    else:
+                        tot_y = []
+                        x, y = comm.clean_none_list(example_idx, per_data1[i])
+                        tot_y += y
+                        ax.bar(np.array(x)-0.2, y, label=f"{self.testn}", width=0.4)
+                        x, y = comm.clean_none_list(example_idx, per_data2[i])
+                        tot_y += y
+                        ax.bar(np.array(x)+0.2, y, label=f"{self.refn}", width=0.4)
+
+                    ax.set_xticks(example_idx)
+                    ax.set_xticklabels(example_name, rotation=30, fontsize=fontsize-2, ha="right")
+                    ax.set_title(per_keys[i], fontsize=fontsize)
+                    ax.set_xlabel("Example", fontsize=fontsize)
+                    ax.set_ylabel(per_keys[i], fontsize=fontsize)
+                    ax.legend(fontsize=fontsize-2, loc="upper left")
+                    auto_set_yaxis(ax, tot_y,log_scale_threshold=1000)
+
+                    if per_data2[i] is not None:
+                        ratio = [None if per_data1[i][j] is None or per_data2[i][j] is None else per_data1[i][j]/per_data2[i][j] for j in range(len(example_name))]
+                        x, y = comm.clean_none_list(example_idx, ratio)
+                        if len(y) == 0: continue
+                        # calculate the geometric mean of ratio
+                        ratio = np.prod(y)**(1/len(y))
+                        axs1 = ax.twinx()
+                        axs1.plot(x, y, color="red", linestyle="--", label=f"{self.testn}/{self.refn}={output_float(ratio)}")
+                        axs1.legend(fontsize=fontsize-2, loc="upper right")
+                        auto_set_yaxis(axs1, y,log_scale_threshold=1000)
+            plt.tight_layout()
+            plt.savefig(perf_fname)
+            plt.close()
+        return acc_fname, perf_fname
         
         
         
