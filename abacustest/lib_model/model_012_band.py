@@ -284,6 +284,8 @@ class PostBand:
                 points = [npoint[i]]
             else:
                 points.append(npoint[i])
+        band_idx[-1][1] += 1
+        band_idx[-1][3] += 1
         return band_idx, symbol_index, symbols_new
     
     def plot_band(self, band, kpt, filename, efermi = None):
@@ -299,10 +301,10 @@ class PostBand:
         fig, ax = plt.subplots(1,2,figsize=(8,4))
         for i, idx in enumerate(band_idx):
             for iband in band:
-                ax[0].plot(range(idx[0], idx[1]), iband[idx[2]:idx[3]], "--", color="black",linewidth=0.5)
-                ax[1].plot(range(idx[0], idx[1]), iband[idx[2]:idx[3]], "--", color="black",linewidth=0.5) 
-        ax[0].set_xlim(0, band_idx[-1][1])
-        ax[1].set_xlim(0, band_idx[-1][1])
+                ax[0].plot(range(idx[0], idx[1]), iband[idx[2]:idx[3]], "-", color="black",linewidth=0.8)
+                ax[1].plot(range(idx[0], idx[1]), iband[idx[2]:idx[3]], "-", color="black",linewidth=0.8) 
+        ax[0].set_xlim(0, band_idx[-1][1]-1)
+        ax[1].set_xlim(0, band_idx[-1][1]-1)
         if symbols is not None:
             ax[0].set_xticks(symbol_index)
             ax[0].set_xticklabels(symbols, fontsize=fontsize)
@@ -312,10 +314,15 @@ class PostBand:
         ax[1].set_xlabel("K points", fontsize=fontsize)
         ax[0].set_ylabel("Energy (eV)", fontsize=fontsize)
         ax[1].set_ylabel("Energy (eV)", fontsize=fontsize)
-        
+
+        # plot the x = i for each symbol
+        for i in range(1, len(symbol_index)-1):
+            ax[0].axvline(x=symbol_index[i], color="black", linestyle="-", linewidth=0.3)
+            ax[1].axvline(x=symbol_index[i], color="black", linestyle="-", linewidth=0.3)
+
         if efermi is not None:
-            ax[0].axhline(y=efermi, color="red", linestyle="--")
-            ax[1].axhline(y=efermi, color="red", linestyle="--")
+            ax[0].axhline(y=efermi, color="red", linestyle="--", linewidth=0.8)
+            ax[1].axhline(y=efermi, color="red", linestyle="--", linewidth=0.8)
             bg = cal_band_gap([np.array(band).T], efermi)
             #ax[0].text(band_idx[-1][1], efermi+0.3, f"E_f={efermi:.2f}eV (BG={bg:.2f}eV)", color="red", fontsize=fontsize-2)
             #ax[1].text(band_idx[-1][1], efermi+0.3, f"E_f={efermi:.2f}eV (BG={bg:.2f}eV)", color="red", fontsize=fontsize-2)

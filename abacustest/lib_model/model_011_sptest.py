@@ -109,6 +109,7 @@ class SPTest:
             
         for i in job_path:
             try:
+                print(i)
                 result = RESULT(path = i, fmt = jobtype)
                 ir = {key: result[key] for key in ["natom","label","nelec","normal_end", "converge", "volume","total_time", "scf_steps", 
                                                    "energy", "force", "stress", "virial", "ds_mag_force"]}
