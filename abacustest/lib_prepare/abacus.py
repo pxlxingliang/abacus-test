@@ -5,6 +5,64 @@ from pathlib import Path
 from .. import constant
 from . import comm
 
+def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
+    """
+    Generate the structure files for ABACUS.
+    
+    Args:
+        stru_files (list): List of structure files.
+        stru_type (str): Type of the structure files.
+        pp_path (str): Path to the pseudopotential files.
+        orb_path (str): Path to the orbital files.
+    
+    Returns:
+        jobs (dict): Dictionary, key is the job path, value is:
+            {
+                "element": element,
+                "pp": pp,
+                "orb": orb,
+            }
+    """
+    # Translate structure files to ABACUS STRU format
+    stru_paths = comm.translate_strus(stru_files, stru_type, output_path = tpath)
+    if stru_paths is None:
+        print("Error: tanslate structure files failed.")
+        return None
+    print("Structures are translated to ABACUS STRU and saved in",stru_paths)
+    
+    # Find the pseudopotential files and orbital files
+    pp_paths = comm.collect_pp(pp_path) # the return file name is pp_path/pp
+    orb_paths = comm.collect_pp(orb_path)
+    jobs = {}
+    for ipath in stru_paths:
+        istru = os.path.join(ipath, "STRU")
+        stru = AbacusStru.ReadStru(istru)
+        if stru is None:
+            print("Error: read structure failed.")
+            continue
+        element = stru.get_element(number=False, total=False)
+        pp = []
+        orb = []
+        if any([ie not in pp_paths for ie in element]):
+            print("Error: some elements do not have pseudopotential.")
+            continue
+        for ie in element:
+            if ie in pp_paths:
+                pp.append(os.path.basename(pp_paths[ie]))
+                os.symlink(os.path.abspath(pp_paths[ie]), os.path.join(ipath, os.path.basename(pp_paths[ie])))
+            if ie in orb_paths:
+                orb.append(os.path.basename(orb_paths[ie]))
+                os.symlink(os.path.abspath(orb_paths[ie]), os.path.join(ipath, os.path.basename(orb_paths[ie])))
+        stru.set_pp(pp)
+        stru.set_orb(orb)
+        stru.write(os.path.join(ipath, "STRU"))
+        jobs[ipath] = {
+            "element": element,
+            "pp": pp,
+            "orb": orb,
+        } 
+    return jobs
+
 
 class AbacusStru:
     def __init__(self,

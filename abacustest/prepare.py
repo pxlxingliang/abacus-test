@@ -9,7 +9,7 @@ from abacustest.lib_prepare import abacus as MyAbacus
 from abacustest.lib_prepare import abacus2qe as Aba2Qe
 from abacustest.lib_prepare import abacus2vasp as Aba2Vasp
 from abacustest.lib_prepare import abacus2cp2k as Aba2Cp2k
-from abacustest.lib_prepare.comm import translate_strus
+from abacustest.lib_prepare.comm import translate_strus, collect_pp
 
 def Direct2Cartesian(coord:List[List[float]],cell:List[List[float]]):
     return np.array(coord).dot(np.array(cell)).tolist()
@@ -182,26 +182,7 @@ class PrepareAbacus:
             if Path(self.save_path).samefile(ipath):
                 return True
         return False
-    
-    def GetElementNameFromFileName(self,filename):
-        #the filename should be started with the element name and followed by character non-alpha
-        def check_element(element):
-            if element.capitalize() in constant.MASS_DICT:
-                return element.capitalize()
-            else:
-                return None
-        
-        if filename == "":
-            return None
-        if len(filename) == 1:
-            return check_element(filename)
-        
-        element_name = filename[:2]
-        if element_name[-1].isalpha():
-            return check_element(element_name)
-        else:
-            return check_element(filename[0])
-    
+
     def CheckExtrafile(self,extrafiles):
         if not extrafiles:
             return []
@@ -213,73 +194,20 @@ class PrepareAbacus:
                 print(f"ERROR: Can not find {ifile}!")
         return filelist
 
-
     def CollectPP(self):
-        if not self.pp_path:
-            return
-        if os.path.isdir(self.pp_path):
-            if os.path.isfile(os.path.join(self.pp_path,"element.json")):
-                try:
-                    for key,value in json.load(open(os.path.join(self.pp_path,"element.json"))).items():
-                        if key not in self.pp_dict:
-                            if os.path.isfile(os.path.join(self.pp_path,value)):
-                                self.pp_dict[key] = os.path.join(self.pp_path,value)
-                except:
-                    traceback.print_exc()
-            else:
-                allfiles = os.listdir(self.pp_path)
-                for ifile in allfiles:
-                    if not os.path.isfile(os.path.join(self.pp_path,ifile)): continue
-                    element_name = self.GetElementNameFromFileName(ifile)
-                    if element_name and element_name not in self.pp_dict:
-                        self.pp_dict[element_name] = os.path.join(self.pp_path,ifile)
-        else:
-            print(f"Not find pp dir: \'{self.pp_path}\'\n\tcurrent path: {os.getcwd()}")
+        for k,v in collect_pp(self.pp_path).items():
+            if k not in self.pp_dict:
+                self.pp_dict[k] = v
 
     def CollectOrb(self):
-        if not self.orb_path:
-            return
-        if os.path.isdir(self.orb_path):
-            if os.path.isfile(os.path.join(self.orb_path,"element.json")):
-                try:
-                    for key,value in json.load(open(os.path.join(self.orb_path,"element.json"))).items():
-                        if key not in self.orb_dict:
-                            if os.path.isfile(os.path.join(self.orb_path,value)):
-                                self.orb_dict[key] = os.path.join(self.orb_path,value)
-                except:
-                    traceback.print_exc()
-            else:
-                allfiles = os.listdir(self.orb_path)
-                for ifile in allfiles:
-                    if not os.path.isfile(os.path.join(self.orb_path,ifile)): continue
-                    element_name = self.GetElementNameFromFileName(ifile)
-                    if element_name and element_name not in self.orb_dict:
-                        self.orb_dict[element_name] = os.path.join(self.orb_path,ifile)
-        else:
-            print("Not find orb dir: %s" % self.orb_path)
-            
-            
+        for k,v in collect_pp(self.orb_path).items():
+            if k not in self.orb_dict:
+                self.orb_dict[k] = v
+             
     def CollectPaw(self):
-        if not self.paw_path:
-            return
-        if os.path.isdir(self.paw_path):
-            if os.path.isfile(os.path.join(self.paw_path,"element.json")):
-                try:
-                    for key,value in json.load(open(os.path.join(self.paw_path,"element.json"))).items():
-                        if key not in self.paw_dict:
-                            if os.path.isfile(os.path.join(self.paw_path,value)):
-                                self.paw_dict[key] = os.path.join(self.paw_path,value)
-                except:
-                    traceback.print_exc()
-            else:
-                allfiles = os.listdir(self.paw_path)
-                for ifile in allfiles:
-                    if not os.path.isfile(os.path.join(self.paw_path,ifile)): continue
-                    element_name = self.GetElementNameFromFileName(ifile)
-                    if element_name and element_name not in self.paw_dict:
-                        self.paw_dict[element_name] = os.path.join(self.paw_path,ifile)
-        else:
-            print("Not find paw dir: %s" % self.paw_path) 
+        for k,v in collect_pp(self.paw_path).items():
+            if k not in self.paw_dict:
+                self.paw_dict[k] = v
             
     def parse_combine_input(self,input_dict, combine_str="|"):
         #parse the combine input, such as "ecutwfc|kspacing": "50|0.2"
