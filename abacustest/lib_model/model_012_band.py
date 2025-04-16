@@ -41,7 +41,7 @@ class BandModel(Model):
         Usually, this step will generate the input files for abacustest submit.
         '''
         real_jobs = comm.get_job_list(params.job)
-        real_jobs, run_script = PrepBand(real_jobs,params.rundftcommand).run()
+        real_jobs, run_script, extra_files = PrepBand(real_jobs,params.rundftcommand).run()
         if len(real_jobs) == 0:
             print("No valid job is found")
             return
@@ -51,6 +51,7 @@ class BandModel(Model):
             "bohrium_group_name": "band-strcutre",
             "run_dft": {
                 "example": real_jobs,
+                "extra_files": extra_files,
                 "command": run_script,
                 "image": params.image,
                 "bohrium": {
@@ -110,7 +111,7 @@ class PrepBand:
             print(f"Error: the job type {self.job_type} is not supported")
             jobs = []
         
-        return jobs, f"bash {self.run_script}"
+        return jobs, f"bash {self.run_script}", [self.run_script]
                 
     def modify_command(self,command):
         # if the command is end with | tee out.log, remove it
@@ -170,13 +171,14 @@ class PrepBand:
             WriteInput(nscf_input,os.path.join(job,self.nscf_input))
             stru.get_kline(kpt_file=os.path.join(job,self.nscf_kpt),point_number=20)
             
-            # gen run script
-            with open(os.path.join(job,self.run_script),"w") as f:
+            valid_jobs.append(job)
+        # gen run script
+        if len(valid_jobs) > 0:
+            with open(self.run_script,"w") as f:
                 f.write(f"cp {self.scf_input} INPUT\n")
                 f.write(f"{self.run_command} | tee scf.log\n")
                 f.write(f"cp {self.nscf_input} INPUT\n")
                 f.write(f"{self.run_command} | tee nscf.log\n")
-            valid_jobs.append(job)
         return valid_jobs
         
 

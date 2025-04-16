@@ -43,16 +43,23 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
         element = stru.get_element(number=False, total=False)
         pp = []
         orb = []
-        if any([ie not in pp_paths for ie in element]):
-            print("Error: some elements do not have pseudopotential.")
+        element_no_pp = [ie for ie in element if ie not in pp_paths]
+        if len(element_no_pp) > 0:
+            print(f"Error: {ipath} has elements no pseudopotential.\n  {', '.join(element_no_pp)}")
             continue
         for ie in element:
             if ie in pp_paths:
                 pp.append(os.path.basename(pp_paths[ie]))
-                os.symlink(os.path.abspath(pp_paths[ie]), os.path.join(ipath, os.path.basename(pp_paths[ie])))
+                t_file = os.path.join(ipath, os.path.basename(pp_paths[ie]))
+                if os.path.isfile(t_file):
+                    os.remove(t_file)
+                os.symlink(os.path.abspath(pp_paths[ie]), t_file)
             if ie in orb_paths:
                 orb.append(os.path.basename(orb_paths[ie]))
-                os.symlink(os.path.abspath(orb_paths[ie]), os.path.join(ipath, os.path.basename(orb_paths[ie])))
+                t_file = os.path.join(ipath, os.path.basename(orb_paths[ie]))
+                if os.path.isfile(t_file):
+                    os.remove(t_file)
+                os.symlink(os.path.abspath(orb_paths[ie]), t_file)
         stru.set_pp(pp)
         stru.set_orb(orb)
         stru.write(os.path.join(ipath, "STRU"))

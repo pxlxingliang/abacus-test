@@ -1,0 +1,236 @@
+from ..model import Model
+from . import comm
+import argparse,json, os
+from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, gen_stru, ReadInput
+from pathlib import Path
+from abacustest.lib_model.model_012_band import PrepBand
+
+JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
+                    "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
+                    "mixing_beta": 0.8,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                    "#cal_force": 1, "#cal_stress": 1,
+                    "kspacing": "0.1 # unit in 1/bohr"}, 
+             "relax": {"calculation": "relax", "symmetry": 0, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
+                       "relax_nmax": 100, "force_thr_ev": "0.01  # unit in eV/A", "#stress_thr": "0.5 # unit in kbar",
+                       "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
+                       "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "cal_force": 1, "#cal_stress": 1,
+                    "kspacing": "0.1 # unit in 1/bohr" }, 
+             "cell-relax":{"calculation": "cell-relax", "symmetry": 0, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
+                       "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "stress_thr": "0.5 # unit in kbar",
+                       "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
+                       "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "cal_force": 1, "cal_stress": 1,
+                    "kspacing": "0.1 # unit in 1/bohr" }, 
+             "md":{"calculation": "md", "symmetry": 0, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
+                       "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
+                       "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "#cal_force": 1, "#cal_stress": 1,
+                       "kspacing": "0.1 # unit in 1/bohr", 
+                       "md_type": "nvt  # or nvt, nve, langevin, fire, msst",
+                       "md_nstep": "10  # number of steps",
+                       "md_dt": "1.0  # unit in fs", 
+                       "#md_tfirst": "100  # unit in K",
+                       "#md_tlast": "100  # unit in K",}, 
+             "band":{"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
+                    "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
+                    "mixing_beta": 0.8,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                    "#cal_force": 1, "#cal_stress": 1,
+                    "kspacing": "0.1 # unit in 1/bohr"}
+        }
+
+
+class InputsModel(Model):
+    @staticmethod
+    def model_name(): # type: ignore
+        '''
+        Name of the model, which will be used as the subcommand
+        '''
+        return "inputs"
+    
+    @staticmethod
+    def description(): # type: ignore
+        '''
+        Description of the model
+        '''
+        return "Prepare the ABACUS inputs of specified model"
+    
+    @staticmethod
+    def add_args(parser):
+        '''
+        Add arguments for the prepare subcommand
+        The arguments can not be command, model, modelcommand '''
+        
+        parser.description = "Prepare the ABACUS inputs file."
+        parser.add_argument('-f', '--file',default=[], action="extend",nargs="*" ,help='the structure files')
+        parser.add_argument("--ftype",default="cif",type=str,help="the structure type, should be cif or dpdata supportted type like: poscar, abacus/stru, ..", )
+        parser.add_argument("--jtype", default=None, type=str, help=f"the job type, should be one of {list(JOB_TYPES.keys())}")
+        parser.add_argument("--pp",default=None,type=str,help="the path of pseudopotential library")
+        parser.add_argument("--orb",default=None,type=str,help="the path of orbital library")
+        parser.add_argument("--input",default=None,type=str,help="the template of input file, if not specified, the default input will be generated")
+        parser.add_argument("--kpt", default=None, type=int, nargs="*", help="the kpoint setting, should be one or three integers")
+        return parser
+    
+    def run(self,params):
+        if params.kpt is not None and len(params.kpt) not in [1, 3]:
+            raise ValueError("The kpoint setting should be one or three integers.")
+        pinput = PrepInput(
+            files=params.file,
+            filetype=params.ftype,
+            jobtype=params.jtype,
+            pp_path=params.pp,
+            orb_path=params.orb,
+            input_file=params.input,
+            kpt=params.kpt,
+        )
+        pinput.run()
+        return 0
+
+class PrepInput:
+    def __init__(self, files, filetype, jobtype, pp_path=None, orb_path=None, input_file=None, kpt=None,
+                 abacus_command="OMP_NUM_THREADS=1 mpirun -np 16 abacus", machine="c32_m64_cpu", 
+                 image="registry.dp.tech/dptech/abacus-stable:LTSv3.10"):
+        if jobtype not in JOB_TYPES:
+            raise ValueError(f"Unsupported job type: {jobtype}.\nSupported job types are {list(JOB_TYPES.keys())}.")
+        
+        self.files = files
+        self.filetype = filetype
+        self.jobtype = jobtype
+        self.pp_path = pp_path
+        self.orb_path = orb_path
+        self.input_file = input_file
+        self.kpt = kpt
+        self.abacus_command = abacus_command
+        self.machine = machine
+        self.image = image
+        
+        print("Structure files:", files)
+        print("Structure type:", filetype)
+        print("Job type:", jobtype)
+        print("Pseudopotential path:", pp_path)
+        print("Orbital path:", orb_path)
+        print("Input file:", input_file)
+        print("Kpoint:", kpt)
+        print("")
+    
+    def run(self):
+        if self.input_file is None:
+            print("Automatically generate the input file.")
+            input_param = JOB_TYPES[self.jobtype]
+            auto_ecutwfc = True
+        else:
+            input_param = ReadInput(self.input_file)
+            if input_param.get("calculation") != JOB_TYPES[self.jobtype]["calculation"]:
+                print(f"Warning: the calculation type in the input file is {input_param['calculation']}, but the job type is {self.jobtype}.")
+                print(f"         Automatically set the calculation type to {JOB_TYPES[self.jobtype]['calculation']}.")
+                input_param["calculation"] = JOB_TYPES[self.jobtype]["calculation"]
+            if "ecutwfc" in input_param:
+                auto_ecutwfc = False
+            
+        jobs = self.gen_abacus_inputs(self.files, self.filetype, 
+                                      self.pp_path, self.orb_path, 
+                                      input_param, self.kpt,
+                                      auto_ecutwfc=auto_ecutwfc)
+        job_path = list(jobs.keys())
+        if self.jobtype == "band":
+            prep_band = PrepBand(job_path, run_command=self.abacus_command)
+            _, run_script, extra_files = prep_band.run()
+        else:
+            run_script_file = "run.sh"
+            Path(run_script_file).write_text(self.abacus_command)
+            run_script = f"bash {run_script_file}"
+            extra_files = [run_script_file]
+            
+
+        # generate the parameter setting for abacustest submit
+        setting = {
+            "save_path": "results",
+            "run_dft": {
+                "example": job_path,
+                "extra_files": extra_files,
+                "command": run_script,
+                "image": self.image,
+                "bohrium": {
+                    "scass_type": self.machine,
+                    "job_type": "container",
+                    "platform": "ali"
+                }
+            }
+        }
+        
+        setting_file = "setting.json"
+        json.dump(setting, open(setting_file, "w"), indent=4)
+        print("\nThe inputs are generated in", ", ".join(job_path))
+        print(f"Please modify the ABACUS running commnd in script {extra_files} if needed.")
+        print(f"You can modify '{setting_file}', and execute the command 'abacustest submit -p setting.json' to run the abacustest to submit all jobs to remote.")
+        print(f"Or you can 'cd' to each job path and execute '{run_script}' to run the job.")
+        
+        return setting, job_path
+    
+    @staticmethod
+    def gen_abacus_inputs(stru_files, stru_type, pp_path, orb_path, input_param=None, kpoint=None, auto_ecutwfc=True):
+        """
+        Generate the abacus input files.
+
+        Parameters
+        ----------
+        stru_files : list
+            The structure files, should be a list of cif or dpdata supported data
+        stru_type : str
+            The structure type, cif or dpdata supported format
+        pp_path : str
+            The pseudopotential path
+        orb_path : str
+            The orbital path
+        input_param : dict
+            The specified input parameter, which will used in INPUT
+        kpoint : list
+            The kpoint setting, should be a list of three int, will generate a KPT file
+        auto_ecutwfc : bool
+            Whether to automatically find the ecutwfc from ecutwfc.json file, default is True
+
+        Returns
+        -------
+        job_path : dict
+            The job path, which is a dict, key is the job path, value is {"element": element, "pp": pp, "orb": orb}
+        """
+        job_path = gen_stru(stru_files, stru_type, pp_path, orb_path, tpath=".")
+        # job_path is dict: key is the job path, value is {"element": element, "pp": pp, "orb": orb}
+        # the pp and orb file has been linked to the job path
+
+        if job_path is None or len(job_path) == 0:
+            raise ValueError("No valid structure file found.")
+
+        # write INPUT file and KPT file
+
+        default_input = {
+            "ecutwfc": 100,
+            "calculation": "scf",
+            "basis_type": "pw"
+        }
+        if input_param is not None:
+            default_input.update(input_param)
+        # will find the recommand ecutwfc from ecutwfc.json file
+        if os.path.isfile(os.path.join(pp_path, "ecutwfc.json")):
+            recommand_ecutwfc = json.load(open(os.path.join(pp_path, "ecutwfc.json"), "r"))
+        else:
+            recommand_ecutwfc = None
+
+        if auto_ecutwfc and recommand_ecutwfc is not None:
+            print("Based on recommended ecutwfc, automatically set ecutwfc for each job.")
+            
+        for path, job in job_path.items():
+            element = job["element"]
+            if auto_ecutwfc and recommand_ecutwfc is not None:
+                default_input["ecutwfc"] = max([recommand_ecutwfc[i] for i in element])
+                recutwfc = {i: recommand_ecutwfc[i] for i in element}
+                print(f"{path}: set ecutwfc to {default_input['ecutwfc']}, recommended ecutwfc: {recutwfc}")
+            
+
+            if kpoint is not None:
+                default_input.pop("kspacing",None)
+                WriteKpt(kpoint, os.path.join(path, "KPT"))
+            
+            WriteInput(default_input, os.path.join(path, "INPUT"))
+
+        return job_path

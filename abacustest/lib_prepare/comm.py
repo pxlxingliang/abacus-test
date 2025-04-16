@@ -26,6 +26,7 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
         
     output_folders = []
     idx = 0
+    struinfo = {}
     try:
         for istru in input_strus:
             for iistru in glob.glob(istru):
@@ -36,16 +37,24 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
                     stru = ase_read(iistru)
                     stru = dpdata.System(stru, fmt="ase/structure")
                 
+                print("Translating %s to ABACUS stru:" % iistru)
+                struinfo[istru] = []
                 for i in range(stru.get_nframes()):
                     tpath = os.path.join(output_path,"%06d" % idx)
                     os.makedirs(tpath,exist_ok=True)
                     stru.to("abacus/stru", os.path.join(tpath,"STRU"),i)
                     output_folders.append(tpath)
                     idx += 1
+                    print("    Save to %s" % os.path.join(tpath,"STRU"))
+                    with open(os.path.join(tpath,"struinfo.txt"),"w") as f:
+                        f.write(istru)
+                    struinfo[istru].append(os.path.basename(tpath))
     except:
         traceback.print_exc()
         print("ERROR: %s to ABACUS STRU failed" % (input_stru_type))
         return None
+    if len(struinfo) > 0:
+        json.dump(struinfo, open(os.path.join(output_path,"struinfo.json"),"w"), indent=4)
     return output_folders
 
 def read_pp_valence(pp_file):
