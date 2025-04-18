@@ -45,8 +45,7 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
         orb = []
         element_no_pp = [ie for ie in element if ie not in pp_paths]
         if len(element_no_pp) > 0:
-            print(f"Error: {ipath} has elements no pseudopotential.\n  {', '.join(element_no_pp)}")
-            continue
+            print(f"Error: some elements of {ipath} have no pseudopotentials.\n  {', '.join(element_no_pp)}")
         for ie in element:
             if ie in pp_paths:
                 pp.append(os.path.basename(pp_paths[ie]))
@@ -54,14 +53,20 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
                 if os.path.isfile(t_file):
                     os.remove(t_file)
                 os.symlink(os.path.abspath(pp_paths[ie]), t_file)
+            else:
+                pp.append(None)
             if ie in orb_paths:
                 orb.append(os.path.basename(orb_paths[ie]))
                 t_file = os.path.join(ipath, os.path.basename(orb_paths[ie]))
                 if os.path.isfile(t_file):
                     os.remove(t_file)
                 os.symlink(os.path.abspath(orb_paths[ie]), t_file)
-        stru.set_pp(pp)
-        stru.set_orb(orb)
+            else:
+                orb.append(None)
+        if None not in pp:
+            stru.set_pp(pp)
+        if None not in orb:
+            stru.set_orb(orb)
         stru.write(os.path.join(ipath, "STRU"))
         jobs[ipath] = {
             "element": element,

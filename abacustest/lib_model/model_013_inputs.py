@@ -109,13 +109,13 @@ class PrepInput:
         if self.orb_path is None and os.environ.get("ABACUS_ORB_PATH") is not None:
             self.orb_path = os.environ["ABACUS_ORB_PATH"]
         
-        print("Structure files:", files)
-        print("Structure type:", filetype)
-        print("Job type:", jobtype)
-        print("Pseudopotential path:", pp_path)
-        print("Orbital path:", orb_path)
-        print("Input file:", input_file)
-        print("Kpoint:", kpt)
+        print("Structure files:", self.files)
+        print("Structure type:", self.filetype)
+        print("Job type:", self.jobtype)
+        print("Pseudopotential path:", self.pp_path)
+        print("Orbital path:", self.orb_path)
+        print("Input file:", self.input_file)
+        print("Kpoint:", self.kpt)
         print("")
     
     def run(self):
@@ -166,9 +166,9 @@ class PrepInput:
         setting_file = "setting.json"
         json.dump(setting, open(setting_file, "w"), indent=4)
         print("\nThe inputs are generated in", ", ".join(job_path))
-        print(f"Please modify the ABACUS running commnd in script {extra_files} if needed.")
-        print(f"You can modify '{setting_file}', and execute the command 'abacustest submit -p setting.json' to run the abacustest to submit all jobs to remote.")
-        print(f"Or you can 'cd' to each job path and execute '{run_script}' to run the job.")
+        print(f"Please modify the ABACUS running command in script {extra_files[0]} if needed.")
+        print(f"You can modify '{setting_file}', and execute the command 'abacustest submit -p setting.json' to run the abacustest to submit all jobs to bohrium.")
+        print(f"Or you can 'cd' to each job path and execute '{extra_files[0]}' to run the job.")
         
         return setting, job_path
     
@@ -216,7 +216,7 @@ class PrepInput:
         if input_param is not None:
             default_input.update(input_param)
         # will find the recommand ecutwfc from ecutwfc.json file
-        if os.path.isfile(os.path.join(pp_path, "ecutwfc.json")):
+        if pp_path is not None and os.path.isfile(os.path.join(pp_path, "ecutwfc.json")):
             recommand_ecutwfc = json.load(open(os.path.join(pp_path, "ecutwfc.json"), "r"))
         else:
             recommand_ecutwfc = None
