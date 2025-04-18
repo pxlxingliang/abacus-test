@@ -64,9 +64,9 @@ class InputsModel(Model):
         parser.description = "Prepare the ABACUS inputs file."
         parser.add_argument('-f', '--file',default=[], action="extend",nargs="*" ,help='the structure files')
         parser.add_argument("--ftype",default="cif",type=str,help="the structure type, should be cif or dpdata supportted type like: poscar, abacus/stru, ..", )
-        parser.add_argument("--jtype", default=None, type=str, help=f"the job type, should be one of {list(JOB_TYPES.keys())}")
-        parser.add_argument("--pp",default=None,type=str,help="the path of pseudopotential library")
-        parser.add_argument("--orb",default=None,type=str,help="the path of orbital library")
+        parser.add_argument("--jtype", default="scf", type=str, help=f"the job type, should be one of {list(JOB_TYPES.keys())}")
+        parser.add_argument("--pp",default=None,type=str,help="the path of pseudopotential library, or read from enviroment variable ABACUS_PP_PATH")
+        parser.add_argument("--orb",default=None,type=str,help="the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH")
         parser.add_argument("--input",default=None,type=str,help="the template of input file, if not specified, the default input will be generated")
         parser.add_argument("--kpt", default=None, type=int, nargs="*", help="the kpoint setting, should be one or three integers")
         return parser
@@ -103,6 +103,11 @@ class PrepInput:
         self.abacus_command = abacus_command
         self.machine = machine
         self.image = image
+        
+        if self.pp_path is None and os.environ.get("ABACUS_PP_PATH") is not None:
+            self.pp_path = os.environ["ABACUS_PP_PATH"]
+        if self.orb_path is None and os.environ.get("ABACUS_ORB_PATH") is not None:
+            self.orb_path = os.environ["ABACUS_ORB_PATH"]
         
         print("Structure files:", files)
         print("Structure type:", filetype)
