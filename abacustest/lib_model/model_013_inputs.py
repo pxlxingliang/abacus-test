@@ -10,14 +10,14 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                     "mixing_beta": 0.8,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                     "#cal_force": 1, "#cal_stress": 1,
                     "kspacing": "0.1 # unit in 1/bohr"}, 
-             "relax": {"calculation": "relax", "symmetry": 0, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
+             "relax": {"calculation": "relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                        "cal_force": 1, "#cal_stress": 1,"kspacing": "0.1 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs bfgs_trad cg_bfgs sd fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "#stress_thr": "0.5 # unit in kbar",
                        }, 
-             "cell-relax":{"calculation": "cell-relax", "symmetry": 0, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
+             "cell-relax":{"calculation": "cell-relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                        "cal_force": 1, "cal_stress": 1, "kspacing": "0.1 # unit in 1/bohr",
@@ -25,7 +25,7 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "stress_thr": "0.5 # unit in kbar",
                        "fixed_axes": "None # or volume, shape, a, b, c, ab, ac, bc; only valid for cell-relax calculation to fix some axes",
                        }, 
-             "md":{"calculation": "md", "symmetry": 0, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
+             "md":{"calculation": "md", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                        "#cal_force": 1, "#cal_stress": 1,
@@ -134,6 +134,12 @@ class PrepInput:
                 input_param["calculation"] = JOB_TYPES[self.jobtype]["calculation"]
             if "ecutwfc" in input_param:
                 auto_ecutwfc = False
+            
+            # update other required parameters
+            for key in JOB_TYPES[self.jobtype]:
+                if key in input_param or (key.startswith("#") and key[1:] in input_param):
+                    continue
+                input_param[key] = JOB_TYPES[self.jobtype][key]
             
         jobs = self.gen_abacus_inputs(self.files, self.filetype, 
                                       self.pp_path, self.orb_path, 
