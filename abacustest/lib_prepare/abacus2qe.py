@@ -237,8 +237,11 @@ def transfer_mag(imag,nspin=2):
             return imag[0],0,0
         elif isinstance(imag,list) and len(imag) == 3:
             tot = (imag[0]**2 + imag[1]**2 + imag[2]**2)**0.5
-            angle1,angle2 = MyAbacus.AbacusStru.mag_to_angle(imag[0],imag[1],imag[2])
-            return tot,angle1,angle2
+            if abs(tot) < 1e-8:
+                return 0,0,0
+            else:
+                angle1,angle2 = MyAbacus.AbacusStru.mag_to_angle(imag[0],imag[1],imag[2])
+                return tot,angle1,angle2
         else:
             print("ERROR: The magnetization is not correct")
             return 0,0,0
@@ -318,11 +321,11 @@ def set_stru(abacus_stru,param):
     # set init mag
     if nspin == 2:
         for i in range(len(atomtype_mag)):
-            if atomtype_mag[i] != 0:
+            if atomtype_mag[i] > 1e-8:
                 param["system"]["starting_magnetization(%d)" % (i+1)] = atomtype_mag[i]
     elif nspin == 4:
         for i in range(len(atomtype_mag)):
-            if atomtype_mag[i][0] != 0:
+            if atomtype_mag[i][0] > 1e-8:
                 param["system"]["starting_magnetization(%d)" % (i+1)] = atomtype_mag[i][0]
                 param["system"]["angle1(%d)" % (i+1)] = atomtype_mag[i][1]
                 param["system"]["angle2(%d)" % (i+1)] = atomtype_mag[i][2]

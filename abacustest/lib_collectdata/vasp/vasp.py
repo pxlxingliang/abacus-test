@@ -261,20 +261,49 @@ class Vasp(ResultVasp):
                          atom_mag = 'list, the magnization of each atom')
     def GetMagInfo(self):
         getatommag = False
+        atommagsx = []
+        atommagsy = []
+        atommagsz = []
         for i in range(len(self.OUTCAR)):
             i = -i-1
             line = self.OUTCAR[i]
             if line[:19] == " number of electron":
                 self['total_mag'] = float(line.split()[-1])
                 break
-            elif not getatommag and line[:18] == ' magnetization (x)':
+            elif line[:18] == ' magnetization (x)':
                 j = i + 4
                 atommag = []
                 while self.OUTCAR[j][:3] != "---":
                     atommag.append(float(self.OUTCAR[j].split()[-1]))
                     j += 1
-                self['atom_mag'] = atommag
-                getatommag = True
+                atommagsx.append(atommag)
+            elif line[:18] == ' magnetization (y)':
+                j = i + 4
+                atommag = []
+                while self.OUTCAR[j][:3] != "---":
+                    atommag.append(float(self.OUTCAR[j].split()[-1]))
+                    j += 1
+                atommagsy.append(atommag)
+            elif line[:18] == ' magnetization (z)':
+                j = i + 4
+                atommag = []
+                while self.OUTCAR[j][:3] != "---":
+                    atommag.append(float(self.OUTCAR[j].split()[-1]))
+                    j += 1
+                atommagsz.append(atommag)
+        
+        if len(atommagsx) > 0 and len(atommagsy) > 0 and len(atommagsz) > 0:
+            atomx = atommagsx[0]
+            atomy = atommagsy[0]
+            atomz = atommagsz[0]
+            atommag = []
+            for i in range(len(atomx)):
+                atommag.append([atomx[i],atomy[i],atomz[i]])
+            self["atom_mag"] = atommag
+        elif len(atommagsx) > 0:
+            self["atom_mag"] = atommag[0]
+        else:
+            self["atom_mag"] = None
                 
     
     @ResultVasp.register(atom_name = 'list, the element name of each atom' ,
