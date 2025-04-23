@@ -168,6 +168,8 @@ class PrepBand:
             nscf_input["out_band"] = 1
             nscf_input["kpoint_file"] = self.nscf_kpt
             nscf_input.pop("kspacing",None)
+            if nscf_input.get("symmetry",None) == 1:
+                nscf_input["symmetry"] = 0
             WriteInput(nscf_input,os.path.join(job,self.nscf_input))
             stru.get_kline(kpt_file=os.path.join(job,self.nscf_kpt),point_number=20)
             
