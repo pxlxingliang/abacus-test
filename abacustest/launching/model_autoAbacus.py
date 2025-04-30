@@ -30,6 +30,10 @@ class JobTypeEnum(String, Enum):
     cellrelax = "cell-relax"
     band = "band"
 
+class BasisTypeEnum(String, Enum):
+    pw = "pw"
+    lcao = "lcao"
+
 class NewSetting(BaseModel):
     stru_type: StruTypeEnum = Field(default="cif",
                             title="Structure format",
@@ -41,6 +45,9 @@ class NewSetting(BaseModel):
     job_type: JobTypeEnum = Field(default="scf",
                             title="Job type",
                             description="Please choose one of the job type",)
+    basis_type: BasisTypeEnum = Field(default="pw",
+                            title="Basis type",
+                            description="Please choose one of the basis type",)
     
     abacus_image: ABACUSImage = Field(default="registry.dp.tech/dptech/abacus-stable:LTSv3.10",
                           title="Abacus Image",
@@ -87,7 +94,8 @@ def AutoABACUSRunner(opts:AutoABACUSModel) -> int:
                            abacus_command=opts.abacus_command,
                            machine=opts.bohrium_machine,
                            image=opts.abacus_image,
-                           jobtype=opts.job_type
+                           jobtype=opts.job_type,
+                           lcao=True if opts.basis_type == "lcao" else False,
                            ).run()
         
         allparams["config"] = comm_func.read_config(opts)

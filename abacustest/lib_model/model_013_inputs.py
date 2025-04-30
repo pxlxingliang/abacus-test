@@ -4,6 +4,7 @@ import argparse,json, os
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, gen_stru, ReadInput
 from pathlib import Path
 from abacustest.lib_model.model_012_band import PrepBand
+from abacustest.constant import RECOMMAND_IMAGE
 
 JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
@@ -42,6 +43,14 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                     "kspacing": "0.1 # unit in 1/bohr"}
         }
 
+LCAO_PARAM = {
+    "basis_type": "lcao",
+    "ks_solver": "genelpa",
+    "#gamma_only": 0,
+    "ecutwfc": 100,
+    "scf_thr": 1e-7,
+}
+
 
 class InputsModel(Model):
     @staticmethod
@@ -72,6 +81,7 @@ class InputsModel(Model):
         parser.add_argument("--orb",default=None,type=str,help="the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH")
         parser.add_argument("--input",default=None,type=str,help="the template of input file, if not specified, the default input will be generated")
         parser.add_argument("--kpt", default=None, type=int, nargs="*", help="the kpoint setting, should be one or three integers")
+        parser.add_argument("--lcao", action="store_true", help="whether to use lcao basis, default is pw basis")
         return parser
     
     def run(self,params):
@@ -85,6 +95,7 @@ class InputsModel(Model):
             orb_path=params.orb,
             input_file=params.input,
             kpt=params.kpt,
+            lcao=params.lcao,
         )
         pinput.run()
         return 0
@@ -92,7 +103,8 @@ class InputsModel(Model):
 class PrepInput:
     def __init__(self, files, filetype, jobtype, pp_path=None, orb_path=None, input_file=None, kpt=None,
                  abacus_command="OMP_NUM_THREADS=1 mpirun -np 16 abacus", machine="c32_m64_cpu", 
-                 image="registry.dp.tech/dptech/abacus-stable:LTSv3.10"):
+                 image=RECOMMAND_IMAGE,
+                 lcao=False):
         if jobtype not in JOB_TYPES:
             raise ValueError(f"Unsupported job type: {jobtype}.\nSupported job types are {list(JOB_TYPES.keys())}.")
         
@@ -106,6 +118,7 @@ class PrepInput:
         self.abacus_command = abacus_command
         self.machine = machine
         self.image = image
+        self.lcao = lcao
         
         if self.pp_path is None and os.environ.get("ABACUS_PP_PATH") is not None:
             self.pp_path = os.environ["ABACUS_PP_PATH"]
@@ -122,24 +135,29 @@ class PrepInput:
         print("")
     
     def run(self):
+        recommanded_param = JOB_TYPES[self.jobtype]
+        auto_ecutwfc = True
+        if self.lcao:
+            recommanded_param.update(LCAO_PARAM)
+            auto_ecutwfc = False
+        
         if self.input_file is None:
             print("Automatically generate the input file.")
-            input_param = JOB_TYPES[self.jobtype]
-            auto_ecutwfc = True
+            input_param = recommanded_param
         else:
             input_param = ReadInput(self.input_file)
-            if input_param.get("calculation") != JOB_TYPES[self.jobtype]["calculation"]:
+            if input_param.get("calculation") != recommanded_param["calculation"]:
                 print(f"Warning: the calculation type in the input file is {input_param['calculation']}, but the job type is {self.jobtype}.")
-                print(f"         Automatically set the calculation type to {JOB_TYPES[self.jobtype]['calculation']}.")
-                input_param["calculation"] = JOB_TYPES[self.jobtype]["calculation"]
+                print(f"         Automatically set the calculation type to {recommanded_param['calculation']}.")
+                input_param["calculation"] = recommanded_param["calculation"]
             if "ecutwfc" in input_param:
                 auto_ecutwfc = False
             
             # update other required parameters
-            for key in JOB_TYPES[self.jobtype]:
+            for key in recommanded_param:
                 if key in input_param or (key.startswith("#") and key[1:] in input_param):
                     continue
-                input_param[key] = JOB_TYPES[self.jobtype][key]
+                input_param[key] = recommanded_param[key]
             
         jobs = self.gen_abacus_inputs(self.files, self.filetype, 
                                       self.pp_path, self.orb_path, 
