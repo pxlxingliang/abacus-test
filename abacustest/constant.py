@@ -265,3 +265,4 @@ PERIOD_DICT_NUMBER = {'H': 1, 'He': 2, 'Li': 3, 'Be': 4, 'B': 5, 'C': 6, 'N': 7,
 'Ra': 88, 'Ac': 89, 'Th': 90, 'Pa': 91, 'U': 92, 'Np': 93, 'Pu': 94, 'Am': 95, 'Cm': 96, 'Bk': 97, 'Cf': 98, \
 'Es': 99, 'Fm': 100, 'Md': 101, 'No': 102, 'Lr': 103}
 
+RECOMMAND_IMAGE = "registry.dp.tech/dptech/abacus-stable:LTSv3.10"

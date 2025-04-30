@@ -5,6 +5,7 @@ from abacustest.lib_collectdata.collectdata import RESULT
 from abacustest.prepare import PrepareAbacus
 from ..model import Model
 from . import comm
+from abacustest.constant import RECOMMAND_IMAGE
 
 PREPARE_DOC="""
     This model is used to do the finite difference test of force. 
@@ -89,7 +90,7 @@ class fdforce(Model):
                 "run_dft": {
                     "example": subfolders,
                     "command": "OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
-                    "image": "registry.dp.tech/deepmodeling/abacus-intel:latest",
+                    "image": RECOMMAND_IMAGE,
                     "bohrium": {
                         "scass_type": "c32_m64_cpu",
                         "job_type": "container",

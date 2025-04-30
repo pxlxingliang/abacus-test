@@ -2,7 +2,7 @@ import traceback,json,sys,os
 from dp.launching.typing.basic import BaseModel,String,Float,Int,Boolean,Set
 from dp.launching.typing import Field
 from enum import Enum
-
+from abacustest.constant import RECOMMAND_IMAGE
 
 from . import (comm_class,
                comm_func,
@@ -33,7 +33,7 @@ class NewSetting(BaseModel):
 
     stress_comp: Set[ComponentEnum] = Field(default=("11","12","13","22","23","33"),title="Stress Components",description="The stress components to test.",)
     
-    abacus_image: String = Field(default="registry.dp.tech/deepmodeling/abacus-intel:latest",
+    abacus_image: String = Field(default=RECOMMAND_IMAGE,
                           title="Abacus Image",
                           description="The image to run abaucs.",)
     abacus_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",

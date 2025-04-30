@@ -2,7 +2,10 @@ import os,sys,glob,json
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,WriteInput,WriteKpt
 from ..model import Model
 from . import comm
-
+import numpy as np
+import matplotlib.pyplot as plt
+import traceback
+from abacustest.constant import RECOMMAND_IMAGE
 
 class Phonon(Model):
     '''
@@ -47,7 +50,7 @@ class Phonon(Model):
         The arguments can not be command, model, modelcommand '''
         parser.description = "This script is used to preapre the calculation of phonon calculation by abacus and phonopy."
         parser.add_argument('--abacus_command', type=str,  default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",help='the command to run abacus job')
-        parser.add_argument('--abacus_image', type=str,  default="registry.dp.tech/deepmodeling/abacus-intel:latest",help='the image to run abacus job')
+        parser.add_argument('--abacus_image', type=str,  default=RECOMMAND_IMAGE,help='the image to run abacus job')
         parser.add_argument('--abacus_machine', type=str,  default="c32_m64_cpu",help='the machine to run abacus job')
         parser.add_argument('-p', '--phonopy', type=str,  default="phonopy",help='the path of phonopy executable, default is phonopy') 
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is the current path.')
@@ -79,6 +82,7 @@ class Phonon(Model):
         parser.add_argument('-p', '--phonopy', type=str,  default="phonopy",help='the path of phonopy executable, default is phonopy') 
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is the current path.')
         parser.add_argument('-s', '--setting',default="setting.conf",help='the setting file for phonopy, default is setting.conf')
+        parser.add_argument('--onlyplot', action='store_true', help='only plot the phonon band structure, do not run the phonopy postprocess')
 
     def run_postprocess(self,params):
         '''
@@ -86,7 +90,7 @@ class Phonon(Model):
         phonopy = params.phonopy
         jobs = params.job if len(params.job) == 1 else params.job[1:]
         print(params)
-        PostprocessPhonon(jobs,phonopy,params.setting)
+        PostprocessPhonon(jobs,phonopy,params.setting,params.onlyplot)
     
 def PreparePhono(jobs,abacus_command,abacus_image,abacus_machine,phonopy,settingf="setting.conf") :
     allexamples = []
@@ -143,7 +147,7 @@ def PreparePhono(jobs,abacus_command,abacus_image,abacus_machine,phonopy,setting
     comm.dump_setting(setting)  
     return setting
 
-def PostprocessPhonon(jobs,phonon,settingf="setting.conf"):
+def PostprocessPhonon(jobs,phonon,settingf="setting.conf",only_plot=False):
     if len(jobs) == 0:
         print("No jobs are specified.")
         return
@@ -154,82 +158,224 @@ def PostprocessPhonon(jobs,phonon,settingf="setting.conf"):
         if not os.path.isdir(ijob):
             continue
         os.chdir(ijob)
-        if not os.path.isfile("phonopy_disp.yaml"):
-            print("Error: phonopy_disp.yaml not exist in",ijob)
-            continue
         
-        return_code, out, err = comm.run_command(f"{phonon} -f */OUT.*/running_*.log",shell=True)
-        if return_code != 0:
-            print(out,"\n",err)
-            print("Error: catch force failed in",ijob)
-            continue
-        
-        return_code, out, err = comm.run_command(f"{phonon} -p {settingf} --abacus -s",shell=True)
-        if return_code != 0:
-            print(out,"\n",err)
-            print("Error: run phonopy postprocess failed in",ijob)
-            continue
+        if not only_plot:
+            if not os.path.isfile("phonopy_disp.yaml"):
+                print("Error: phonopy_disp.yaml not exist in",ijob)
+                continue
+            
+            os.system(f"{phonon} -f */OUT.*/running_*.log")
+            #return_code, out, err = comm.run_command(f"{phonon} -f */OUT.*/running_*.log",shell=True)
+            #if return_code != 0:
+            #    print(out,"\n",err)
+            #    print("Error: catch force failed in",ijob)
+            #    continue
+
+            os.system(f"{phonon} -p {settingf} --abacus -s")
+            #return_code, out, err = comm.run_command(f"{phonon} -p {settingf} --abacus -s",shell=True)
+            #if return_code != 0:
+            #    print(out,"\n",err)
+            #    print("Error: run phonopy postprocess failed in",ijob)
+            #    continue
         
         pngfile ="phonon_band_structure.png"
-        if plot_phonon(pngfile):
+        if plot_phonon("band.yaml",save_file=pngfile) is None:
             print("Error: plot phonon failed in",ijob)
             continue
         else:
             supermetrics[f"{ijob}-phonon"] = {"type":"image","file":os.path.join(ijob,pngfile)}
+            print(f"Plot phonon band structure in {ijob} saved in {os.path.join(ijob,pngfile)} successfully!!!")
         os.chdir(cwd)
         
     if len(supermetrics) > 0:
         json.dump(supermetrics, open("supermetrics.json", "w"), indent=4)
     
+def rearrange_labels(distances, frequencies, labels, new_labels):
+    new_distances = []
+    new_frequencies = []
+    end_distance = 0
+    for label in new_labels:
+        if label in labels:
+            label_idx = labels.index(label)
+            reverse = False
+        elif label[::-1] in labels:
+            label_idx = labels.index(label[::-1])
+            reverse = True
+        else:
+            
+            raise ValueError(f"Label {label} not found in labels.")
+            
+        idis = distances[label_idx]
+        ifreq = frequencies[label_idx]
+        if reverse:
+            idis = [-1*i for i in idis[::-1] ]
+            ifreq = ifreq[::-1]
+        new_distances.append([i + end_distance - idis[0] for i in idis])
+        new_frequencies.append(ifreq)
+        end_distance += idis[-1] - idis[0]
+    return new_distances, new_frequencies, new_labels
 
-def plot_phonon(savefile="phonon_band_structure.png"):
+def read_band_yaml(filename):
     import yaml
-    import matplotlib.pyplot as plt
-    import numpy as np
+    with open(filename, 'r') as file:
+        data = yaml.safe_load(file)
 
-    # Load the band.yaml file
-    if not os.path.isfile("band.yaml"):
-        print("Error: band.yaml not exist.")
-        return 1
+    labels = []
+    for path in data['labels']:
+        labels.append((path[0], path[1]))
     
-    with open("band.yaml", 'r') as stream:
-        data = yaml.safe_load(stream)
-
-    npath = data['npath']
-    segment_nqpoint = data['segment_nqpoint']
-
-    # Get the Q-point path and the frequencies at each Q-point
-    q_points = [q['q-position'] for q in data['phonon']]
-    distances = [q['distance'] for q in data['phonon']]
-    frequencies = [[band['frequency'] for band in q['band']] for q in data['phonon']]
-
-    # Assume `distances` is a list with distances from Gamma point in the reciprocal space
-    # so that we have a continuous X-axis.
-    #distance_points = np.cumsum([0] + [np.linalg.norm(np.subtract(q_points[i], q_points[i + 1])) for i in range(len(q_points) - 1)])
-    frequency_array = np.array(frequencies)
-
-    # Plot the phonon band structure
-    for band in range(frequency_array.shape[1]):
-        plt.plot(distances, frequency_array[:, band], color='blue')
-
-    # Adding labels and title
-    plt.xlabel('Distance along q-point path')
-    plt.ylabel('Frequency (THz)')
-    plt.title('Phonon Band Structure')
-
-    # x is the distance between the q-points
-    # y is the frequency of the phonon mode
-    # plot the figure
-    plt.xlim(0, distances[-1])
-    # find the ylim by using the min and max of the frequencies
-    plt.ylim(np.min(frequency_array)-2, np.max(frequency_array)+2)
-    plt.axhline(y=0, color='black', linewidth=0.5)
-    plt.axvline(x=0, color='black', linewidth=0.5)
-    plt.axvline(x=distances[-1], color='black', linewidth=0.5)
-    for i in range(npath):
-        num = sum(segment_nqpoint[:i])
-        x = distances[num]
-        plt.axvline(x, color='black', linewidth=0.5)
+    segments = data['segment_nqpoint']
+    qpoints = data['phonon']
     
-    plt.savefig(savefile)
+    distances = []
+    frequencies = []
+    for q in qpoints:
+        distances.append(q['distance'])
+        freqs = [band['frequency'] for band in q['band']]
+        frequencies.append(freqs)
+    
+    frequencies = np.array(frequencies) # shape (nq, nband)
+    
+    split_indices = np.cumsum(segments)[:-1]
+    
+    # split distances and frequencies
+    new_distances = []
+    new_frequencies = []
+    begin_idx = 0
+    for end_idx in split_indices:
+        new_distances.append(distances[begin_idx:end_idx])
+        new_frequencies.append(frequencies[begin_idx:end_idx])
+        begin_idx = end_idx
+    new_distances.append(distances[begin_idx:])
+    new_frequencies.append(frequencies[begin_idx:])
+
+    return new_distances, new_frequencies, labels
+
+def plot_phonon(yaml_file="band.yaml", 
+                type_label = None, 
+                high_symmetry_path = None,
+                save_file="band.png"):
+    '''Plot the phonon band structure from yaml file
+    
+    Args:
+        yaml_file (str|list): The yaml files to plot
+        type_label (list): The label of the band structure
+        high_symmetry_path (list of tuples): The high symmetry path, used to rearrange the labels
+        savefile (str): The file name to save the plot
+    
+    Returns:
+        datas (list): The data of the band structure, each element is a tuple of (distances, frequencies, q_labels)
+        labels (list): The labels of the band structure
+        
+    If you want to plot multiple yaml files, type_label should be a list of the same length as yaml_file.
+    '''
+
+    if isinstance(yaml_file, str):
+        yaml_file = [ yaml_file ]
+
+    if type_label is not None and isinstance(type_label, str):
+        type_label = [type_label]
+    elif type_label is None and len(yaml_file) > 1:
+        type_label = [i for i in yaml_file]
+    
+    if type_label is not None and len(type_label) != len(yaml_file):
+        print("Error: The length of label and yaml_file should be the same.")
+        return None
+
+    # check files
+    datas = []
+    labels = []
+    for i, file in enumerate(yaml_file):
+        if not os.path.isfile(file):
+            print(f"Error: {file} not exist.")
+            continue
+        try:
+            distances, frequencies, q_labels = read_band_yaml(file)
+            if high_symmetry_path is not None:
+                distances, frequencies, q_labels = rearrange_labels(distances, frequencies, q_labels, high_symmetry_path)
+        except:
+            traceback.print_exc()
+            print(f"Error: read {file} failed.")
+            continue
+        
+        datas.append((distances, frequencies, q_labels))
+        if type_label is not None:
+            labels.append(type_label[i])
+            
+    if len(datas) == 0:
+        print("Error: No valid yaml file.")
+        return None 
+
+    colors = [
+        "#d62728",  # 红色
+        "#1f77b4",  # 蓝色
+        "#2ca02c",  # 绿色
+        "#ff7f0e",  # 橙色
+        "#9467bd",  # 紫色
+        "#8c564b",  # 棕色
+        "#e377c2",  # 粉色
+        "#7f7f7f",  # 灰色
+        "#bcbd22",  # 黄绿色
+        "#17becf"   # 青色
+    ]
+    if len(datas) > len(colors):
+        colors = plt.cm.viridis(np.linspace(0, 1, len(datas)))
+    plt.figure(figsize=(8, 6))
+    for i, (distances, frequencies, q_labels) in enumerate(datas):
+        for j, distance in enumerate(distances):
+            freq = np.array(frequencies[j])
+            for k in range(freq.shape[1]):
+                if j == 0 and k==0 and type_label is not None:
+                    label = labels[i]
+                else:
+                    label = None
+                plt.plot(distance, freq[:, k], "-", lw=1, label=label, color=colors[i])
+
+    for x in distances[1:]:
+        plt.axvline(x[0], color='black', linestyle='--', lw=0.8)
+
+    print(q_labels)
+    tick_pos = [distances[0][0]]
+    tick_labels = [q_labels[0][0]]
+    for idx, distance in enumerate(distances):
+        if idx == 0:continue
+        tick_pos.append(distance[0])
+        if q_labels[idx-1][-1] == q_labels[idx][0]:
+            label = q_labels[idx][0]
+        else:
+            label = f"{q_labels[idx-1][-1]}|{q_labels[idx][0]}"
+        tick_labels.append(label)
+    
+    tick_pos.append(distances[-1][-1])
+    tick_labels.append(q_labels[-1][1])
+
+    print(tick_pos)
+    print(tick_labels)
+    plt.xticks(tick_pos, tick_labels, fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.xlim(0, distances[-1][-1])
+    plt.axhline(0, color='gray', linestyle='--', lw=0.8, alpha=0.5)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    y_max = np.max(frequencies)
+    y_min = np.min(frequencies) - 0.1 * y_max
+    if type_label is not None:
+        # set the maximum Y to 1.3 * y_max
+        plt.ylim(y_min, y_max * 1.3)
+        if len(labels) <= 3:
+            ncol = len(labels)
+        else:
+            ncol = int(len(labels)**0.5) + 1
+        plt.legend(fontsize=12, frameon=False, loc='upper center', ncol=ncol)
+    
+    plt.xlabel("Q-Point", fontsize=14)
+    plt.ylabel("Frequency (THz)", fontsize=14)
+    
+    plt.tight_layout()
+    plt.savefig(save_file,dpi=300)
     plt.close()
+    
+    return (datas, labels)
+    
+    
+    

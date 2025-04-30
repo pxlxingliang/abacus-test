@@ -23,11 +23,12 @@ from enum import Enum
 from typing import Literal
 import re
 from . import comm_class
+from abacustest.constant import RECOMMAND_IMAGE
 
 
 class Image(BaseModel):
     type: Literal["Local Image"]
-    image: String = Field(default="registry.dp.tech/deepmodeling/abacus-intel:latest",
+    image: String = Field(default=RECOMMAND_IMAGE,
                           title="",
                           description="",)
 
@@ -35,7 +36,7 @@ class Image(BaseModel):
 class ImageBohrium(BaseModel):
     type: Literal["Use Bohrium Image"]
 
-    image: String = Field(default=BohriumMachineType("registry.dp.tech/deepmodeling/abacus-intel:latest"),
+    image: String = Field(default=BohriumMachineType(RECOMMAND_IMAGE),
                           title="Bohrium Image Address",
                           description="",)
     bohrium_machine_type: BohriumMachineType = Field(default=BohriumMachineType("c32_m64_cpu"))

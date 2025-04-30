@@ -5,6 +5,7 @@ import numpy as np
 from abacustest.lib_prepare.abacus import ReadInput, WriteInput, ReadKpt, WriteKpt, AbacusStru
 from abacustest.constant import RY2EV
 from abacustest.lib_collectdata.comm import cal_band_gap
+from abacustest.constant import RECOMMAND_IMAGE
 
 class BandModel(Model):
     @staticmethod
@@ -30,7 +31,7 @@ class BandModel(Model):
         parser.description = "Prepare the band structure calculation. Will generate the scf/nscf/kpath input files."
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder')
         parser.add_argument("-c", "--rundftcommand", type=str, default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",help="the command to execute aabcus, default is 'OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log' ")
-        parser.add_argument("-i","--image",default="registry.dp.tech/deepmodeling/abacus-intel:latest",type=str,help="the used image. Default is: registry.dp.tech/deepmodeling/abacus-intel:latest", )
+        parser.add_argument("-i","--image",default=RECOMMAND_IMAGE,type=str,help="the used image. Default is: registry.dp.tech/dptech/abacus-stable:LTSv3.10", )
         parser.add_argument("--machine", default="c32_m64_cpu", help="the machine to run the abacus. Default is c32_m64_cpu")
         parser.add_argument("-r", "--run", default=0, help="if run the test. Default is 0.", type=int)
         return parser
