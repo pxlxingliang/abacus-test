@@ -4,6 +4,7 @@ from dp.launching.typing import Field
 import os
 
 from abacustest.lib_model.model_005_Phonon import PreparePhono,PostprocessPhonon
+from abacustest.constant import RECOMMAND_IMAGE
 
 from . import (comm_class,
                comm_func,
@@ -13,7 +14,7 @@ from . import (comm_class,
 
 
 class Images(BaseModel):
-    abacus_image: String = Field(default="registry.dp.tech/deepmodeling/abacus-intel:latest",
+    abacus_image: String = Field(default=RECOMMAND_IMAGE,
                           title="abacus Image",
                           description="If you do not want to use the default image, please enter the new image here.",)
     abacus_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
