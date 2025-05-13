@@ -111,7 +111,7 @@ class SPTest:
             try:
                 print(i)
                 result = RESULT(path = i, fmt = jobtype)
-                ir = {key: result[key] for key in ["natom","label","nelec","normal_end", "converge", "volume","total_time", "scf_steps", 
+                ir = {key: result[key] for key in ["natom","label","nelec","normal_end","nkstot","ibzk", "converge", "volume","total_time", "scf_steps", 
                                                    "energy", "force", "stress", "virial", "ds_mag_force"]}
                 r.update({i: ir})
             except:
@@ -170,6 +170,8 @@ class SPTest:
                 "label": self.gen_label(result.get("label")),
                 "natom": result.get("natom"),
                 "nelec": result.get("nelec"),
+                "nkpoint": result.get("nkstot"),
+                "ibzk": result.get("ibzk"),
                 "volume(A^3)": result.get("volume"),
                 "NormalEnd": result.get("normal_end"),
                 "Converge": result.get("converge"),

@@ -4,7 +4,7 @@ import struct
 from pprint import pprint
 from typing import Iterator
 from tqdm  import tqdm
-from loguru import logger
+#from loguru import logger
 from aim.storage.treeutils import decode_tree
 
 def decode_encoded_tree_stream(stream: Iterator[bytes], concat_chunks=False) -> bytes:
@@ -147,7 +147,7 @@ def get_runs(token,experiment,experiment_id,needed_tags=None,collect_metrics=Fal
     all_run_infos = []
     all_run = []
     experiment_info = get_experiment_info(experiment_id, token)
-    logger.info(experiment_info)
+    #logger.info(experiment_info)
     total = experiment_info['run_count']
     needed_tags = set(needed_tags) if needed_tags else None
     with tqdm(total=total) as pbar:
@@ -170,7 +170,7 @@ def get_runs(token,experiment,experiment_id,needed_tags=None,collect_metrics=Fal
             except KeyError: # already empty
                 break
     elapsed = time.time() - start
-    logger.info(f'All done! elapsed: {elapsed}')
+    #logger.info(f'All done! elapsed: {elapsed}')
     return all_run,all_run_infos
 
 '''

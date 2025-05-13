@@ -25,10 +25,22 @@ class ABACUSImage(String, Enum):
     latest_cuda = "registry.dp.tech/deepmodeling/abacus-cuda:latest"
 
 class JobTypeEnum(String, Enum):
-    scf = "scf"
-    relax = "relax"
-    cellrelax = "cell-relax"
-    band = "band"
+    scf = "单点计算"
+    relax = "原子弛豫"
+    cellrelax = "晶格弛豫"
+    band = "能带计算"
+
+def parse_job_type(job_type):
+    if job_type == "单点计算":
+        return "scf"
+    elif job_type == "原子弛豫":
+        return "relax"
+    elif job_type == "晶格弛豫":
+        return "cellrelax"
+    elif job_type == "能带计算":
+        return "band"
+    else:
+        raise ValueError(f"Unknown job type: {job_type}")
 
 class BasisTypeEnum(String, Enum):
     pw = "pw"
@@ -42,10 +54,11 @@ class NewSetting(BaseModel):
     pp_type: PPTypeEnum = Field(default="ABACUS-V1",
                             title="Pseudopotential and orbital type",
                             description="Please choose one of the pseudopotential and orbital type",)
-    job_type: JobTypeEnum = Field(default="scf",
+    job_type: JobTypeEnum = Field(default="单点计算",
                             title="Job type",
                             description="Please choose one of the job type",)
-    basis_type: BasisTypeEnum = Field(default="pw",
+    
+    basis_type: BasisTypeEnum = Field(default="lcao",
                             title="Basis type",
                             description="Please choose one of the basis type",)
     
@@ -94,7 +107,7 @@ def AutoABACUSRunner(opts:AutoABACUSModel) -> int:
                            abacus_command=opts.abacus_command,
                            machine=opts.bohrium_machine,
                            image=opts.abacus_image,
-                           jobtype=opts.job_type,
+                           jobtype=parse_job_type(opts.job_type),
                            lcao=True if opts.basis_type == "lcao" else False,
                            ).run()
         

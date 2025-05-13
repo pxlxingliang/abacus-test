@@ -1,11 +1,19 @@
-import traceback
-from dp.launching.cli import SubParser,run_sp_and_exit,default_exception_handler
-from abacustest.launching import (model_normal,
- model_selfDefine,
- model_summary,
- model_postdft,
- model_predft,
- model_advanced,
+
+from dp.launching.cli import (
+    SubParser,
+    default_minimal_exception_handler,
+    run_sp_and_exit,
+    to_runner,
+    default_exception_handler
+)
+
+from abacustest.launching import (
+    #model_normal,
+ #model_selfDefine,
+ #model_summary,
+ #model_postdft,
+ #model_predft,
+ #model_advanced,
  model_expert,
  model_report,
  model_reuse,
