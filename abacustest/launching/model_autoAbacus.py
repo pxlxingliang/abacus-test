@@ -3,6 +3,7 @@ from dp.launching.typing.basic import BaseModel,String,Float,Int,Boolean,Set
 from dp.launching.typing import Field
 from enum import Enum
 from abacustest.lib_model.model_013_inputs import PrepInput
+from abacustest.lib_model.model_012_band import PostBand
 
 
 from . import (comm_class,
@@ -16,8 +17,14 @@ class StruTypeEnum(String, Enum):
     stru = "abacus/stru"
 
 class PPTypeEnum(String, Enum):
-    abacusv1 = "ABACUS-V1"
+    apnsv1 = "apns-V1"
     
+def parse_pp_type(pp_type):
+    if pp_type == "apns-V1":
+        return "/root/pporb/ABACUS-v1/pp","/root/pporb/ABACUS-v1/orb"
+    else:
+        raise ValueError(f"Unknown pp type: {pp_type}")
+
 class ABACUSImage(String, Enum):
     ltsv310 = "registry.dp.tech/dptech/abacus-stable:LTSv3.10"
     latest_intel = "registry.dp.tech/deepmodeling/abacus-intel:latest"
@@ -51,9 +58,10 @@ class NewSetting(BaseModel):
                             title="Structure format",
                             description="The format of the structures",)
     
-    pp_type: PPTypeEnum = Field(default="ABACUS-V1",
+    pp_type: PPTypeEnum = Field(default="apns-V1",
                             title="Pseudopotential and orbital type",
                             description="Please choose one of the pseudopotential and orbital type",)
+    
     job_type: JobTypeEnum = Field(default="单点计算",
                             title="Job type",
                             description="Please choose one of the job type",)
@@ -74,6 +82,24 @@ class NewSetting(BaseModel):
                             title="Bohrium Machine",
                             description="The bohrium machine type to run abacus",)
 
+
+def post_process(job_type, job_path, work_path):
+    """
+    Post process the job
+    """
+    if job_type in ["scf", "relax", "cell-relax"]:
+        pass
+    elif job_type == "band":
+        pwd = os.getcwd()
+        os.chdir(work_path)
+        PostBand(job_path).run()
+        json.dump({
+            "band structure of " + i: {"type": "image", "file": os.path.join(i, "band.png")} for i in job_path
+        },
+        open("supermetrics.json", "w"),indent=4)
+        os.chdir(pwd)
+    else:
+        raise ValueError(f"Unknown job type: {job_type}")
 
 class AutoABACUSModel(
     NewSetting,
@@ -101,13 +127,15 @@ def AutoABACUSRunner(opts:AutoABACUSModel) -> int:
         os.chdir(work_path)
         allfiles = datas["all_files"]
         
+        job_type = parse_job_type(opts.job_type)
+        pppath, orbpath = parse_pp_type(opts.pp_type)
         allparams, job_path = PrepInput(allfiles, opts.stru_type, 
-                           pp_path=f"/root/pporb/{opts.pp_type}/pp",
-                           orb_path=f"/root/pporb/{opts.pp_type}/orb", 
+                           pp_path=pppath,
+                           orb_path=orbpath, 
                            abacus_command=opts.abacus_command,
                            machine=opts.bohrium_machine,
                            image=opts.abacus_image,
-                           jobtype=parse_job_type(opts.job_type),
+                           jobtype=job_type,
                            lcao=True if opts.basis_type == "lcao" else False,
                            ).run()
         
@@ -151,6 +179,7 @@ def AutoABACUSRunner(opts:AutoABACUSModel) -> int:
 
         # execut
         stdout,stderr = comm_func.exec_abacustest(allparams,work_path)
+        post_process(job_type, job_path, work_path)
         os.chdir(pwd)
         comm_report.gen_report(opts,logs,work_path,output_path,allparams)
     except:
