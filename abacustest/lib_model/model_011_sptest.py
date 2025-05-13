@@ -7,6 +7,7 @@ from abacustest.report import gen_html
 from abacustest.lib_report.table import output_float
 from .comm_plot import auto_set_yaxis
 from abacustest.lib_collectdata.collectdata import RESULT
+import copy
 
 
 class SPTestModel(Model):
@@ -31,19 +32,28 @@ class SPTestModel(Model):
         parser.add_argument("--ref",type=str,default=None, help="the reference results in json file",)
         parser.add_argument("--testn",type=str,default="TEST", help="the label of test jobs",)
         parser.add_argument("--refn",type=str,default="REF", help="the label of reference results",)
+        parser.add_argument("--remove_none_point", action="store_true", help="if remove the point where one of the value is None")
+        parser.add_argument("--dpi", type=int, default=200, help="the dpi of the output image")
 
         
     def run(self,params):
-        cm = SPTest(params.job, params.jobtype, params.ref, params.testn, params.refn)
+        print(params)
+        cm = SPTest(params.job, params.jobtype, params.ref, params.testn, params.refn,
+                    remove_none_point=params.remove_none_point,
+                    dpi=params.dpi)
         cm.run()
         
                     
 class SPTest:
-    def __init__(self, jobs, jobtype, ref, testn, refn,):
+    def __init__(self, jobs, jobtype, ref, testn, refn,
+                 remove_none_point=False,
+                 dpi=200):
         self.test_r = self.read_test(jobs, jobtype)
         self.ref_r = self.read_reference(ref)
         self.testn = testn
         self.refn = refn
+        self.remove_none_point = remove_none_point # if remove the point where one of the value is None
+        self.dpi = dpi
     
     def run(self):
         if len(self.test_r) == 0:
@@ -57,7 +67,9 @@ class SPTest:
         json.dump(report, open("report.json", "w"), indent=4)
         
         # 2. plot the statistical results
-        self.plot_report(report, cretria_set, "acc.png", "perf.png")
+        self.plot_report(report, cretria_set, "acc.png", "perf.png", 
+                         remove_none_point=self.remove_none_point,
+                         dpi=self.dpi)
         json.dump({"acc_results":{"type": "image", "file": "acc.png"},
                    "per_results": {"type": "image", "file": "perf.png"}}, open("supermetrics.json", "w"), indent=4)
         
@@ -243,7 +255,8 @@ class SPTest:
                 
         return nrow, ncol
     
-    def plot_report(self, report, cretria_set, acc_fname="acc.png", perf_fname="perf.png"):
+    def plot_report(self, report, cretria_set, acc_fname="acc.png", perf_fname="perf.png",remove_none_point=False, dpi=200):
+        # remove_none_point: if remove the point where one of the value is None
         metric_keys = list(report[list(report.keys())[0]].keys())
         example_name = list(report.keys())
         example_idx = np.arange(len(example_name))
@@ -281,23 +294,30 @@ class SPTest:
             axs = np.array(axs).flatten()
             for i in range(len(acc_keys)):
                 if acc_ifplot[i]:
+                    example_idx_tmp = copy.deepcopy(example_idx)
+                    example_name_tmp = copy.deepcopy(example_name)
                     ax = axs[i]
                     criteria_line = float(cretria_set[acc_keys[i]].split("<")[-1])
-                    x, y = comm.clean_none_list(example_idx, acc_data[i])
+                    x, y,e_tmp = comm.clean_none_list(example_idx, acc_data[i], example_name)
+                    
+                    if remove_none_point:
+                        x = np.arange(len(y))
+                        example_idx_tmp = x
+                        example_name_tmp = e_tmp
+                        
                     ax.bar(x, y, label=acc_keys[i])
-                    ax.set_xticks(example_idx)
-                    ax.set_xticklabels(example_name, rotation=30, fontsize=fontsize-2, ha="right")
+                    ax.set_xticks(example_idx_tmp)
+                    ax.set_xticklabels(example_name_tmp, rotation=30, fontsize=fontsize-2, ha="right")
                     ax.set_title(acc_keys[i], fontsize=fontsize)
                     #ymin, ymax = auto_set_yaxis(ax, y, log_scale_threshold=1000)
                     ax.axhline(criteria_line, color="red", linestyle="--", label=f"{criteria_line}")
                     ax.set_yscale("log")
                     
-
                     ax.set_xlabel("Example", fontsize=fontsize)
                     ax.set_ylabel(acc_keys[i], fontsize=fontsize)
                     ax.legend(fontsize=fontsize-2)
             plt.tight_layout()
-            plt.savefig(acc_fname)
+            plt.savefig(acc_fname,dpi=dpi)
             plt.close()
         
         nfig = sum(per_ifplot)
@@ -308,20 +328,31 @@ class SPTest:
             for i in range(len(per_keys)):
                 if per_ifplot[i]:
                     ax = axs[i]
+                    example_idx_tmp = copy.deepcopy(example_idx)
+                    example_name_tmp = copy.deepcopy(example_name)
                     if per_data2[i] is None:
-                        x, tot_y = comm.clean_none_list(example_idx, per_data1[i])
+                        x, tot_y,e_tmp = comm.clean_none_list(example_idx, per_data1[i], example_name)
+                        if remove_none_point:
+                            x = np.arange(len(tot_y))
+                            example_idx_tmp = x
+                            example_name_tmp = e_tmp
                         ax.bar(x, tot_y, label=f"{self.testn}")
                     else:
-                        tot_y = []
-                        x, y = comm.clean_none_list(example_idx, per_data1[i])
-                        tot_y += y
-                        ax.bar(np.array(x)-0.2, y, label=f"{self.testn}", width=0.4)
-                        x, y = comm.clean_none_list(example_idx, per_data2[i])
-                        tot_y += y
-                        ax.bar(np.array(x)+0.2, y, label=f"{self.refn}", width=0.4)
+                        if remove_none_point:
+                            x1, y1, x2, y2, e_tmp = comm.clean_none_list(example_idx, per_data1[i], example_idx, per_data2[i], example_name)
+                            x1 = x2 = np.arange(len(y1))
+                            example_idx_tmp = x1
+                            example_name_tmp = e_tmp
+                        else:
+                            x1, y1 = comm.clean_none_list(example_idx, per_data1[i])
+                            x2, y2 = comm.clean_none_list(example_idx, per_data2[i])
+                        
+                        ax.bar(np.array(x1)-0.2, y1, label=f"{self.testn}", width=0.4)
+                        ax.bar(np.array(x2)+0.2, y2, label=f"{self.refn}", width=0.4)
+                        tot_y = y1 + y2
 
-                    ax.set_xticks(example_idx)
-                    ax.set_xticklabels(example_name, rotation=30, fontsize=fontsize-2, ha="right")
+                    ax.set_xticks(example_idx_tmp)
+                    ax.set_xticklabels(example_name_tmp, rotation=30, fontsize=fontsize-2, ha="right")
                     ax.set_title(per_keys[i], fontsize=fontsize)
                     ax.set_xlabel("Example", fontsize=fontsize)
                     ax.set_ylabel(per_keys[i], fontsize=fontsize)
@@ -329,17 +360,18 @@ class SPTest:
                     auto_set_yaxis(ax, tot_y,log_scale_threshold=1000)
 
                     if per_data2[i] is not None:
-                        ratio = [None if per_data1[i][j] is None or per_data2[i][j] is None else per_data1[i][j]/per_data2[i][j] for j in range(len(example_name))]
-                        x, y = comm.clean_none_list(example_idx, ratio)
+                        ratio = [None if per_data1[i][j] is None or per_data2[i][j] is None else per_data1[i][j]/per_data2[i][j] for j in range(len(example_name_tmp))]
+                        x, y = comm.clean_none_list(example_idx_tmp, ratio)
                         if len(y) == 0: continue
                         # calculate the geometric mean of ratio
                         ratio = np.prod(y)**(1/len(y))
                         axs1 = ax.twinx()
                         axs1.plot(x, y, color="red", linestyle="--", label=f"{self.testn}/{self.refn}={output_float(ratio)}")
                         axs1.legend(fontsize=fontsize-2, loc="upper right")
+                        axs1.set_ylabel("Ratio", fontsize=fontsize)
                         auto_set_yaxis(axs1, y,log_scale_threshold=1000)
             plt.tight_layout()
-            plt.savefig(perf_fname)
+            plt.savefig(perf_fname,dpi=dpi)
             plt.close()
         return acc_fname, perf_fname
         

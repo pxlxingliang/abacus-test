@@ -36,7 +36,7 @@ def parse_job_type(job_type):
     elif job_type == "原子弛豫":
         return "relax"
     elif job_type == "晶格弛豫":
-        return "cellrelax"
+        return "cell-relax"
     elif job_type == "能带计算":
         return "band"
     else:
