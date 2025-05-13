@@ -378,7 +378,7 @@ def set_plusU(abacus_input,param,label,org_atomtype_idx,version):
                             if not ie:
                                 print("ERROR: Can not find the element of %s" % il)
                                 continue
-                            uorbital = comm.get_period(elements[i])-int(orbital_corr[org_idx])+1
+                            uorbital = comm.get_period(ie)-int(orbital_corr[org_idx])+1
                             orb = pdf[orbital_corr[org_idx]]
                             param["HUBBARD (ortho-atomic)"].append("U %s-%d%s %s" % (il,uorbital,orb,iu))
 
