@@ -21,7 +21,7 @@ class PPTypeEnum(String, Enum):
     
 def parse_pp_type(pp_type):
     if pp_type == "apns-V1":
-        return "/root/pporb/ABACUS-v1/pp","/root/pporb/ABACUS-v1/orb"
+        return "/root/pporb/ABACUS-V1/pp","/root/pporb/ABACUS-V1/orb"
     else:
         raise ValueError(f"Unknown pp type: {pp_type}")
 
