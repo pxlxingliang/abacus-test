@@ -352,7 +352,7 @@ class PostBand:
 
             new_pos.append(pos - pos[0] + start_pos)
             new_bandv.append(bv)
-            start_pos = pos[-1] 
+            start_pos = new_pos[-1][-1] 
         return new_pos, new_symbols, new_bandv
 
     
