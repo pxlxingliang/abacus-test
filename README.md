@@ -362,7 +362,9 @@ Only key "prepare" is recongnized by `abacustest prepare`.
     - `mag_rotate_angle`: the angle of rotation of magnetic moment. Unit in degree. If is null, will not rotate the magnetic moment. 
     - `mag_tilt_angle`: the angle of tilt of magnetic moment. Unit in degree. If is null, will not tilt the magnetic moment. 
     - `mag_norm_dist`: the distance of magnetic moment to the normal direction. If is null, will not move the magnetic moment. Unit in $\mu_B$.\
+    
     Note1: the perturbation of magnetic moment is only valid for the spin-constrained atom that the "sc" of at leaset one magnetic component is 1.
+    
     Note2: the value can also be a list of two values, which means the minimum and maximum value of perturbation. Such as for `atom_pert_dist`: [0.1,0.15], means the perturbation distance of atom is between 0.1 and 0.15 Angstrom, and if the two values are same, the perturbation distance is fixed.
 - `pp_dict`: the pseudopotential dict. The key is the element name, and the value is the pseudopotential file name. Such as: {"H":"H.psp8","O":"O.psp8"}. 
 - `orb_dict`: the orbital dict. The key is the element name, and the value is the orbital file name. Such as: {"H":"H.orb","O":"O.orb"}. 
