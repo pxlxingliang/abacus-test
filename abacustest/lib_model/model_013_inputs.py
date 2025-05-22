@@ -6,6 +6,10 @@ from pathlib import Path
 from abacustest.lib_model.model_012_band import PrepBand
 from abacustest.constant import RECOMMAND_IMAGE
 
+from typing import List, Dict, Any
+from pathlib import Path
+
+
 JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-9, "scf_nmax": 100,
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                     "mixing_beta": 0.8,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
@@ -108,7 +112,11 @@ class PrepInput:
         if jobtype not in JOB_TYPES:
             raise ValueError(f"Unsupported job type: {jobtype}.\nSupported job types are {list(JOB_TYPES.keys())}.")
         
-        self.files = files
+        if not isinstance(files, list):
+            self.files = [files]
+        else:
+            self.files = files
+            
         self.filetype = filetype
         self.jobtype = jobtype
         self.pp_path = pp_path
