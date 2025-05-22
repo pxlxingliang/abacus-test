@@ -377,6 +377,19 @@ class Abacus(ResultAbacus):
                 lg.append(float(line.split()[-1]))
         self['largest_gradient'] = lg
 
+    @ResultAbacus.register(k_coord="list, the direct k point coordinates in the BZ",)
+    def GetKCoordFromLog(self):
+        coord = []
+        nkstot = self["nkstot"]
+        for i, line in enumerate(self.LOG):
+            if "K-POINTS DIRECT COORDINATES" in line:
+                for j in range(i+2, i+2+nkstot):
+                    coord.append([float(k) for k in self.LOG[j].split()[1:4]])
+                break
+        if len(coord) > 0:
+            self['k_coord'] = coord
+        else:
+            self['k_coord'] = None
     
     @ResultAbacus.register(band = "Band of system. Dimension is [nspin,nk,nband].",
                            band_weight = "Band weight of system. Dimension is [nspin,nk,nband]."
