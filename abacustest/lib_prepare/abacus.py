@@ -1473,13 +1473,10 @@ def ReadInput(INPUTf: str = None, input_lines: str = None) -> Dict[str,any]:
         except:
             return ii
     
-    readinput = False
     for i,iline in enumerate(input_lines):
-        if iline.strip()[:16] == 'INPUT_PARAMETERS':
-            readinput = True
-        elif iline.strip() == '' or iline.strip()[0] in ['#']:
+        if iline.strip() == '' or iline.strip()[0] in ['#']:
             continue
-        elif readinput:
+        else:
             sline = re.split('[ \t]',iline.split("#")[0].strip(),maxsplit=1)
             if len(sline) == 2:
                 input_context[sline[0].lower().strip()] = str2intfloat(sline[1].strip())

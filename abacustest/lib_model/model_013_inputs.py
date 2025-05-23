@@ -154,7 +154,7 @@ class PrepInput:
             input_param = recommanded_param
         else:
             input_param = ReadInput(self.input_file)
-            if input_param.get("calculation") != recommanded_param["calculation"]:
+            if "calculation" in input_param and input_param.get("calculation") != recommanded_param["calculation"]:
                 print(f"Warning: the calculation type in the input file is {input_param['calculation']}, but the job type is {self.jobtype}.")
                 print(f"         Automatically set the calculation type to {recommanded_param['calculation']}.")
                 input_param["calculation"] = recommanded_param["calculation"]
