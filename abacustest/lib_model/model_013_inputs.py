@@ -262,10 +262,18 @@ class PrepInput:
         for path, job in job_path.items():
             element = job["element"]
             if auto_ecutwfc and recommand_ecutwfc is not None:
-                default_input["ecutwfc"] = max([recommand_ecutwfc[i] for i in element])
-                recutwfc = {i: recommand_ecutwfc[i] for i in element}
-                print(f"{path}: set ecutwfc to {default_input['ecutwfc']}, recommended ecutwfc: {recutwfc}")
-            
+                ecutwfcs = []
+                for e in element:
+                    if e in recommand_ecutwfc:
+                        ecutwfcs.append(recommand_ecutwfc[e])
+                    else:
+                        print(f"Warning: No recommended ecutwfc for element {e}.")
+                if len(ecutwfcs) == 0:
+                    print(f"Warning: No recommended ecutwfc for elements {element}. Using default ecutwfc {default_input['ecutwfc']}.")
+                else:      
+                    default_input["ecutwfc"] = max(ecutwfcs)
+                    recutwfc = {i: recommand_ecutwfc.get(i,None) for i in element}
+                    print(f"{path}: set ecutwfc to {default_input['ecutwfc']}, recommended ecutwfc: {recutwfc}")
 
             if kpoint is not None:
                 default_input.pop("kspacing",None)

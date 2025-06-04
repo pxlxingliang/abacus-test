@@ -175,7 +175,7 @@ class AbacusStru:
         self._paw = self._clean_pporb(paw)
         
         if (not self._pp):
-            print("WARNING: pp is not defined!!!")
+            #print("WARNING: pp is not defined!!!")
             self._pp = ["" for i in range(len(self._label))]
             
         
