@@ -5,6 +5,76 @@ from pathlib import Path
 from .. import constant
 from . import comm
 
+def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
+    """
+    Generate the structure files for ABACUS.
+    
+    Args:
+        stru_files (list): List of structure files.
+        stru_type (str): Type of the structure files.
+        pp_path (str): Path to the pseudopotential files.
+        orb_path (str): Path to the orbital files.
+    
+    Returns:
+        jobs (dict): Dictionary, key is the job path, value is:
+            {
+                "element": element,
+                "pp": pp,
+                "orb": orb,
+            }
+    """
+    # Translate structure files to ABACUS STRU format
+    stru_paths = comm.translate_strus(stru_files, stru_type, output_path = tpath)
+    if stru_paths is None:
+        print("Error: tanslate structure files failed.")
+        return None
+    print("Structures are translated to ABACUS STRU and saved in",stru_paths)
+    
+    # Find the pseudopotential files and orbital files
+    pp_paths = comm.collect_pp(pp_path) # the return file name is pp_path/pp
+    orb_paths = comm.collect_pp(orb_path)
+    jobs = {}
+    for ipath in stru_paths:
+        istru = os.path.join(ipath, "STRU")
+        stru = AbacusStru.ReadStru(istru)
+        if stru is None:
+            print("Error: read structure failed.")
+            continue
+        element = stru.get_element(number=False, total=False)
+        pp = []
+        orb = []
+        element_no_pp = [ie for ie in element if ie not in pp_paths]
+        if len(element_no_pp) > 0:
+            print(f"Error: some elements of {ipath} have no pseudopotentials.\n  {', '.join(element_no_pp)}")
+        for ie in element:
+            if ie in pp_paths:
+                pp.append(os.path.basename(pp_paths[ie]))
+                t_file = os.path.join(ipath, os.path.basename(pp_paths[ie]))
+                if os.path.isfile(t_file):
+                    os.remove(t_file)
+                os.symlink(os.path.abspath(pp_paths[ie]), t_file)
+            else:
+                pp.append(None)
+            if ie in orb_paths:
+                orb.append(os.path.basename(orb_paths[ie]))
+                t_file = os.path.join(ipath, os.path.basename(orb_paths[ie]))
+                if os.path.isfile(t_file):
+                    os.remove(t_file)
+                os.symlink(os.path.abspath(orb_paths[ie]), t_file)
+            else:
+                orb.append(None)
+        if None not in pp:
+            stru.set_pp(pp)
+        if None not in orb:
+            stru.set_orb(orb)
+        stru.write(os.path.join(ipath, "STRU"))
+        jobs[ipath] = {
+            "element": element,
+            "pp": pp,
+            "orb": orb,
+        } 
+    return jobs
+
 
 class AbacusStru:
     def __init__(self,
@@ -105,7 +175,7 @@ class AbacusStru:
         self._paw = self._clean_pporb(paw)
         
         if (not self._pp):
-            print("WARNING: pp is not defined!!!")
+            #print("WARNING: pp is not defined!!!")
             self._pp = ["" for i in range(len(self._label))]
             
         
@@ -1403,13 +1473,10 @@ def ReadInput(INPUTf: str = None, input_lines: str = None) -> Dict[str,any]:
         except:
             return ii
     
-    readinput = False
     for i,iline in enumerate(input_lines):
-        if iline.strip()[:16] == 'INPUT_PARAMETERS':
-            readinput = True
-        elif iline.strip() == '' or iline.strip()[0] in ['#']:
+        if iline.strip() == '' or iline.strip()[0] in ['#']:
             continue
-        elif readinput:
+        else:
             sline = re.split('[ \t]',iline.split("#")[0].strip(),maxsplit=1)
             if len(sline) == 2:
                 input_context[sline[0].lower().strip()] = str2intfloat(sline[1].strip())

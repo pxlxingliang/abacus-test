@@ -2,6 +2,7 @@ from ..model import Model
 import os, glob, json
 from . import comm,comm_conv,comm_plot
 from abacustest.lib_collectdata.collectdata import RESULT
+from abacustest.constant import RECOMMAND_IMAGE
 
 SETTING_TMP = {
     "save_path": "results",
@@ -9,7 +10,7 @@ SETTING_TMP = {
     "prepare": {"example_template": [], "mix_input": {}},
     "run_dft": {
         "command": "OMP_NUM_THREADS=1 mpirun -n 16 abacus | tee out.log",
-        "image": "registry.dp.tech/deepmodeling/abacus-intel:latest",
+        "image": RECOMMAND_IMAGE,
         "bohrium": {
             "scass_type": "c32_m64_cpu",
             "job_type": "container",

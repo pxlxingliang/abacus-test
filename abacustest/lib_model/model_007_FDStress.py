@@ -8,7 +8,7 @@ from abacustest.lib_prepare.comm import kspacing2kpt
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+from abacustest.constant import RECOMMAND_IMAGE
 
 class fdstress(Model):
     '''
@@ -76,7 +76,7 @@ class fdstress(Model):
                 "run_dft": {
                     "example": subfolders,
                     "command": "OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
-                    "image": "registry.dp.tech/deepmodeling/abacus-intel:latest",
+                    "image": RECOMMAND_IMAGE,
                     "bohrium": {
                         "scass_type": "c32_m64_cpu",
                         "job_type": "container",

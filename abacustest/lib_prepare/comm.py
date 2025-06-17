@@ -1,8 +1,9 @@
 import numpy as np
 from typing import List
 import dpdata
-import os, glob, re
+import os, glob, re, json
 import traceback
+from abacustest.constant import MASS_DICT
 
 def translate_strus(input_strus, input_stru_type, output_path = "."):
     """
@@ -25,6 +26,7 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
         
     output_folders = []
     idx = 0
+    struinfo = {}
     try:
         for istru in input_strus:
             for iistru in glob.glob(istru):
@@ -33,18 +35,26 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
                 elif input_stru_type.lower() == "cif":
                     from ase.io import read as ase_read
                     stru = ase_read(iistru)
-                    stru = dpdata.System(stru, fmt="ase")
+                    stru = dpdata.System(stru, fmt="ase/structure")
                 
+                print("Translating %s to ABACUS stru:" % iistru)
+                struinfo[istru] = []
                 for i in range(stru.get_nframes()):
                     tpath = os.path.join(output_path,"%06d" % idx)
                     os.makedirs(tpath,exist_ok=True)
                     stru.to("abacus/stru", os.path.join(tpath,"STRU"),i)
                     output_folders.append(tpath)
                     idx += 1
+                    print("    Save to %s" % os.path.join(tpath,"STRU"))
+                    with open(os.path.join(tpath,"struinfo.txt"),"w") as f:
+                        f.write(istru)
+                    struinfo[istru].append(os.path.basename(tpath))
     except:
         traceback.print_exc()
         print("ERROR: %s to ABACUS STRU failed" % (input_stru_type))
         return None
+    if len(struinfo) > 0:
+        json.dump(struinfo, open(os.path.join(output_path,"struinfo.json"),"w"), indent=4)
     return output_folders
 
 def read_pp_valence(pp_file):
@@ -61,6 +71,49 @@ def read_pp_valence(pp_file):
         elif "Z valence" in iline:
             return int(iline.split()[0])
     return None
+
+def get_element_name_from_file(filename):
+        #the filename should be started with the element name and followed by character non-alpha
+        def check_element(element):
+            if element.capitalize() in MASS_DICT:
+                return element.capitalize()
+            else:
+                return None
+        filename = os.path.basename(filename)
+        if filename == "":
+            return None
+        if len(filename) == 1:
+            return check_element(filename)
+        
+        element_name = filename[:2]
+        if element_name[-1].isalpha():
+            return check_element(element_name)
+        else:
+            return check_element(filename[0])
+
+def collect_pp(pp_path):
+    # Read the pp_path and collect the pp files
+    # pp_path: the path of the pp files
+    
+    if pp_path is None:
+        return {}
+    
+    pp = {}
+    if os.path.isdir(pp_path):
+        if os.path.isfile(os.path.join(pp_path,"element.json")):
+            for key,value in json.load(open(os.path.join(pp_path,"element.json"))).items():
+                if os.path.isfile(os.path.join(pp_path,value)):
+                    pp[key] = os.path.join(pp_path,value)
+        else:
+            allfiles = os.listdir(pp_path)
+            for ifile in allfiles:
+                if not os.path.isfile(os.path.join(pp_path,ifile)): continue
+                element_name = get_element_name_from_file(ifile)
+                if element_name is not None:
+                    pp[element_name] = os.path.join(pp_path,ifile)
+    else:
+        print(f"Not find pp dir: \'{pp_path}\'\n\tcurrent path: {os.getcwd()}")
+    return pp
 
 def kspacing2kpt(kspacing, cell):
     """
@@ -255,13 +308,19 @@ def pert_vector(vectors:List[List[float]],max_angle):
         print("ERROR: max_angle should be a float or a list, but not %s" % str(max_angle))
         return vectors
     
-    ref_vector = None
-    for ivector in vectors:
-        if np.array(ivector).any() != 0:
-            ref_vector = ivector
-            break
-    if ref_vector is None:
-        return vectors
+    #ref_vector = None
+    #for ivector in vectors:
+    #    if np.array(ivector).any() != 0:
+    #        ref_vector = ivector
+    #        break
+    #if ref_vector is None:
+    #    return vectors
+    
+    # generate a reandom ref_vector
+    ref_vector = np.array([0,0,0])
+    while np.linalg.norm(ref_vector) < 0.1:
+        ref_vector = np.random.rand(3)
+    ref_vector = ref_vector / np.linalg.norm(ref_vector)
     
     axis = np.random.rand(3)
     while np.linalg.norm(axis) < 0.1 or np.cross(axis,ref_vector).any() == 0:

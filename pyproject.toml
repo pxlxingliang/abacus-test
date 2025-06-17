@@ -1,23 +1,57 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=45", "setuptools_scm>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "abacustest"
 dynamic = ["version"]
-description = "abacus test system"
-requires-python = ">=3.6"
+description = "Workflow for the performance running of ABACUS"
+readme = "README.md"
+authors = [
+    { name = "pxlxingliang", email = "pengxl@bjaisi.com" },
+    { name = "QuantumMisaka", email = "quanmisaka@stu.pku.edu.cn" },
+]
+license = { file = "LICENCE" }
+classifiers = [
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Environment :: Console",
+]
+dependencies = [
+    "pydflow>=1.8.45",
+    "numpy",
+    "pandas",
+    "pyecharts",
+    "seekpath",
+    "phonopy",
+    "dpdata",
+    "ase",
+    "matplotlib"
+]
+requires-python = ">=3.8"
+
+[tool.setuptools_scm]
+
+
+[project.urls]
+Homepage = "https://github.com/pxlxingliang/abacus-test"
 
 [project.scripts]
 abacustest = "abacustest.main:main"
 
-[project.entry-points.console_scripts]
-abacustest = "abacustest.main:main"
-
 [tool.setuptools]
 packages = ["abacustest"]
-package-dir = {"abacustest" = "abacustest"}
-package-data = {"abacustest" = ["*.py", "*/*.py", "*/*/*.py", "version"]}
+package-dir = { "abacustest" = "abacustest" }
 
-[project.optional-dependencies]
-dev = ["pydflow>=1.8.45", "numpy", "pandas", "pyecharts", "seekpath", "phonopy", "dpdata", "ase"]
+[tool.setuptools.package-data]
+abacustest = ["*.py", "*/*.py", "*/*/*.py", "version"]

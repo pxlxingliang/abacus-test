@@ -3,6 +3,7 @@ from dp.launching.typing.basic import BaseModel,String
 from dp.launching.typing import Field
 
 from . import comm_report
+from abacustest.constant import RECOMMAND_IMAGE
 
 
 from . import (comm_class,
@@ -17,7 +18,7 @@ from . import (comm_class,
                readsetting)
 
 class NewSetting(BaseModel):
-    abacus_image: String = Field(default="registry.dp.tech/deepmodeling/abacus-intel:latest",
+    abacus_image: String = Field(default=RECOMMAND_IMAGE,
                           title="Abacus Image",
                           description="The image to run abaucs.",)
     abacus_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",

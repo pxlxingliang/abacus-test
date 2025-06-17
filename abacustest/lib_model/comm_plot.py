@@ -274,12 +274,16 @@ def auto_set_yaxis(ax, ys, margin1=0.1, margin2=0.3, log_scale_threshold=1000):
     # if the y values has a large range, then use scientific notation, and set log scale
     if ymax * ymin > 0 and ymax/ymin > log_scale_threshold:
         ax.set_yscale('log')
-        ax.set_ylim(ymin,ymax*10)
+        ymax = ymax * 10
+        ax.set_ylim(ymin,ymax)
         #ax.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
         #ax.yaxis.set_minor_formatter(ScalarFormatter(useOffset=False))
         #ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
     else:
-        ax.set_ylim(ymin-(ymax-ymin)*margin1,ymax+(ymax-ymin)*margin2)
+        ymin = ymin - (ymax-ymin)*margin1
+        ymax = ymax + (ymax-ymin)*margin2
+        ax.set_ylim(ymin,ymax)
         ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    return ymin, ymax
     
     

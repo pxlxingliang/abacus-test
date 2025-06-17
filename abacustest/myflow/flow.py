@@ -328,6 +328,7 @@ def RunJobs(param):
     alljobs = ParamParser(json.load(open(param.param)))
     allstep,stepname,allsave_path = dflowOP.ProduceAllStep(alljobs)
 
+    job_id = None
     if len(allstep) == 0:
         comm.printinfo("No step is produced, exit!!!")
     else:
@@ -343,12 +344,13 @@ def RunJobs(param):
         wf.add(allstep)
         wf.submit()
         
-        comm.printinfo("job ID: %s, UID: %s" % (wf.id,wf.uid))
+        job_id = wf.id
+        comm.printinfo("job ID: %s, UID: %s" % (job_id,wf.uid))
         job_address = globV.get_value("HOST") + "/%s?tab=workflow" % wf.id
         comm.printinfo("You can track the flow by using your browser to access the URL:\n %s\n" % job_address)
 
         if not param.download:
-            return
+            return job_id
         waitrun(wf,stepname,allsave_path)
     
     #if globV.get_value("REPORT"):
@@ -381,6 +383,8 @@ def RunJobs(param):
             remote.push_to_remote(remote_path,remote_setting,globV.get_value("PRIVATE_SET",{}))
         
         os.chdir(pwd)
+    
+    return job_id
         
 def CheckStatus(param):
     if os.path.isfile(param.param):

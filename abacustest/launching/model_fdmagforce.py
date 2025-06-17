@@ -1,7 +1,7 @@
 import traceback,json,sys,os
 from dp.launching.typing.basic import BaseModel,String,Float,Int
 from dp.launching.typing import Field
-
+from abacustest.constant import RECOMMAND_IMAGE
 
 from . import (comm_class,
                comm_func,
@@ -19,7 +19,7 @@ class NewSetting(BaseModel):
                            titile= "FD Number",
                             description="The number of finite difference steps. Will calculate extra 2*Fd_Number structures.",)
     
-    abacus_image: String = Field(default="registry.dp.tech/deepmodeling/abacus-intel:latest",
+    abacus_image: String = Field(default=RECOMMAND_IMAGE,
                           title="Abacus Image",
                           description="The image to run abaucs.",)
     abacus_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",

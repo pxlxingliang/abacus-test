@@ -1,5 +1,7 @@
 import argparse,os
 from . import abacustest,collectdata,outresult,prepare,report,remote,model
+from importlib.metadata import version
+__version__ = version("abacustest")
 
 def parser():
     my_parser = argparse.ArgumentParser(description="abacustest")
@@ -18,7 +20,6 @@ def parser():
     return my_parser
 
 def print_head():
-    with open(os.path.join(os.path.dirname(__file__),"version")) as f: __version__ = f.read().strip()
     print("\n")
     print("--"*30)
     print("+        ABACUSTEST")

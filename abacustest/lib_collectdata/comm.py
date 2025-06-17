@@ -191,7 +191,7 @@ def cal_band_gap(band,efermi):
         if band_gap < 0: band_gap = 0 
     return band_gap
 
-def plot_band(band,fname,efermi=None):
+def plot_band(band,fname,efermi=None,range_=None):
     """
     band: NSPIN X NKPTS X NBAND
     fname: the file name of the band plot
@@ -218,6 +218,8 @@ def plot_band(band,fname,efermi=None):
             else:
                 ax.axhline(y=efermi[i], color='r', linestyle='--', linewidth=0.3)
                 ax.text(int(len(iband[0])/3), efermi[i], f'Efermi={efermi[i]:.3f} eV', color='r', fontsize=8)
+        if range_ != None:
+            ax.set_ylim(range_[0], range_[1])
         ax.set_ylabel('Energy (eV)')
         ax.set_xlabel('k point')
         
