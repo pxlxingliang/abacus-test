@@ -172,6 +172,7 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
                              ["ny",("system","nr2")],
                              ["nz",("system","nr3")],
                              ["dft_functional",("system","input_dft")],
+                             ["ecutrho", ("system","ecutrho")],
                              ]:
         if para_aba in param:
             qp[para_qe[0]][para_qe[1]] = param.pop(para_aba)
