@@ -39,7 +39,7 @@ class PostConv:
     For default, energy/force/stress/atom_mag/mag_force/band_gap will be plotted.
     
     Args:
-        test_key: str, the key of the test, ecutwfc or kspacing. It should be a parameter name of INPUT.
+        test_key: str, the key of the test, ecutwfc or kspacing. It should be a parameter name of INPUT. Special case is kpt, which will be used to plot the k-point mesh.
         jobs: list of str, the list of the job folders.
         metric_file: str, the file of the metrics. or a liat of metrics files.
         extra_y: dict, the extra y to plot. The key is the metric name, and the value is the y title.
@@ -64,10 +64,10 @@ class PostConv:
         self.job_type = job_type
 
         self.plot_keys = {"energy_per_atom":"Energy (meV/atom)", 
-                          "force":"Force (eV/$\AA$)", 
+                          "force":"Force (eV/$\mathrm{\AA}$)", 
                           "stress":"Stress (kbar)", 
-                          "atom_mag":"Atomic maganetic moment ($\mu$B)", 
-                          "ds_mag_force": "Maganetic force ($\mu$B/$\AA$)",
+                          "atom_mag":"Atomic maganetic moment ($\mathrm{\mu}$B)", 
+                          "ds_mag_force": "Maganetic force ($\mathrm{\mu}$B/$\mathrm{\AA}$)",
                           "band_gap":"Band gap (eV)"}
         # key is the metric name, value is the y title
         
@@ -75,13 +75,13 @@ class PostConv:
             for iey,iey_unit in self.extra_y.items():
                 self.plot_keys[iey] = iey_unit
         
-        self.shift_idx = None
+        self.shift_idx = None  # shift the energy to value of shift_idx (0 means the first value, -1 means the last value)
         if shift_data == "max":
             self.shift_idx = -1
         elif shift_data == "min":
             self.shift_idx = 0
         elif shift_data == None:
-            if self.test_key == "ecutwfc":
+            if self.test_key in ["ecutwfc", "kpt"]:
                 self.shift_idx = -1
             elif self.test_key == "kspacing":
                 self.shift_idx = 0
@@ -93,6 +93,8 @@ class PostConv:
                 self.x_name = "Ecutwfc (Ry)"
             elif test_key == "kspacing":
                 self.x_name = "Kspacing (1/bohr)"
+            elif test_key == "kpt":
+                self.x_name = "K-point mesh"
             else:
                 self.x_name = test_key.capitalize()
 
@@ -128,10 +130,14 @@ class PostConv:
                 for ijob in glob.glob(os.path.join(job,"*")):
                     if os.path.isdir(ijob):
                         results = RESULT(path=ijob,fmt=job_type)
-                        if job_type == "abacus":
-                            test_key_v = results["INPUT"].get(test_key,None)
+                        if test_key == "kpt":
+                            test_key_v = results["kpt"]
                         else:
-                            test_key_v = results[test_key]
+                            if job_type == "abacus":
+                                test_key_v = results["INPUT"].get(test_key,None)
+                            else:
+                                test_key_v = results[test_key]
+                                
                         allmetrics[ijob] = {
                             test_key: test_key_v,
                             "energy_per_atom": results["energy_per_atom"],
@@ -261,16 +267,39 @@ class PostConv:
                     plotdata[example_name][ik].append(self.get_ykey_v(iv,ik))   
         return plotdata
     
+    def sort_kpt(self, kpts):
+        # kpts is a list of k-point meshs, such as [[2,2,2],[3,3,3],[4,4,4]]
+        # we need sort the kpts by the number of k-points, and then by the k-point mesh
+        # the number of k-points is the product of the three elements
+        kpoints = [ np.prod(kpt) for kpt in kpts ]
+        sort_idx = sorted(range(len(kpoints)), key=lambda k: (kpoints[k], kpts[k]))
+        
+        # if 3 k-points are the same, then return the first one
+        if all([len(set(k)) == 1 for k in kpts]):
+            kpts = [i[0] for i in kpts]
+        else:
+            kpts = ["_".join([str(j) for j in i]) for i in kpts]
+        kpts = [kpts[i] for i in sort_idx]
+        return sort_idx, kpts
+        
+    
     def sort_plotdata(self, plotdata):
         # we need sort the plotdata by x_key
         # and if shift_idx is not False, we need shift the data to the shift_idx
         new_plotdata = {}
         for ik,iv in plotdata.items():
-            x_values = iv[self.test_key]
-            sort_idx = sorted(range(len(x_values)), key=lambda k: x_values[k])
+            
+            if self.test_key == "kpt":
+                # if the test_key is kpt, we need sort the kpts
+                sort_idx, x_values = self.sort_kpt(iv[self.test_key])
+            else:
+                x_values = iv[self.test_key]
+                sort_idx = sorted(range(len(x_values)), key=lambda k: x_values[k])
+                x_values = [x_values[i] for i in sort_idx]
+                
             new_plotdata[ik] = {
                 "subfolder": [iv["subfolder"][i] for i in sort_idx],
-                self.test_key: [iv[self.test_key][i] for i in sort_idx]
+                self.test_key: x_values
             }
             for ikey in self.plot_keys:
                 if self.shift_idx is None or ikey in ["band_gap"]:
