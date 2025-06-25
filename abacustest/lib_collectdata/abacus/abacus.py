@@ -394,42 +394,65 @@ class Abacus(ResultAbacus):
     @ResultAbacus.register(band = "Band of system. Dimension is [nspin,nk,nband].",
                            band_weight = "Band weight of system. Dimension is [nspin,nk,nband]."
                            )
-    def GetBandFromLog(self): 
-        nband = self['nbands']  
-        if self["ibzk"] != None:    
-            nk = self['ibzk']
-        elif self["nkstot"] != None:
-            nk = self["nkstot"]
+    def GetBand(self): 
+        band_file = os.path.join(self.PATH,f"OUT.{self.SUFFIX}/eig.txt") # in new version the band info is in eig.txt
+        if os.path.isfile(band_file):
+            band = []
+            weight = []
+            with open(band_file) as f: lines = f.readlines()
+            for line in lines[2:]:
+                if line.strip() == "":
+                    continue
+                elif line.startswith(" spin="):
+                    spin_idx = int(line[6]) # start with 1
+                    if spin_idx > len(band):
+                        band.append([])
+                        weight.append([])
+                    band[-1].append([])
+                    weight[-1].append([])
+                else:
+                    sline = line.split()
+                    if len(sline) == 3:
+                        band[-1][-1].append(float(sline[1]))
+                        weight[-1][-1].append(float(sline[2]))
+            self['band'] = band
+            self['band_weight'] = weight
         else:
-            nk = None
-            
-        if nband == None or nk == None:
-            print("no nbands or ibzk, and skip the catch of band info")
-            return
-        
-        band = None
-        band_weight = None
-        for i,line in enumerate(self.LOG):
-            if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
-                nspin = int(line.split()[-1])
-                if nspin == 4: nspin=1  # for nspin4, only total band is output
-                band = []
-                band_weight = []
-                for ispin in range(nspin):
-                    band.append([])
-                    band_weight.append([])
-                    for k in range(nk):
-                        band[-1].append([])
-                        band_weight[-1].append([])
-                        for m in range(nband):
-                            ni = ((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + m + 1 + i
-                            eband = float(self.LOG[ni].split()[1])
-                            wband = float(self.LOG[ni].split()[2])
-                            band[-1][-1].append(eband)
-                            band_weight[-1][-1].append(wband)
-                break
-        self['band'] = band
-        self['band_weight'] = band_weight
+            nband = self['nbands']  
+            if self["ibzk"] != None:    
+                nk = self['ibzk']
+            elif self["nkstot"] != None:
+                nk = self["nkstot"]
+            else:
+                nk = None
+
+            if nband == None or nk == None:
+                print("no nbands or ibzk, and skip the catch of band info")
+                return
+
+            band = None
+            band_weight = None
+            for i,line in enumerate(self.LOG):
+                if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
+                    nspin = int(line.split()[-1])
+                    if nspin == 4: nspin=1  # for nspin4, only total band is output
+                    band = []
+                    band_weight = []
+                    for ispin in range(nspin):
+                        band.append([])
+                        band_weight.append([])
+                        for k in range(nk):
+                            band[-1].append([])
+                            band_weight[-1].append([])
+                            for m in range(nband):
+                                ni = ((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + m + 1 + i
+                                eband = float(self.LOG[ni].split()[1])
+                                wband = float(self.LOG[ni].split()[2])
+                                band[-1][-1].append(eband)
+                                band_weight[-1][-1].append(wband)
+                    break
+            self['band'] = band
+            self['band_weight'] = band_weight
     
     @ResultAbacus.register(band_plot="Will plot the band structure. Return the file name of the plot.")
     def PlotBandFromLog(self):  
@@ -455,7 +478,7 @@ class Abacus(ResultAbacus):
     @ResultAbacus.register(band_gap = "band gap of the system")
     def GetBandGapFromLog(self):
         def ErrorReturn(strinfo):
-            print("WARNING: %s, skip the catch of band gap info")
+            print(f"WARNING: {strinfo}, skip the catch of band gap info")
             self['band_gap'] = None
             return
         
