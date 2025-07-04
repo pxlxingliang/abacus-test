@@ -28,7 +28,7 @@ def set_font(font_name:str="Times New Roman",
     try:
         if not check_font_exists(font_name):
             print(f"Font '{font_name}' not found. Using default font.")
-            font_name = "Arial"
+            return
 
         plt.rcParams["font.family"] = font_name  
         
