@@ -11,6 +11,39 @@ from matplotlib.ticker import MaxNLocator
 #except:
 #    print("No latex support in matplotlib.")
 
+def check_font_exists(font_name):
+    import matplotlib.font_manager as fm
+    available_fonts = [f.name for f in fm.fontManager.ttflist]
+    return font_name in available_fonts
+
+
+def set_font(font_name:str="Times New Roman", 
+             font_size:int=None):
+    """Set the font for matplotlib.
+
+    Args:
+        font_name (str, optional): font name. Defaults to "Times New Roman".
+        font_size (int, optional): font size. Defaults to 18.
+    """
+    try:
+        if not check_font_exists(font_name):
+            print(f"Font '{font_name}' not found. Using default font.")
+            font_name = "Arial"
+
+        plt.rcParams["font.family"] = font_name  
+        
+        plt.rcParams["mathtext.fontset"] = "custom"
+        plt.rcParams["mathtext.rm"] = font_name
+        if check_font_exists(f"{font_name}:italic"):
+            plt.rcParams["mathtext.it"] = f"{font_name}:italic"
+        if check_font_exists(f"{font_name}:bold"):
+            plt.rcParams["mathtext.bf"] = f"{font_name}:bold"
+    except Exception as e:
+        pass
+
+    if font_size is not None:
+        plt.rcParams["font.size"] = font_size
+
 
 def plot_line_point(x,
                     ys,

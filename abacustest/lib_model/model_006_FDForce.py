@@ -427,13 +427,8 @@ class PostProcessFDForce:
     
     def plot_force(self, results):
         import matplotlib.pyplot as plt
-        plt.rcParams["font.family"] = "Times New Roman"  
-        plt.rcParams["font.size"] = 12
-        plt.rcParams["mathtext.fontset"] = "custom"
-        plt.rcParams["mathtext.rm"] = "Times New Roman"
-        plt.rcParams["mathtext.it"] = "Times New Roman:italic"
-        plt.rcParams["mathtext.bf"] = "Times New Roman:bold"
-
+        from abacustest.lib_model.comm_plot import set_font
+        set_font("Times New Roman",12)
         
         allpngs = []
         for case in results:
