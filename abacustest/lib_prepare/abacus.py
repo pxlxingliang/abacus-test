@@ -1487,7 +1487,7 @@ def WriteInput(input_context:Dict[str,any],
     out = "INPUT_PARAMETERS\n"
     for k,v in input_context.items():
         if v != None:
-            out += "%s\t%s\n" % (str(k),str(v))
+            out += f"{k} \t{v}\n"
         else:
-            out += "#%s\t \n" % (str(k))
+            out += f"#{k}\t \n"
     with open(INPUTf,'w') as f1: f1.write(out)        
