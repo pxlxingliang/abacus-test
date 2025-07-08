@@ -7,7 +7,7 @@ from abacustest.lib_model.model_014_vasp2abacus import Vasp2Abacus
 
 from . import (comm_class,
                comm_func,
-               comm_report
+               comm_report,
                ) 
 
 class VASPSourceSet(BaseModel):
@@ -71,7 +71,10 @@ def Vasp2AbacusRunner(opts:Vasp2AbacusModel) -> int:
         pwd = os.getcwd()
         os.chdir(work_path)
         
-        jobs = Vasp2Abacus(vaspjobs, "/root/pporb/ABACUS-V1/pp", "/root/pporb/ABACUS-V1/orb", input_template).run()
+        vasp2abacus = Vasp2Abacus(vaspjobs, "/root/pporb/ABACUS-V1/pp", "/root/pporb/ABACUS-V1/orb", input_template)
+        jobs, running_output = comm_func.capture_output(vasp2abacus.run)
+        
+        logs += running_output
         
         logs.iprint(f"VASP jobs converted to ABACUS jobs: {jobs}")
 
