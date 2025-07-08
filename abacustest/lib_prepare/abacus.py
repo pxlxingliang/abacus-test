@@ -253,6 +253,10 @@ class AbacusStru:
             assert(n_atom == len(self._lambda)), "ERROR: the length of coord is not equal to lambda"
         return True    
     
+    def get_natoms(self):
+        '''return the total number of atoms'''
+        return sum(self._atom_number)
+    
     def get_pp(self):
         return self._pp
 
@@ -1292,6 +1296,29 @@ class AbacusStru:
                           lambda_=lambda1,
                           dpks=dpks,
                           cartesian=cartesian)
+    @staticmethod
+    def FromDpdata(input_stru: Union[str, Path],
+                   input_fmt: str):
+        '''Read the structure from dpdata supportted file, such as POSCAR, etc.
+        
+        Args:
+            input_stru (str or Path): the file name of the structure file
+            input_fmt (str): the format of the structure file, such as "poscar" etc.
+        '''
+        import dpdata
+        import uuid
+        
+        stru = dpdata.System(input_stru, fmt=input_fmt)
+        tmp_file_name = "tmp." + str(uuid.uuid4())[:8]
+        stru.to("abacus/stru", tmp_file_name)
+        
+        new_stru = AbacusStru.ReadStru(tmp_file_name)
+        if os.path.isfile(tmp_file_name):
+            os.remove(tmp_file_name)
+        if new_stru is None:
+            raise ValueError(f"Can not read the structure from {input_stru} with format {input_fmt}")
+        return new_stru
+
 
 def ReadKpt(kptpath):
     '''
@@ -1345,8 +1372,12 @@ def ReadKpt(kptpath):
             model = "mp"
         elif model.startswith("d"):
             model = "direct"
-        elif model.startswith("l"):
+        elif model.startswith("c"):
+            model = "cartesian"
+        elif model.lower() == "line":
             model = "line"
+        elif model.lower() == "line_cartesian":
+            model = "line_cartesian"
         else:
             print(f"ERROR: the model of KPT file is not support now!!!\n{model}")
             sys.exit(1)
@@ -1354,13 +1385,13 @@ def ReadKpt(kptpath):
         if model in ["mp","gamma"]:
             kpt = [int(i) for i in lines[3].split()[:3]] + [float(i) for i in lines[3].split()[3:6]]
             return kpt,model
-        elif model in ["direct"]:
+        elif model in ["direct", "cartesian"]:
             nk = int(lines[1].split()[0])
             kpt = []
             for i in range(nk):
                 kpt.append([float(ii) for ii in lines[2+i].split()[:4]])
             return kpt,model
-        elif model in ["line"]:
+        elif model in ["line", "line_cartesian"]:
             kpt = []
             for line in lines[3:]:
                 if line.strip() == "":
@@ -1415,7 +1446,7 @@ def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT", model="gamm
     '''
     if model.lower() in ["gamma","mp"]:
         with open(file_name,'w') as f1:
-            f1.write("K_POINTS\n0\nGamma\n")
+            f1.write(F"K_POINTS\n0\n{model.capitalize()}\n")
             if len(kpoint_list) == 3:
                 kpoint_list += [0,0,0]
             f1.write(" ".join([str(i) for i in kpoint_list]))
@@ -1435,9 +1466,13 @@ def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT", model="gamm
             f1.write(f"K_POINTS\n{len(kpoint_list)}\n{model.capitalize()}\n")
             for i in kpt:
                 f1.write("%17.11f %17.11f %17.11f %17.11f\n" % tuple(i))
-    elif model.lower() in ["line"]:
+    elif model.lower() in ["line", "line_cartesian"]:
         with open(file_name,'w') as f1:
-            f1.write(f"K_POINTS\n{len(kpoint_list)}\nLine\n")
+            f1.write(f"K_POINTS\n{len(kpoint_list)}\n")
+            if model.lower() == "line":
+                f1.write("Line\n")
+            else:
+                f1.write("Line_Cartesian\n")
             for i in kpoint_list:
                 if len(i) == 4:
                     f1.write("%17.11f %17.11f %17.11f %4d\n" % tuple(i))
@@ -1451,6 +1486,18 @@ def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT", model="gamm
 
 
 def ReadInput(INPUTf: str = None, input_lines: str = None) -> Dict[str,any]:
+    """Read the INPUT file and return a dictionary of input parameters.
+    
+    Args:
+        INPUTf (str): the file name of the INPUT file.
+        input_lines (str): the lines of the INPUT file.
+    
+    Returns:
+        Dict[str, any]: a dictionary of input parameters.
+        
+    If both `INPUTf` and `input_lines` are provided, `input_lines` will be ignored.
+    The value of each parameter will be converted to int, float, or string as appropriate.
+    """
     #read the INPUT file
     input_context = {}
     if INPUTf != None:

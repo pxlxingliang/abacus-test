@@ -34,7 +34,8 @@ def gen_report(opts,logs,work_path,output_path,abacustest_param):
         ReportSection(title="INPUT PARAMETER",
                       elements=[AutoReportElement(title='', path="ABACUSTEST_INPUT_PARAM.txt", description="")])
     ]
-    reports += comm_pmetrics.produce_metrics_superMetrics_reports(abacustest_param,work_path,output_path)
+    if abacustest_param is not None:
+        reports += comm_pmetrics.produce_metrics_superMetrics_reports(abacustest_param,work_path,output_path)
     logfname = "output.log"
     logs.write(os.path.join(output_path,logfname))
     log_section = ReportSection(title="",
@@ -46,5 +47,8 @@ def gen_report(opts,logs,work_path,output_path,abacustest_param):
                         description="a report of abacustest")
         report.save(output_path)
     # move results to output_path
-    comm_func.move_results_to_output(work_path,output_path,abacustest_param.get("save_path","results"))
+    if abacustest_param is not None:
+        comm_func.move_results_to_output(work_path,output_path,abacustest_param.get("save_path","results"))
+    else:
+        os.system(f"mv {work_path}/* {output_path}/")
     #comm_func.pack_results(output_path,abacustest_param.get("save_path","results"))
