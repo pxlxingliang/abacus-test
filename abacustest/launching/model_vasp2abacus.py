@@ -76,7 +76,11 @@ def Vasp2AbacusRunner(opts:Vasp2AbacusModel) -> int:
         
         logs += running_output
         
-        logs.iprint(f"VASP jobs converted to ABACUS jobs: {jobs}")
+        # pack jobs
+        pack_filename = "ABACUS.zip"
+        comm_func.pack(jobs, pack_filename)
+        
+        logs.iprint(f"VASP jobs converted to ABACUS jobs, and are packed in {pack_filename}")
 
         os.chdir(pwd)
         comm_report.gen_report(opts,logs,work_path,output_path,None)
