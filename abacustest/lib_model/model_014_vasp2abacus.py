@@ -114,7 +114,7 @@ class Vasp2Abacus():
         for job in self.jobs:
             if not os.path.exists(job):
                 raise ValueError(f"Job path {job} does not exist.")
-            print(f"Processing job {job}...")
+            print(f"\nProcessing job {job}...")
             
             # transfer INCAR
             if os.path.isfile(os.path.join(job, "INCAR")):
@@ -384,7 +384,7 @@ class Vasp2Abacus():
 
         # ignore other keys
         if len(vasp_param) > 0:
-            warnings.warn(f"Warning: the following keys in INCAR are not supported in ABACUS, ignored:\n\t {', '.join(vasp_param.keys())}")
+            print(f"Warning: the following keys in INCAR are not supported in ABACUS, ignored:\n\t {', '.join(vasp_param.keys())}")
         
         return input_param, magmom   
     
