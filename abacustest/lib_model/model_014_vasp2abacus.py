@@ -161,7 +161,11 @@ class Vasp2Abacus():
             # set ecutwfc and basis, and write INPUT
             if input_param is not None:
                 input_param.update(self.input_template)  # overwrite with template
-                recommand_ecutwfc = self.find_recommand_ecutwfc(elements)
+                # only pw basis will find the recommand ecutwfc
+                if input_param.get("basis_type", "pw") == "pw":
+                    recommand_ecutwfc = self.find_recommand_ecutwfc(elements)
+                else:
+                    recommand_ecutwfc = None
                 input_param = self.set_default_input(input_param, recommand_ecutwfc)
                 
                 WriteInput(input_param, os.path.join(job, "INPUT"))
