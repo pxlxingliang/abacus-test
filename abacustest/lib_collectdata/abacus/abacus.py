@@ -367,16 +367,26 @@ class Abacus(ResultAbacus):
             self['virial'] = None
             self["virials"] = None
         
-    @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
+    @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom",
+                           largest_gradient_stress="list, the largest stress of each ION step. Unit in kbar")
     def GetLargestGradientFromLog(self):
-        lg = None
+        lg, lg_stress = None, None
         for line in self.LOG:
-            if "Largest gradient is" in line:
+            if "Largest gradient in force" in line:
+                if lg == None:
+                    lg = []
+                lg.append(float(line.split()[-2]))
+            elif "Largest gradient is" in line:
                 if lg == None:
                     lg = []
                 lg.append(float(line.split()[-1]))
+            elif "Largest gradient in stress" in line:
+                if lg_stress == None:
+                    lg_stress = []
+                lg_stress.append(float(line.split()[-2]))
         self['largest_gradient'] = lg
-
+        self['largest_gradient_stress'] = lg_stress
+    
     @ResultAbacus.register(k_coord="list, the direct k point coordinates in the BZ",)
     def GetKCoordFromLog(self):
         coord = []
