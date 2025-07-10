@@ -144,6 +144,13 @@ class TrackingSet(BaseModel):
 class myLog:
     def __init__(self):
         self.logs = ""
+    
+    def __add__(self, other):
+        if isinstance(other, myLog):
+            self.logs += other.logs
+        else:
+            self.logs += str(other)
+        return self
 
     def iprint(self, mess, *args):
         allmess = " ".join([str(mess)]+[str(i) for i in args])

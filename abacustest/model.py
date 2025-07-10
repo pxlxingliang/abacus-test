@@ -10,7 +10,9 @@ def ModelArgs(parser):
         importlib.import_module(f"abacustest.lib_model.{module}")   
     subparser = parser.add_subparsers(dest="model")
     
-    for imodel in Model.__subclasses__():
+    models = sorted(Model.__subclasses__(), key=lambda x: x.model_name().lower())
+    
+    for imodel in models:
         model_name = imodel.model_name()
         iparser = subparser.add_parser(model_name, help=imodel.description())
         iparser.description = imodel.description()

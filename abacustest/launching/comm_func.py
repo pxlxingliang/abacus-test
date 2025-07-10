@@ -326,4 +326,29 @@ def gen_dir(dir1):
         dir1 = dir1 + "_" + str(n)
         n += 1
     return dir1
+
+def capture_output(func, *args, **kwargs):
+    """ Capture the output of a function and return it as a string.
+    Args:
+        func (callable): The function whose output is to be captured.
+        *args: Positional arguments to pass to the function.
+        **kwargs: Keyword arguments to pass to the function.
+    Returns:
+        str: The captured output of the function.
+    """
+    import sys
+    from io import StringIO
+    if not callable(func):
+        raise ValueError("The provided func must be callable.")
+    
+    old_stdout = sys.stdout
+    redirected_output = sys.stdout = StringIO()
+    
+    try:
+        return_values = func(*args, **kwargs)
+        output = redirected_output.getvalue()
+    finally:
+        sys.stdout = old_stdout
+    
+    return return_values, output
     

@@ -2,6 +2,7 @@ import os,sys
 from . import abacus as MyAbacus
 from abacustest import constant
 from . import comm
+import copy
 
 def ParamAbacus2Vasp(abacus_input):
     '''
@@ -430,6 +431,7 @@ def Abacus2Vasp(abacus_path:str, save_path:str=None, potcar=None, vasp_setting={
             ENCUT = emax * emax_coef (default is 1.5)
             emax is the max ENMAX in POTCAR.
     """
+    vasp_setting = copy.deepcopy(vasp_setting)
     abacus_input = MyAbacus.ReadInput(os.path.join(abacus_path,"INPUT"))
     stru = MyAbacus.AbacusStru.ReadStru(os.path.join(abacus_path,abacus_input.get("stru_file","STRU")))
     

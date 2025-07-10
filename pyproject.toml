@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Workflow for the performance running of ABACUS"
 readme = "README.md"
 authors = [
-    { name = "pxlxingliang", email = "pengxl@bjaisi.com" },
+    { name = "pxlxingliang", email = "pengxl@aisi.ac.cn" },
     { name = "QuantumMisaka", email = "quanmisaka@stu.pku.edu.cn" },
 ]
 license = { file = "LICENCE" }
@@ -40,8 +40,6 @@ dependencies = [
 ]
 requires-python = ">=3.8"
 
-[tool.setuptools_scm]
-
 
 [project.urls]
 Homepage = "https://github.com/pxlxingliang/abacus-test"
@@ -53,5 +51,8 @@ abacustest = "abacustest.main:main"
 packages = ["abacustest"]
 package-dir = { "abacustest" = "abacustest" }
 
+[tool.setuptools.dynamic]
+version = { attr = "abacustest.version.__version__" }
+
 [tool.setuptools.package-data]
-abacustest = ["*.py", "*/*.py", "*/*/*.py", "version"]
+abacustest = ["*.py", "*/*.py", "*/*/*.py"]

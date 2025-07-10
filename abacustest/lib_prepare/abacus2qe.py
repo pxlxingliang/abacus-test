@@ -172,6 +172,7 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
                              ["ny",("system","nr2")],
                              ["nz",("system","nr3")],
                              ["dft_functional",("system","input_dft")],
+                             ["ecutrho", ("system","ecutrho")],
                              ]:
         if para_aba in param:
             qp[para_qe[0]][para_qe[1]] = param.pop(para_aba)
@@ -321,11 +322,11 @@ def set_stru(abacus_stru,param):
     # set init mag
     if nspin == 2:
         for i in range(len(atomtype_mag)):
-            if atomtype_mag[i] > 1e-8:
+            if abs(atomtype_mag[i]) > 1e-8:
                 param["system"]["starting_magnetization(%d)" % (i+1)] = atomtype_mag[i]
     elif nspin == 4:
         for i in range(len(atomtype_mag)):
-            if atomtype_mag[i][0] > 1e-8:
+            if abs(atomtype_mag[i][0]) > 1e-8:
                 param["system"]["starting_magnetization(%d)" % (i+1)] = atomtype_mag[i][0]
                 param["system"]["angle1(%d)" % (i+1)] = atomtype_mag[i][1]
                 param["system"]["angle2(%d)" % (i+1)] = atomtype_mag[i][2]

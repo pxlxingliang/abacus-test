@@ -179,6 +179,10 @@ class PrepareFDForce:
                             print_error(path,line)
                             has_error = True
                             break
+                    if int(sline[1]) <= 0:
+                        print("ERROR: atom index should be start from 1")
+                        print_error(path,line)
+                        has_error = True
                     if not has_error:
                         info.append([sline[0],int(sline[1]),xyz])
                 return info
@@ -375,7 +379,7 @@ class PostProcessFDForce:
             label_idx = cases[case]["label_idx"]
             xyz_idx = {"x":0, "y":1, "z":2}[cases[case]["xyz"]]
             if label_idx == None:
-                print(f"ERROR: {case} is not successful")
+                print(f"ERROR: {case} is failed")
                 continue
             force_idx = label_idx * 3 + xyz_idx
             
@@ -423,12 +427,8 @@ class PostProcessFDForce:
     
     def plot_force(self, results):
         import matplotlib.pyplot as plt
-        try:
-            from matplotlib import rc
-            rc('font',**{'family':'sans-serif'})
-            rc('text', usetex=True)
-        except:
-            pass
+        from abacustest.lib_model.comm_plot import set_font
+        set_font("Times New Roman",12)
         
         allpngs = []
         for case in results:
@@ -446,28 +446,28 @@ class PostProcessFDForce:
             ax1 = ax[0]
             #fig, ax1 = plt.subplots()
             ax2 = ax1.twinx()
-            ax1.plot(d,e,"b+-",label="Energy(eV)")
-            ax2.plot(d,f,"ro-",label="Analytic($eV/\AA$)")
-            ax2.plot(d,fd,"m*-",label="Finite Difference($eV/\AA$)")
+            ax1.plot(d,e,"b+-",label="Energy(eV)", markersize=10)
+            ax2.plot(d,f,"ro--",label="Analytic(eV/$\mathrm{\AA}$)", markersize=10)
+            ax2.plot(d,fd,"m*--",label="Finite Difference(eV/$\mathrm{\AA}$)", markersize=10)
             
             ymax1 = max(e)
             ymin1 = min(e)
             ymax2 = max(max(f),max(fd))
             ymin2 = min(min(f),min(fd))
-            ax1.set_xlabel("Position ($\AA$)")
+            ax1.set_xlabel("Atomic position ($\mathrm{\AA}$)" +  f"(FD step size: {x[0]:.3f}" + " $\mathrm{\AA}$)")
             ax1.set_ylabel("Energy (eV)",color="b")
-            ax2.set_ylabel("Force ($eV/\AA$)",color="r")
+            ax2.set_ylabel("Force (eV/$\mathrm{\AA}$)",color="r")
             ax1.spines['left'].set_color('blue')
             ax1.tick_params(axis='y', colors='blue')
             ax2.spines['right'].set_color('red')
             ax2.tick_params(axis='y', colors='red')
-            ax1.set_ylim(ymin1-(ymax1-ymin1)*0.1,ymax1+(ymax1-ymin1)*0.2)
-            ax2.set_ylim(ymin2-(ymax2-ymin2)*0.1,ymax2+(ymax2-ymin2)*0.2)
+            ax1.set_ylim(ymin1-(ymax1-ymin1)*0.1,ymax1+(ymax1-ymin1)*0.3)
+            ax2.set_ylim(ymin2-(ymax2-ymin2)*0.1,ymax2+(ymax2-ymin2)*0.3)
             rmsd = self.cal_rmsd(f,fd)
-            ax1.set_title(case + f"(FD-Ana RMSD={rmsd:.2e})")
-            print(case + f"(FD-Ana RMSD={rmsd:.2e} eV/Angstrom)")
-            ax1.legend(loc="upper left")
-            ax2.legend(loc="upper right")
+            ax1.set_title(case + f" (Deviation RMSD={rmsd:.2e} " + "eV/$\mathrm{\AA}$)")
+            print(case + f" (Deviation RMSD={rmsd:.2e} eV/Angstrom)")
+            ax1.legend(loc="upper left",frameon=False)
+            ax2.legend(loc="upper right",frameon=False)
             ax2.grid(True)
 
             ax3 = ax[1]
@@ -476,20 +476,20 @@ class PostProcessFDForce:
             ymin = min(y_ref, min(y))
             ymax = max(y_ref, max(y))
             # sort x,y by x
-            ax3.plot(x,y,"m*-",label="Finite Difference($eV/\AA$)")
+            ax3.plot(x,y,"m*--",label="Finite Difference(eV/$\mathrm{\AA}$)", markersize=10)
             if y_ref != None:
-                ax3.axhline(y_ref,ls="--",color="red",label="Analytic($eV/\AA$)")
-            ax3.set_xlabel("Step size of finite difference ($\AA$)")
-            ax3.set_ylabel("Force ($eV/\AA$)")
-            ax3.set_title(case + f"(FD VS step-size)")
-            ax3.legend(loc="upper right")
+                ax3.axhline(y_ref,ls="--",color="red",label="Analytic(eV/$\mathrm{\AA}$)")
+            ax3.set_xlabel("FD step size ($\mathrm{\AA}$)")
+            ax3.set_ylabel("Force (eV/$\mathrm{\AA}$)")
+            ax3.set_title(case + f" (FD at initial position VS step size)")
+            ax3.legend(loc="upper right",frameon=False)
             ax3.grid(True)
-            ax3.set_ylim(ymin-(ymax-ymin)*0.1,ymax+(ymax-ymin)*0.2)
+            ax3.set_ylim(ymin-(ymax-ymin)*0.1,ymax+(ymax-ymin)*0.3)
 
             plt.subplots_adjust(right=0.85) 
             png = case + ".png"
             plt.tight_layout()
-            plt.savefig(png)
+            plt.savefig(png,dpi=300)
             plt.close()
             allpngs.append(png)
         return allpngs

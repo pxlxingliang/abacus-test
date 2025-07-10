@@ -182,11 +182,48 @@ class Abacus(ResultAbacus):
             else:
                 self["nelec_dict"] = None
 
-    
+    @ResultAbacus.register(total_mag="total magnetism (Bohr mag/cell)",
+                           absolute_mag="absolute magnetism (Bohr mag/cell)",
+                           total_mags="total magnetism (Bohr mag/cell) of each ION step",
+                           absolute_mags="absolute magnetism (Bohr mag/cell) of each ION step",
+                           )
+    def GetMagResult(self): 
+        total_mags = []
+        absolute_mags = []
+        tot_mag = None
+        abs_mag = None
+        ion_step = 1
+        for i,line in enumerate(self.LOG):
+            if "ION=" in line:
+                current_step = int(line.split()[4])
+                if current_step > ion_step:
+                    if tot_mag is not None:
+                        total_mags.append(tot_mag)
+                        absolute_mags.append(abs_mag)
+                ion_step = current_step 
+            elif 'total magnetism (Bohr mag/cell)' in line:
+                sline = line.split()
+                # if the last three are float, then it is the noncollinear case, else it is collinear case
+                try:
+                    tot_mag = [float(imag) for imag in sline[-3:]]
+                except:
+                    tot_mag = float(sline[-1])
+            elif 'absolute magnetism' in line:
+                abs_mag = float(line.split()[-1])
+        
+        if tot_mag is not None:    
+            self['total_mag'] = tot_mag
+            self['absolute_mag'] = abs_mag
+            self['total_mags'] = total_mags + [tot_mag]
+            self['absolute_mags'] = absolute_mags + [abs_mag]
+        else:
+            self['total_mag'] = None
+            self['absolute_mag'] = None
+            self['total_mags'] = None
+            self['absolute_mags'] = None
+        
     
     @ResultAbacus.register(converge="if the SCF is converged",
-                           total_mag="total magnetism (Bohr mag/cell)",
-                           absolute_mag="absolute magnetism (Bohr mag/cell)",
                            energy = "the total energy (eV)",
                            energy_ks = "the E_KohnSham, unit in eV",
                            energies = "list of total energy of each ION step",
@@ -197,8 +234,6 @@ class Abacus(ResultAbacus):
         if self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
             output_final = self.JSON.get("output")[-1]
             self["converge"] = output_final.get("scf_converge",None)
-            self["total_mag"] = output_final.get("total_mag",None)
-            self["absolute_mag"] = output_final.get("absolute_mag",None)
             self["energy"] = output_final.get("energy",None)
             self["energies"] = [i.get("energy",None) for i in self.JSON.get("output")]
             self["efermi"] = output_final.get("e_fermi",None)
@@ -212,8 +247,6 @@ class Abacus(ResultAbacus):
             else:
                 self["energy_per_atom"] = None
         else: 
-            total_mag = None
-            absolute_mag = None
             efermi = None
             converge = None
             energy = None
@@ -226,15 +259,6 @@ class Abacus(ResultAbacus):
                 elif 'convergence has NOT been achieved!' in line or\
                     'convergence has not been achieved' in line:
                     converge = False
-                elif 'total magnetism (Bohr mag/cell)' in line:
-                    sline = line.split()
-                    # if the last three are float, then it is the noncollinear case, else it is collinear case
-                    try:
-                        total_mag = [float(imag) for imag in sline[-3:]]
-                    except:
-                        total_mag = float(sline[-1])
-                elif 'absolute magnetism' in line:
-                    absolute_mag = float(line.split()[-1])
                 elif "!FINAL_ETOT_IS" in line:
                     energy = float(line.split()[1])
                 elif "final etot is" in line:
@@ -268,8 +292,6 @@ class Abacus(ResultAbacus):
             else:
                 self["energy_ks"] = None
 
-            self['total_mag'] = total_mag
-            self['absolute_mag'] = absolute_mag
             if efermi != None and isinstance(efermi,list):
                 if abs(efermi[0] - efermi[1]) < 1e-6:
                     efermi = efermi[0]
@@ -367,16 +389,26 @@ class Abacus(ResultAbacus):
             self['virial'] = None
             self["virials"] = None
         
-    @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom")
+    @ResultAbacus.register(largest_gradient="list, the largest gradient of each ION step. Unit in eV/Angstrom",
+                           largest_gradient_stress="list, the largest stress of each ION step. Unit in kbar")
     def GetLargestGradientFromLog(self):
-        lg = None
+        lg, lg_stress = None, None
         for line in self.LOG:
-            if "Largest gradient is" in line:
+            if "Largest gradient in force" in line:
+                if lg == None:
+                    lg = []
+                lg.append(float(line.split()[-2]))
+            elif "Largest gradient is" in line:
                 if lg == None:
                     lg = []
                 lg.append(float(line.split()[-1]))
+            elif "Largest gradient in stress" in line:
+                if lg_stress == None:
+                    lg_stress = []
+                lg_stress.append(float(line.split()[-2]))
         self['largest_gradient'] = lg
-
+        self['largest_gradient_stress'] = lg_stress
+    
     @ResultAbacus.register(k_coord="list, the direct k point coordinates in the BZ",)
     def GetKCoordFromLog(self):
         coord = []
@@ -394,42 +426,65 @@ class Abacus(ResultAbacus):
     @ResultAbacus.register(band = "Band of system. Dimension is [nspin,nk,nband].",
                            band_weight = "Band weight of system. Dimension is [nspin,nk,nband]."
                            )
-    def GetBandFromLog(self): 
-        nband = self['nbands']  
-        if self["ibzk"] != None:    
-            nk = self['ibzk']
-        elif self["nkstot"] != None:
-            nk = self["nkstot"]
+    def GetBand(self): 
+        band_file = os.path.join(self.PATH,f"OUT.{self.SUFFIX}/eig.txt") # in new version the band info is in eig.txt
+        if os.path.isfile(band_file):
+            band = []
+            weight = []
+            with open(band_file) as f: lines = f.readlines()
+            for line in lines[2:]:
+                if line.strip() == "":
+                    continue
+                elif line.startswith(" spin="):
+                    spin_idx = int(line[6]) # start with 1
+                    if spin_idx > len(band):
+                        band.append([])
+                        weight.append([])
+                    band[-1].append([])
+                    weight[-1].append([])
+                else:
+                    sline = line.split()
+                    if len(sline) == 3:
+                        band[-1][-1].append(float(sline[1]))
+                        weight[-1][-1].append(float(sline[2]))
+            self['band'] = band
+            self['band_weight'] = weight
         else:
-            nk = None
-            
-        if nband == None or nk == None:
-            print("no nbands or ibzk, and skip the catch of band info")
-            return
-        
-        band = None
-        band_weight = None
-        for i,line in enumerate(self.LOG):
-            if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
-                nspin = int(line.split()[-1])
-                if nspin == 4: nspin=1  # for nspin4, only total band is output
-                band = []
-                band_weight = []
-                for ispin in range(nspin):
-                    band.append([])
-                    band_weight.append([])
-                    for k in range(nk):
-                        band[-1].append([])
-                        band_weight[-1].append([])
-                        for m in range(nband):
-                            ni = ((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + m + 1 + i
-                            eband = float(self.LOG[ni].split()[1])
-                            wband = float(self.LOG[ni].split()[2])
-                            band[-1][-1].append(eband)
-                            band_weight[-1][-1].append(wband)
-                break
-        self['band'] = band
-        self['band_weight'] = band_weight
+            nband = self['nbands']  
+            if self["ibzk"] != None:    
+                nk = self['ibzk']
+            elif self["nkstot"] != None:
+                nk = self["nkstot"]
+            else:
+                nk = None
+
+            if nband == None or nk == None:
+                print("no nbands or ibzk, and skip the catch of band info")
+                return
+
+            band = None
+            band_weight = None
+            for i,line in enumerate(self.LOG):
+                if 'STATE ENERGY(eV) AND OCCUPATIONS' in line:
+                    nspin = int(line.split()[-1])
+                    if nspin == 4: nspin=1  # for nspin4, only total band is output
+                    band = []
+                    band_weight = []
+                    for ispin in range(nspin):
+                        band.append([])
+                        band_weight.append([])
+                        for k in range(nk):
+                            band[-1].append([])
+                            band_weight[-1].append([])
+                            for m in range(nband):
+                                ni = ((nband+2)*nk + 1) * ispin + (nband+2)*k + nspin + m + 1 + i
+                                eband = float(self.LOG[ni].split()[1])
+                                wband = float(self.LOG[ni].split()[2])
+                                band[-1][-1].append(eband)
+                                band_weight[-1][-1].append(wband)
+                    break
+            self['band'] = band
+            self['band_weight'] = band_weight
     
     @ResultAbacus.register(band_plot="Will plot the band structure. Return the file name of the plot.")
     def PlotBandFromLog(self):  
@@ -455,7 +510,7 @@ class Abacus(ResultAbacus):
     @ResultAbacus.register(band_gap = "band gap of the system")
     def GetBandGapFromLog(self):
         def ErrorReturn(strinfo):
-            print("WARNING: %s, skip the catch of band gap info")
+            print(f"WARNING: {strinfo}, skip the catch of band gap info")
             self['band_gap'] = None
             return
         
