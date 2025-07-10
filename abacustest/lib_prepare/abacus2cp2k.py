@@ -1,6 +1,7 @@
 from .abacus import AbacusStru, ReadInput, ReadKpt
 import os
 from . import comm,cp2k
+import copy
 
 def update_dict(dict1, dict2):
     '''
@@ -352,6 +353,7 @@ def Abacus2Cp2k(abacus_path:str, save_path:str=None, cp2k_setting={}):
         save_path: the path to save the cp2k input file, default is the same as the abacus input file
         cp2k_setting: the extra setting for cp2k input file
     '''
+    cp2k_setting = copy.deepcopy(cp2k_setting)
     tmp = {}
     abacus_input = ReadInput(os.path.join(abacus_path,"INPUT"))
     abacus_stru = AbacusStru.ReadStru(os.path.join(abacus_path,"STRU"))
