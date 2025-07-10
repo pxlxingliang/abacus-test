@@ -182,11 +182,48 @@ class Abacus(ResultAbacus):
             else:
                 self["nelec_dict"] = None
 
-    
+    @ResultAbacus.register(total_mag="total magnetism (Bohr mag/cell)",
+                           absolute_mag="absolute magnetism (Bohr mag/cell)",
+                           total_mags="total magnetism (Bohr mag/cell) of each ION step",
+                           absolute_mags="absolute magnetism (Bohr mag/cell) of each ION step",
+                           )
+    def GetMagResult(self): 
+        total_mags = []
+        absolute_mags = []
+        tot_mag = None
+        abs_mag = None
+        ion_step = 1
+        for i,line in enumerate(self.LOG):
+            if "ION=" in line:
+                current_step = int(line.split()[4])
+                if current_step > ion_step:
+                    if tot_mag is not None:
+                        total_mags.append(tot_mag)
+                        absolute_mags.append(abs_mag)
+                ion_step = current_step 
+            elif 'total magnetism (Bohr mag/cell)' in line:
+                sline = line.split()
+                # if the last three are float, then it is the noncollinear case, else it is collinear case
+                try:
+                    tot_mag = [float(imag) for imag in sline[-3:]]
+                except:
+                    tot_mag = float(sline[-1])
+            elif 'absolute magnetism' in line:
+                abs_mag = float(line.split()[-1])
+        
+        if tot_mag is not None:    
+            self['total_mag'] = tot_mag
+            self['absolute_mag'] = abs_mag
+            self['total_mags'] = total_mags + [tot_mag]
+            self['absolute_mags'] = absolute_mags + [abs_mag]
+        else:
+            self['total_mag'] = None
+            self['absolute_mag'] = None
+            self['total_mags'] = None
+            self['absolute_mags'] = None
+        
     
     @ResultAbacus.register(converge="if the SCF is converged",
-                           total_mag="total magnetism (Bohr mag/cell)",
-                           absolute_mag="absolute magnetism (Bohr mag/cell)",
                            energy = "the total energy (eV)",
                            energy_ks = "the E_KohnSham, unit in eV",
                            energies = "list of total energy of each ION step",
@@ -197,8 +234,6 @@ class Abacus(ResultAbacus):
         if self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
             output_final = self.JSON.get("output")[-1]
             self["converge"] = output_final.get("scf_converge",None)
-            self["total_mag"] = output_final.get("total_mag",None)
-            self["absolute_mag"] = output_final.get("absolute_mag",None)
             self["energy"] = output_final.get("energy",None)
             self["energies"] = [i.get("energy",None) for i in self.JSON.get("output")]
             self["efermi"] = output_final.get("e_fermi",None)
@@ -212,8 +247,6 @@ class Abacus(ResultAbacus):
             else:
                 self["energy_per_atom"] = None
         else: 
-            total_mag = None
-            absolute_mag = None
             efermi = None
             converge = None
             energy = None
@@ -226,15 +259,6 @@ class Abacus(ResultAbacus):
                 elif 'convergence has NOT been achieved!' in line or\
                     'convergence has not been achieved' in line:
                     converge = False
-                elif 'total magnetism (Bohr mag/cell)' in line:
-                    sline = line.split()
-                    # if the last three are float, then it is the noncollinear case, else it is collinear case
-                    try:
-                        total_mag = [float(imag) for imag in sline[-3:]]
-                    except:
-                        total_mag = float(sline[-1])
-                elif 'absolute magnetism' in line:
-                    absolute_mag = float(line.split()[-1])
                 elif "!FINAL_ETOT_IS" in line:
                     energy = float(line.split()[1])
                 elif "final etot is" in line:
@@ -268,8 +292,6 @@ class Abacus(ResultAbacus):
             else:
                 self["energy_ks"] = None
 
-            self['total_mag'] = total_mag
-            self['absolute_mag'] = absolute_mag
             if efermi != None and isinstance(efermi,list):
                 if abs(efermi[0] - efermi[1]) < 1e-6:
                     efermi = efermi[0]
