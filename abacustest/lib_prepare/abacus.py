@@ -1007,7 +1007,15 @@ class AbacusStru:
                 if self._angle2 and self._angle2[icoord + j] != None:
                         cc += "angle2 %f " % self._angle2[icoord + j]
                 if self._constrain and self._constrain[icoord + j]:
+                    if isinstance(self._constrain[icoord + j],list) and len(self._constrain[icoord + j]) == 3:
                         cc += "sc " + " ".join(["1" if ic else "0" for ic in self._constrain[icoord + j]]) + " " 
+                    elif isinstance(self._constrain[icoord + j],list) and len(self._constrain[icoord + j]) == 1:
+                        cc += "sc " + "1" if self._constrain[icoord + j][0] else "0" + " "
+                    elif not isinstance(self._constrain[icoord + j],list):
+                        cc += "sc " + "1" if self._constrain[icoord + j] else "0" + " "
+                    else:
+                        print("ERROR: the constrain is not a list or a bool value, skip it")
+                        print("\t\tconstrain:",self._constrain[icoord + j])
                 if self._lambda and self._lambda[icoord + j]:
                         cc += "lambda " + " ".join([str(ic) for ic in self._lambda[icoord + j]]) + " "
                 cc += "\n"
