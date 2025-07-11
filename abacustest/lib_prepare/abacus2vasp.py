@@ -79,7 +79,7 @@ def ParamAbacus2Vasp(abacus_input):
     
     smearing_method = abacus_input.pop("smearing_method",None)    
     if smearing_method != None:
-        if smearing_method == "gaussian":
+        if smearing_method.startswith("gau"):
             vasp_input["ISMEAR"] = 0
         elif smearing_method == "mp":
             vasp_input["ISMEAR"] = 1

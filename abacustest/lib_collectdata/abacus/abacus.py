@@ -486,7 +486,7 @@ class Abacus(ResultAbacus):
             self['band'] = band
             self['band_weight'] = band_weight
     
-    @ResultAbacus.register(band_plot="Will plot the band structure. Return the file name of the plot.")
+    @ResultAbacus.register(band_plot="Plot the band structure. Return the file name of the plot.")
     def PlotBandFromLog(self):  
         band = self['band']  
         efermi = self['efermi']

@@ -417,42 +417,19 @@ class Vasp(ResultVasp):
             cb = None
             fermi = self['efermi']
             self["band_gap"] = comm.cal_band_gap(self['band'],fermi)
-    '''
-    @ResultVasp.register(band_gap = 'eV, the band gap')
-    def GetBandGap(self):
-        if self['band'] == None or self['nelec'] == None:
-            self['band_gap'] = None
-        else:
-            occu_band = int(self['nelec'] / 2)
-            band_num = len(self['band'][0][0])
-            if occu_band <= 0:
-                self['band_gap'] = None
-                return
-            if occu_band >= band_num:
-                self['band_gap'] = None
-                return
-             
-            vb = None
-            cb = None
-            for ispin in self['band']:
-                for ik in ispin:
-                    eband1 = ik[occu_band-1]
-                    eband2 = ik[occu_band]
-                    if cb == None or cb < eband1:
-                        cb = eband1
-                    if vb == None or vb > eband2:
-                        vb = eband2 
-            #print("cb=%.5f, vb=%.5f" % (cb,vb))
-            if vb == None or cb == None:
-                self['band_gap'] = None
-                return
-            else:
-                band_gap = vb - cb
-                if band_gap < 0:
-                    band_gap = 0
-                self['band_gap'] = band_gap
-                return
-    '''
+    
+    @ResultVasp.register(band_plot="Plot the band structure. Return the file name of the plot.")
+    def PlotBandFromLog(self):  
+        band = self['band']  
+        efermi = self['efermi']
+        if band == None:
+            print("no band, and skip the plot of band")
+            self['band_plot'] = None
+            return
+        band_plot = os.path.join(self.PATH,"band.png")
+        comm.plot_band(band, band_plot, efermi)
+        self['band_plot'] = band_plot     
+    
     @ResultVasp.register(point_group = 'point group',
                          point_group_in_space_group = "point group in space group")
     def GetPointGroup(self):

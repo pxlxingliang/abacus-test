@@ -191,7 +191,7 @@ def cal_band_gap(band,efermi):
         if band_gap < 0: band_gap = 0 
     return band_gap
 
-def plot_band(band,fname,efermi=None,range_=None):
+def plot_band(band,fname,efermi=None):
     """
     band: NSPIN X NKPTS X NBAND
     fname: the file name of the band plot
@@ -199,32 +199,36 @@ def plot_band(band,fname,efermi=None,range_=None):
     """
     import numpy as np
     import matplotlib.pyplot as plt
-    band = np.array(band)
-    nband = len(band)
-    fig, axs = plt.subplots(1, nband, figsize=(nband*5,4))
-    for i in range(nband):
-        if nband == 1:
-            ax = axs
-        else:
-            ax = axs[i]
-        iband = np.array(band[i])
-        iband = iband.T
+    
+    def plot_one(ax, iband, efermi=None, _range=None):
         for j in range(len(iband)):
             ax.plot(iband[j], "--o", linewidth=0.3, markersize=0.3)
-        if efermi != None:
-            if nband == 1:
-                ax.axhline(y=efermi, color='r', linestyle='--', linewidth=0.3)
-                ax.text(int(len(iband[0])/3), efermi, f'Efermi={efermi:.3f} eV', color='r', fontsize=8)
-            else:
-                ax.axhline(y=efermi[i], color='r', linestyle='--', linewidth=0.3)
-                ax.text(int(len(iband[0])/3), efermi[i], f'Efermi={efermi[i]:.3f} eV', color='r', fontsize=8)
-        if range_ != None:
-            ax.set_ylim(range_[0], range_[1])
+        if efermi is not None:
+            ax.axhline(y=efermi, color='r', linestyle='--', linewidth=0.3)
+            ax.text(int(len(iband[0])/3), efermi, f'Efermi={efermi:.3f} eV', color='r', fontsize=8)
+        if _range is not None:
+            ax.set_ylim(_range)
+        else:
+            ax.set_ylim(np.min(iband.flatten()) - 1, np.max(iband.flatten()) + 1)
         ax.set_ylabel('Energy (eV)')
         ax.set_xlabel('k point')
+        ax.set_xlim(-1, len(iband[0]))
+        
+    band = np.array(band)
+    nband = len(band)
+    if nband == 2 and isinstance(efermi, float):
+        efermi = [efermi, efermi]    
+    fig, axs = plt.subplots(nband, 2, figsize=(8, 4*nband))
+    axs = axs.flatten()
+    for i in range(nband):
+        plot_one(axs[2*i], np.array(band[i]).T, efermi=efermi[i])
+        _range = [-5, 5] if efermi is None else [efermi[i]-5, efermi[i]+5]
+        plot_one(axs[2*i+1], np.array(band[i]).T, efermi=efermi[i], _range=_range)
+        axs[2*i].set_title(f'Spin {i+1} (Full)')
+        axs[2*i+1].set_title(f'Spin {i+1} (Zoomed)')
         
     fig.tight_layout()
-    plt.savefig(fname, dpi=400)
+    plt.savefig(fname, dpi=300)
     plt.close()
 
 def abacus_orb_label(l,m):
