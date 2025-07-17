@@ -1,7 +1,7 @@
 import subprocess
 import os
 
-BASE_VERSION = "v0.4.24"
+BASE_VERSION = "v0.4.25"
 
 def _is_version_file_updated():
     try:
