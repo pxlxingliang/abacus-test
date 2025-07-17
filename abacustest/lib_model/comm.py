@@ -271,3 +271,89 @@ def run_command(
         if return_code is not None:
             break
     return return_code, out, err
+
+
+def cal_cellparam(cell):
+    """
+    Calculate the parameters of a cell.
+    
+    Parameters:
+        cell (np.ndarray): The cell matrix.
+        
+    Returns:
+        tuple: A tuple containing the lengths and angles of the cell.
+    """
+    import numpy as np
+    a = np.linalg.norm(cell[0])
+    b = np.linalg.norm(cell[1])
+    c = np.linalg.norm(cell[2])
+    
+    alpha = np.arccos(np.dot(cell[1], cell[2]) / (b * c)) * 180 / np.pi
+    beta = np.arccos(np.dot(cell[0], cell[2]) / (a * c)) * 180 / np.pi
+    gamma = np.arccos(np.dot(cell[0], cell[1]) / (a * b)) * 180 / np.pi
+    
+    return a, b, c, alpha, beta, gamma
+
+def inter_coord(cell1, coord1, 
+                cell2, coord2,
+                n):
+    """
+    Interpolate coordinates from one cell to another.
+    
+    Parameters:
+        cell1 (np.ndarray): The first cell matrix.
+        coord1 (np.ndarray): Coordinates in the first cell.
+        cell2 (np.ndarray): The second cell matrix.
+        coord2 (np.ndarray): Coordinates in the second cell.
+        n (int): Number of interpolation points.
+        
+    Returns:
+        np.ndarray: Interpolated coordinates in the second cell.
+    """
+    import numpy as np
+    cell1 = np.array(cell1)
+    cell2 = np.array(cell2)
+    coord1 = np.array(coord1)
+    coord2 = np.array(coord2)
+    coord1_direct = np.dot(np.linalg.inv(cell1), coord1.T).T
+    coord2_direct = np.dot(np.linalg.inv(cell2), coord2.T).T
+
+    coord_diff = coord2_direct - coord1_direct
+    # if diff larger than 0.5, then add 1 to the diff
+    while np.any(coord_diff > 0.5) or np.any(coord_diff < -0.5):
+        coord_diff[coord_diff > 0.5] -= 1
+        coord_diff[coord_diff < -0.5] += 1
+    coord2_direct = coord1_direct + coord_diff
+
+    maxdiff_idx = np.argmax(np.abs(coord_diff))
+    print("Max difference index:", maxdiff_idx)
+    print("Max difference value:", np.max(np.abs(coord_diff)))
+    
+    a1, b1, c1, alpha1, beta1, gamma1 = cal_cellparam(cell1)
+    a2, b2, c2, alpha2, beta2, gamma2 = cal_cellparam(cell2)
+    print(f"Cell1: a={a1:.2f}, b={b1:.2f}, c={c1:.2f}, alpha={alpha1:.2f}, beta={beta1:.2f}, gamma={gamma1:.2f}")
+    print(f"Cell2: a={a2:.2f}, b={b2:.2f}, c={c2:.2f}, alpha={alpha2:.2f}, beta={beta2:.2f}, gamma={gamma2:.2f}")
+    
+    cells = []
+    coords = []
+    for i in range(n+1):
+        alpha = alpha1 + (alpha2 - alpha1) * i / n
+        beta = beta1 + (beta2 - beta1) * i / n
+        gamma = gamma1 + (gamma2 - gamma1) * i / n
+        
+        a = a1 + (a2 - a1) * i / (n - 1)
+        b = b1 + (b2 - b1) * i / (n - 1)
+        c = c1 + (c2 - c1) * i / (n - 1)
+        
+        cell = np.array([[a, 0, 0], 
+                         [b * np.cos(np.radians(gamma)), b * np.sin(np.radians(gamma)), 0], 
+                         [c * np.cos(np.radians(beta)), 
+                          c * (np.cos(np.radians(alpha)) - np.cos(np.radians(beta)) * np.cos(np.radians(gamma))) / np.sin(np.radians(gamma)), 
+                          c * np.sqrt(1 - np.cos(np.radians(alpha))**2 - np.cos(np.radians(beta))**2 + 2 * np.cos(np.radians(alpha)) * np.cos(np.radians(beta)) * np.cos(np.radians(gamma)))]])
+
+        coord_direct = coord1_direct + coord_diff * i / n
+        coord = np.dot(cell, coord_direct.T).T
+        
+        cells.append(cell)
+        coords.append(coord)
+    return cells, coords
