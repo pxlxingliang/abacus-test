@@ -30,25 +30,36 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
     try:
         for istru in input_strus:
             for iistru in glob.glob(istru):
-                if input_stru_type in dpdata_formats:
-                    stru = dpdata.System(iistru,fmt=input_stru_type)
-                elif input_stru_type.lower() == "cif":
-                    from ase.io import read as ase_read
-                    stru = ase_read(iistru)
-                    stru = dpdata.System(stru, fmt="ase/structure")
-                
-                print("Translating %s to ABACUS stru:" % iistru)
-                struinfo[istru] = []
-                for i in range(stru.get_nframes()):
+                if input_stru_type in ["abacus/stru"]:
                     tpath = os.path.join(output_path,"%06d" % idx)
                     os.makedirs(tpath,exist_ok=True)
-                    stru.to("abacus/stru", os.path.join(tpath,"STRU"),i)
+                    os.system("cp %s %s" % (iistru, os.path.join(tpath,"STRU")))
                     output_folders.append(tpath)
                     idx += 1
-                    print("    Save to %s" % os.path.join(tpath,"STRU"))
+                    print("Copy %s to %s" % (iistru, os.path.join(tpath,"STRU")))
                     with open(os.path.join(tpath,"struinfo.txt"),"w") as f:
                         f.write(istru)
-                    struinfo[istru].append(os.path.basename(tpath))
+                    struinfo[istru] = [os.path.basename(tpath)]
+                else:    
+                    if input_stru_type in dpdata_formats:
+                        stru = dpdata.System(iistru,fmt=input_stru_type)
+                    elif input_stru_type.lower() == "cif":
+                        from ase.io import read as ase_read
+                        stru = ase_read(iistru)
+                        stru = dpdata.System(stru, fmt="ase/structure")
+                    
+                    print("Translating %s to ABACUS stru:" % iistru)
+                    struinfo[istru] = []
+                    for i in range(stru.get_nframes()):
+                        tpath = os.path.join(output_path,"%06d" % idx)
+                        os.makedirs(tpath,exist_ok=True)
+                        stru.to("abacus/stru", os.path.join(tpath,"STRU"),i)
+                        output_folders.append(tpath)
+                        idx += 1
+                        print("    Save to %s" % os.path.join(tpath,"STRU"))
+                        with open(os.path.join(tpath,"struinfo.txt"),"w") as f:
+                            f.write(istru)
+                        struinfo[istru].append(os.path.basename(tpath))
     except:
         traceback.print_exc()
         print("ERROR: %s to ABACUS STRU failed" % (input_stru_type))
