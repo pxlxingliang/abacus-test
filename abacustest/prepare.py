@@ -417,6 +417,7 @@ class PrepareAbacus:
                     if stru_data.get_pp():
                         os.chdir(stru_path)
                         pp_in_stru = os.path.join(input_in_stru_path.get("pseudo_dir",""),stru_data.get_pp()[i])
+                        
                         if os.path.isfile(pp_in_stru):
                             print("label '%s': link the pseudopotential file '%s' defined in %s" % (ilabel,pp_in_stru,istru))
                             pp_list.append(os.path.basename(pp_in_stru))
@@ -424,6 +425,7 @@ class PrepareAbacus:
                             if pp_list[-1] != stru_data.get_pp()[i]:
                                 linkstru = False
                         else:
+                            pp_list.append(stru_data.get_pp()[i])
                             print("label '%s': the pseudopotential file '%s' defined in %s is not found" % (ilabel,pp_in_stru,istru))
                             #skipstru = True
                             #os.chdir(cwd)
@@ -448,6 +450,7 @@ class PrepareAbacus:
                             if orb_list[-1] != stru_data.get_orb()[i]:  
                                 linkstru = False
                         else:
+                            orb_list.append(stru_data.get_orb()[i])
                             print("label '%s': the orbital file '%s' defined in %s is not found." % (ilabel,orb_in_stru,istru))
                         os.chdir(cwd)
                 else:
