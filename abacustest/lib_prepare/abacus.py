@@ -63,9 +63,16 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
                 os.symlink(os.path.abspath(orb_paths[ie]), t_file)
             else:
                 orb.append(None)
-        if None not in pp:
+        if None in pp:
+            e = " ".join([ie for ie,ipp in zip(element,pp) if ipp is None])
+            print(f"WARNING: some elements ({e}) have no pseudopotentials, will NOT set pseudopotential in STRU file.")
+        else:
             stru.set_pp(pp)
-        if None not in orb:
+            
+        if None in orb:
+            e = " ".join([ie for ie,iorb in zip(element,orb) if iorb is None])
+            print(f"WARNING: some elements ({e}) have no orbitals, will NOT set orbital in STRU file.")
+        else:
             stru.set_orb(orb)
         stru.write(os.path.join(ipath, "STRU"))
         jobs[ipath] = {
