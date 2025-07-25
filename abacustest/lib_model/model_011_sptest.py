@@ -124,6 +124,7 @@ class SPTest:
                 print(i)
                 result = RESULT(path = i, fmt = jobtype)
                 ir = {key: result[key] for key in ["natom","label","nelec","normal_end","nkstot","ibzk", "converge", "volume","total_time", "scf_steps", 
+                                                   "total_mag", "absolute_mag", "atom_mag",
                                                    "energy", "force", "stress", "virial", "ds_mag_force"]}
                 r.update({i: ir})
             except:
@@ -201,8 +202,8 @@ class SPTest:
                 if report[example][f"NormalEnd({self.testn})"] in [None, False]:
                     report[example][f"TotTime(s)({self.testn})"] = None
                 
-                for key, name in zip(["energy", "force", "stress", "ds_mag_force"],
-                                     ["DevE(eV)", "MaxDevF(eV/A)", "MaxDevS(kbar)", "MaxDevMagF(eV/uB)"]):
+                for key, name in zip(["energy", "force", "stress", "ds_mag_force", "total_mag", "absolute_mag", "atom_mag"],
+                                     ["DevE(eV)", "MaxDevF(eV/A)", "MaxDevS(kbar)", "MaxDevMagF(eV/uB)", "DevTotMag(uB)", "DevAbsMag(uB)", "MaxDevAtomMag(uB)"]):
                     report[example][name] = self.cal_dev(result.get(key), self.ref_r.get(example, {}).get(key))
                 
                 if None in [report[example]["natom"], report[example]["DevE(eV)"]]:
@@ -225,7 +226,8 @@ class SPTest:
                      "NormalEnd", "Converge", "TotTime(s)","SCFSteps", "Time/step(s)",
                      f"NormalEnd({self.testn})", f"Converge({self.testn})", f"TotTime(s)({self.testn})", f"SCFSteps({self.testn})", f"Time/step(s)({self.testn})",
                      f"NormalEnd({self.refn})", f"Converge({self.refn})", f"TotTime(s)({self.refn})", f"SCFSteps({self.refn})", f"Time/step(s)({self.refn})",
-                     "DevE(eV)", "DevE(meV/atom)", "MaxDevF(eV/A)", "MaxDevS(kbar)"]
+                     "DevE(eV)", "DevE(meV/atom)", "MaxDevF(eV/A)", "MaxDevS(kbar)",
+                     "MaxDevMagF(eV/uB)", "DevTotMag(uB)", "DevAbsMag(uB)", "MaxDevAtomMag(uB)"]
         cretria_set = {
             "NormalEnd": "bool(x)",
             "Converge": "bool(x)",
@@ -234,10 +236,12 @@ class SPTest:
             "DevE(meV/atom)": "x < 1",
             "MaxDevF(eV/A)": "x < 0.01",
             "MaxDevS(kbar)": "x < 1",
+            "MaxDevMagF(eV/uB)": "x < 0.01",
+            "DevTotMag(uB)": "x < 0.05",
+            "DevAbsMag(uB)": "x < 0.05",
+            "MaxDevAtomMag(uB)": "x < 0.05"
         }
-        if has_mf:
-            sort_keys.append("MaxDevMagF(eV/uB)")
-            cretria_set["MaxDevMagF(eV/uB)"] = "x < 0.01"
+        report = self.remove_none(report)
         report = self.sort_report(report, sort_keys)
         metric_keys = list(report[list(report.keys())[0]].keys())
         
