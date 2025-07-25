@@ -1,6 +1,6 @@
 from ..model import Model
 import os, json, sys, inspect
-from . import comm
+from . import comm, comm_plot
 
 
 class AseRelax(Model):
@@ -126,15 +126,22 @@ class AseRelax(Model):
                 for ijob in jobs:
                     result = RESULT(path=ijob,fmt="abacus")
                     forces = result["forces"]
+                    stresses = result["stresses"]
                     fmax = []
+                    smax = []
                     if forces:
                         for force in forces:
                             fmax.append(max([ (sum([j**2 for j in force[3*i:3*i+3]]))**0.5 for i in range(len(force)//3)]))
+                    if stresses:
+                        for stress in stresses:
+                            smax.append(max([ abs(s) for s in stress ]))
+                            
                     allmetrics[ijob.rstrip("/")] = {
                         "version": result["version"],
                         "energy": result["energy"],
                         "energy_traj": result["energies"],
                         "fmax_traj": fmax,
+                        "smax_traj": smax,
                         "relax_steps": result["relax_steps"],
                         "relax_converge": result["relax_converge"]
                     }
@@ -160,11 +167,14 @@ class AseRelax(Model):
                 plot_data[ik] = {
                     "enes": enes,
                     "fmax": fmax,
+                    "smax": iv.get("smax_traj", None),
                 }
         return plot_data 
     
     def _post_plot(self,plot_data,output):
         import matplotlib.pyplot as plt
+        import numpy as np
+        comm_plot.set_font("Times New Roman", font_size=12)
         examples = list(plot_data.keys())
         examples.sort()
         
@@ -173,7 +183,7 @@ class AseRelax(Model):
         while nrow * ncol < len(examples):
             nrow += 1
         
-        fig, axes = plt.subplots(nrow,ncol,figsize=(8*ncol,6*nrow))
+        fig, axes = plt.subplots(nrow,ncol,figsize=(6*ncol,4*nrow))
         for i,example in enumerate(examples):
             if nrow * ncol == 1:
                 ax0 = axes
@@ -183,21 +193,35 @@ class AseRelax(Model):
                 ax0 = axes[i//ncol][i%ncol]
             ax0.plot(plot_data[example]["enes"],label="Energy (eV)",color="blue",linestyle="-",marker="o")
             ax1 = ax0.twinx()
-            ax1.plot(plot_data[example]["fmax"],label="Fmax (eV/A)",color="red",linestyle="--",marker="o")
+            ax1.plot(plot_data[example]["fmax"],label="Fmax (eV/$\mathrm{\AA}$)",color="red",linestyle="--",marker="o")
+            if plot_data[example].get("smax"):
+                ax1.plot(np.array(plot_data[example]["smax"])/100,label="Stress_max (kbar/100)",color="green",linestyle="--",marker="x")
             ax0.set_title(example)
             ax0.set_xlabel("Step")
             ax0.set_ylabel("Energy (eV)")
-            ax1.set_ylabel("Fmax (eV/A)")
+            if plot_data[example].get("smax"):
+                ax1.set_ylabel("Force (eV/$\mathrm{\AA}$)/Stress (kbar/100)")
+            else:
+                ax1.set_ylabel("Fmax (eV/$\mathrm{\AA}$)")
             ax0.legend(loc="upper left")
             ax1.legend(loc="upper right")
             ene_max = max(plot_data[example]["enes"])
             ene_min = min(plot_data[example]["enes"])
-            fmax_max = max(plot_data[example]["fmax"])
-            fmax_min = min(plot_data[example]["fmax"])
+            if plot_data[example].get("smax"):
+                fmax_max = max(max(plot_data[example]["fmax"]), max(plot_data[example]["smax"])/100)
+                fmax_min = min(min(plot_data[example]["fmax"]), min(plot_data[example]["smax"])/100)
+            else:
+                fmax_max = max(plot_data[example]["fmax"])
+                fmax_min = min(plot_data[example]["fmax"])
             ax0.set_ylim(ene_min,ene_max + (ene_max - ene_min)*0.2)
             ax1.set_ylim(fmax_min,fmax_max + (fmax_max - fmax_min)*0.2)
+            # plot line y = 0.01
+            ax1.axhline(y=0.01, color='gray', linestyle='--', linewidth=0.5)
+            # set y log scale
+            if fmax_max / fmax_min > 100:
+                ax1.set_yscale("log")
         plt.tight_layout()
-        plt.savefig(output)
+        plt.savefig(output,dpi=300)
     
     def run_postprocess(self,params):
         '''

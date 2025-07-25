@@ -8,7 +8,6 @@ def parser():
     subparser = my_parser.add_subparsers(dest="command")
     
     abacustest.AbacusTestArgs(subparser.add_parser("submit",help="Submit a workflow"))
-    #abacustest.AbacusTestArgs(subparser.add_parser("mlops-submit"))
     abacustest.AbacusTestCheckStatusArgs(subparser.add_parser("status", help="Check the status of the dflow job"))
     abacustest.AbacusTestDownloadArgs(subparser.add_parser("download", help="Download the results of the dflow job"))
     collectdata.CollectDataArgs(subparser.add_parser("collectdata", help="Collect the specified key from the result files"))
