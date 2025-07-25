@@ -1,5 +1,5 @@
 from typing import List, Dict, Union
-import os,sys,traceback, re,copy
+import os,sys,traceback, re,copy, json
 import numpy as np
 from pathlib import Path
 from .. import constant
@@ -21,6 +21,7 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
                 "element": element,
                 "pp": pp,
                 "orb": orb,
+                "recommand_ecutwfc": Dict[str, float] or None # the recommended ecutwfc for each element
             }
     """
     # Translate structure files to ABACUS STRU format
@@ -33,6 +34,7 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
     # Find the pseudopotential files and orbital files
     pp_paths = comm.collect_pp(pp_path) # the return file name is pp_path/pp
     orb_paths = comm.collect_pp(orb_path)
+    recommand_ecutwfc = None if not os.path.isfile(os.path.join(pp_path, "ecutwfc.json")) else json.load(open(os.path.join(pp_path, "ecutwfc.json"), "r"))
     jobs = {}
     for ipath in stru_paths:
         istru = os.path.join(ipath, "STRU")
@@ -63,15 +65,23 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
                 os.symlink(os.path.abspath(orb_paths[ie]), t_file)
             else:
                 orb.append(None)
-        if None not in pp:
+        if None in pp:
+            e = " ".join([ie for ie,ipp in zip(element,pp) if ipp is None])
+            print(f"WARNING: some elements ({e}) have no pseudopotentials, will NOT set pseudopotential in STRU file.")
+        else:
             stru.set_pp(pp)
-        if None not in orb:
+            
+        if None in orb:
+            e = " ".join([ie for ie,iorb in zip(element,orb) if iorb is None])
+            print(f"WARNING: some elements ({e}) have no orbitals, will NOT set orbital in STRU file.")
+        else:
             stru.set_orb(orb)
         stru.write(os.path.join(ipath, "STRU"))
         jobs[ipath] = {
             "element": element,
             "pp": pp,
             "orb": orb,
+            "recommand_ecutwfc": [recommand_ecutwfc[ie] for ie in element] if recommand_ecutwfc else None
         } 
     return jobs
 
@@ -1542,7 +1552,9 @@ def WriteInput(input_context:Dict[str,any],
     out = "INPUT_PARAMETERS\n"
     for k,v in input_context.items():
         if v != None:
-            out += f"{k} \t{v}\n"
+            if isinstance(v, (list,tuple)):
+                v = ' '.join([str(i) for i in v])
+            out += f"{k} \t{v}\n"    
         else:
             out += f"#{k}\t \n"
     with open(INPUTf,'w') as f1: f1.write(out)        

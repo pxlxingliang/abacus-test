@@ -30,7 +30,7 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
     try:
         for istru in input_strus:
             for iistru in glob.glob(istru):
-                if input_stru_type in ["abacus/stru"]:
+                if input_stru_type in ["abacus/stru", "stru"]:
                     tpath = os.path.join(output_path,"%06d" % idx)
                     os.makedirs(tpath,exist_ok=True)
                     os.system("cp %s %s" % (iistru, os.path.join(tpath,"STRU")))
