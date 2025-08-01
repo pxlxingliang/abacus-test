@@ -278,8 +278,11 @@ class PrepInput:
     def run(self):
         jobs = gen_stru(self.files, self.filetype, self.pp_path, self.orb_path, tpath=".")
 
-        if self.input_file is not None and not os.path.isfile(self.input_file):
-            input_template = ReadInput(self.input_file)
+        if self.input_file is not None:
+            if not os.path.isfile(self.input_file):
+                raise ValueError(f"Input file {self.input_file} not found.")
+            else:
+                input_template = ReadInput(self.input_file)
         else:
             input_template = None
         
