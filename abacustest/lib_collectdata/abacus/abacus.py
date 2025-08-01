@@ -867,7 +867,7 @@ Fe2
                         if self.OUTPUT[j][1:3] in KS_SOLVER_LIST and len(self.OUTPUT[j].split()) == ncol:
                             denergy.append(float(self.OUTPUT[j].split()[ediff_idx]))
                         j += 1
-                    break
+
         self["denergy"] = denergy
         if denergy != None:
             self["denergy_last"] = denergy[-1]
