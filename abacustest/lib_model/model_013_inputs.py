@@ -16,18 +16,18 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                     "mixing_beta": 0.7,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                     "#cal_force": 1, "#cal_stress": 1,
-                    "kspacing": "0.1 # unit in 1/bohr"}, 
+                    "kspacing": "0.14 # unit in 1/bohr"}, 
              "relax": {"calculation": "relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.7, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
-                       "cal_force": 1, "#cal_stress": 1,"kspacing": "0.1 # unit in 1/bohr",
+                       "cal_force": 1, "#cal_stress": 1,"kspacing": "0.14 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs bfgs_trad cg_bfgs sd fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "#stress_thr": "0.5 # unit in kbar",
                        }, 
              "cell-relax":{"calculation": "cell-relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.7, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
-                       "cal_force": 1, "cal_stress": 1, "kspacing": "0.1 # unit in 1/bohr",
+                       "cal_force": 1, "cal_stress": 1, "kspacing": "0.14 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs, bfgs_trad, cg_bfgs, sd, fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "stress_thr": "0.5 # unit in kbar",
                        "fixed_axes": "None # or volume, shape, a, b, c, ab, ac, bc; only valid for cell-relax calculation to fix some axes",
@@ -36,7 +36,7 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.7, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                        "#cal_force": 1, "#cal_stress": 1,
-                       "kspacing": "0.1 # unit in 1/bohr", 
+                       "kspacing": "0.14 # unit in 1/bohr", 
                        "md_type": "nvt  # or npt, nve, langevin, fire, msst",
                        "md_nstep": "10  # number of steps",
                        "md_dt": "1.0  # unit in fs", 
@@ -46,7 +46,7 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                     "mixing_beta": 0.7,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                     "#cal_force": 1, "#cal_stress": 1,
-                    "kspacing": "0.1 # unit in 1/bohr"}
+                    "kspacing": "0.14 # unit in 1/bohr"}
         }
 
 LCAO_PARAM = {
