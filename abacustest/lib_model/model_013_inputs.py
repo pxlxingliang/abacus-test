@@ -102,6 +102,7 @@ class InputsModel(Model):
         parser.add_argument("--dftu_param", default=None, nargs="+", help="the DFT+U parameters, should be element symbol and U value pairs like 'Fe 4 Ti 1'")
         parser.add_argument("--init_mag", default=None, nargs="+", help="the initial magnetic moment for magnetic elements, should be element symbol and magnetic moment pairs like 'Fe 4 Ti 1'.")
         parser.add_argument("--afm", action="store_true", help="whether to use antiferromagnetic calculation, default is False. Only valid when init_mag is set.")
+        parser.add_argument("--copy_pp_orb", action="store_true", help="whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.")
         return parser
     
     def parse_dftu_param(self, values):
@@ -168,7 +169,8 @@ class InputsModel(Model):
             afm=params.afm,
             abacus_command="OMP_NUM_THREADS=1 mpirun -np 16 abacus",
             machine="c32_m64_cpu",  # default Bohrium machine type for CPU jobs
-            image=RECOMMAND_IMAGE,  # default recommended image for ABACUS jobs  
+            image=RECOMMAND_IMAGE,  # default recommended image for ABACUS jobs 
+            copy_pp_orb=params.copy_pp_orb 
         )
         pinput.run()
         return 0
@@ -213,6 +215,8 @@ class PrepInput:
         the initial magnetic moment for magnetic elements, should be a dict like {"Fe": 4, "Ti": 1}, where the key is the element symbol and the value is the initial magnetic moment.
     afm : bool
         Whether to use antiferromagnetic calculation, default is False. If True, half of the magnetic elements will be set to negative initial magnetic moment.
+    copy_pp_orb : bool
+        Whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.
     """
     
     def __init__(self, files, filetype, jobtype, pp_path=None, orb_path=None, input_file=None, kpt=None,
