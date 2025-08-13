@@ -1,11 +1,11 @@
 from typing import List, Dict, Union
-import os,sys,traceback, re,copy, json
+import os,sys,traceback, re,copy, json, shutil
 import numpy as np
 from pathlib import Path
 from .. import constant
 from . import comm
 
-def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
+def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=False):
     """
     Generate the structure files for ABACUS.
     
@@ -54,7 +54,10 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
                 t_file = os.path.join(ipath, os.path.basename(pp_paths[ie]))
                 if os.path.isfile(t_file):
                     os.remove(t_file)
-                os.symlink(os.path.abspath(pp_paths[ie]), t_file)
+                if copy_pp_orb:
+                    shutil.copy(os.path.abspath(pp_paths[ie]), t_file)
+                else:
+                    os.symlink(os.path.abspath(pp_paths[ie]), t_file)
             else:
                 pp.append(None)
             if ie in orb_paths:
@@ -62,7 +65,10 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = "."):
                 t_file = os.path.join(ipath, os.path.basename(orb_paths[ie]))
                 if os.path.isfile(t_file):
                     os.remove(t_file)
-                os.symlink(os.path.abspath(orb_paths[ie]), t_file)
+                if copy_pp_orb:
+                    shutil.copy(os.path.abspath(orb_paths[ie]), t_file)
+                else:
+                    os.symlink(os.path.abspath(orb_paths[ie]), t_file)
             else:
                 orb.append(None)
         if None in pp:

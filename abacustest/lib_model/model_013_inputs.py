@@ -225,6 +225,7 @@ class PrepInput:
                  dftu_param=None,
                  init_mag =None,
                  afm = False, 
+                 copy_pp_orb = False,
                  ):
         if jobtype not in JOB_TYPES:
             raise ValueError(f"Unsupported job type: {jobtype}.\nSupported job types are {list(JOB_TYPES.keys())}.")
@@ -248,6 +249,7 @@ class PrepInput:
         self.dftu_param = dftu_param
         self.init_mag = init_mag
         self.afm = afm
+        self.copy_pp_orb = copy_pp_orb
         
         self.pp_path = pp_path
         self.orb_path = orb_path
@@ -276,7 +278,7 @@ class PrepInput:
         print("")
     
     def run(self):
-        jobs = gen_stru(self.files, self.filetype, self.pp_path, self.orb_path, tpath=".")
+        jobs = gen_stru(self.files, self.filetype, self.pp_path, self.orb_path, tpath=".", copy_pp_orb=self.copy_pp_orb)
 
         if self.input_file is not None:
             if not os.path.isfile(self.input_file):
