@@ -16,18 +16,18 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                     "mixing_beta": 0.7,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                     "#cal_force": 1, "#cal_stress": 1,
-                    "kspacing": "0.1 # unit in 1/bohr"}, 
+                    "kspacing": "0.14 # unit in 1/bohr"}, 
              "relax": {"calculation": "relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.7, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
-                       "cal_force": 1, "#cal_stress": 1,"kspacing": "0.1 # unit in 1/bohr",
+                       "cal_force": 1, "#cal_stress": 1,"kspacing": "0.14 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs bfgs_trad cg_bfgs sd fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "#stress_thr": "0.5 # unit in kbar",
                        }, 
              "cell-relax":{"calculation": "cell-relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.7, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
-                       "cal_force": 1, "cal_stress": 1, "kspacing": "0.1 # unit in 1/bohr",
+                       "cal_force": 1, "cal_stress": 1, "kspacing": "0.14 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs, bfgs_trad, cg_bfgs, sd, fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "stress_thr": "0.5 # unit in kbar",
                        "fixed_axes": "None # or volume, shape, a, b, c, ab, ac, bc; only valid for cell-relax calculation to fix some axes",
@@ -36,7 +36,7 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.7, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                        "#cal_force": 1, "#cal_stress": 1,
-                       "kspacing": "0.1 # unit in 1/bohr", 
+                       "kspacing": "0.14 # unit in 1/bohr", 
                        "md_type": "nvt  # or npt, nve, langevin, fire, msst",
                        "md_nstep": "10  # number of steps",
                        "md_dt": "1.0  # unit in fs", 
@@ -46,7 +46,7 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                     "mixing_beta": 0.7,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                     "#cal_force": 1, "#cal_stress": 1,
-                    "kspacing": "0.1 # unit in 1/bohr"}
+                    "kspacing": "0.14 # unit in 1/bohr"}
         }
 
 LCAO_PARAM = {
@@ -102,6 +102,7 @@ class InputsModel(Model):
         parser.add_argument("--dftu_param", default=None, nargs="+", help="the DFT+U parameters, should be element symbol and U value pairs like 'Fe 4 Ti 1'")
         parser.add_argument("--init_mag", default=None, nargs="+", help="the initial magnetic moment for magnetic elements, should be element symbol and magnetic moment pairs like 'Fe 4 Ti 1'.")
         parser.add_argument("--afm", action="store_true", help="whether to use antiferromagnetic calculation, default is False. Only valid when init_mag is set.")
+        parser.add_argument("--copy_pp_orb", action="store_true", help="whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.")
         return parser
     
     def parse_dftu_param(self, values):
@@ -168,7 +169,8 @@ class InputsModel(Model):
             afm=params.afm,
             abacus_command="OMP_NUM_THREADS=1 mpirun -np 16 abacus",
             machine="c32_m64_cpu",  # default Bohrium machine type for CPU jobs
-            image=RECOMMAND_IMAGE,  # default recommended image for ABACUS jobs  
+            image=RECOMMAND_IMAGE,  # default recommended image for ABACUS jobs 
+            copy_pp_orb=params.copy_pp_orb 
         )
         pinput.run()
         return 0
@@ -213,6 +215,8 @@ class PrepInput:
         the initial magnetic moment for magnetic elements, should be a dict like {"Fe": 4, "Ti": 1}, where the key is the element symbol and the value is the initial magnetic moment.
     afm : bool
         Whether to use antiferromagnetic calculation, default is False. If True, half of the magnetic elements will be set to negative initial magnetic moment.
+    copy_pp_orb : bool
+        Whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.
     """
     
     def __init__(self, files, filetype, jobtype, pp_path=None, orb_path=None, input_file=None, kpt=None,
@@ -225,6 +229,7 @@ class PrepInput:
                  dftu_param=None,
                  init_mag =None,
                  afm = False, 
+                 copy_pp_orb = False,
                  ):
         if jobtype not in JOB_TYPES:
             raise ValueError(f"Unsupported job type: {jobtype}.\nSupported job types are {list(JOB_TYPES.keys())}.")
@@ -248,6 +253,7 @@ class PrepInput:
         self.dftu_param = dftu_param
         self.init_mag = init_mag
         self.afm = afm
+        self.copy_pp_orb = copy_pp_orb
         
         self.pp_path = pp_path
         self.orb_path = orb_path
@@ -276,10 +282,13 @@ class PrepInput:
         print("")
     
     def run(self):
-        jobs = gen_stru(self.files, self.filetype, self.pp_path, self.orb_path, tpath=".")
+        jobs = gen_stru(self.files, self.filetype, self.pp_path, self.orb_path, tpath=".", copy_pp_orb=self.copy_pp_orb)
 
-        if self.input_file is not None and not os.path.isfile(self.input_file):
-            input_template = ReadInput(self.input_file)
+        if self.input_file is not None:
+            if not os.path.isfile(self.input_file):
+                raise ValueError(f"Input file {self.input_file} not found.")
+            else:
+                input_template = ReadInput(self.input_file)
         else:
             input_template = None
         
@@ -397,6 +406,11 @@ class PrepInput:
         Update the input parameters based on the input template and recommended ecutwfc.
         """
         if input_template is not None: 
+            if "calculation" in input_template:
+                calculation = input_template["calculation"]
+                if calculation != self.jobtype:
+                    warnings.warn(f"The calculation type in the input template is {calculation}, but the job type is {self.jobtype}. The input template will be ignored.")
+                input_template.pop("calculation")
             input_param.update(input_template)
         else:
             input_template = {}
