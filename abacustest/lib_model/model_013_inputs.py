@@ -406,6 +406,11 @@ class PrepInput:
         Update the input parameters based on the input template and recommended ecutwfc.
         """
         if input_template is not None: 
+            if "calculation" in input_template:
+                calculation = input_template["calculation"]
+                if calculation != self.jobtype:
+                    warnings.warn(f"The calculation type in the input template is {calculation}, but the job type is {self.jobtype}. The input template will be ignored.")
+                input_template.pop("calculation")
             input_param.update(input_template)
         else:
             input_template = {}
