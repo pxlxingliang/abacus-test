@@ -97,7 +97,7 @@ class ElasticModel(Model):
         metrics, results = PostprocessElastic(params.job).run()
         json.dump(metrics, open("metrics.json", "w"), indent=4)
         json.dump(results, open("metrics_elastic.json", "w"), indent=4)
-        pandas_out(results, "results.csv")
+        pandas_out(results, "metrics_elastic.csv")
         print("\nThe postprocess is done. The metrics are saved in 'metrics.json', and the elastic results are saved in 'metrics_elastic.json'.")
         
 

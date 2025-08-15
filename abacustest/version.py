@@ -1,9 +1,9 @@
 import subprocess
 import os
 
-BASE_VERSION = "v0.4.27"
+BASE_VERSION = "v0.4.28"
 
-def _is_version_file_updated():
+def _no_need_subversion():
     try:
         modified_files = subprocess.check_output(
             ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
@@ -12,13 +12,23 @@ def _is_version_file_updated():
         ).decode().splitlines()
         
         current_file = os.path.relpath(__file__, os.getcwd())
-        return current_file in modified_files
+        
+        # If this file is modified, indicating the main version is updated
+        if current_file in modified_files:
+            return True
+        
+        # If codes in the abacustest directory are modified, indicating the main version is not updated
+        for i in modified_files:
+            if i.startswith("abacustest/"):
+                return False
+        
+        return True
     except:
         return False
 
 def get_version():
     try:
-        if _is_version_file_updated():
+        if _no_need_subversion():
             return BASE_VERSION
         
         commit_hash = subprocess.check_output(
