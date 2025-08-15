@@ -1,6 +1,5 @@
 import numpy as np
 from typing import List
-import dpdata
 import os, glob, re, json
 import traceback
 from abacustest.constant import MASS_DICT
@@ -16,6 +15,8 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
     Return:
     output_strus: list, the output structure.
     """
+    import dpdata
+    
     dpdata_formats = dpdata.format.Format.get_formats()
     if input_stru_type not in dpdata_formats and input_stru_type.lower() != "cif":
         print("ERROR: input_stru_type should be in cif, %s, but not %s" % (str(dpdata_formats),input_stru_type))

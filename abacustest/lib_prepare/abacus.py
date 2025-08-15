@@ -1065,6 +1065,77 @@ class AbacusStru:
             Path(poscar).write_text(cc)
         return cc
     
+    def to_ase(self):
+        '''
+        convert the AbacusStru to ase.Atoms
+        
+        Returns:
+            atoms: the ase.Atoms object
+        '''
+        from ase import Atoms
+        
+        cell = self.get_cell(bohr=False)
+        coord = self.get_coord(bohr=False,direct=False)
+        labels = self.get_label(total=True)
+        magmom = self.get_atommag()
+        return Atoms(symbols=labels, positions=coord, cell=cell, pbc=True, magmoms=magmom,
+                      info={"pp": self.get_pp(),
+                            "orb": self.get_orb(),
+                            "paw": self.get_paw(),
+                            "dpks": self.get_dpks()
+                      })
+    
+    def to_pymatgen(self):
+        '''
+        convert the AbacusStru to pymatgen.Structure
+        
+        Returns:
+            structure: the pymatgen.Structure object
+        '''
+        from pymatgen.core import Structure
+        
+        cell = self.get_cell(bohr=False)
+        coord = self.get_coord(bohr=False,direct=False)
+        elements = self.get_element(number=False,total=True)
+        labels = self.get_label(total=True)
+        return Structure(lattice=cell, species=elements, coords=coord, coords_are_cartesian=True,labels=labels,)
+
+    @staticmethod
+    def stru2ase(stru):
+        '''
+        convert the AbacusStru to ase.Atoms
+        
+        Arguments:
+            stru: the STRU file
+        
+        Returns:
+            atoms: the ase.Atoms object
+        '''
+        
+        stru = AbacusStru.ReadStru(stru)
+        if stru is not None:
+            return stru.to_ase()
+        else:
+            raise ValueError("The STRU file is not valid or cannot be read.")
+
+    @staticmethod
+    def stru2pymatgen(stru):
+        '''
+        convert the AbacusStru to pymatgen.Structure
+        
+        Arguments:
+            stru: the STRU file
+            
+        Returns:
+            structure: the pymatgen.Structure object
+        '''
+        
+        stru = AbacusStru.ReadStru(stru)
+        if stru is not None:
+            return stru.to_pymatgen()
+        else:
+            raise ValueError("The STRU file is not valid or cannot be read.")
+    
     @staticmethod
     def parse_stru_pos(pos_line):
         '''
