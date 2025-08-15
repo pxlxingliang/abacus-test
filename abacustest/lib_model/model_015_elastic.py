@@ -98,7 +98,7 @@ class ElasticModel(Model):
         json.dump(metrics, open("metrics.json", "w"), indent=4)
         json.dump(results, open("metrics_elastic.json", "w"), indent=4)
         pandas_out(results, "results.csv")
-        print("\nThe postprocess is done. The metrics are saved in 'metrics.json', and the elastic results are saved in 'results.json'.")
+        print("\nThe postprocess is done. The metrics are saved in 'metrics.json', and the elastic results are saved in 'metrics_elastic.json'.")
         
 
 
@@ -336,7 +336,7 @@ class PostprocessElastic():
                 raise ValueError(f"Subdirectory {sub_dir}.")
             
             r = RESULT(path=sub_dir, fmt="abacus")
-            metrics[sub_dir] = {i: r[i] for i in ["normal_end", "converge", "scf_steps", "denergy_last", "drho_last", "energy", "stress"]}
+            metrics[sub_dir] = {i: r[i] for i in ["normal_end", "converge", "scf_steps", "relax_steps","relax_converge","denergy_last", "drho_last", "energy", "stress"]}
 
         return metrics      
         
