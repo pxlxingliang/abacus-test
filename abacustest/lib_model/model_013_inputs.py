@@ -6,10 +6,9 @@ from pathlib import Path
 from abacustest.lib_model.model_012_band import PrepBand
 from abacustest.constant import RECOMMAND_IMAGE
 
-from pathlib import Path
-
-import copy
 import warnings
+
+from typing import List, Dict, Union, Optional, Tuple, Literal
 
 
 JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
@@ -219,17 +218,24 @@ class PrepInput:
         Whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.
     """
     
-    def __init__(self, files, filetype, jobtype, pp_path=None, orb_path=None, input_file=None, kpt=None,
-                 abacus_command="OMP_NUM_THREADS=1 mpirun -np 16 abacus", machine="c32_m64_cpu", 
-                 image=RECOMMAND_IMAGE,
-                 lcao=False,
-                 nspin=1,  # can be 1 or 2 or 4, 1: no spin, 2: spin polarized, 4: non-collinear spin
-                 soc=False, # spin-orbit coupling, if True, nspin should be 4 
-                 dftu=False,
-                 dftu_param=None,
-                 init_mag =None,
-                 afm = False, 
-                 copy_pp_orb = False,
+    def __init__(self, files: Union[str, List[str], Path, List[Path]],
+                 filetype: str, 
+                 jobtype: str, 
+                 pp_path: Optional[Union[str, Path]]=None, 
+                 orb_path: Optional[Union[str, Path]]=None, 
+                 input_file: Optional[Union[str, Path]]=None, 
+                 kpt: Optional[List[int, int, int]]=None,
+                 abacus_command: str="OMP_NUM_THREADS=1 mpirun -np 16 abacus", 
+                 machine: str="c32_m64_cpu", 
+                 image: str=RECOMMAND_IMAGE,
+                 lcao: bool=False,
+                 nspin: Literal[1,2,4]=1,  # can be 1 or 2 or 4, 1: no spin, 2: spin polarized, 4: non-collinear spin
+                 soc: bool =False, # spin-orbit coupling, if True, nspin should be 4 
+                 dftu: bool=False,
+                 dftu_param: Optional[Dict[str, Union[float, List[str, float]]]]=None,
+                 init_mag: Optional[Dict[str, float]] =None,
+                 afm: bool = False, 
+                 copy_pp_orb: bool = False,
                  ):
         if jobtype not in JOB_TYPES:
             raise ValueError(f"Unsupported job type: {jobtype}.\nSupported job types are {list(JOB_TYPES.keys())}.")
@@ -238,7 +244,14 @@ class PrepInput:
             self.files = [files]
         else:
             self.files = files
-            
+        
+        # check the parameters
+        if nspin not in [1, 2, 4]:
+            raise ValueError(f"Invalid nspin value: {nspin}. It should be 1 (no spin), 2 (spin polarized), or 4 (non-collinear spin).")
+        if soc and nspin != 4:
+            warnings.warn("Spin-orbit coupling is set, but nspin is not 4. Setting nspin to 4 for non-collinear spin calculation.")
+            nspin = 4
+
         self.filetype = filetype
         self.jobtype = jobtype
         self.input_file = input_file
