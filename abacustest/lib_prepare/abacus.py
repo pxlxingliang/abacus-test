@@ -1591,7 +1591,7 @@ def ReadInput(INPUTf: str = None, input_lines: str = None) -> Dict[str,any]:
         Dict[str, any]: a dictionary of input parameters.
         
     If both `INPUTf` and `input_lines` are provided, `input_lines` will be ignored.
-    The value of each parameter will be converted to int, float, or string as appropriate.
+    The value of each parameter will be converted to int or float as appropriate.
     """
     #read the INPUT file
     input_context = {}
@@ -1606,6 +1606,17 @@ def ReadInput(INPUTf: str = None, input_lines: str = None) -> Dict[str,any]:
         return input_context
     
     def str2intfloat(ii):
+        iis = ii.split()
+        if len(iis) > 1:
+            try:
+                return [int(i) for i in iis]
+            except:
+                pass
+            try:
+                return [float(i) for i in iis]
+            except:
+                return iis
+   
         try:
             return int(ii)
         except:
@@ -1621,11 +1632,24 @@ def ReadInput(INPUTf: str = None, input_lines: str = None) -> Dict[str,any]:
         else:
             sline = re.split('[ \t]',iline.split("#")[0].strip(),maxsplit=1)
             if len(sline) == 2:
-                input_context[sline[0].lower().strip()] = str2intfloat(sline[1].strip())
+                k = sline[0].lower().strip()
+                v = str2intfloat(sline[1].strip())
+                input_context[k] = v
     return input_context
 
 def WriteInput(input_context:Dict[str,any],
                INPUTf: str = "INPUT"):
+    """Write the input parameters to the INPUT file.
+    Args:
+        input_context (Dict[str, any]): a dictionary of input parameters.
+        INPUTf (str): the file name of the INPUT file to write.
+    Returns:
+        None: the function will write the input parameters to the INPUT file.
+        
+    If the value of a parameter is None, it will be written as a comment line.
+    If the value is a list or tuple, it will be joined with spaces.
+
+    """
     out = "INPUT_PARAMETERS\n"
     for k,v in input_context.items():
         if v != None:

@@ -2,6 +2,8 @@ import os,json,glob,shutil,traceback
 import subprocess,copy
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,ReadKpt
 import select
+from typing import List, Dict, Union, Optional, Tuple, Literal
+from abacustest.lib_prepare.comm import IsTrue
 
 BOHRIUM_DES = '''If you use Bohrium to accelerate the calculation, you need to set below environment variables:
     export BOHRIUM_USERNAME=<your username> BOHRIUM_PASSWORD=<your password> BOHRIUM_PROJECT_ID=<your project id> 
@@ -399,12 +401,12 @@ def read_gaussian_cube(fcube: str):
     out["natom"] = natom
     out["origin"] = (x_origin, y_origin, z_origin)
 
-    nx, e11, e12, e13 = map(float, lines[3].split())
-    ny, e21, e22, e23 = map(float, lines[4].split())
-    nz, e31, e32, e33 = map(float, lines[5].split())
-    out["nx"] = nx
-    out["ny"] = ny
-    out["nz"] = nz
+    out["nx"] = int(lines[3].split()[0])
+    out["ny"] = int(lines[4].split()[0])
+    out["nz"] = int(lines[5].split()[0])
+    e11, e12, e13 = map(float, lines[3].split()[1:4])
+    e21, e22, e23 = map(float, lines[4].split()[1:4])
+    e31, e32, e33 = map(float, lines[5].split()[1:4])
     out["R"] = np.array([[e11, e12, e13], [e21, e22, e23], [e31, e32, e33]])
 
     atomz, chg, coords = [], [], []
@@ -470,3 +472,90 @@ def write_gaussian_cube(data: dict, fcube: str, ndigits: int = 6):
             f.write(" ".join([f"%{width}.{ndigits}e" % x for x in data["data"][i:i+6]]))
             f.write("\n")
     return
+
+def check_abacus_inputs(job: str) -> Tuple[bool, str]:
+    """
+    Check if the ABACUS input files in the given job directory are valid.
+    
+    Parameters:
+        job (str): The job directory.
+        
+    Returns:
+        Tuple[bool, str]: A tuple containing a boolean indicating if the inputs are valid,
+                          and a string message.
+    """
+    if not os.path.isdir(job):
+        return False, f"{job} is not a directory"
+    
+    # check INPUT file
+    if not os.path.isfile(os.path.join(job, "INPUT")):
+        return False, f"INPUT file not found in {job}"
+    
+    input_param = ReadInput(os.path.join(job, "INPUT"))
+    struf = input_param.get("stru_file", "STRU")
+    # check STRU file
+    if not os.path.isfile(os.path.join(job, struf)):
+        return False, f"STRU file '{struf}' not found in {job}"
+    
+    stru = AbacusStru.ReadStru(os.path.join(job, struf))
+    if not stru:
+        return False, f"Read STRU failed in {job}"
+    
+    # check K Point file
+    kspacing = input_param.get("kspacing", None)
+    basis = input_param.get("basis_type", "pw")
+    gamma_only = input_param.get("gamma_only", False)
+    kptf = input_param.get("kpoint_file", "KPT")
+    if kspacing is None and (basis == "pw" or (basis == "lcao" and not gamma_only)) and not os.path.isfile(os.path.join(job, kptf)):
+        return False, f"KPT file '{kptf}' not found in {job} and kspacing is not set."
+    
+    # check pp/orbital files
+    pp_path = input_param.get("pseudo_dir", "")
+    orb_path = input_param.get("orbital_dir", "")
+    pp = stru.get_pp()
+    orb = stru.get_orb()
+    if pp is None:
+        return False, f"Pseudopotential files not defined in STRU file '{struf}' in {job}"
+    
+    # check pp_file
+    pp = [os.path.join(job, pp_path, i) for i in pp]
+    for ipp in pp:
+        if not os.path.isfile(ipp):
+            return False, f"Pseudopotential file '{ipp}' not found in {job}"
+    
+    # check orbital files
+    if basis == "lcao" or input_param.get("onsite_radius", None):
+        if orb is None:
+            return False, f"Orbital files not defined in STRU file '{struf}' in {job}"
+        orb = [os.path.join(job, orb_path, i) for i in orb]
+        for iorb in orb:
+            if not os.path.isfile(iorb):
+                return False, f"Orbital file '{iorb}' not found in {job}"
+    
+    # check orther INPUT parameters
+    ks_solver = input_param.get("ks_solver", None)
+    device = input_param.get("device", "cpu")
+    if basis == "pw" and ks_solver is not None and ks_solver not in ["cg", "dav", "dav_subspace", "bpcg"]:
+        return False, f"Invalid ks_solver '{ks_solver}' in INPUT file in {job}. It should be 'cg', 'dav', 'bpcg', or 'dav_subspace' for PW basis."
+    if basis == "lcao" and ks_solver is not None:
+        if device == "cpu" and ks_solver not in ["genelpa", "scalapack_gvx","lapack", "elpa"]:
+            return False, f"Invalid ks_solver '{ks_solver}' in INPUT file in {job}. It should be 'genelpa', 'scalapack_gvx', 'elpa', or 'lapack' for LCAO basis with CPU device."
+        if device == "gpu" and ks_solver not in ["cusolver", "cusolvermp", "elpa"]:
+            return False, f"Invalid ks_solver '{ks_solver}' in INPUT file in {job}. It should be 'cusolver', 'cusolvermp', or 'elpa' for LCAO basis with GPU device."
+    
+    # check nspin and soc
+    nspin = input_param.get("nspin", None)
+    soc = IsTrue(input_param.get("lspinorb", None))
+    noncollinear = IsTrue(input_param.get("noncolin", None))
+    if nspin is not None:
+        if nspin not in [1, 2, 4, "1", "2", "4"]:
+            return False, f"Invalid 'nspin' value: {nspin}. It should be 1 (no spin), 2 (spin polarized), or 4 (non-collinear spin)."
+        nspin = int(nspin)
+        if nspin in [1, 2] and (soc or noncollinear):
+            return False, "Spin-orbit coupling ('lspinorb') or non-collinear spin ('noncolin') is set, but nspin is not 4. Please set nspin to 4 for non-collinear spin calculations."
+        if nspin == 4 and noncollinear == False:
+            return False, "Non-collinear spin ('noncolin') is set to False, but nspin is 4. Please set noncollinear to True for non-collinear spin calculations."
+    elif soc and noncollinear == False:
+        return False, "Spin-orbit coupling ('lspinorb') is set, but noncollinear ('noncolin') is set to False. Please set noncollinear to True for non-collinear spin calculations."
+    
+    return True, "All input files are valid"
