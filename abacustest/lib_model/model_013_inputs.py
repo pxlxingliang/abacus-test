@@ -224,7 +224,7 @@ class PrepInput:
                  pp_path: Optional[Union[str, Path]]=None, 
                  orb_path: Optional[Union[str, Path]]=None, 
                  input_file: Optional[Union[str, Path]]=None, 
-                 kpt: Optional[List[int, int, int]]=None,
+                 kpt: Optional[Tuple[int, int, int]]=None,
                  abacus_command: str="OMP_NUM_THREADS=1 mpirun -np 16 abacus", 
                  machine: str="c32_m64_cpu", 
                  image: str=RECOMMAND_IMAGE,
@@ -232,7 +232,7 @@ class PrepInput:
                  nspin: Literal[1,2,4]=1,  # can be 1 or 2 or 4, 1: no spin, 2: spin polarized, 4: non-collinear spin
                  soc: bool =False, # spin-orbit coupling, if True, nspin should be 4 
                  dftu: bool=False,
-                 dftu_param: Optional[Dict[str, Union[float, List[str, float]]]]=None,
+                 dftu_param: Optional[Dict[str, Union[float, Tuple[Literal["s", 'p', "d"], float]]]]=None,
                  init_mag: Optional[Dict[str, float]] =None,
                  afm: bool = False, 
                  copy_pp_orb: bool = False,
