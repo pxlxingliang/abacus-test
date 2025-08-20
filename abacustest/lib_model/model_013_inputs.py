@@ -13,19 +13,19 @@ from typing import List, Dict, Union, Optional, Tuple, Literal
 
 JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
-                    "mixing_beta": 0.7,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                    "mixing_beta": 0.8,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                     "#cal_force": 1, "#cal_stress": 1,
                     "kspacing": "0.14 # unit in 1/bohr"}, 
              "relax": {"calculation": "relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
-                       "mixing_beta": 0.7, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                        "cal_force": 1, "#cal_stress": 1,"kspacing": "0.14 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs bfgs_trad cg_bfgs sd fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "#stress_thr": "0.5 # unit in kbar",
                        }, 
              "cell-relax":{"calculation": "cell-relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
-                       "mixing_beta": 0.7, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                        "cal_force": 1, "cal_stress": 1, "kspacing": "0.14 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs, bfgs_trad, cg_bfgs, sd, fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "stress_thr": "0.5 # unit in kbar",
@@ -33,7 +33,7 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                        }, 
              "md":{"calculation": "md", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
-                       "mixing_beta": 0.7, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                        "#cal_force": 1, "#cal_stress": 1,
                        "kspacing": "0.14 # unit in 1/bohr", 
                        "md_type": "nvt  # or npt, nve, langevin, fire, msst",
@@ -43,7 +43,7 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
                        "md_tlast": "100  # unit in K",}, 
              "band":{"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
-                    "mixing_beta": 0.7,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                    "mixing_beta": 0.8,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
                     "#cal_force": 1, "#cal_stress": 1,
                     "kspacing": "0.14 # unit in 1/bohr"}
         }
@@ -449,7 +449,7 @@ class PrepInput:
         # NSPIN
         if self.nspin == 2:
             input_param["nspin"] = 2
-            input_param["mixing_beta"] = 0.2
+            input_param["mixing_beta"] = 0.4
             input_param["symmetry"] = 0
             input_param["onsite_radius"] = 3  # to generate the atomic magnetic moment
             input_param["out_mul"] = 1  # to output the mulliken charge
@@ -459,7 +459,7 @@ class PrepInput:
                 warnings.warn("nspin is set to 4 for non-collinear spin calculation.")
             input_param["nspin"] = 4
             input_param["noncolin"] = 1
-            input_param["mixing_beta"] = 0.2
+            input_param["mixing_beta"] = 0.4
             input_param["symmetry"] = -1
             input_param["onsite_radius"] = 3
             input_param["out_mul"] = 1  # to output the mulliken charge
