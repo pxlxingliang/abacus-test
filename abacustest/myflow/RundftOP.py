@@ -1,27 +1,15 @@
-import os,sys,glob,time,shutil,argparse,json,traceback,copy,re
+import os,sys,glob
 from . import globV,comm
 from dflow import (
-    Workflow,
     Step,
-    Steps,
-    Inputs,
-    Outputs,
     argo_range,
-    SlurmRemoteExecutor,
-    upload_artifact,
-    download_artifact,
-    InputArtifact,
-    InputParameter,
-    OutputArtifact,
-    OutputParameter,
-    ShellOPTemplate,
     S3Artifact,
     argo_len,
-    argo_sequence,
+    argo_sequence
 )
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from dflow.python import (
     PythonOPTemplate,
@@ -29,12 +17,10 @@ from dflow.python import (
     OPIO,
     OPIOSign,
     Artifact,
-    Slices,
-    BigParameter,
-    Parameter
+    Slices
 )
 
-from . import comm,metrics,tracking
+from . import comm
 
 
 class RunDFT(OP):
@@ -46,14 +32,10 @@ class RunDFT(OP):
         return OPIOSign(
             {
                 "examples": Artifact(List[Path]),
-                #"examples_name":str,
                 "command": str,
                 "sub_save_path": str,
                 "extra_files": Artifact(Path,optional=True),
-                "outputfiles":[str],
-                "metrics": BigParameter(dict,default={}),
-                "super_metrics": BigParameter(dict,default={}),
-                "upload_tracking": BigParameter(dict,default={}),
+                "outputfiles":[str]
             }
         )
 
@@ -64,36 +46,6 @@ class RunDFT(OP):
                 "outputs": Artifact(List[Path])
             }
         )
-
-    def read_metrics(self, op_in, work_path):
-        #check if need to upload to tracking
-        tracking_setting = op_in["upload_tracking"]
-        metrics_setting = op_in["metrics"]
-        super_metrics_setting = op_in["super_metrics"]
-        do_upload_tracking = False
-        if tracking_setting and tracking_setting.get("ifurn",True):
-            do_upload_tracking = True
-        #read metrics
-        try:
-            os.chdir(work_path)
-            tracking_values = metrics.ReadMetrics(metrics.Metrics.TransferMetricsOPIO(metrics_setting),do_upload_tracking,["."])
-        except:
-            traceback.print_exc()
-            tracking_values = None
-            
-        #calculate super_metrics
-        try:
-            os.chdir(work_path)
-            tracking_summary,report = metrics.ReadSuperMetrics(metrics.Metrics.TransferMetricsOPIO(super_metrics_setting),do_upload_tracking)  
-        except:
-            traceback.print_exc()
-            tracking_summary = None  
-        #upload tracking
-        if do_upload_tracking:
-            try:
-                tracking.upload_to_tracking(tracking_setting,tracking_values,tracking_summary,AIM_ACCESS_TOKEN=None)
-            except:
-                traceback.print_exc() 
                 
     def get_cpu_info(self,example_path):
         # get cpuinfo to CPUINFO.log
@@ -116,7 +68,7 @@ class RunDFT(OP):
             example_path = os.path.relpath(str(iexample),str(root_path))
             if op_in["sub_save_path"] != None and str(op_in["sub_save_path"]).strip() != "":
                 example_path = os.path.join(str(op_in["sub_save_path"]),example_path)
-                
+                            
             work_path = iexample
             print("work path:",work_path,file=sys.stderr)
 
@@ -133,11 +85,7 @@ class RunDFT(OP):
                 cmd = "ulimit -c 0; " + str(op_in["command"])
                 return_code, out, err = comm.run_command(cmd)
                 log += out + err
-                #log += os.popen("(%s) 2>&1" % cmd).read()
-
-            self.read_metrics(op_in, work_path)
-                                
-            #collect outputs
+               
             os.chdir(work_path)
             logfile_name = "STDOUTER.log"
             i = 1
@@ -222,10 +170,7 @@ def produce_rundft(rundft_sets,predft_step,stepname,example_path,gather_result=F
         parameters = {
             "command": rundft_set.get("command", ""),
             "outputfiles": rundft_set.get("outputs", []),
-            "sub_save_path": sub_savepath,
-            "metrics": rundft_set.get("metrics", []),
-            "super_metrics": rundft_set.get("super_metrics", {}),
-            "upload_tracking": rundft_set.get("upload_tracking", {}),
+            "sub_save_path": sub_savepath
         }
         
         if not predft_step:
