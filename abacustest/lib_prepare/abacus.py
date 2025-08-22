@@ -21,7 +21,7 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=
                 "element": element,
                 "pp": pp,
                 "orb": orb,
-                "recommand_ecutwfc": Dict[str, float] or None # the recommended ecutwfc for each element
+                "recommand_ecutwfc":List[float|None] # the recommended ecutwfc for each element
             }
     """
     # Translate structure files to ABACUS STRU format
@@ -87,7 +87,7 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=
             "element": element,
             "pp": pp,
             "orb": orb,
-            "recommand_ecutwfc": [recommand_ecutwfc[ie] for ie in element] if recommand_ecutwfc else None
+            "recommand_ecutwfc": [recommand_ecutwfc.get(ie,None) for ie in element] if recommand_ecutwfc else None
         } 
     return jobs
 
