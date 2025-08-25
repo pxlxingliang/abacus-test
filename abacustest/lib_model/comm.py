@@ -558,4 +558,8 @@ def check_abacus_inputs(job: str) -> Tuple[bool, str]:
     elif soc and noncollinear == False:
         return False, "Spin-orbit coupling ('lspinorb') is set, but noncollinear ('noncolin') is set to False. Please set noncollinear to True for non-collinear spin calculations."
     
+    # check out_mul
+    if basis == "pw" and input_param.get("out_mul", None):
+        return False, "'out_mul' is invalid for PW basis. Please remove it from INPUT file."
+    
     return True, "All input files are valid"

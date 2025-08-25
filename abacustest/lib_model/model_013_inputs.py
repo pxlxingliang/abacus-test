@@ -509,6 +509,10 @@ class PrepInput:
                     input_param["mixing_dmr"] = 1
             
             input_param["mixing_restart"] = 0.001
+        
+        if input_param.get("basis_type", "pw").startswith("pw") and input_param.get("out_mul", ""):
+            # out_mul is only valid for lcao basis
+            input_param.pop("out_mul")
 
         return input_param
     
