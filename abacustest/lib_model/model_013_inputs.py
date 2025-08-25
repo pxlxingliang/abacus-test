@@ -513,6 +513,10 @@ class PrepInput:
         if input_param.get("basis_type", "pw").startswith("pw") and input_param.get("out_mul", ""):
             # out_mul is only valid for lcao basis
             input_param.pop("out_mul")
+            
+        if input_param.get("basis_type", "pw").startswith("pw") and input_param.get("nspin",1) == 2 and "onsite_radius" in input_param:
+            # onsite_radius is invalid for pw basis with nspin=2
+            input_param.pop("onsite_radius")
 
         return input_param
     

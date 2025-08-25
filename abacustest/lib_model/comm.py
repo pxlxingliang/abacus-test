@@ -562,4 +562,7 @@ def check_abacus_inputs(job: str) -> Tuple[bool, str]:
     if basis == "pw" and input_param.get("out_mul", None):
         return False, "'out_mul' is invalid for PW basis. Please remove it from INPUT file."
     
+    if basis == "pw" and nspin == 2 and input_param.get("onsite_radius", None):
+        return False, "'onsite_radius' is invalid for PW basis with nspin=2. Please remove it from INPUT file."
+    
     return True, "All input files are valid"
