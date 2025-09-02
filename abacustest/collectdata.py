@@ -138,9 +138,10 @@ def collectdata(param):
 
         if os.path.isfile(os.path.join(ipath, "INPUT")):
             input_param = ReadInput(os.path.join(ipath, "INPUT"))
-            job_type = input_param.get("calculation", "scf")
         else:
-            job_type = "scf"
+            input_param = {}
+        
+        job_type = input_param.get("calculation", "scf")
         if len(allparams) == 0:
             allparams = ["normal_end","converge","nkstot","ibzk",
                 "nbands","nelec","natom","scf_steps","total_time",
@@ -165,6 +166,11 @@ def collectdata(param):
 
                 if job_type == "cell-relax":
                     allparams.append("largest_gradient_stress")
+            
+            if input_param.get("nspin",1) in [2,4]:
+                allparams.append("total_mag")
+                allparams.append("absolute_mag")
+                allparams.append("atom_mag")
 
         allresult[ipath] = parse_value(result,allparams)
 
