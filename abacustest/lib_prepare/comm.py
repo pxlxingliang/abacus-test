@@ -45,9 +45,18 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
                     if input_stru_type in dpdata_formats:
                         stru = dpdata.System(iistru,fmt=input_stru_type)
                     elif input_stru_type.lower() == "cif":
-                        from ase.io import read as ase_read
-                        stru = ase_read(iistru)
-                        stru = dpdata.System(stru, fmt="ase/structure")
+                        try:
+                            from ase.io import read as ase_read
+                            stru = ase_read(iistru)
+                            stru = dpdata.System(stru, fmt="ase/structure")
+                        except:
+                            try:
+                                from pymatgen.core import Structure
+                                stru = Structure.from_file(iistru)
+                                stru = dpdata.System(stru, fmt="pymatgen/structure")
+                            except:
+                                traceback.print_exc()
+                                raise Exception("Cannot read cif file %s with ase or pymatgen" % iistru)
                     
                     print("Translating %s to ABACUS stru:" % iistru)
                     struinfo[istru] = []
