@@ -362,6 +362,18 @@ export BOHRIUM_PROJECT_ID="your_bohrium_project_id"
 ```
 These variables are used to authenticate your Bohrium account.
 
+Or, you can add below content in the param.json, like:
+```
+{
+    "config": {
+        "bohrium_username": "<your username>",
+        "bohrium_password": "<your password>",
+        "bohrium_project_id": "<your project id>"
+    },
+    "run_dft":[...] 
+}
+```
+
 To submit a job, you can use the command:
 ```
 abacustest submit -p param.json &

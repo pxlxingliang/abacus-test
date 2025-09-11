@@ -216,8 +216,9 @@ def plot_band(band,fname,efermi=None):
         
     band = np.array(band)
     nband = len(band)
-    if nband == 2 and isinstance(efermi, float):
-        efermi = [efermi, efermi]    
+    if isinstance(efermi, (float, type(None),int)):
+        efermi = [efermi] * nband
+
     fig, axs = plt.subplots(nband, 2, figsize=(8, 4*nband))
     axs = axs.flatten()
     for i in range(nband):
