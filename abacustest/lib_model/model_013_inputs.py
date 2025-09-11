@@ -98,7 +98,7 @@ class InputsModel(Model):
         parser.add_argument("--nspin", default=1, type=int, choices=[1, 2, 4], help="the number of spins, can be 1 (no spin), 2 (spin polarized), or 4 (non-collinear spin). Default is 1.")
         parser.add_argument("--soc", action="store_true", help="whether to use spin-orbit coupling, if True, nspin should be 4.")
         parser.add_argument("--dftu", action="store_true", help="whether to use DFT+U, default is False.")
-        parser.add_argument("--dftu_param", default=None, nargs="+", help="the DFT+U parameters, should be element symbol and U value pairs like 'Fe 4 Ti 1'")
+        parser.add_argument("--dftu_param", default=None, nargs="+", help="the DFT+U parameters, should be element symbol and U value pairs like 'Fe 4 Ti 1'. If dftu is set, but dftu_param is not set, the default U values will be used: 4 eV for d orbital elements and 6 eV for f orbital elements.")
         parser.add_argument("--init_mag", default=None, nargs="+", help="the initial magnetic moment for magnetic elements, should be element symbol and magnetic moment pairs like 'Fe 4 Ti 1'.")
         parser.add_argument("--afm", action="store_true", help="whether to use antiferromagnetic calculation, default is False. Only valid when init_mag is set.")
         parser.add_argument("--copy_pp_orb", action="store_true", help="whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.")
@@ -210,6 +210,7 @@ class PrepInput:
         The DFT+U parameters, should be a dict like {"Fe": 4, "Ti": 1}, where the key is the element symbol and the value is the U value.
         Value can also be a list of two values, and the first value is the orbital (p, d, f) to apply DFT+U, and the second value is the U value.
         For example, {"Fe": ["d", 4], "O": ["p", 1]} means applying DFT+U to Fe 3d orbital with U=4 eV and O 2p orbital with U=1 eV.
+        If dftu is True, but dftu_param is None, the default U values will be used: 4 eV for d orbital elements and 6 eV for f orbital elements.
     init_mag : dict or None
         the initial magnetic moment for magnetic elements, should be a dict like {"Fe": 4, "Ti": 1}, where the key is the element symbol and the value is the initial magnetic moment.
     afm : bool
@@ -474,8 +475,9 @@ class PrepInput:
             orbital_corr = []
             hubbard_u = []
             for e in element:
+                # set u for element defined in dftu_param
                 if self.dftu_param is not None and e in self.dftu_param:
-                    if isinstance(self.dftu_param[e], list):
+                    if isinstance(self.dftu_param[e], (list,tuple)):
                         orbital = {"p":1, "d":2, "f":3}.get(self.dftu_param[e][0], None)  
                         if orbital is None:
                             raise ValueError(f"Unsupported orbital type {self.dftu_param[e][0]} for element {e}. Supported types are p, d, f.")
@@ -489,7 +491,8 @@ class PrepInput:
                         else:
                             orbital_corr.append(1)
                         hubbard_u.append(self.dftu_param[e])
-                else:
+                # if not define dftu_param, then set u for d and f orbital elements
+                elif self.dftu_param is None:
                     if e in ELEMENT_DFTU_D:
                         orbital_corr.append(2)
                         hubbard_u.append(4)  # default U value for d orbital
@@ -499,6 +502,9 @@ class PrepInput:
                     else:
                         orbital_corr.append(-1)
                         hubbard_u.append(0)  # no DFTU for other elements
+                else:
+                    orbital_corr.append(-1)
+                    hubbard_u.append(0)  # no DFTU for other elements
             input_param["orbital_corr"] = orbital_corr
             input_param["hubbard_u"] = hubbard_u
             input_param["onsite_radius"] = 3
