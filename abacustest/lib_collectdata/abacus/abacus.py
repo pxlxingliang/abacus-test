@@ -62,7 +62,7 @@ class Abacus(ResultAbacus):
         else:
             self['normal_end'] = False
 
-            print("Job is not normal ending!!! The latest 10 lines is:")
+            print("Job is not normal ending!!! The latest 10 lines are:")
             if len(self.LOG) < 10:
                 print(''.join(self.LOG))
             else:
