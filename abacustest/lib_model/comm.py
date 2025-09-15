@@ -740,3 +740,35 @@ def chg2pot(chg, cell):
     # = -1 * units._e * 1e10 V
     
     return potential
+
+def data2dpdata(lattice, coords, atom_types):
+    """Convert lattice, coordinates, and atom types to a dpdata System object.
+    
+    Args:
+        lattice (list or np.ndarray): The lattice vectors, unit in Angstrom.
+        coords (list or np.ndarray): The atomic cartesian coordinates, unit in Angstrom.
+        atom_types (list): The atomic types as atomic numbers.
+        
+    Returns:
+        dpdata.System: The dpdata System object.
+    """
+    import dpdata
+    from abacustest.constant import PERIOD_DICT_ELEMENT
+    import numpy as np
+    
+    elements = [PERIOD_DICT_ELEMENT.get(num, num) for num in atom_types]
+    element_uniq = []
+    for i in elements:
+        if i not in element_uniq:
+            element_uniq.append(i)
+    
+    atom_types = [element_uniq.index(i) for i in elements]
+    atom_numbers = [elements.count(i) for i in element_uniq]
+    return dpdata.System(data={
+        "atom_numbs": atom_numbers,
+        "atom_names": element_uniq,
+        "atom_types": np.array(atom_types),
+        "orig": np.array([0, 0, 0]),
+        "cells": np.array([lattice]),
+        "coords": np.array([coords])
+    })
