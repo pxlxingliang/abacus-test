@@ -6,7 +6,7 @@ from abacustest.prepare import PrepareAbacus
 import numpy as np
 from ..model import Model
 from . import comm,comm_magj
-from abacustest.constant import RECOMMAND_IMAGE
+from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 PREPARE_DOC="""
     This model is used to prepare the calculation of the magnetic exchange interactions (J) of two atom.
@@ -86,10 +86,10 @@ class magj(Model):
                 "bohrium_group_name": "MagJ",
                 "run_dft": {
                     "example": subfolders,
-                    "command": "OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
+                    "command": RECOMMAND_COMMAND,
                     "image": RECOMMAND_IMAGE,
                     "bohrium": {
-                        "scass_type": "c32_m64_cpu",
+                        "scass_type": RECOMMAND_MACHINE,
                         "job_type": "container",
                         "platform": "ali",
                     },

@@ -6,7 +6,7 @@ from . import comm
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,WriteInput,WriteKpt
 from abacustest.lib_prepare.comm import kspacing2kpt
 from abacustest.lib_collectdata.collectdata import RESULT
-from abacustest.constant import RECOMMAND_IMAGE
+from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 class Eos(Model):
     '''
@@ -67,10 +67,10 @@ class Eos(Model):
             "bohrium_group_name": "EOS",
             "run_dft": {
                 "example": subfolders,
-                "command": "OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
+                "command": RECOMMAND_COMMAND,
                 "image": RECOMMAND_IMAGE,
                 "bohrium": {
-                    "scass_type": "c32_m64_cpu",
+                    "scass_type": RECOMMAND_MACHINE,
                     "job_type": "container",
                     "platform": "ali",
                 },

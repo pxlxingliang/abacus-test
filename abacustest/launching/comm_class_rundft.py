@@ -23,7 +23,7 @@ from enum import Enum
 from typing import Literal
 import re
 from . import comm_class
-from abacustest.constant import RECOMMAND_IMAGE
+from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 
 class Image(BaseModel):
@@ -39,7 +39,7 @@ class ImageBohrium(BaseModel):
     image: String = Field(default=BohriumMachineType(RECOMMAND_IMAGE),
                           title="Bohrium Image Address",
                           description="",)
-    bohrium_machine_type: BohriumMachineType = Field(default=BohriumMachineType("c32_m64_cpu"))
+    bohrium_machine_type: BohriumMachineType = Field(default=BohriumMachineType(RECOMMAND_MACHINE))
     bohrium_job_type: BohriumJobType = Field(default=BohriumJobType.CONTAINER)
     bohrium_plat_form: BohriumPlatform = Field(default=BohriumPlatform.ALI)
     on_demand: Boolean = Field(default=False)
@@ -59,7 +59,7 @@ class RundftGroupSizeSet(BaseModel):
         default=1, description="Number of examples running in each parallel machine. If not set, all examples will be run in parallel.", ge=0)
 
 class RundftCommandSet(BaseModel):
-    rundft_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
+    rundft_command: String = Field(default=RECOMMAND_COMMAND,
                                    description="Command to run each example. Please note that the program will first enter each folder before executing this command. \
 During runtime, there will be no interaction between different examples",)
 

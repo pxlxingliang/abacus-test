@@ -3,8 +3,6 @@ from . import comm
 import argparse,json, os
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, gen_stru, ReadInput, AbacusStru
 from pathlib import Path
-from abacustest.lib_model.model_012_band import PrepBand
-from abacustest.constant import RECOMMAND_IMAGE
 
 from typing import List, Dict, Any
 from typing import Union

@@ -2,7 +2,7 @@ from ..model import Model
 import json, os
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, AbacusStru
 from abacustest.lib_prepare.comm import kspacing2kpt
-from abacustest.constant import RECOMMAND_IMAGE
+from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 from typing import List, Dict, Any
 from typing import Union
@@ -40,8 +40,8 @@ class ElasticModel(Model):
         parser.add_argument("--shear", default=0.01, type=float, help="The maximum strain for shear mode, default is 0.01")
         parser.add_argument("--relax", action="store_true", help="Whether to do atomic relaxation for each deformed structure, default is False.")
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
-        parser.add_argument("--machine", type=str, default="c32_m64_cpu", help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.")
-        parser.add_argument("--abacus_command", type=str, default="OMP_NUM_THREADS=1 mpirun -np 16 abacus", help="The command to run the Abacus job, default is 'OMP_NUM_THREADS=1 mpirun -np 16 abacus'.")
+        parser.add_argument("--machine", type=str, default=RECOMMAND_MACHINE, help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.")
+        parser.add_argument("--abacus_command", type=str, default=RECOMMAND_COMMAND, help=f"The command to run the Abacus job, default is '{RECOMMAND_COMMAND}'.")
         return parser
     
     

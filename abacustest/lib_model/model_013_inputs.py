@@ -4,7 +4,7 @@ import argparse,json, os
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, gen_stru, ReadInput, AbacusStru
 from pathlib import Path
 from abacustest.lib_model.model_012_band import PrepBand
-from abacustest.constant import RECOMMAND_IMAGE
+from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 import warnings
 
@@ -166,8 +166,8 @@ class InputsModel(Model):
             dftu_param=dftu_param,
             init_mag=init_mag,
             afm=params.afm,
-            abacus_command="OMP_NUM_THREADS=1 mpirun -np 16 abacus",
-            machine="c32_m64_cpu",  # default Bohrium machine type for CPU jobs
+            abacus_command=RECOMMAND_COMMAND,
+            machine=RECOMMAND_MACHINE,  # default Bohrium machine type for CPU jobs
             image=RECOMMAND_IMAGE,  # default recommended image for ABACUS jobs 
             copy_pp_orb=params.copy_pp_orb 
         )
@@ -193,9 +193,9 @@ class PrepInput:
     kpt : list
         The kpoint setting, should be a list of three int, will generate a KPT file
     abacus_command : str
-        The command to run ABACUS, default is "OMP_NUM_THREADS=1 mpirun -np 16 abacus"
+        The command to run ABACUS, default is RECOMMAND_COMMAND
     machine : str
-        The machine type, default is "c32_m64_cpu", which is the Bohrium machine type for CPU jobs.
+        The machine type, default is RECOMMAND_MACHINE, which is the Bohrium machine type for CPU jobs.
     image : str
         The Docker image to use, default is RECOMMAND_IMAGE, which is the recommended image for ABACUS jobs.
     lcao : bool
@@ -226,8 +226,8 @@ class PrepInput:
                  orb_path: Optional[Union[str, Path]]=None, 
                  input_file: Optional[Union[str, Path]]=None, 
                  kpt: Optional[Tuple[int, int, int]]=None,
-                 abacus_command: str="OMP_NUM_THREADS=1 mpirun -np 16 abacus", 
-                 machine: str="c32_m64_cpu", 
+                 abacus_command: str=RECOMMAND_COMMAND, 
+                 machine: str=RECOMMAND_MACHINE, 
                  image: str=RECOMMAND_IMAGE,
                  lcao: bool=False,
                  nspin: Literal[1,2,4]=1,  # can be 1 or 2 or 4, 1: no spin, 2: spin polarized, 4: non-collinear spin

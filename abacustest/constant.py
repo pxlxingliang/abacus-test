@@ -266,3 +266,5 @@ PERIOD_DICT_NUMBER = {'H': 1, 'He': 2, 'Li': 3, 'Be': 4, 'B': 5, 'C': 6, 'N': 7,
 'Es': 99, 'Fm': 100, 'Md': 101, 'No': 102, 'Lr': 103}
 
 RECOMMAND_IMAGE = "registry.dp.tech/dptech/abacus-stable:LTSv3.10"
+RECOMMAND_COMMAND = "OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log"
+RECOMMAND_MACHINE = "c32_m64_cpu"
