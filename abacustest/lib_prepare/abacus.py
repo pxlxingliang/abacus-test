@@ -295,8 +295,14 @@ class AbacusStru:
     def get_dpks(self):
         return self._dpks
     
-    def get_mass(self):
-        return self._mass
+    def get_mass(self,total=False):
+        if total:
+            mass = []
+            for idx,i in enumerate(self._atom_number):
+                mass += [self._mass[idx]] * i
+            return mass
+        else:
+            return self._mass
 
     def get_atommag(self,norm = False):
         # return the magmom of each atom
@@ -1100,6 +1106,33 @@ class AbacusStru:
         labels = self.get_label(total=True)
         return Structure(lattice=cell, species=elements, coords=coord, coords_are_cartesian=True,labels=labels,)
 
+    def to_phonopy(self):
+        '''
+        convert the AbacusStru to phonopy.Phonopy
+        
+        Returns:
+            phonopy: the phonopy.Phonopy object
+        '''
+        from phonopy import Phonopy
+        from phonopy.structure.atoms import PhonopyAtoms
+        
+        cell = self.get_cell(bohr=False)
+        coord = self.get_coord(bohr=False,direct=False)
+        elements = self.get_element(number=False,total=True)
+        mass = self.get_mass(total=True)
+        atom_mag = self.get_atommag()
+        all_zero = True
+        for i in atom_mag:
+            if i != 0 and i != [0,0,0]:
+                all_zero = False
+                break
+        if all_zero:
+            atom_mag = None
+        
+        return PhonopyAtoms(symbols=elements, positions=coord, cell=cell, masses=mass,
+                            magnetic_moments=atom_mag)
+
+    
     @staticmethod
     def stru2ase(stru):
         '''
@@ -1133,6 +1166,24 @@ class AbacusStru:
         stru = AbacusStru.ReadStru(stru)
         if stru is not None:
             return stru.to_pymatgen()
+        else:
+            raise ValueError("The STRU file is not valid or cannot be read.")
+    
+    @staticmethod
+    def stru2phonopy(stru):
+        '''
+        convert the AbacusStru to phonopy.Phonopy
+        
+        Arguments:
+            stru: the STRU file
+            
+        Returns:
+            phonopy: the phonopy.Phonopy object
+        '''
+        
+        stru = AbacusStru.ReadStru(stru)
+        if stru is not None:
+            return stru.to_phonopy()
         else:
             raise ValueError("The STRU file is not valid or cannot be read.")
     

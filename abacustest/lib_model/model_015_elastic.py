@@ -38,7 +38,7 @@ class ElasticModel(Model):
         parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of VASP jobs, should contain INCAR, POSCAR, or KPOINTS')
         parser.add_argument("--norm", default=0.01, type=float, help="The maximum strain for normal mode, default is 0.01")
         parser.add_argument("--shear", default=0.01, type=float, help="The maximum strain for shear mode, default is 0.01")
-        parser.add_argument("--relax", action="store_true", help="Whether to do atomic relaxation for each deformed structure, default is False.")
+        parser.add_argument("--norelax", action="store_true", help="Whether to not do atomic relaxation for each deformed structure, default is doing.")
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
         parser.add_argument("--machine", type=str, default=RECOMMAND_MACHINE, help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.")
         parser.add_argument("--abacus_command", type=str, default=RECOMMAND_COMMAND, help=f"The command to run the Abacus job, default is '{RECOMMAND_COMMAND}'.")
@@ -52,7 +52,7 @@ class ElasticModel(Model):
         if not params.job:
             raise ValueError("No job specified, please use -j or --job to specify the job paths.")
         
-        paths = PrepElastic(params.job, norm=params.norm, shear=params.shear, relax=params.relax).run()
+        paths = PrepElastic(params.job, norm=params.norm, shear=params.shear, relax=params.norelax).run()
         
         setting = {
             "save_path": "results",
@@ -118,11 +118,11 @@ class PrepElastic():
     def __init__(self, job: Union[str, List[str]], 
                  norm: float = 0.01, 
                  shear: float = 0.01,
-                 relax: bool = False):
+                 norelax: bool = False):
         self.job = job if isinstance(job, list) else [job]
         self.norm_strain = norm
         self.shear_strain = shear
-        self.relax = relax
+        self.norelax = norelax
     
     def run(self):
         paths = []
@@ -149,10 +149,10 @@ class PrepElastic():
         
         # modify INPUT file
         input_param = ReadInput(os.path.join(job, "INPUT"))
-        if self.relax:
-            input_param["calculation"] = "relax"
-        else:
+        if self.norelax:
             input_param["calculation"] = "scf"
+        else:
+            input_param["calculation"] = "relax"
         input_param["cal_stress"] = 1
             
         if "kspacing" in input_param:
