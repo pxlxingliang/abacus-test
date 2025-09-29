@@ -102,6 +102,7 @@ class InputsModel(Model):
         parser.add_argument("--init_mag", default=None, nargs="+", help="the initial magnetic moment for magnetic elements, should be element symbol and magnetic moment pairs like 'Fe 4 Ti 1'.")
         parser.add_argument("--afm", action="store_true", help="whether to use antiferromagnetic calculation, default is False. Only valid when init_mag is set.")
         parser.add_argument("--copy_pp_orb", action="store_true", help="whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.")
+        parser.add_argument("--download-pporb", nargs="?", type=str,default=None,const="apns-v1",choices=["apns-v1"], help="Download the recommended pseudopotential and orbital files from AISquare.")
         return parser
     
     def parse_dftu_param(self, values):
@@ -135,9 +136,40 @@ class InputsModel(Model):
             else:
                 warnings.warn(f"Element {element} already has an initial magnetic moment, overwriting it with {mag_value}.")
         return init_mag   
+    
+    def download_pporb(self, version):
+        """
+        Download the recommended pseudopotential and orbital files from AISquare.
+        """
+        if version is None:
+            return
+        
+        apns_v1 = "https://store.aissquare.com/datasets/af21b5d9-19e6-462f-ada1-532f47f165f2/ABACUS-APNS-PPORBs-v1.zip"
+        
+        if version == "apns-v1":
+            # download the apns-v1 pseudopotential and orbital files
+            import urllib.request
+            import zipfile
+            
+            zip_file = "ABACUS-APNS-PPORBs-v1.zip"
+            print(f"Downloading the recommended pseudopotential and orbital files from {apns_v1} ...")
+            urllib.request.urlretrieve(apns_v1, zip_file)
+            print(f"Unzipping the file {zip_file} ...")
+            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                zip_ref.extractall(".")
+            os.remove(zip_file)
+            print("Download and unzip completed.")
+            # set the pp and orb path
+        
+            print("You can set the pseudopotential and orbital path by --pp and --orb, or set the environment variable ABACUS_PP_PATH and ABACUS_ORB_PATH.")
+            
         
     
     def run(self,params):
+        if params.download_pporb is not None:
+            self.download_pporb(params.download_pporb)
+            return 0
+        
         if params.kpt is not None and len(params.kpt) not in [1, 3]:
             raise ValueError("The kpoint setting should be one or three integers.")
         
