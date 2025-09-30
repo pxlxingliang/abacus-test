@@ -63,7 +63,7 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
                     for i in range(stru.get_nframes()):
                         tpath = os.path.join(output_path,"%06d" % idx)
                         os.makedirs(tpath,exist_ok=True)
-                        stru.to("abacus/stru", os.path.join(tpath,"STRU"),i)
+                        stru.to("abacus/stru", os.path.join(tpath,"STRU"),i, pp_file=["" for _ in stru.data["atom_names"]])
                         output_folders.append(tpath)
                         idx += 1
                         print("    Save to %s" % os.path.join(tpath,"STRU"))
