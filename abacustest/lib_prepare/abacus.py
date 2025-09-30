@@ -507,6 +507,23 @@ class AbacusStru:
         cell = np.array(self._cell) * self._lattice_constant * transfer_unit
         return cell.tolist()
     
+    def get_cell_param(self):
+        # return the box parameter: a,b,c,alpha,beta,gamma, unit is Angstrom and degree
+        cell = np.array(self.get_cell(bohr=False))
+        a = np.linalg.norm(cell[0])
+        b = np.linalg.norm(cell[1])
+        c = np.linalg.norm(cell[2])
+        alpha = np.arccos(np.dot(cell[1],cell[2])/(b*c)) * 180 / np.pi
+        beta = np.arccos(np.dot(cell[0],cell[2])/(a*c)) * 180 / np.pi
+        gamma = np.arccos(np.dot(cell[0],cell[1])/(a*b)) * 180 / np.pi
+        return a,b,c,alpha,beta,gamma
+
+    def get_volume(self):
+        # return the volume of the cell, in unit of Angstrom^3
+        cell = np.array(self.get_cell(bohr=False))
+        volume = np.abs(np.linalg.det(cell))
+        return volume
+    
     def get_coord(self,bohr = False, direct=False):
         '''return the coordinate matrix, in cartesian or direct type, in unit of Angstrom or Bohr.
         If direct is True, then return the direct type coordinate, and bohr will be ignored.'''
