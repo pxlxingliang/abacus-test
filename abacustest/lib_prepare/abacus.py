@@ -985,7 +985,59 @@ class AbacusStru:
                 setattr(new_stru,attri,[j for i in kv[attri] for j in i])
         new_stru._atom_number = [len(i) for i in coords]
         new_stru._check()
-        return new_stru   
+        return new_stru 
+    
+    def delete_atom(self, 
+                    label:str, 
+                    idx: Union[int, List[int], None] = None):
+        """Delete the atom of the element in del_element.
+        
+        label: str, the atomic label to be deleted, e.g. "H"
+        idx: int or list of int, the index of the atom to be deleted, if None, then delete all the atom of the element
+        """
+        if label not in self._label:
+            print(f"ERROR: the label {label} is not in the structure")
+            print("label:",self._label)
+            raise ValueError(f"the label {label} is not in the structure")
+        if isinstance(idx,int):
+            idx = [idx]
+        elif idx is None:
+            idx = list(range(self._atom_number[self._label.index(label)]))
+        elif isinstance(idx,list):
+            pass
+        else:
+            print(f"ERROR: the type of idx {type(idx)} is not supported")
+            raise ValueError(f"the type of idx {type(idx)} is not supported")
+        
+        if max(idx) >= self._atom_number[self._label.index(label)] or min(idx) < 0:
+            print(f"ERROR: the index in idx is out of range")
+            print("idx:",idx)
+            print("atom number of",label,":",self._atom_number[self._label.index(label)])
+            raise ValueError(f"the index in idx is out of range")
+
+        new_stru = copy.deepcopy(self)
+        global_idx = [sum(new_stru._atom_number[:new_stru._label.index(label)]) + i for i in idx]
+        new_stru._coord = [i for j, i in enumerate(new_stru._coord) if j not in global_idx]
+        new_stru._atom_number[new_stru._label.index(label)] -= len(idx)
+        if new_stru._atom_number[new_stru._label.index(label)] == 0:
+            del_idx = new_stru._label.index(label)
+            new_stru._label.pop(del_idx)
+            new_stru._mass.pop(del_idx)
+            new_stru._magmom.pop(del_idx)
+            if new_stru._pp:
+                new_stru._pp.pop(del_idx)
+            if new_stru._orb:
+                new_stru._orb.pop(del_idx)
+            if new_stru._paw:
+                new_stru._paw.pop(del_idx)
+            new_stru._atom_number.pop(del_idx)
+        key_p = ["_move","_magmom_atom","_velocity","_angle1","_angle2","_constrain","_lambda"]
+        for attri in key_p:
+            if getattr(new_stru,attri) is not None:
+                setattr(new_stru,attri,[i for j, i in enumerate(getattr(new_stru,attri)) if j not in global_idx])
+        new_stru._check()
+        return new_stru
+        
      
     def write(self,struf="STRU"):
         cc = ""
