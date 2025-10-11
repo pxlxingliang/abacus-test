@@ -1037,6 +1037,65 @@ class AbacusStru:
                 setattr(new_stru,attri,[i for j, i in enumerate(getattr(new_stru,attri)) if j not in global_idx])
         new_stru._check()
         return new_stru
+    
+    def set_empty_atom(self, label:str, idx: Union[int, List[int], None] = None):
+        """Set the specified atom to be empty by adding 'empty' to the label. Such as: H -> H_empty.
+        
+        This is useful for BSSE calculation, where some atoms are set to be empty.
+        
+        Args:
+            label: str, the atomic label to be set to empty, e.g. "H"
+            idx: int or list of int, the index of the atom to be set to empty, if None, then set all the atom of the element to empty
+        """    
+        if label not in self._label:
+            print(f"ERROR: the label {label} is not in the structure")
+            print("label:",self._label)
+            raise ValueError(f"the label {label} is not in the structure")
+        
+        label_idx = self._label.index(label)
+            
+        if idx is None:
+            new_label = label + "_empty"
+            self._label[label_idx] = new_label
+            return
+        
+        if isinstance(idx,int):
+            idx = [idx]
+        
+        if len(idx) == self._atom_number[label_idx]:
+            new_label = label + "_empty"
+            self._label[label_idx] = new_label
+            return
+        
+        atom_idx = [sum(self._atom_number[:label_idx]) + i for i in idx]
+        new_label = label + "_empty"
+        
+        self._label.append(new_label)
+        self._mass.append(self._mass[label_idx])
+        self._magmom.append(self._magmom[label_idx])
+        if self._pp:
+            self._pp.append(self._pp[label_idx])
+        if self._orb:
+            self._orb.append(self._orb[label_idx])
+        if self._paw:
+            self._paw.append(self._paw[label_idx])
+        self._atom_number.append(len(idx))
+        self._atom_number[label_idx] -= len(idx)
+
+        key_p = ["_coord","_move","_magmom_atom","_velocity","_angle1","_angle2","_constrain","_lambda"]
+        for attri in key_p:
+            if getattr(self,attri) is not None:
+                old_value = getattr(self,attri)
+                new_value = []
+                for j in range(len(old_value)):
+                    if j not in atom_idx:
+                        new_value.append(old_value[j])
+                for j in atom_idx:
+                    new_value.append(old_value[j])
+                setattr(self,attri,new_value)
+        self._check()
+                
+            
         
      
     def write(self,struf="STRU"):
