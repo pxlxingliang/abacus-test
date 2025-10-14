@@ -323,7 +323,17 @@ def ReportMetrics():
             f1.write(report)
     comm.printinfo(report)
 
+def upload_packages_(packages):
+    if packages is not None:
+        from dflow.python import upload_packages
+        for package in packages:
+            if not os.path.isdir(package):
+                raise Exception(f"upload_package {package} is not a valid folder!")
+            if package not in upload_packages:
+                upload_packages.append(package)
+
 def RunJobs(param):
+    upload_packages_(json.load(open(param.param)).get("upload_packages",None))
     set_env(param)
     alljobs = ParamParser(json.load(open(param.param)))
     allstep,stepname,allsave_path = dflowOP.ProduceAllStep(alljobs)
