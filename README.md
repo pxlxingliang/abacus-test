@@ -353,6 +353,16 @@ The `bohrium` can be replaced by `dispatcher` (https://docs.deepmodeling.com/pro
             }
 ```
 
+Key "upload_packages" can be added in the configuration file to specify some local packages that need to be uploaded to the remote platform, such as:
+```
+{
+    ...
+    "upload_packages": ["my_package1","/home/user/my_package2"],
+    ...
+}
+```
+where the value is a list of local python packages. The packages will be uploaded to the remote platform before the job is submitted. This is useful when the remote image lacks some python packages that are needed by your job.
+
 ### 2.2 Submit a Job
 Before submitting a job, you need to set below environment variables:
 ```
