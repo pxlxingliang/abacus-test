@@ -377,7 +377,8 @@ def run_command(
                 out += line.decode()
             elif fd == process.stderr:
                 line = process.stderr.readline()
-                print("STDERR:", line.decode()[:-1])
+                if line.decode()[:-1].strip() != "":
+                    print("STDERR:", line.decode()[:-1])
                 err += line.decode()
 
         # 如果子进程已经结束，则退出循环
