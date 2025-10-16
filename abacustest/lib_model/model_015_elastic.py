@@ -35,7 +35,7 @@ class ElasticModel(Model):
         The arguments can not be command, model, modelcommand 
         '''
         parser.description = "Prepare the inputs for the elastic calculation."
-        parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of VASP jobs, should contain INCAR, POSCAR, or KPOINTS')
+        parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of ABACUS jobs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
         parser.add_argument("--norm", default=0.01, type=float, help="The maximum strain for normal mode, default is 0.01")
         parser.add_argument("--shear", default=0.01, type=float, help="The maximum strain for shear mode, default is 0.01")
         parser.add_argument("--norelax", action="store_true", help="Whether to not do atomic relaxation for each deformed structure, default is doing.")
