@@ -34,7 +34,7 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=
     # Find the pseudopotential files and orbital files
     pp_paths = comm.collect_pp(pp_path) # the return file name is pp_path/pp
     orb_paths = comm.collect_pp(orb_path)
-    recommand_ecutwfc = None if not os.path.isfile(os.path.join(pp_path, "ecutwfc.json")) else json.load(open(os.path.join(pp_path, "ecutwfc.json"), "r"))
+    recommand_ecutwfc = None if not pp_path or not os.path.isfile(os.path.join(pp_path, "ecutwfc.json")) else json.load(open(os.path.join(pp_path, "ecutwfc.json"), "r"))
     jobs = {}
     for ipath in stru_paths:
         istru = os.path.join(ipath, "STRU")
@@ -304,6 +304,24 @@ class AbacusStru:
         else:
             return self._mass
 
+    def globalidx2labelidx(self, idx):
+        """Get the label and index of the atom in that label from the global index
+        """
+        for i in range(len(self._atom_number)):
+            pre_atom_num = sum(self._atom_number[:i])
+            if idx >= pre_atom_num:
+                return self._label[i], idx - pre_atom_num
+        raise ValueError(f"The idx {idx} is larger than the total atom numbers!")
+    
+    def labelidx2globalidx(self, label, idx):
+        # Get the global index of the atom from the label and index of that label
+        assert (label in self._label), f"{label} is not valid, should be one of {self._label}"
+        label_idx = self._label.index(label)
+        if label_idx == 0:
+            return idx
+        else:
+            return sum(self._atom_number[:label_idx]) + idx
+    
     def get_atommag(self,norm = False):
         # return the magmom of each atom
         # if non-colinear, then return a list of three float for that atom.
@@ -942,6 +960,9 @@ class AbacusStru:
         generate a supercell
         
         na,nb,nc: the number of the supercell in a,b,c direction
+        
+        return a new AbacusStru object of the supercell.
+        The atom label order is same as the original structure, and the atom order of each label is repeatedly added based on the original order.
         '''
         # be careful, the real coord should be coord * lattice_constant
         na, nb, nc = nabc
@@ -1176,7 +1197,8 @@ class AbacusStru:
             cc += "\nNUMERICAL_DESCRIPTOR\n"
             cc += self._dpks    
 
-        Path(struf).write_text(cc)  
+        Path(struf).parent.mkdir(parents=True, exist_ok=True)
+        Path(struf).write_text(cc) 
     
     def write2poscar(self,poscar="POSCAR"):
         '''
