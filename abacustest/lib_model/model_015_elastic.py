@@ -52,7 +52,7 @@ class ElasticModel(Model):
         if not params.job:
             raise ValueError("No job specified, please use -j or --job to specify the job paths.")
         
-        paths = PrepElastic(params.job, norm=params.norm, shear=params.shear, relax=params.norelax).run()
+        paths = PrepElastic(params.job, norm=params.norm, shear=params.shear, norelax=params.norelax).run()
         
         setting = {
             "save_path": "results",
