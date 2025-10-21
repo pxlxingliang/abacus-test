@@ -283,3 +283,38 @@ def get_metric_from_str(istr):
         if "}" in i:
             metric_list.append(i.split("}")[0])
     return metric_list
+
+def get_mulliken(mullikenf):
+    """Read mulliken population analysis file
+    
+    Return:
+        atom_mag: list of list, atom_mag[step][atom] = mag or [mx,my,mz]
+        atom_elec: list of list, atom_elec[step][atom] = [elec_spin1,(elec_spin2)]
+    """
+    atom_mag = []
+    atom_elec = []
+    with open(mullikenf) as f1: lines = f1.readlines()
+    for idx,line in enumerate(lines):
+        if line[:5] == "STEP:":
+            atom_mag.append([])
+        elif "Total Magnetism on atom" in line:
+            if "(" in line and ")" in line:
+                # for nspin = 4
+                sline = line.split("(")[1].split(")")[0].split(",")
+                if len(sline) == 3:
+                    atom_mag[-1].append([float(sline[0]),float(sline[1]),float(sline[2])])
+            else:
+                atom_mag[-1].append(float(line.split()[-1]))
+        elif "Zeta of" in line:
+            two_spin = True if "Spin 2" in line else False
+            atom_elec.append([])
+            j = idx + 1
+            while j < len(lines) and lines[j].strip() != "":
+                if "Zeta of" in lines[j]:
+                    break
+                if "sum over m+zeta" in lines[j]:
+                    atom_elec[-1].append([float(lines[j].split()[3])])
+                    if two_spin:
+                        atom_elec[-1][-1].append(float(lines[j].split()[4]))
+                j += 1
+    return atom_mag,atom_elec

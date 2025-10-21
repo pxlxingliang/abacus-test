@@ -378,6 +378,33 @@ class AbacusStru:
         self.angle1 = None
         self.angle2 = None
     
+    def set_atommag_from_mulliken(self, mullikenf, step=-1):
+        '''set the magmom of each atom from mulliken population analysis file
+        step: the step index to read, default is -1, which means the last step
+        Will set angle1 and angle2 to None
+        '''
+        from abacustest.lib_collectdata.comm import get_mulliken
+        try:
+            atom_mag,atom_elec = get_mulliken(mullikenf)
+        except Exception as e:
+            traceback.print_exc()
+            print(f"ERROR: read mulliken file {mullikenf} failed.")
+            raise e
+        
+        if len(atom_mag) == 0:
+            print(f"ERROR: no mulliken magmom data in file {mullikenf}.")
+            raise RuntimeError(f"no mulliken magmom data in file {mullikenf}.")
+
+        atom_mag = atom_mag[step]
+        
+        if len(atom_mag) != len(self._coord):
+            print("ERROR: the atom number in mulliken file is not equal to coord number")
+            sys.exit(1)
+        
+        self._magmom_atom = atom_mag
+        self.angle1 = None
+        self.angle2 = None
+    
     def set_angle1(self,new_angle1):
         if new_angle1 is None:
             self._angle1 = None
