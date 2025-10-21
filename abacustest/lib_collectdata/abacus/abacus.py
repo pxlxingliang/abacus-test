@@ -735,6 +735,8 @@ Fe2
                            atom_mags_mul="list of atom_mag_mul of each ION step.",
                            atom_elec_mul="list of mulliken atomic electron.",
                            atom_orb_elec_mul="list of mulliken atomic orbital electron.",
+                           atom_elecs_mul="list of mulliken atomic electron of each ION step.",
+                           atom_orb_elecs_mul="list of mulliken atomic orbital electron of each ION step",
                            )
     def GetAtomMagMul(self):
         mullikenf = os.path.join(os.path.split(self.LOGf)[0],"mulliken.txt")
@@ -744,7 +746,7 @@ Fe2
             self["atom_elec"] = None
             return
         
-        atom_mag, atom_elec = comm.get_mulliken(mullikenf)
+        atom_mag, atom_elec, _ = comm.get_mulliken(mullikenf)
         
         if len(atom_mag) == 0:
             self['atom_mags_mul'] = None
@@ -756,15 +758,19 @@ Fe2
         if not atom_elec:
             self["atom_elec_mul"] = None
             self["atom_orb_elec_mul"] = None
+            self["atom_elecs_mul"] = None
+            self["atom_orb_elecs_mul"] = None
         else:
-            self["atom_orb_elec_mul"] = atom_elec
-            atom_elec = []
-            for i in self["atom_orb_elec_mul"]:
-                t = 0
-                for j in i:
-                    t += sum(j)
-                atom_elec.append(t)
-            self["atom_elec_mul"] = atom_elec
+            self["atom_orb_elecs_mul"] = atom_elec # atom orb elecs of each ION step
+            self["atom_orb_elec_mul"] = atom_elec[-1] # atom orb elec of last ION step
+            atom_elecs = []
+            for atom_orb_elec in self["atom_orb_elecs_mul"]:
+                atom_elec = []
+                for i in atom_orb_elec:
+                    atom_elec.append(sum([sum(j) for j in i]))
+                atom_elecs.append(atom_elec)
+            self["atom_elecs_mul"] = atom_elecs
+            self["atom_elec_mul"] = atom_elecs[-1]
             
     '''
     repeat to charge, not used anymore

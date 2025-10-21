@@ -293,10 +293,13 @@ def get_mulliken(mullikenf):
     """
     atom_mag = []
     atom_elec = []
+    atom_labels = []
     with open(mullikenf) as f1: lines = f1.readlines()
     for idx,line in enumerate(lines):
         if line[:5] == "STEP:":
             atom_mag.append([])
+            atom_elec.append([])
+            atom_labels.append([])
         elif "Total Magnetism on atom" in line:
             if "(" in line and ")" in line:
                 # for nspin = 4
@@ -306,15 +309,16 @@ def get_mulliken(mullikenf):
             else:
                 atom_mag[-1].append(float(line.split()[-1]))
         elif "Zeta of" in line:
+            atom_labels[-1].append(line.split()[3])
             two_spin = True if "Spin 2" in line else False
-            atom_elec.append([])
+            atom_elec[-1].append([])
             j = idx + 1
-            while j < len(lines) and lines[j].strip() != "":
+            while j < len(lines) :
                 if "Zeta of" in lines[j]:
                     break
-                if "sum over m+zeta" in lines[j]:
-                    atom_elec[-1].append([float(lines[j].split()[3])])
+                if "sum over m+zeta" in lines[j] or "SUM OVER M+Zeta" in lines[j] and "M+Zeta+L" not in lines[j]:
+                    atom_elec[-1][-1].append([float(lines[j].split()[3])])
                     if two_spin:
-                        atom_elec[-1][-1].append(float(lines[j].split()[4]))
+                        atom_elec[-1][-1][-1].append(float(lines[j].split()[4]))
                 j += 1
-    return atom_mag,atom_elec
+    return atom_mag,atom_elec, atom_labels

@@ -378,14 +378,17 @@ class AbacusStru:
         self.angle1 = None
         self.angle2 = None
     
-    def set_atommag_from_mulliken(self, mullikenf, step=-1):
+    def set_atommag_from_mulliken(self, mullikenf, 
+                                  step=-1,
+                                  check_label=True):
         '''set the magmom of each atom from mulliken population analysis file
         step: the step index to read, default is -1, which means the last step
+        check_label: if check the label of mulliken file and stru file
         Will set angle1 and angle2 to None
         '''
         from abacustest.lib_collectdata.comm import get_mulliken
         try:
-            atom_mag,atom_elec = get_mulliken(mullikenf)
+            atom_mag,atom_elec,atom_label = get_mulliken(mullikenf)
         except Exception as e:
             traceback.print_exc()
             print(f"ERROR: read mulliken file {mullikenf} failed.")
@@ -396,9 +399,14 @@ class AbacusStru:
             raise RuntimeError(f"no mulliken magmom data in file {mullikenf}.")
 
         atom_mag = atom_mag[step]
+        atom_label = atom_label[step]
         
         if len(atom_mag) != len(self._coord):
             print("ERROR: the atom number in mulliken file is not equal to coord number")
+            sys.exit(1)
+        
+        if check_label and atom_label != self.get_label(total=True):
+            print("ERROR: the atom label in mulliken file is not equal to coord label")
             sys.exit(1)
         
         self._magmom_atom = atom_mag
