@@ -124,7 +124,16 @@ class Abacus(ResultAbacus):
                 nbase = int(line.split()[2])
                 break
         self['nbase'] = nbase
-    
+
+    @ResultAbacus.register(noccu_band="number of occupied bands")
+    def GetNumOccuBand(self):
+        noccu_band = None
+        for i,line in enumerate(self.LOG):
+            if "occupied bands" in line:
+                noccu_band = int(line.split()[3])
+                break
+        self['noccu_band'] = noccu_band
+
     @ResultAbacus.register(nbands="number of bands",
                            nkstot = "total K point number",
                            ibzk = "irreducible K point number",
