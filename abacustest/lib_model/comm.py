@@ -298,27 +298,37 @@ def cal_cellparam(cell):
 
 def inter_coord(cell1, coord1, 
                 cell2, coord2,
-                n):
+                n,
+                direct=False):
     """
     Interpolate coordinates from one cell to another.
     
     Parameters:
         cell1 (np.ndarray): The first cell matrix.
-        coord1 (np.ndarray): Coordinates in the first cell.
+        coord1 (np.ndarray): Coordinates in the first cell, in cartesian.
         cell2 (np.ndarray): The second cell matrix.
-        coord2 (np.ndarray): Coordinates in the second cell.
+        coord2 (np.ndarray): Coordinates in the second cell, in cartesian.
         n (int): Number of interpolation points.
+        direct (bool): Whether the input coordinates are in direct coordinates.
         
     Returns:
-        np.ndarray: Interpolated coordinates in the second cell.
+        tuple: A tuple containing two lists:
+            - cells: A list of interpolated cell matrices.
+            - coords: A list of interpolated coordinates in cartesian.
+        The first element in each list corresponds to cell1 and coord1,
+        and the last element corresponds to cell2 and coord2.
     """
     import numpy as np
     cell1 = np.array(cell1)
     cell2 = np.array(cell2)
     coord1 = np.array(coord1)
     coord2 = np.array(coord2)
-    coord1_direct = np.dot(np.linalg.inv(cell1), coord1.T).T
-    coord2_direct = np.dot(np.linalg.inv(cell2), coord2.T).T
+    if direct:
+        coord1_direct = coord1
+        coord2_direct = coord2
+    else:
+        coord1_direct = np.dot(np.linalg.inv(cell1), coord1.T).T
+        coord2_direct = np.dot(np.linalg.inv(cell2), coord2.T).T
 
     coord_diff = coord2_direct - coord1_direct
     # if diff larger than 0.5, then add 1 to the diff
@@ -327,9 +337,9 @@ def inter_coord(cell1, coord1,
         coord_diff[coord_diff < -0.5] += 1
     coord2_direct = coord1_direct + coord_diff
 
-    maxdiff_idx = np.argmax(np.abs(coord_diff))
+    maxdiff_idx = int(np.argmax(np.abs(coord_diff)) // 3)
     print("Max difference index:", maxdiff_idx)
-    print("Max difference value:", np.max(np.abs(coord_diff)))
+    print("The difference value (in direct):", coord_diff[maxdiff_idx])
     
     a1, b1, c1, alpha1, beta1, gamma1 = cal_cellparam(cell1)
     a2, b2, c2, alpha2, beta2, gamma2 = cal_cellparam(cell2)
@@ -357,7 +367,10 @@ def inter_coord(cell1, coord1,
         coord = np.dot(cell, coord_direct.T).T
         
         cells.append(cell)
-        coords.append(coord)
+        if direct:
+            coords.append(coord_direct)
+        else:
+            coords.append(coord)
     return cells, coords
 
 def interplate_3d_grid(org_data, 
