@@ -1154,7 +1154,23 @@ class AbacusStru:
             
         
      
-    def write(self,struf="STRU"):
+    def write(self,struf="STRU", direct=None):
+        '''
+        write to STRU file
+        direct: if True, then write the coord in direct type, if False, then write in cartesian type
+                if None, then write in the original type
+        '''
+        if direct is None:
+            if self._cartesian:
+                direct = False
+            else:
+                direct = True
+        
+        if direct:
+            coord = self.get_coord(direct=True)
+        else:
+            coord = np.array(self.get_coord(direct=False, bohr = True)) / self._lattice_constant
+
         cc = ""
         #write species
         cc += "ATOMIC_SPECIES\n"
@@ -1186,7 +1202,8 @@ class AbacusStru:
         
         #write ATOMIC_POSITIONS
         cc += "\nATOMIC_POSITIONS\n"
-        if self._cartesian:
+
+        if not direct:
             cc += "Cartesian\n"
         else:
             cc += "Direct\n"
@@ -1194,7 +1211,7 @@ class AbacusStru:
         for i,ilabel in enumerate(self._label):
             cc += "\n%s\n%f\n%d\n" % (ilabel,self._magmom[i],self._atom_number[i])
             for j in range(self._atom_number[i]):
-                cc += "%17.11f %17.11f %17.11f " % tuple(self._coord[icoord + j])
+                cc += "%17.11f %17.11f %17.11f " % tuple(coord[icoord + j])
                 if self._move and self._move[icoord + j] and len(self._move[icoord + j]) == 3:
                     cc += "%d %d %d " % tuple(self._move[icoord + j])
                 if self._magmom_atom:
@@ -1699,8 +1716,10 @@ def ReadKpt(kptpath):
     elif os.path.isfile(kptpath):
         with open(kptpath) as f1: lines = [i for i in f1.readlines() if i.split("#")[0].strip() != ""]
         model = lines[2].split()[0].lower()
-        if model.startswith("g") or model.startswith("m"):
+        if model.startswith("m"):
             model = "mp"
+        elif model.startswith("g"):
+            model = "gamma"
         elif model.startswith("d"):
             model = "direct"
         elif model.startswith("c"):
