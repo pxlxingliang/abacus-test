@@ -14,11 +14,15 @@ from typing import List, Dict, Union, Optional, Tuple, Literal
 JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                     "mixing_beta": 0.8,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                    "pw_diag_ndim":    2, "pw_diag_nmax":    20,
+                    "precision": "double  # or single",
                     "#cal_force": 1, "#cal_stress": 1,
                     "kspacing": "0.14 # unit in 1/bohr"}, 
              "relax": {"calculation": "relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "pw_diag_ndim":    2, "pw_diag_nmax":    20,
+                       "precision": "double  # or single",
                        "cal_force": 1, "#cal_stress": 1,"kspacing": "0.14 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs bfgs_trad cg_bfgs sd fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "#stress_thr": "0.5 # unit in kbar",
@@ -26,6 +30,8 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
              "cell-relax":{"calculation": "cell-relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "pw_diag_ndim":    2, "pw_diag_nmax":    20,
+                       "precision": "double  # or single",
                        "cal_force": 1, "cal_stress": 1, "kspacing": "0.14 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs, bfgs_trad, cg_bfgs, sd, fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "stress_thr": "0.5 # unit in kbar",
@@ -34,6 +40,8 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
              "md":{"calculation": "md", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "pw_diag_ndim":    2, "pw_diag_nmax":    20,
+                       "precision": "double  # or single",
                        "#cal_force": 1, "#cal_stress": 1,
                        "kspacing": "0.14 # unit in 1/bohr", 
                        "md_type": "nvt  # or npt, nve, langevin, fire, msst",
@@ -44,6 +52,8 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
              "band":{"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                     "mixing_beta": 0.8,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                    "pw_diag_ndim":    2, "pw_diag_nmax":    20,
+                    "precision": "double  # or single",
                     "#cal_force": 1, "#cal_stress": 1,
                     "kspacing": "0.14 # unit in 1/bohr"}
         }
@@ -478,6 +488,8 @@ class PrepInput:
         # LCAO
         if self.lcao:
             input_param.update(LCAO_PARAM)
+            input_param.pop("pw_diag_ndim", None)
+            input_param.pop("pw_diag_nmax", None)
         
         # NSPIN
         if self.nspin == 2:
