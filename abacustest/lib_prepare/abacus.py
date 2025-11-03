@@ -1702,7 +1702,7 @@ def ReadKpt(kptpath):
                         sys.exit(1)
                     cell = stru.get_cell(bohr=True)
                     kpt = comm.kspacing2kpt(kspacing,cell) + [0,0,0]
-                    return kpt,"mp"
+                    return kpt,"gamma"
             elif os.path.isfile(kptf):
                 return ReadKpt(kptf)
             else:
@@ -1795,8 +1795,9 @@ def WriteKpt(kpoint_list:List = [1,1,1,0,0,0],file_name:str = "KPT", model="gamm
     [[0.0,0.0,0.0,10 "#Gamma"],[0.5,0.0,0.0,1,"//"],[0.5,0.5,0.0,1,"//"]]         
     '''
     if model.lower() in ["gamma","mp"]:
+        model_ = "Gamma" if model.lower() == "gamma" else "MP"
         with open(file_name,'w') as f1:
-            f1.write(F"K_POINTS\n0\n{model.capitalize()}\n")
+            f1.write(F"K_POINTS\n0\n{model_}\n")
             if len(kpoint_list) == 3:
                 kpoint_list += [0,0,0]
             f1.write(" ".join([str(i) for i in kpoint_list]))
