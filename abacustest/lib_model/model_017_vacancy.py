@@ -1,6 +1,7 @@
 from ..model import Model
 import json, os
 from typing import List, Dict, Any, Literal
+import re
 import shutil, glob, copy
 from pathlib import Path
 from itertools import groupby
@@ -36,8 +37,7 @@ class VacancyModel(Model):
         parser.description = "Prepare the inputs for vacancy formation energy calculation."
         parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of ABACUS jobs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
         parser.add_argument('-s', '--supercell', type=int, default=[1, 1, 1], nargs=3, help='the supercell size, default is [1, 1, 1]')
-        parser.add_argument("--vacancy-element", type=str, required=True, help="Element to be removed")
-        parser.add_argument("--vacancy-element-index", type=int, required=True, help="Index of the atom in assigned element to be removed")
+        parser.add_argument("--vacancy-index", type=int, required=True, nargs="*", help="Index of the atom to be removed")
         parser.add_argument("--force-thr-ev", type=float, default=0.01, help="The threshold of force convergence")
         parser.add_argument("--stress-thr-kbar", type=float, default=0.5, help="The threshold of stress convergence")
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
@@ -55,8 +55,7 @@ class VacancyModel(Model):
         
         folders = prepare_vacancy_jobs(params.job,
                                        params.supercell,
-                                       params.vacancy_element,
-                                       params.vacancy_element_index,
+                                       params.vacancy_index,
                                        params.force_thr_ev,
                                        params.stress_thr_kbar)
         
@@ -107,8 +106,7 @@ class VacancyModel(Model):
 def prepare_vacancy_jobs(
     jobs: str,
     supercell: List[int],
-    vacancy_element: str,
-    vacancy_element_index: int,
+    vacancy_indices: List[int],
     force_thr_ev: float = 0.01,
     stress_thr_kbar: float = 0.5
 ) -> None:
@@ -154,12 +152,15 @@ def prepare_vacancy_jobs(
         write_inputs(supercell_jobpath, input_params, supercell_stru)
 
         # Prepare input files for the supercell with defect
-        defect_supercell_stru = copy.deepcopy(supercell_stru)
-        defect_supercell_stru.set_empty_atom(vacancy_element, vacancy_element_index)
-        defect_supercell_jobpath = os.path.join(job, "vacancy_defect_supercell_job_path")
-        os.makedirs(defect_supercell_jobpath, exist_ok=True)
-        copy_pp_orb_kpt_file(job, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
-        write_inputs(defect_supercell_jobpath, input_params, defect_supercell_stru)
+        for idx in vacancy_indices:
+            vacancy_element, labelidx = supercell_stru.globalidx2labelidx(idx)
+            defect_supercell_stru = copy.deepcopy(supercell_stru)
+            defect_supercell_stru.set_empty_atom(vacancy_element, labelidx)
+            defect_supercell_jobpath = os.path.join(job, f"vacancy_{vacancy_element}{idx}_defect_supercell_job_path")
+            os.makedirs(defect_supercell_jobpath, exist_ok=True)
+            copy_pp_orb_kpt_file(job, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
+            write_inputs(defect_supercell_jobpath, input_params, defect_supercell_stru)
+            folders.append(defect_supercell_jobpath)
 
         # Prepare input files for the crystal structure of the vacancy element
         element_type_index = [key for key, group in groupby(original_stru.get_element(number=False))].index(vacancy_element)
@@ -171,7 +172,7 @@ def prepare_vacancy_jobs(
         copy_pp_orb_kpt_file(job, vacancy_element_crys_jobpath, pp_orb_files, original_kpt_file)
         write_inputs(vacancy_element_crys_jobpath, input_params, vacancy_element_crys_stru)
 
-        folders += [supercell_jobpath, defect_supercell_jobpath, vacancy_element_crys_jobpath]
+        folders += [supercell_jobpath, vacancy_element_crys_jobpath]
     
     return folders
 
@@ -191,26 +192,33 @@ def postprocess_vacancy(jobs: List[str]) -> Dict[str, Any]:
 
         sub_folders = [f for f in glob.glob(os.path.join(job, "vacancy_*")) if os.path.isdir(f)]
 
+        defect_supercell_job_results = {}
+        defect_job_pattern = r"vacancy_([A-Za-z]+)(\d+)_defect_supercell_job_path"
         for sub_folder in sub_folders:
             if sub_folder.endswith("supercell_job_path"):
                 supercell_job_results = read_relax_metrics(sub_folder)
             if sub_folder.endswith("defect_supercell_job_path"):
-                defect_supercell_job_results = read_relax_metrics(sub_folder)
+                match = re.search(defect_job_pattern, sub_folder)
+                vacancy_element, idx = match.group(1), int(match.group(2))
+                defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_relax_metrics(sub_folder)
             if sub_folder.endswith("crys_cell_relax"):
                 vac_ele_crys_stru = AbacusStru.ReadStru(os.path.join(sub_folder, "STRU"))
                 vacancy_element_crys_job_results = read_relax_metrics(sub_folder)
         
         e_supercell = supercell_job_results["energies"][-1]
-        e_defect_supercell = defect_supercell_job_results["energies"][-1]
         e_vac_elem_crys = vacancy_element_crys_job_results["energies"][-1]
-        
-        e_vac_form = (e_defect_supercell + e_vac_elem_crys / vac_ele_crys_stru.get_natoms()) - e_supercell
 
-        job_metrics = {'vac_formation_energy': e_vac_form,
+        vac_formation_energy = {}
+        for site in defect_supercell_job_results:
+            e_defect_supercell = defect_supercell_job_results[site]["energies"][-1]
+            e_vac_form = (e_defect_supercell + e_vac_elem_crys / vac_ele_crys_stru.get_natoms()) - e_supercell
+            vac_formation_energy[site] = e_vac_form
+
+        job_metrics = {'vac_formation_energy': vac_formation_energy,
                        'supercell_job_relax_converge': supercell_job_results['relax_converge'],
                        'supercell_job_normal_end': supercell_job_results['normal_end'],
-                       'defect_supercell_job_relax_converge': defect_supercell_job_results['relax_converge'],
-                       'defect_supercell_job_normal_end': defect_supercell_job_results['normal_end'],
+                       'defect_supercell_job_relax_converge': {site: defect_supercell_job_results[site]['relax_converge'] for site in defect_supercell_job_results.keys()},
+                       'defect_supercell_job_normal_end': {site: defect_supercell_job_results[site]['normal_end'] for site in defect_supercell_job_results.keys()},
                        'vacancy_element_crys_job_relax_converge': vacancy_element_crys_job_results['relax_converge'],
                        'vacancy_element_crys_job_normal_end': vacancy_element_crys_job_results['normal_end']}
 
@@ -222,7 +230,6 @@ def copy_pp_orb_kpt_file(src_dir: str, dst_dir: str, pp_orb_files: str, kpt_file
     '''
     Copy the pp, orb, and kpt file from source directory to the destination directory.
     '''
-    print(os.getcwd())
     for file in pp_orb_files:
         os.symlink(os.path.abspath(os.path.join(src_dir, file)), os.path.join(dst_dir, file))
     
