@@ -209,7 +209,6 @@ def postprocess_vacancy(jobs: List[str]) -> Dict[str, Any]:
         e_vac_elem_crys = vacancy_element_crys_job_results["energies"][-1]
 
         for site in defect_supercell_job_results.keys():
-            print
             e_defect_supercell = defect_supercell_job_results[site]["energies"][-1]
             e_vac_form = (e_defect_supercell + e_vac_elem_crys / vac_ele_crys_stru.get_natoms()) - e_supercell
 
