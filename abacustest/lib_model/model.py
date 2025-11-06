@@ -7,6 +7,9 @@ class Model:
     
     The model should have the following methods:
     '''
+    HAS_PREPARE_POST_COMMAND = True
+
+
     @staticmethod
     def model_name():
         '''
