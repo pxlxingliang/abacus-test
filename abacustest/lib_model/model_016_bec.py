@@ -8,7 +8,6 @@ from typing import List, Dict, Any
 import shutil, glob, copy
 from abacustest.lib_collectdata.collectdata import RESULT
 
-from abacustest.outresult import pandas_out
 
 
 class BECModel(Model):
@@ -103,7 +102,27 @@ class BECModel(Model):
         json.dump(becs, open("metrics_bec.json", "w"), indent=4)
         json.dump(metrics, open("metrics.json", "w"), indent=4)
         print("\nThe BEC results are saved in 'metrics_bec.json'")
-        pandas_out(becs)
+
+        import pandas as pd
+        c = "Born effective charge tensor for:"
+        for k, v in becs.items():
+            c += f"\n{k}:\n"
+            pd_df = pd.DataFrame(v['bec_tensor (e)'], columns=['X', 'Y', 'Z'], index=['X', 'Y', 'Z'])
+            # save 4 decimal places
+            pd_df = pd_df.round(4)
+            c += f"{pd_df}\n"
+
+        c += """
+NOTE: The BEC tensor is in unit of e, calculated by delta P / delta R, 
+where P is polarization vector in cartesian coordinates (e/Volume * A), 
+and R is atomic position in cartesian coordinates (A). 
+Displacement is the actual atomic displacement in cartesian coordinates (A).
+The p_vec_disp and p_vec_org are polarization vectors along the three cell vectors.
+        """
+        with open("bec_summary.txt", "w") as f1:
+            f1.write(c)
+        print("\nSummary of Born effective charge tensors:")
+        print(c)
             
         
         
@@ -218,6 +237,7 @@ def postprocess_bec(jobs: List[str]) -> Dict[str, Any]:
     Returns:
         A dictionary containing the BEC results.
     '''
+    xyz_idx = {"x":0, "y":1, "z":2}
     metrics = {}
     becs = {}
     for job in jobs:
@@ -232,13 +252,15 @@ def postprocess_bec(jobs: List[str]) -> Dict[str, Any]:
             metrics[folder] = read_metrics(folder)
             stru = AbacusStru.ReadStru(os.path.join(folder, "STRU"))
             atom_coord = stru.get_coord(bohr=False, direct=False)
+            cell = stru.get_cell(bohr=False)
             p_vec1, mod1, volume1 = read_p(os.path.join(folder, "OUT.ABACUS/running_nscf1.log"))
             p_vec2, mod2, volume2 = read_p(os.path.join(folder, "OUT.ABACUS/running_nscf2.log"))
             p_vec3, mod3, volume3 = read_p(os.path.join(folder, "OUT.ABACUS/running_nscf3.log"))
             # check volume consistency
                                            
             metrics[folder]["atom_coord"] = atom_coord
-            metrics[folder]["p_vec"] = [p_vec1, p_vec2, p_vec3]
+            metrics[folder]["cell"] = cell
+            metrics[folder]["p_vec"] =  [p_vec1, p_vec2, p_vec3]  # p_vec1/2/3 is along cell vectors
             metrics[folder]["volume"] = volume1
             metrics[folder]["mod"] = [mod1, mod2, mod3]
             
@@ -266,17 +288,39 @@ def postprocess_bec(jobs: List[str]) -> Dict[str, Any]:
             delta_r_atom = [(coord_disp[i] - coord_org[i]) for i in range(3)]
             delta_r_norm = sum([delta_r_atom[i]**2 for i in range(3)])**0.5
             delta_p = cal_delta_p(p_vec_org, p_vec_disp, metrics[org_folder]["mod"], metrics[folder]["mod"])
+            delta_p = cal_polarization_cartesian(delta_p, metrics[org_folder]["cell"])  # transform to cartesian
             bec_tensor = [delta_p[i] / delta_r_norm for i in range(3)]
             
-            becs[job + f":atom{idx}_{label[idx]}_{direction}"] = {
-                "bec_tensor (e)": bec_tensor,
-                "displacement (A)": delta_r_atom,
-                "p_vec_org ((e/V)*A)": p_vec_org,
-                "p_vec_disp ((e/V)*A)": p_vec_disp
-            }
-   
+            ilabel = f"{job}:atom{idx}_{label[idx]}"
+
+            if ilabel not in becs:
+                becs[ilabel] = {
+                    "bec_tensor (e)": [None, None, None],
+                    "displacement (A)": [None, None, None],
+                    "p_vec_org ((e/Volume)*A)": p_vec_org,
+                    "p_vec_disp ((e/Volume)*A)": [None, None, None]
+                }
+
+            becs[ilabel]["bec_tensor (e)"][xyz_idx[direction]] = bec_tensor
+            becs[ilabel]["displacement (A)"][xyz_idx[direction]] = delta_r_atom
+            becs[ilabel]["p_vec_disp ((e/Volume)*A)"][xyz_idx[direction]] = p_vec_disp
+    
     return metrics, becs
-            
+
+def cal_polarization_cartesian(p_vec, cell):
+    '''
+    Convert polarization vector along cell vectors to cartesian coordinates.
+    
+    Args:
+        p_vec: Polarization vector in cell vector basis.
+        cell: Cell vectors.
+    '''
+    import numpy as np
+    cell_matrix = np.array(cell)
+    p_cartesian = np.sum([p_vec[i] * cell_matrix[i] / np.linalg.norm(cell_matrix[i]) for i in range(3)], axis=0)
+
+    return p_cartesian.tolist()
+
 def cal_delta_p(p1, p2, mod1, mod2):
     '''
     Calculate the delta p considering the polarization quantum.
