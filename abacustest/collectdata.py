@@ -166,6 +166,7 @@ def collectdata(param):
 
                 if job_type == "cell-relax":
                     allparams.append("largest_gradient_stress")
+                    allparams.append("lattice_constants")
             
             if input_param.get("nspin",1) in [2,4]:
                 allparams.append("total_mag")
