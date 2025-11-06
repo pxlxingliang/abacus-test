@@ -307,16 +307,22 @@ class AbacusStru:
     def globalidx2labelidx(self, idx):
         """Get the label and index of the atom in that label from the global index
         """
+        if idx < 0:
+            raise ValueError(f"The idx {idx} is less than 0!")
+        elif idx >= self.get_natoms():
+            raise ValueError(f"The idx {idx} is larger than the total atom numbers!")
+        pre_atom_num = 0
         for i in range(len(self._atom_number)):
-            pre_atom_num = sum(self._atom_number[:i])
-            if idx >= pre_atom_num:
+            kind_i_num = self._atom_number[i]
+            if idx < pre_atom_num + kind_i_num:
                 return self._label[i], idx - pre_atom_num
-        raise ValueError(f"The idx {idx} is larger than the total atom numbers!")
+            pre_atom_num += kind_i_num
     
     def labelidx2globalidx(self, label, idx):
         # Get the global index of the atom from the label and index of that label
         assert (label in self._label), f"{label} is not valid, should be one of {self._label}"
         label_idx = self._label.index(label)
+        assert (idx <= self._atom_number[label_idx]), f"{idx} is larger than the atom number of {label}"
         if label_idx == 0:
             return idx
         else:
