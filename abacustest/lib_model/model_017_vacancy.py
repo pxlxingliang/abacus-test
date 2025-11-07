@@ -214,10 +214,12 @@ def postprocess_vacancy(jobs: List[str]) -> Dict[str, Any]:
 
             results = {
                 'vac_formation_energy': e_vac_form,
-                'supercell_job_relax_converge': defect_supercell_job_results[site]['relax_converge'],
-                'supercell_job_normal_end': defect_supercell_job_results[site]['normal_end'],
+                'supercell_job_relax_converge': supercell_job_results['relax_converge'],
+                'supercell_job_normal_end': supercell_job_results['normal_end'],
+                'supercell_relaxed_lattice_constant': supercell_job_results['lattice_constant'],
                 'defect_supercell_job_relax_converge': defect_supercell_job_results[site]['relax_converge'],
                 'defect_supercell_job_normal_end': defect_supercell_job_results[site]['normal_end'],
+                'defect_supercell_relaxed_lattice_constant': defect_supercell_job_results[site]['lattice_constant'],
                 'vacancy_element_crys_job_relax_converge': vacancy_element_crys_job_results['relax_converge'],
                 'vacancy_element_crys_job_normal_end': vacancy_element_crys_job_results['normal_end']
             }
@@ -287,5 +289,5 @@ def read_relax_metrics(job: str) -> List[str]:
     """
     results = RESULT(path=job, fmt='abacus')
     relax_metrics = ["normal_end", "relax_steps", "largest_gradient",
-                     "largest_gradient_stress", "relax_converge", "energies"]
+                     "largest_gradient_stress", "relax_converge", "energies", "lattice_constant"]
     return {k: results[k] for k in relax_metrics}
