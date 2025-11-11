@@ -476,6 +476,12 @@ class PrepInput:
             if recommand_ecutwfc is not None and list(set(recommand_ecutwfc)) != [None]:
                 input_param["ecutwfc"] = max([i for i in recommand_ecutwfc if i is not None])
                 print(f"Set ecutwfc to {input_param['ecutwfc']}, element: {element}, recommended ecutwfc: {recommand_ecutwfc}")
+        
+        if not input_param.get("basis_type", "pw").startswith("pw"):
+            # remove pw specific parameters
+            input_param.pop("pw_diag_ndim", None)
+            input_param.pop("pw_diag_nmax", None)
+            
         return input_param
     
     def generate_input(self, element):
