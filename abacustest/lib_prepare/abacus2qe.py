@@ -42,7 +42,7 @@ def set_ks_solver(param,qp):
         pass
     elif kssolver.lower() == "cg":
         qp["electrons"]["diagonalization"] = "cg"
-    elif kssolver.lower() == "dav":
+    elif kssolver.lower() in ["dav","dav_subspace"]:
         qp["electrons"]["diagonalization"] = "david"
     else:
         print("WARNING: ks_solver %s is not supported now, will not set diagonalization is QE." % kssolver)
@@ -101,6 +101,16 @@ def set_fixed_axes(param,qp):
             qp["cell"]["cell_dofree"] = {"a","b","c"}.difference(set(fixed_axes)).pop()
         else:
             print("WARNING: fixed_axes %s is not supported now, will not set cell_dofree in QE." % fixed_axes)
+
+def set_cdft(param, qp):
+    if "sc_mag_switch" in param:
+        sc_mag_switch = param.pop("sc_mag_switch")
+        sc_direction_only = param.pop("sc_direction_only", False)
+        if sc_mag_switch:
+            if sc_direction_only:
+                qp["system"]["constrained_magnetization"] = "atomic direction"
+            else:
+                qp["system"]["constrained_magnetization"] = "atomic"
 
 def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
     '''transfer the abacus input to qe input
@@ -188,6 +198,7 @@ def ParamAbacus2Qe(input_param:Dict[str,any],version=7.0,qe_param={}):
     set_relax_param(param,qp,calculation)
     set_spin_soc(param,qp)
     set_fixed_axes(param,qp)
+    set_cdft(param,qp)
     
     # these paramters will be ignored    
     for ip in ["suffix","basis_type","gamma_only","kpt_file","dft_plus_u","orbital_corr","hubbard_u"]:
