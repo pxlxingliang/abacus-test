@@ -432,6 +432,10 @@ def DownloadFlow(param):
     set_config(private_set,False)   
     
     save_path = comm.ParseSavePath(private_set.get("save_path",None)) 
+    if param.save is None:
+        save_path = comm.ParseSavePath(private_set.get("save_path","result"))
+    else:
+        save_path = param.save
     
     jobid = param.job_id
     wf = Workflow(id = jobid)
