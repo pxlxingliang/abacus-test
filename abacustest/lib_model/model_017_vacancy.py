@@ -337,7 +337,7 @@ def build_most_stable_elementary_crys_stru(element: str, pp: str, orb: str) -> A
                              cell=stru.get_cell(),
                              coord=stru.get_positions(),
                              lattice_constant=A2BOHR,
-                             cartesian=False)
+                             cartesian=True)
     stru_abacus.set_pp([pp])
     stru_abacus.set_orb([orb])
 
