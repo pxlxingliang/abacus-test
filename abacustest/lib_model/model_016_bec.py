@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 
 import shutil, glob, copy
 from abacustest.lib_collectdata.collectdata import RESULT
-
+from abacustest.lib_model.comm import clean_none_list
 
 
 class BECModel(Model):
@@ -107,7 +107,8 @@ class BECModel(Model):
         c = "Born effective charge tensor for:"
         for k, v in becs.items():
             c += f"\n{k}:\n"
-            pd_df = pd.DataFrame(v['bec_tensor (e)'], columns=['X', 'Y', 'Z'], index=['X', 'Y', 'Z'])
+            bect, index = clean_none_list(v["bec_tensor (e)"], ["X", "Y", "Z"])
+            pd_df = pd.DataFrame(bect, columns=['X', 'Y', 'Z'], index=index)
             # save 4 decimal places
             pd_df = pd_df.round(4)
             c += f"{pd_df}\n"
@@ -118,6 +119,7 @@ where P is polarization vector in cartesian coordinates (e/Volume * A),
 and R is atomic position in cartesian coordinates (A). 
 Displacement is the actual atomic displacement in cartesian coordinates (A).
 The p_vec_disp and p_vec_org are polarization vectors along the three cell vectors.
+The p1(C/m^2) is the polarization in C/m^2 along the three cell vectors, and p2(C/m^2) is the polarization in C/m^2 in the cartesian coordinates.
         """
         with open("bec_summary.txt", "w") as f1:
             f1.write(c)
@@ -242,6 +244,9 @@ def postprocess_bec(jobs: List[str]) -> Dict[str, Any]:
     becs = {}
     for job in jobs:
         print("Postprocessing BEC calculation for job path:", job)
+        if not os.path.isdir(job):
+            print(f"Warning: job path {job} is not a directory, skip.")
+            continue
 
         sub_folders = [f for f in glob.glob(os.path.join(job, "bec_*")) if os.path.isdir(f)]
         sub_folders.sort()
@@ -253,14 +258,16 @@ def postprocess_bec(jobs: List[str]) -> Dict[str, Any]:
             stru = AbacusStru.ReadStru(os.path.join(folder, "STRU"))
             atom_coord = stru.get_coord(bohr=False, direct=False)
             cell = stru.get_cell(bohr=False)
-            p_vec1, mod1, volume1 = read_p(os.path.join(folder, "OUT.ABACUS/running_nscf1.log"))
-            p_vec2, mod2, volume2 = read_p(os.path.join(folder, "OUT.ABACUS/running_nscf2.log"))
-            p_vec3, mod3, volume3 = read_p(os.path.join(folder, "OUT.ABACUS/running_nscf3.log"))
+            p_vec1, mod1, volume1, p_cm2_1 = read_p(os.path.join(folder, "OUT.ABACUS/running_nscf1.log"))
+            p_vec2, mod2, volume2, p_cm2_2 = read_p(os.path.join(folder, "OUT.ABACUS/running_nscf2.log"))
+            p_vec3, mod3, volume3, p_cm2_3 = read_p(os.path.join(folder, "OUT.ABACUS/running_nscf3.log"))
             # check volume consistency
                                            
             metrics[folder]["atom_coord"] = atom_coord
             metrics[folder]["cell"] = cell
             metrics[folder]["p_vec"] =  [p_vec1, p_vec2, p_vec3]  # p_vec1/2/3 is along cell vectors
+            metrics[folder]["p1(C/m^2)"] = [p_cm2_1, p_cm2_2, p_cm2_3] # along a/b/c directions
+            metrics[folder]["p2(C/m^2)"] = cal_polarization_cartesian([p_cm2_1, p_cm2_2, p_cm2_3], cell)  # in cartesian coordinates
             metrics[folder]["volume"] = volume1
             metrics[folder]["mod"] = [mod1, mod2, mod3]
             
@@ -381,11 +388,13 @@ def read_p(logf):
     p_vec = None
     volume = None
     mod = None
+    p_cm2 = None
     for i, line in enumerate(lines):
         if "The calculated polarization direction is " in line:
             p_vec = float(lines[i+2].split()[2]) * BOHR2A
             mod = float(lines[i+2].split("mod")[1].split(")")[0]) * BOHR2A
+            p_cm2 = float(lines[i+6].split()[2])  # in C/m^2
         elif "Volume (A^3) =" in line:
             volume = float(line.split("=")[1])
-    return p_vec, mod, volume        
+    return p_vec, mod, volume, p_cm2        
                     
