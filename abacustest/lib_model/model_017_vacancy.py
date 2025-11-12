@@ -37,9 +37,10 @@ class VacancyModel(Model):
         parser.description = "Prepare the inputs for vacancy formation energy calculation."
         parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of ABACUS jobs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
         parser.add_argument('-s', '--supercell', type=int, default=[1, 1, 1], nargs=3, help='the supercell size, default is [1, 1, 1]')
-        parser.add_argument('-i', "--index", type=int, required=True, nargs="*", help="Index of the atom to be removed. Start from 0")
+        parser.add_argument('-i', "--index", type=int, required=True, nargs="*", help="Index of the atom to be removed. Start from 1")
         parser.add_argument("--cal-reference", type=bool, default=True, help="Whether to do cell-relax calculation for elemental crystals. If not, a file containing element and its energy should be provided.")
         parser.add_argument("--ref-dir", type=str, default='ref_element', help="The directory containing the jobs of elemental crystal structures.")
+        parser.add_argument("--max-step", type=int, default=100, help="The maximum number of steps to relax calculation. Default is 100.")
         parser.add_argument("--force-thr-ev", type=float, default=0.01, help="The threshold of force convergence")
         parser.add_argument("--stress-thr-kbar", type=float, default=0.5, help="The threshold of stress convergence")
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
@@ -60,6 +61,7 @@ class VacancyModel(Model):
                                        params.index,
                                        params.cal_reference,
                                        params.ref_dir,
+                                       params.max_step,
                                        params.force_thr_ev,
                                        params.stress_thr_kbar)
         
@@ -137,6 +139,7 @@ def prepare_vacancy_jobs(
     vacancy_indices: List[int],
     cal_reference: bool = True,
     ref_dir: str = "ref_element",
+    max_step: int = 100,
     force_thr_ev: float = 0.01,
     stress_thr_kbar: float = 0.5
 ) -> None:
@@ -172,6 +175,7 @@ def prepare_vacancy_jobs(
         input_params['relax_method'] = 'cg'
         input_params['stru_file'] = None
         input_params['ntype'] = None
+        input_params['relax_nmax'] = max_step
         input_params['force_thr_ev'] = force_thr_ev
         input_params['stress_thr'] = stress_thr_kbar
 
@@ -190,7 +194,7 @@ def prepare_vacancy_jobs(
 
         # Prepare input files for the supercell with defect
         for idx in vacancy_indices:
-            vacancy_element, labelidx = original_stru.globalidx2labelidx(idx)
+            vacancy_element, labelidx = original_stru.globalidx2labelidx(idx-1) # Use atom index staring from 0 in globalidx2labelidx
             defect_supercell_stru = copy.deepcopy(supercell_stru)
             defect_supercell_stru.set_empty_atom(vacancy_element, labelidx)
             defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{idx}_{vacancy_element}_{labelidx}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
@@ -232,7 +236,7 @@ def remove_redundant_indices(indices: List[int]):
 
 def postprocess_vacancy(jobs: List[str],
                         ref_dir: str,
-                        ref_file: str) -> Dict[str, Any]:
+                        ref_file: str = None) -> Dict[str, Any]:
     '''
     Postprocess the vacancy calculation results.
     
@@ -243,7 +247,7 @@ def postprocess_vacancy(jobs: List[str],
         A dictionary containing the vacancy results.
     '''
     # Get reference atom energies from file
-    if not os.path.isfile(ref_file):
+    if ref_file is None or not os.path.isfile(ref_file):
         ref_atom_energies = {}
     else:
         ref_atom_energies = read_ref_atom_energies(ref_file)
@@ -268,7 +272,7 @@ def postprocess_vacancy(jobs: List[str],
             if os.path.basename(sub_folder).startswith("vacancy_supercell"):
                 supercell_job_results = read_relax_metrics(sub_folder)
             if os.path.basename(sub_folder).startswith("vacancy_defect"):
-                words = sub_folder.split("_")
+                words = sub_folder.split('/')[-1].split("_")
                 vacancy_element, idx = words[3], int(words[2])
                 defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_relax_metrics(sub_folder)
         
@@ -282,9 +286,13 @@ def postprocess_vacancy(jobs: List[str],
                 'vac_formation_energy': e_vac_form,
                 'supercell_job_relax_converge': supercell_job_results['relax_converge'],
                 'supercell_job_normal_end': supercell_job_results['normal_end'],
+                'supercell_job_max_force': supercell_job_results['largest_gradient'][-1],
+                'supercell_job_max_stress': supercell_job_results['largest_gradient_stress'][-1],
                 'supercell_relaxed_lattice_constant': supercell_job_results['lattice_constant'],
                 'defect_supercell_job_relax_converge': defect_supercell_job_results[site]['relax_converge'],
                 'defect_supercell_job_normal_end': defect_supercell_job_results[site]['normal_end'],
+                'defect_supercell_job_max_force': supercell_job_results['largest_gradient'][-1],
+                'defect_supercell_job_max_stress': supercell_job_results['largest_gradient_stress'][-1],
                 'defect_supercell_relaxed_lattice_constant': defect_supercell_job_results[site]['lattice_constant'],
             }
             metrics[f"{job.rstrip('/')}-{site}"] = results
