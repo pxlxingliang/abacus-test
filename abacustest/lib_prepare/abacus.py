@@ -1693,7 +1693,7 @@ def ReadKpt(kptpath):
                 print("Have set gamma_only in INPUT file, will use 1 1 1 for KPOINT.")
                 return [1,1,1,0,0,0],"gamma"
             elif kspacing != None and kspacing != 0:
-                print(f"Have set kspacing in INPUT file, kspacing: {kspacing}. Will transfer to K points.")
+                
                 if not os.path.isfile(struf):
                     print("  Can not find the STRU file, and try to read KPOINT from KPT file")
                     if os.path.isfile(kptf):
@@ -1708,6 +1708,7 @@ def ReadKpt(kptpath):
                         sys.exit(1)
                     cell = stru.get_cell(bohr=True)
                     kpt = comm.kspacing2kpt(kspacing,cell) + [0,0,0]
+                    print(f"Transfer kspacing: {kspacing} to K points {kpt[:3]}.")
                     return kpt,"gamma"
             elif os.path.isfile(kptf):
                 return ReadKpt(kptf)
