@@ -236,7 +236,7 @@ def remove_redundant_indices(indices: List[int]):
 
 def postprocess_vacancy(jobs: List[str],
                         ref_dir: str,
-                        ref_file: str) -> Dict[str, Any]:
+                        ref_file: str = None) -> Dict[str, Any]:
     '''
     Postprocess the vacancy calculation results.
     
@@ -247,7 +247,7 @@ def postprocess_vacancy(jobs: List[str],
         A dictionary containing the vacancy results.
     '''
     # Get reference atom energies from file
-    if not os.path.isfile(ref_file):
+    if ref_file is None or not os.path.isfile(ref_file):
         ref_atom_energies = {}
     else:
         ref_atom_energies = read_ref_atom_energies(ref_file)
@@ -272,7 +272,7 @@ def postprocess_vacancy(jobs: List[str],
             if os.path.basename(sub_folder).startswith("vacancy_supercell"):
                 supercell_job_results = read_relax_metrics(sub_folder)
             if os.path.basename(sub_folder).startswith("vacancy_defect"):
-                words = sub_folder.split("_")
+                words = sub_folder.split('/')[-1].split("_")
                 vacancy_element, idx = words[3], int(words[2])
                 defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_relax_metrics(sub_folder)
         
