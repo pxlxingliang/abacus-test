@@ -33,9 +33,10 @@ class BECModel(Model):
         '''
         parser.description = "Prepare the inputs for Born effective charge calculation."
         parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of ABACUS jobs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
-        parser.add_argument("--stepsize", default=0.01, type=float, help="The step size for finite difference calculation, default is 0.01")
+        parser.add_argument("--stepsize", default=0.01, type=float, help="The step size for finite difference calculation, default is 0.01 Angstrom, which should be a small positive value.")
         parser.add_argument("--index", default=[0], nargs="*", type=int, help="The indices of atoms to calculate the Born effective charge, default is 0 (the first atom). You can specify multiple indices separated by space.")
         parser.add_argument("--dir", default=["x", "y", "z"], nargs="*", choices=["x", "y", "z"],type=str, help="The directions to displace the atoms, can be x, y, or z. Default is x y z. You can specify multiple directions separated by space.")
+        parser.add_argument("--type", type=str, default="f", choices=["f", "b", "c"], help="The type of displacement, f: forward displacement, b: backward displacement, c: central difference (both forward and backward displacements). Default is f.")
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
         parser.add_argument("--machine", type=str, default=RECOMMAND_MACHINE, help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.")
         parser.add_argument("--abacus_command", type=str, default=RECOMMAND_COMMAND, help=f"The command to run the Abacus job, default is '{RECOMMAND_COMMAND}'.")
@@ -49,10 +50,14 @@ class BECModel(Model):
         if not params.job:
             raise ValueError("No job specified, please use -j or --job to specify the job paths.")
         
+        if params.stepsize <= 0:
+            raise ValueError("Step size should be a positive value.")
+
         folders = prepare_bec_jobs(params.job,
                                    params.stepsize,
                                    params.index,
-                                   params.dir)
+                                   params.dir,
+                                   params.type)
         # write run scripts
         with open("run.sh", "w") as f1:
             f1.write(f"cp INPUT.scf INPUT\ncp KPT.scf KPT\n{params.abacus_command} | tee scf.log\n\n")
@@ -131,7 +136,8 @@ The p1(C/m^2) is the polarization in C/m^2 along the three cell vectors, and p2(
 def prepare_bec_jobs(jobs: str,
                      stepsize: float,
                      index: List[int],
-                     directions: List[str]
+                     directions: List[str],
+                     disp_type: str = "f"
                     ) -> None:
     '''
     Prepare the BEC calculation jobs.
@@ -141,10 +147,15 @@ def prepare_bec_jobs(jobs: str,
         stepsize: Step size for finite difference.
         index: List of atom indices to displace.
         directions: List of directions to displace ('x', 'y', 'z').
-        image: Docker image to use for the job.
-        machine: Machine type to use for the job.
-        abacus_command: Command to run Abacus.
+        disp_type: Type of displacement, 'f' for forward, 'b' for backward, 'c' for central difference.
     '''
+    if disp_type not in ["f", "b", "c"]:
+        raise ValueError(f"Invalid displacement type: {disp_type}. Should be 'f', 'b', or 'c'.")
+
+    if stepsize == 0:
+        raise ValueError("Step size should be a non-zero value.")
+    if stepsize < 0:
+        stepsize = -stepsize
     
     directions = list(set(directions))
     directions_map = {"x": [stepsize, 0.0, 0.0],
@@ -152,8 +163,7 @@ def prepare_bec_jobs(jobs: str,
                       "z": [0.0, 0.0, stepsize]}
     if set(directions) - set(directions_map.keys()):
         raise ValueError(f"Invalid directions specified: {directions}. Valid options are 'x', 'y', 'z'.")
-    
-    
+
     folders = []
     for job in jobs:
         # clean org folders
@@ -176,27 +186,44 @@ def prepare_bec_jobs(jobs: str,
         input_param.pop("kspacing", None) # we should remove kspacing, but use KPT instead
         input_param["suffix"] = "ABACUS"
         
-        org_path = os.path.join(job, f"bec_org")
-        os.makedirs(org_path, exist_ok=True)
-        for f in org_files:
-            os.symlink(os.path.abspath(os.path.join(job, f)), os.path.join(org_path, f))
-        write_inputs(org_path, stru, input_param, kpt, kpt_model)
-        folders.append(org_path)
+        if disp_type != "c":
+            org_path = os.path.join(job, f"bec_org")
+            os.makedirs(org_path, exist_ok=True)
+            for f in org_files:
+                os.symlink(os.path.abspath(os.path.join(job, f)), os.path.join(org_path, f))
+            write_inputs(org_path, stru, input_param, kpt, kpt_model)
+            folders.append(org_path)
         
+
         for direction in directions:           
             # write displaced structure folders
             for idx in index:
                 disp_vec = directions_map[direction]
-                disp_stru = copy.deepcopy(stru)
-                atom_coord = disp_stru.get_coord(bohr=False, direct=False)
-                atom_coord[idx] = [atom_coord[idx][i] + disp_vec[i] for i in range(3)]
-                disp_stru.set_coord(atom_coord, bohr=False, direct=False)
-                disp_path = os.path.join(job, f"bec_disp_atom{idx}_{direction}")
-                os.makedirs(disp_path, exist_ok=True)
-                for f in org_files:
-                    os.symlink(os.path.abspath(os.path.join(job, f)), os.path.join(disp_path, f))
-                write_inputs(disp_path, disp_stru, input_param, kpt, kpt_model)
-                folders.append(disp_path)
+
+                if disp_type in ["f", "c"]:
+                    disp_stru = copy.deepcopy(stru)
+                    atom_coord = disp_stru.get_coord(bohr=False, direct=False)
+                    atom_coord[idx] = [atom_coord[idx][i] + disp_vec[i] for i in range(3)]
+                    disp_stru.set_coord(atom_coord, bohr=False, direct=False)
+                    disp_path = os.path.join(job, f"bec_disp_atom{idx}_{direction}")
+                    os.makedirs(disp_path, exist_ok=True)
+                    for f in org_files:
+                        os.symlink(os.path.abspath(os.path.join(job, f)), os.path.join(disp_path, f))
+                    write_inputs(disp_path, disp_stru, input_param, kpt, kpt_model)
+                    folders.append(disp_path)
+                
+                if disp_type in ["b", "c"]:
+                    disp_stru = copy.deepcopy(stru)
+                    atom_coord = disp_stru.get_coord(bohr=False, direct=False)
+                    atom_coord[idx] = [atom_coord[idx][i] - disp_vec[i] for i in range(3)]
+                    disp_stru.set_coord(atom_coord, bohr=False, direct=False)
+                    disp_path = os.path.join(job, f"bec_disp_atom{idx}_{direction}_back")
+                    os.makedirs(disp_path, exist_ok=True)
+                    for f in org_files:
+                        os.symlink(os.path.abspath(os.path.join(job, f)), os.path.join(disp_path, f))
+                    write_inputs(disp_path, disp_stru, input_param, kpt, kpt_model)
+                    folders.append(disp_path)
+
     return folders
             
             
@@ -250,8 +277,7 @@ def postprocess_bec(jobs: List[str]) -> Dict[str, Any]:
 
         sub_folders = [f for f in glob.glob(os.path.join(job, "bec_*")) if os.path.isdir(f)]
         sub_folders.sort()
-        stru = AbacusStru.ReadStru(os.path.join(sub_folders[0], "STRU"))
-        label = stru.get_label(total=True)
+        label = AbacusStru.ReadStru(os.path.join(sub_folders[0], "STRU")).get_label(total=True)
         
         for folder in sub_folders:
             metrics[folder] = read_metrics(folder)
@@ -279,9 +305,16 @@ def postprocess_bec(jobs: List[str]) -> Dict[str, Any]:
             parts = os.path.basename(folder).split("_")
             idx = int(parts[2][4:])
             direction = parts[3]
+
             org_folder = os.path.join(job, f"bec_org")
+            # find the org_folder
+            if folder.endswith("_back") and folder[:-5] in sub_folders:
+                continue  # will be handled in the positive displacement
+            elif (not folder.endswith("_back")) and (folder + "_back" in sub_folders):
+                org_folder = folder + "_back"
+
             if org_folder not in metrics:
-                print(f"Warning: original folder {org_folder} not found for displaced folder {folder}. Skipping.")
+                print(f"Warning: folder {org_folder} not found for displaced folder {folder}. Skipping.")
                 continue
             
             p_vec_disp = metrics[folder]["p_vec"]
@@ -293,7 +326,8 @@ def postprocess_bec(jobs: List[str]) -> Dict[str, Any]:
             coord_disp = metrics[folder]["atom_coord"][idx]
             coord_org = metrics[org_folder]["atom_coord"][idx]
             delta_r_atom = [(coord_disp[i] - coord_org[i]) for i in range(3)]
-            delta_r_norm = sum([delta_r_atom[i]**2 for i in range(3)])**0.5
+            disp_idx = xyz_idx[direction]
+            delta_r_norm = sum([delta_r_atom[i]**2 for i in range(3)])**0.5 * (1 if delta_r_atom[disp_idx] >=0 else -1)
             delta_p = cal_delta_p(p_vec_org, p_vec_disp, metrics[org_folder]["mod"], metrics[folder]["mod"])
             delta_p = cal_polarization_cartesian(delta_p, metrics[org_folder]["cell"])  # transform to cartesian
             bec_tensor = [delta_p[i] / delta_r_norm for i in range(3)]
@@ -360,7 +394,7 @@ def read_metrics(job: str) -> List[str]:
     '''
     shutil.copy(os.path.join(job, "INPUT.scf"), os.path.join(job, "INPUT"))
     r = RESULT(path=job, fmt="abacus",output=os.path.join(job, "scf.log"))
-    keys = ["normal_end", "converge", "scf_steps", "denergy_last", "drho_last"]
+    keys = ["normal_end", "converge","energy", "scf_steps", "denergy_last", "drho_last"]
     return {k: r[k] for k in keys}
 
 def read_p(logf):
