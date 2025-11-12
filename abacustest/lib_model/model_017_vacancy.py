@@ -37,7 +37,7 @@ class VacancyModel(Model):
         parser.description = "Prepare the inputs for vacancy formation energy calculation."
         parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of ABACUS jobs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
         parser.add_argument('-s', '--supercell', type=int, default=[1, 1, 1], nargs=3, help='the supercell size, default is [1, 1, 1]')
-        parser.add_argument('-i', "--index", type=int, required=True, nargs="*", help="Index of the atom to be removed. Start from 0")
+        parser.add_argument('-i', "--index", type=int, required=True, nargs="*", help="Index of the atom to be removed. Start from 1")
         parser.add_argument("--cal-reference", type=bool, default=True, help="Whether to do cell-relax calculation for elemental crystals. If not, a file containing element and its energy should be provided.")
         parser.add_argument("--ref-dir", type=str, default='ref_element', help="The directory containing the jobs of elemental crystal structures.")
         parser.add_argument("--max-step", type=int, default=100, help="The maximum number of steps to relax calculation. Default is 100.")
@@ -194,7 +194,7 @@ def prepare_vacancy_jobs(
 
         # Prepare input files for the supercell with defect
         for idx in vacancy_indices:
-            vacancy_element, labelidx = original_stru.globalidx2labelidx(idx)
+            vacancy_element, labelidx = original_stru.globalidx2labelidx(idx-1) # Use atom index staring from 0 in globalidx2labelidx
             defect_supercell_stru = copy.deepcopy(supercell_stru)
             defect_supercell_stru.set_empty_atom(vacancy_element, labelidx)
             defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{idx}_{vacancy_element}_{labelidx}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
