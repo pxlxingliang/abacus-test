@@ -50,6 +50,10 @@ class SuperCellModel(Model):
             print(f"Error: cannot read structure from {input_file}")
             return 
         print("Reading structure from", input_file)
+
+        print("Original structure:")
+        print("Atom numbers:", stru.get_natoms())
+        print("Lattice parameter (Angstrom/Degree):\n", "%.2f %.2f %.2f %.1f %.1f %.1f" % tuple(stru.get_cell_param()))
         
         stru_super = stru.supercell(params.sc)
         if params.output is None:
@@ -57,4 +61,7 @@ class SuperCellModel(Model):
         else:
             output_file = params.output
         stru_super.write(output_file)
-        print(f"Supercell structure written to {output_file}")
+        print(f"\nSupercell structure written to {output_file}")
+        print("Supercell structure:")
+        print("Atom numbers:", stru_super.get_natoms())
+        print("Lattice parameter (Angstrom/Degree):\n", "%.2f %.2f %.2f %.1f %.1f %.1f" % tuple(stru_super.get_cell_param()))
