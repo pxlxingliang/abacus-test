@@ -232,6 +232,7 @@ def write_inputs(folder, stru, input_param, kpt, kpt_model):
     input_param_copy = copy.deepcopy(input_param)
     input_param_copy["calculation"] = "scf"
     input_param_copy["out_chg"] = 1
+    input_param_copy["out_bandgap"] = 1
     WriteInput(input_param_copy, os.path.join(folder, "INPUT.scf"))
     
     # 2. write KPT
@@ -394,7 +395,7 @@ def read_metrics(job: str) -> List[str]:
     '''
     shutil.copy(os.path.join(job, "INPUT.scf"), os.path.join(job, "INPUT"))
     r = RESULT(path=job, fmt="abacus",output=os.path.join(job, "scf.log"))
-    keys = ["normal_end", "converge","energy", "scf_steps", "denergy_last", "drho_last"]
+    keys = ["normal_end", "converge","energy", "scf_steps", "denergy_last", "drho_last", "band_gap"]
     return {k: r[k] for k in keys}
 
 def read_p(logf):
