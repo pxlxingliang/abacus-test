@@ -1133,6 +1133,7 @@ class AbacusStru:
         new_label = label + "_empty"
         
         self._label.append(new_label)
+        self._element.append(self._element[label_idx])
         self._mass.append(self._mass[label_idx])
         self._magmom.append(self._magmom[label_idx])
         if self._pp:
