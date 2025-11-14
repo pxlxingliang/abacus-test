@@ -293,8 +293,8 @@ def postprocess_vacancy(jobs: List[str],
                 'supercell_relaxed_lattice_constant': supercell_job_results['lattice_constant'],
                 'defect_supercell_job_relax_converge': defect_supercell_job_results[site]['relax_converge'],
                 'defect_supercell_job_normal_end': defect_supercell_job_results[site]['normal_end'],
-                'defect_supercell_job_max_force': defect_supercell_job_results['largest_gradient'][-1],
-                'defect_supercell_job_max_stress': defect_supercell_job_results['largest_gradient_stress'][-1],
+                'defect_supercell_job_max_force': defect_supercell_job_results[site]['largest_gradient'][-1],
+                'defect_supercell_job_max_stress': defect_supercell_job_results[site]['largest_gradient_stress'][-1],
                 'defect_supercell_relaxed_lattice_constant': defect_supercell_job_results[site]['lattice_constant'],
             }
             metrics[f"{job.rstrip('/')}-{site}"] = results
