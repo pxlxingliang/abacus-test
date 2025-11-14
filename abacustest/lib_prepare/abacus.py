@@ -1279,6 +1279,15 @@ class AbacusStru:
             Path(poscar).write_text(cc)
         return cc
     
+    def write2cif(self,cif="STRU.cif"):
+        '''
+        write to CIF file
+        '''
+        from ase.io import write
+
+        stru_cif = self.to_ase()
+        write(cif, stru_cif, format='cif')
+    
     def to_ase(self):
         '''
         convert the AbacusStru to ase.Atoms
@@ -1290,7 +1299,7 @@ class AbacusStru:
         
         cell = self.get_cell(bohr=False)
         coord = self.get_coord(bohr=False,direct=False)
-        labels = self.get_label(total=True)
+        labels = self.get_element(total=True, number=False)
         magmom = self.get_atommag()
         return Atoms(symbols=labels, positions=coord, cell=cell, pbc=True, magmoms=magmom,
                       info={"pp": self.get_pp(),
