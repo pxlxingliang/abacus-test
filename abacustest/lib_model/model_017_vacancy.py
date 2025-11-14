@@ -190,6 +190,7 @@ def prepare_vacancy_jobs(
         os.makedirs(supercell_jobpath, exist_ok=True)
         copy_pp_orb_kpt_file(job, supercell_jobpath, pp_orb_files, original_kpt_file)
         write_inputs(supercell_jobpath, input_params, supercell_stru)
+        supercell_stru.write2cif(os.path.join(supercell_jobpath, "STRU.cif"))
         folders.append(supercell_jobpath)
 
         # Prepare input files for the supercell with defect
@@ -201,6 +202,7 @@ def prepare_vacancy_jobs(
             os.makedirs(defect_supercell_jobpath, exist_ok=True)
             copy_pp_orb_kpt_file(job, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
             write_inputs(defect_supercell_jobpath, input_params, defect_supercell_stru)
+            defect_supercell_stru.write2cif(os.path.join(defect_supercell_jobpath, "STRU.cif"), empty2x=True)
             folders.append(defect_supercell_jobpath)
 
             # Prepare input files for the crystal structure of the vacancy element
