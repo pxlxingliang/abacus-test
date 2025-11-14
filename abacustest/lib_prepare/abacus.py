@@ -1258,16 +1258,33 @@ class AbacusStru:
         Path(struf).parent.mkdir(parents=True, exist_ok=True)
         Path(struf).write_text(cc) 
     
-    def write2poscar(self,poscar="POSCAR"):
+    def write2poscar(self,poscar="POSCAR",empty2x=False):
         '''
         write to POSCAR file for VASP
+        Arguments:
+            poscar: the POSCAR file name
+            empty2x: if True, then transfer the label with 'empty' to 'X' in POSCAR file
         '''
         cc = "STRUCTURE translated by abacustest\n"
         cc += f"{self._lattice_constant * constant.BOHR2A}\n"
         for i in self._cell:
             cc += "%17.11f %17.11f %17.11f\n" % tuple(i)
-        cc += " ".join(self._label)+"\n"
-        cc += " ".join([str(i) for i in self._atom_number])+"\n"
+        
+        if empty2x:
+            labels = [i if "empty" not in i else "X" for i in self.get_label(total=True)]
+            new_label = []
+            atom_number = []
+            for i in labels:
+                if i not in new_label:
+                    new_label.append(i)
+            for i in range(len(new_label)):
+                atom_number.append(labels.count(new_label[i]))
+            cc += " ".join(new_label)+"\n"
+            cc += " ".join([str(i) for i in atom_number])+"\n"    
+        else:
+            cc += " ".join(self._label)+"\n"
+            cc += " ".join([str(i) for i in self._atom_number])+"\n"
+
         if self._cartesian:
             cc += "Cartesian\n"
         else:
