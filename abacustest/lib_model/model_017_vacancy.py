@@ -1,6 +1,6 @@
 from ..model import Model
 import json, os
-from typing import List, Dict, Any, Literal
+from typing import List, Dict, Any, Literal, Tuple, Optional, Union
 import re
 import shutil, glob, copy
 from pathlib import Path
@@ -11,6 +11,7 @@ from ase.build import bulk
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, AbacusStru, ReadKpt
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE, ELEMENT_CRYSTAL_STRUCTURES, A2BOHR
 from abacustest.lib_collectdata.collectdata import RESULT
+from abacustest.lib_model.model_013_inputs import PrepInput
 from abacustest.outresult import pandas_out
 
 class VacancyModel(Model):
@@ -35,7 +36,7 @@ class VacancyModel(Model):
         The arguments can not be command, model, modelcommand 
         '''
         parser.description = "Prepare the inputs for vacancy formation energy calculation."
-        parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of ABACUS jobs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
+        parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of structure files or ABACUS jobs. If structure files, should be in CIF, VASP POSCAR or ABACUS STRU format. If ABACUS job dirs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
         parser.add_argument('-s', '--supercell', type=int, default=[1, 1, 1], nargs=3, help='the supercell size, default is [1, 1, 1]')
         parser.add_argument('-i', "--index", type=int, required=True, nargs="*", help="Index of the atom to be removed. Start from 1")
         parser.add_argument("--cal-reference", type=bool, default=True, help="Whether to do cell-relax calculation for elemental crystals. If not, a file containing element and its energy should be provided.")
@@ -46,6 +47,19 @@ class VacancyModel(Model):
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
         parser.add_argument("--machine", type=str, default=RECOMMAND_MACHINE, help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.")
         parser.add_argument("--abacus_command", type=str, default=RECOMMAND_COMMAND, help=f"The command to run the Abacus job, default is '{RECOMMAND_COMMAND}'.")
+        parser.add_argument('--ftype', type=str, default='cif', help='The format of the structure files. Can be "cif", "poscar" or "abacus/stru". Default is cif.')
+        parser.add_argument("--pp",default=None,type=str,help="the path of pseudopotential library, or read from enviroment variable ABACUS_PP_PATH")
+        parser.add_argument("--orb",default=None,type=str,help="the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH")
+        parser.add_argument("--input",default=None,type=str,help="the template of input file, if not specified, the default input will be generated")
+        parser.add_argument("--kpt", default=None, type=int, nargs="*", help="the kpoint setting, should be one or three integers")
+        parser.add_argument("--lcao", action="store_true", help="whether to use lcao basis, default is pw basis")
+        parser.add_argument("--nspin", default=1, type=int, choices=[1, 2, 4], help="the number of spins, can be 1 (no spin), 2 (spin polarized), or 4 (non-collinear spin). Default is 1.")
+        parser.add_argument("--soc", action="store_true", help="whether to use spin-orbit coupling, if True, nspin should be 4.")
+        parser.add_argument("--dftu", action="store_true", help="whether to use DFT+U, default is False.")
+        parser.add_argument("--dftu_param", default=None, nargs="+", help="the DFT+U parameters, should be element symbol and U value pairs like 'Fe 4 Ti 1'. If dftu is set, but dftu_param is not set, the default U values will be used: 4 eV for d orbital elements and 6 eV for f orbital elements.")
+        parser.add_argument("--init_mag", default=None, nargs="+", help="the initial magnetic moment for magnetic elements, should be element symbol and magnetic moment pairs like 'Fe 4 Ti 1'.")
+        parser.add_argument("--afm", action="store_true", help="whether to use antiferromagnetic calculation, default is False. Only valid when init_mag is set.")
+        parser.add_argument("--copy_pp_orb", action="store_true", help="whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.")
 
         return parser
     
@@ -63,7 +77,20 @@ class VacancyModel(Model):
                                        params.ref_dir,
                                        params.max_step,
                                        params.force_thr_ev,
-                                       params.stress_thr_kbar)
+                                       params.stress_thr_kbar,
+                                       params.ftype,
+                                       params.pp,
+                                       params.orb,
+                                       params.input,
+                                       params.kpt,
+                                       params.lcao,
+                                       params.nspin,
+                                       params.soc,
+                                       params.dftu,
+                                       params.dftu_param,
+                                       params.init_mag,
+                                       params.afm,
+                                       params.copy_pp_orb)
         
         # Write run scripts
         with open("run.sh", "w") as f1:
@@ -141,7 +168,20 @@ def prepare_vacancy_jobs(
     ref_dir: str = "ref_element",
     max_step: int = 100,
     force_thr_ev: float = 0.01,
-    stress_thr_kbar: float = 0.5
+    stress_thr_kbar: float = 0.5,
+    ftype: str = "cif",
+    pp: str = "./pp",
+    orb: str = "./orb",
+    input: str = "INPUT",
+    kpt: Tuple[int, int, int] = (1, 1, 1),
+    lcao: bool = False,
+    nspin: int = 1,
+    soc: bool = False,
+    dftu: bool = False,
+    dftu_param: Optional[Dict[str, Union[float, Tuple[Literal["s", 'p', "d"], float]]]] = None,
+    init_mag: Optional[Dict[str, float]] = None,
+    afm: bool = False,
+    copy_pp_orb: bool = False
 ) -> None:
     '''
     Prepare the vacancy calculation jobs.
@@ -154,6 +194,27 @@ def prepare_vacancy_jobs(
 
     folders = []
     for job in jobs:
+        if not os.path.isdir(job):
+            #TODO: Do prepare abacus inputs
+            init_mag = {init_mag[0]: float(init_mag[1])}
+            print((job, ftype, "scf", pp, orb, input, kpt, lcao, nspin, soc, dftu, dftu_param, init_mag, afm, copy_pp_orb))
+            setting, job_path = PrepInput(files=job, 
+                                          filetype=ftype, 
+                                          jobtype="scf", 
+                                          pp_path=pp, 
+                                          orb_path=orb, 
+                                          input_file=input, 
+                                          kpt=kpt, 
+                                          lcao=lcao, 
+                                          nspin=nspin,
+                                          soc=soc,
+                                          dftu=dftu,
+                                          dftu_param=dftu_param,
+                                          init_mag=init_mag,
+                                          afm=afm,
+                                          copy_pp_orb=copy_pp_orb).run()
+            job = Path(job_path[0]).absolute()
+
         print("Preparing vacancy formation energy calculation for job path:", job)
         # clean old folders
         old_folders = [f for f in glob.glob(os.path.join(job, "vacancy_*")) if os.path.isdir(f)]
