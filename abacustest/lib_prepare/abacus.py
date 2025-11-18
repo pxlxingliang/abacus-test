@@ -277,11 +277,23 @@ class AbacusStru:
         '''return the total number of atoms'''
         return sum(self._atom_number)
     
-    def get_pp(self):
-        return self._pp
+    def get_pp(self, total=False):
+        if total:
+            pp = []
+            for idx,i in enumerate(self._atom_number):
+                pp += [self._pp[idx]] * i
+            return pp
+        else:
+            return self._pp
 
-    def get_orb(self):
-        return self._orb  
+    def get_orb(self, total=False):
+        if total:
+            orb = []
+            for idx,i in enumerate(self._atom_number):
+                orb += [self._orb[idx]] * i
+            return orb
+        else:
+            return self._orb  
     
     def get_paw(self):
         return self._paw  
