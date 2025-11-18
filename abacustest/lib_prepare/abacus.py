@@ -169,26 +169,30 @@ class AbacusStru:
             self._atom_number = [label.count(i) for i in self._label]
             # should sort coord to the order of label
             coords = [[] for i in self._label]
+            sort_idx = [[] for i in self._label]
             for i,ilabel in enumerate(label):
                 coords[self._label.index(ilabel)].append(coord[i])
+                sort_idx[self._label.index(ilabel)].append(i)
             self._coord = []
             for i in coords:
                 self._coord += i
+            sort_idx = [j for i in sort_idx for j in i]  # the index of the original coord after sorting
         else:
             assert(atom_number != None), "ERROR: label number is not equal to coord number, but atom_number is not defined "
             assert(len(label) == len(atom_number)), "ERROR: label number is not equal to atom_number number"
             self._label = label
             self._atom_number = atom_number
             self._coord = coord
+            sort_idx = list(range(len(coord)))
 
         total_atom = np.array(self._atom_number).sum()
         assert(total_atom == len(self._coord)), f"ERROR: the total atom number is not equal to coord number, {total_atom} != {len(coord)}"
         self._cell = cell
         
         # check pp orb paw
-        self._pp = self._clean_pporb(pp)
-        self._orb = self._clean_pporb(orb)
-        self._paw = self._clean_pporb(paw)
+        self._pp = self._clean_pporb(pp, label)
+        self._orb = self._clean_pporb(orb, label)
+        self._paw = self._clean_pporb(paw, label)
         
         if (not self._pp):
             #print("WARNING: pp is not defined!!!")
@@ -198,17 +202,17 @@ class AbacusStru:
         self._lattice_constant = lattice_constant
         self._dpks = dpks if dpks else None
         self._cartesian = cartesian
-        self._move = move
+        self._move = None if move is None else [move[i] for i in sort_idx]
         self._magmom = magmom if magmom else [0]*len(self._label)
-        self._magmom_atom = magmom_atom
-        self._velocity = velocity
-        self._angle1 = angle1
-        self._angle2 = angle2
-        self._constrain = constrain
-        self._lambda = lambda_
+        self._magmom_atom = None if magmom_atom is None else [magmom_atom[i] for i in sort_idx]
+        self._velocity = None if velocity is None else [velocity[i] for i in sort_idx]
+        self._angle1 = None if angle1 is None else [angle1[i] for i in sort_idx]
+        self._angle2 = None if angle2 is None else [angle2[i] for i in sort_idx]
+        self._constrain = None if constrain is None else [constrain[i] for i in sort_idx]
+        self._lambda = None if lambda_ is None else [lambda_[i] for i in sort_idx]
         
         if element != None:
-            self._element = element
+            self._element = element if len(element) == len(self._label) else [element[label.index(i)] for i in self._label]
         else:
             #print("WARNING: element is not defined, will use the first one/two letter of label as element name")
             self._element = []
@@ -219,18 +223,18 @@ class AbacusStru:
                 self._element.append(ele)
         
         if mass != None:
-            self._mass = mass
+            self._mass = mass if len(mass) == len(self._label) else [mass[label.index(i)] for i in self._label]
         else:
             self._mass = [constant.MASS_DICT.get(i,1.0) for i in self._element]
         
         self._check()
     
-    def _clean_pporb(self,pporb):
+    def _clean_pporb(self,pporb, label_input):
         if pporb:
             if len(pporb) == len(self._coord):
                 new_pporb = []
                 for i in range(len(self._label)):
-                    new_pporb.append(pporb[sum(self._atom_number[:i+1])-1])
+                    new_pporb.append(pporb[label_input.index(self._label[i])])
                 return new_pporb
             else:
                 return pporb
