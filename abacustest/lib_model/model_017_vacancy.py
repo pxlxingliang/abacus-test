@@ -205,6 +205,7 @@ def prepare_vacancy_jobs(
         if not os.path.isdir(job):
             # Create structure with vacancy
             original_stru_ase = read(job, format=ftype)
+            init_mag = {init_mag[0]: float(init_mag[1])} if init_mag is not None else None
             print((job, ftype, "scf", pp, orb, input, kpt, lcao, nspin, soc, dftu, dftu_param, init_mag, afm, copy_pp_orb))
             setting, job_path = PrepInput(files=job, 
                                           filetype=ftype, 
@@ -311,7 +312,6 @@ def prepare_vacancy_jobs(
                 # If structure file is provided
                 int_idx = idx - 1 # Use atom index starting from 0
                 supercell_stru_elements = supercell_stru.get_chemical_symbols()
-                supercell_stru.get_positions()
                 # Get information about the vacancy
                 vacancy_element = supercell_stru_elements[int_idx]
                 vacancy_supercell_stru_elements = copy.deepcopy(supercell_stru_elements)
@@ -322,11 +322,15 @@ def prepare_vacancy_jobs(
                     orb_list.append(os.path.basename(full_orb_dict[element]))
                 vacancy_supercell_stru_elements[int_idx] = vacancy_element + '_empty'
                 # Rebuild AbacusStru structure with vacancy
+                if vacancy_element in init_mag.keys():
+                    init_mag[vacancy_element + '_empty'] = init_mag[vacancy_element]
+                init_atommag = [init_mag[label] if init_mag is not None and label in init_mag else 0.0 for label in vacancy_supercell_stru_elements]
                 defect_supercell_stru = AbacusStru(label=vacancy_supercell_stru_elements,
                                                    cell=supercell_stru.get_cell(),
                                                    coord=supercell_stru.get_positions(),
                                                    pp=pp_list,
                                                    orb=orb_list,
+                                                   magmom_atom=init_atommag,
                                                    cartesian=True,
                                                    lattice_constant=A2BOHR)
                 defect_supercell_jobpath = os.path.join(job_basename, f"vacancy_defect_{vacancy_element}_{idx}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
@@ -412,7 +416,7 @@ def postprocess_vacancy(jobs: List[str],
                 supercell_job_results = read_relax_metrics(sub_folder)
             if os.path.basename(sub_folder).startswith("vacancy_defect"):
                 words = sub_folder.split('/')[-1].split("_")
-                vacancy_element, idx = words[3], int(words[2])
+                vacancy_element, idx = words[2], int(words[3])
                 defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_relax_metrics(sub_folder)
         
         e_supercell = supercell_job_results["energies"][-1]
