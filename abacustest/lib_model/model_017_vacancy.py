@@ -222,19 +222,19 @@ def prepare_vacancy_jobs(
                                           init_mag=init_mag,
                                           afm=afm,
                                           copy_pp_orb=copy_pp_orb).run()
-
-            # Transform the vacancy indices to those in ABACUS STRU file
-            categorized_idx = get_categorized_idx(job, ftype)
-
+            
+            if ftype != "abacus/stru":
+                # Transform the vacancy indices to those in ABACUS STRU file
+                categorized_idx = get_categorized_idx(job, ftype)
+                for i in range(len(original_vacancy_indices)):
+                    # Get global index in ABACUS STRU file
+                    vacancy_indices[i] = categorized_idx.index(original_vacancy_indices[i]-1) + 1 # Use atom index starting from 1
+            
             new_path = job.lstrip("./").replace("/", "_") + "_VACANCY"
             if os.path.exists(new_path):
                 shutil.rmtree(new_path)
             shutil.move(job_path[0], new_path)
-            
-            for i in range(len(original_vacancy_indices)):
-                # Get global index in ABACUS STRU file
-                vacancy_indices[i] = categorized_idx.index(original_vacancy_indices[i]-1) + 1 # Use atom index starting from 1
-            
+
             job = new_path
             
 
