@@ -166,8 +166,8 @@ def write_ref_atom_energies(ref_atom_energy_file: str, ref_atom_energies: Dict[s
 
 def prepare_vacancy_jobs(
     jobs: str,
-    supercell: List[int],
-    vacancy_indices: List[int],
+    supercell: Tuple[int, int, int],
+    original_vacancy_indices: List[int],
     cal_reference: bool = True,
     ref_dir: str = "ref_element",
     max_step: int = 100,
@@ -177,7 +177,7 @@ def prepare_vacancy_jobs(
     pp: str = None,
     orb: str = None,
     input: str = None,
-    kpt: Tuple[int, int, int] = (1, 1, 1),
+    kpt: Optional[Tuple[int, int, int]] = None,
     lcao: bool = False,
     nspin: int = 1,
     soc: bool = False,
@@ -196,15 +196,15 @@ def prepare_vacancy_jobs(
     if orb is None:
         orb = os.environ.get("ABACUS_ORB_PATH", None)
     prepared_elements = []
-    vacancy_indices = remove_redundant_indices(vacancy_indices)
+    original_vacancy_indices = remove_redundant_indices(original_vacancy_indices)
     if cal_reference:
         os.makedirs(ref_dir, exist_ok=True)
 
     folders = []
     for job in jobs:
+        vacancy_indices = copy.deepcopy(original_vacancy_indices)
         if not os.path.isdir(job):
             # Create structure with vacancy
-            original_stru_ase = read(job, format=ftype)
             init_mag = {init_mag[0]: float(init_mag[1])} if init_mag is not None else None
             print((job, ftype, "scf", pp, orb, input, kpt, lcao, nspin, soc, dftu, dftu_param, init_mag, afm, copy_pp_orb))
             setting, job_path = PrepInput(files=job, 
@@ -222,12 +222,21 @@ def prepare_vacancy_jobs(
                                           init_mag=init_mag,
                                           afm=afm,
                                           copy_pp_orb=copy_pp_orb).run()
+
+            # Transform the vacancy indices to those in ABACUS STRU file
+            categorized_idx = get_categorized_idx(job, ftype)
+
+            new_path = job.lstrip("./").replace("/", "_") + "_VACANCY"
+            if os.path.exists(new_path):
+                shutil.rmtree(new_path)
+            shutil.move(job_path[0], new_path)
             
-            prepared_path = Path(job_path[0]).absolute()
-            job_basename = os.path.splitext(os.path.basename(job))[0]
-            if os.path.exists(job_basename):
-                shutil.rmtree(job_basename)
-            shutil.move(prepared_path, job_basename)
+            for i in range(len(original_vacancy_indices)):
+                # Get global index in ABACUS STRU file
+                vacancy_indices[i] = categorized_idx.index(original_vacancy_indices[i]-1) + 1 # Use atom index starting from 1
+            
+            job = new_path
+            
 
         print("Preparing vacancy formation energy calculation for job path:", job)
         # clean old folders
@@ -237,20 +246,13 @@ def prepare_vacancy_jobs(
             for f in old_folders:
                 shutil.rmtree(f)
         
-        if not os.path.isfile(job):
-            if not os.path.isfile(os.path.join(job, "STRU")):
-                raise FileNotFoundError(f"STRU file not found in job path: {job}")
-            if not os.path.isfile(os.path.join(job, "INPUT")):
-                raise FileNotFoundError(f"INPUT file not found in job path: {job}")
+        if not os.path.isfile(os.path.join(job, "STRU")):
+            raise FileNotFoundError(f"STRU file not found in job path: {job}")
+        if not os.path.isfile(os.path.join(job, "INPUT")):
+            raise FileNotFoundError(f"INPUT file not found in job path: {job}")
         
-        if os.path.isfile(job):
-            input_params = ReadInput(os.path.join(job_basename, "INPUT"))
-            original_stru = AbacusStru.ReadStru(os.path.join(job_basename, input_params.get('stru_file', 'STRU')))
-        elif os.path.isdir(job):
-            input_params = ReadInput(os.path.join(job, "INPUT"))
-            original_stru = AbacusStru.ReadStru(os.path.join(job, input_params.get('stru_file', 'STRU')))
-        else:
-            raise FileNotFoundError(f"Job path not found: {job}")
+        input_params = ReadInput(os.path.join(job, "INPUT"))
+        original_stru = AbacusStru.ReadStru(os.path.join(job, input_params.get('stru_file', 'STRU')))
 
         input_params["suffix"] = "ABACUS"
         input_params['calculation'] = 'cell-relax'
@@ -261,85 +263,28 @@ def prepare_vacancy_jobs(
         input_params['force_thr_ev'] = force_thr_ev
         input_params['stress_thr'] = stress_thr_kbar
 
-        if os.path.isdir(job):
-            pp_orb_files_fullname = glob.glob(os.path.join(job, "*.upf")) + glob.glob(os.path.join(job, "*.UPF")) \
-                           + glob.glob(os.path.join(job, "*.orb"))
-        else:
-            pp_orb_files_fullname = glob.glob(os.path.join(job_basename, "*.upf")) + glob.glob(os.path.join(job_basename, "*.UPF")) \
-                           + glob.glob(os.path.join(job_basename, "*.orb"))
+        pp_orb_files_fullname = glob.glob(os.path.join(job, "*.upf")) + glob.glob(os.path.join(job, "*.UPF")) \
+                       + glob.glob(os.path.join(job, "*.orb"))
+        
         pp_orb_files = [os.path.basename(i) for i in pp_orb_files_fullname]
         original_kpt_file = os.path.join(job, input_params.get('kpt_file', 'KPT'))
 
         # Prepare input files for the supercell
-        if not os.path.isdir(job):
-            # If structure file is provided
-            supercell_stru = make_supercell(original_stru_ase, np.diag(supercell))
-            supercell_cif = f"{job_basename}_supercell_{supercell[0]}_{supercell[1]}_{supercell[2]}.cif"
-            write(supercell_cif, supercell_stru, format="cif")
-            setting, job_path = PrepInput(files=supercell_cif, 
-                                          filetype="cif", 
-                                          jobtype="scf", 
-                                          pp_path=pp, 
-                                          orb_path=orb, 
-                                          input_file=input, 
-                                          kpt=kpt, 
-                                          lcao=lcao, 
-                                          nspin=nspin,
-                                          soc=soc,
-                                          dftu=dftu,
-                                          dftu_param=dftu_param,
-                                          init_mag=init_mag,
-                                          afm=afm,
-                                          copy_pp_orb=copy_pp_orb).run()
-            supercell_jobpath_orig = Path(job_path[0]).absolute()
-            WriteInput(input_params, os.path.join(supercell_jobpath_orig, "INPUT"))
-            supercell_jobpath = os.path.join(job_basename, f"vacancy_supercell_{supercell[0]}_{supercell[1]}_{supercell[2]}")
-            shutil.move(supercell_jobpath_orig, supercell_jobpath)
-            shutil.move(supercell_cif, os.path.join(supercell_jobpath, "STRU.cif"))
-        else:
-            # If ABACUS inputs directory is provided
-            supercell_stru = original_stru.supercell(supercell)
-            supercell_jobpath = os.path.join(job, f"vacancy_supercell_{supercell[0]}_{supercell[1]}_{supercell[2]}")
-            os.makedirs(supercell_jobpath, exist_ok=True)
-            copy_pp_orb_kpt_file(job, supercell_jobpath, pp_orb_files, original_kpt_file)
-            write_inputs(supercell_jobpath, input_params, supercell_stru)
-            supercell_stru.write2cif(os.path.join(supercell_jobpath, "STRU.cif"))
+        supercell_stru = original_stru.supercell(supercell)
+        supercell_jobpath = os.path.join(job, f"vacancy_supercell_{supercell[0]}_{supercell[1]}_{supercell[2]}")
+        os.makedirs(supercell_jobpath, exist_ok=True)
+        copy_pp_orb_kpt_file(job, supercell_jobpath, pp_orb_files, original_kpt_file)
+        write_inputs(supercell_jobpath, input_params, supercell_stru)
+        supercell_stru.write2cif(os.path.join(supercell_jobpath, "STRU.cif"))
         folders.append(supercell_jobpath)
 
         # Prepare input files for the supercell with defect
-        for idx in vacancy_indices:
-            if os.path.isfile(job):
-                # If structure file is provided
-                int_idx = idx - 1 # Use atom index starting from 0
-                supercell_stru_elements = supercell_stru.get_chemical_symbols()
-                # Get information about the vacancy
-                vacancy_element = supercell_stru_elements[int_idx]
-                vacancy_supercell_stru_elements = copy.deepcopy(supercell_stru_elements)
-                pp_list, orb_list = [], []
-                full_pp_dict, full_orb_dict = collect_pp(pp), collect_pp(orb)
-                for element in vacancy_supercell_stru_elements:
-                    pp_list.append(os.path.basename(full_pp_dict[element]))
-                    orb_list.append(os.path.basename(full_orb_dict[element]))
-                vacancy_supercell_stru_elements[int_idx] = vacancy_element + '_empty'
-                # Rebuild AbacusStru structure with vacancy
-                if vacancy_element in init_mag.keys():
-                    init_mag[vacancy_element + '_empty'] = init_mag[vacancy_element]
-                init_atommag = [init_mag[label] if init_mag is not None and label in init_mag else 0.0 for label in vacancy_supercell_stru_elements]
-                defect_supercell_stru = AbacusStru(label=vacancy_supercell_stru_elements,
-                                                   cell=supercell_stru.get_cell(),
-                                                   coord=supercell_stru.get_positions(),
-                                                   pp=pp_list,
-                                                   orb=orb_list,
-                                                   magmom_atom=init_atommag,
-                                                   cartesian=True,
-                                                   lattice_constant=A2BOHR)
-                defect_supercell_jobpath = os.path.join(job_basename, f"vacancy_defect_{vacancy_element}_{idx}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
-            else:
-                # If ABACUS inputs directory is provided
-                vacancy_element, labelidx = original_stru.globalidx2labelidx(idx-1) # Use atom index staring from 0 in globalidx2labelidx
-                defect_supercell_stru = copy.deepcopy(supercell_stru)
-                defect_supercell_stru.set_empty_atom(vacancy_element, labelidx)
-                defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{vacancy_element}_{idx}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
+        for i, idx in enumerate(vacancy_indices):
+            # If ABACUS inputs directory is provided
+            vacancy_element, labelidx = original_stru.globalidx2labelidx(idx-1) # Use atom index staring from 0 in globalidx2labelidx
+            defect_supercell_stru = copy.deepcopy(supercell_stru)
+            defect_supercell_stru.set_empty_atom(vacancy_element, labelidx)
+            defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{vacancy_element}_{original_vacancy_indices[i]}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
             os.makedirs(defect_supercell_jobpath, exist_ok=True)
             copy_pp_orb_kpt_file(supercell_jobpath, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
             write_inputs(defect_supercell_jobpath, input_params, defect_supercell_stru)
@@ -506,3 +451,23 @@ def read_relax_metrics(job: str) -> List[str]:
     relax_metrics = ["normal_end", "relax_steps", "largest_gradient",
                      "largest_gradient_stress", "relax_converge", "energies", "lattice_constant"]
     return {k: results[k] for k in relax_metrics}
+
+def get_categorized_idx(original_stru_file: str, original_stru_format: str):
+    """
+    Get index correspondace between original structure file and ABACUS STRU file.
+    Return a list, where its index is the index in the transformed ABACUS STRU file, and its value is the index in the original structure file.
+    """
+    original_stru = read(original_stru_file, format=original_stru_format)
+
+    unique_labels = []
+    for label in original_stru.get_chemical_symbols():
+        if label not in unique_labels:
+            unique_labels.append(label)
+    
+    original_indices = []
+    for label in unique_labels:
+        for i, atom_label in enumerate(original_stru.get_chemical_symbols()):
+            if atom_label == label:
+                original_indices.append(i)
+    
+    return original_indices
