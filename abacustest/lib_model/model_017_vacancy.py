@@ -51,7 +51,7 @@ class VacancyModel(Model):
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
         parser.add_argument("--machine", type=str, default=RECOMMAND_MACHINE, help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.")
         parser.add_argument("--abacus_command", type=str, default=RECOMMAND_COMMAND, help=f"The command to run the Abacus job, default is '{RECOMMAND_COMMAND}'.")
-        parser.add_argument('--ftype', type=str, default='cif', help='The format of the structure files. Can be "cif", "poscar" or "abacus/stru". Default is cif.')
+        parser.add_argument('--ftype', type=str, default='cif', help='The format of the structure files. Can be "cif", "poscar" or "stru". Default is cif.')
         parser.add_argument("--pp",default=None,type=str,help="the path of pseudopotential library, or read from enviroment variable ABACUS_PP_PATH")
         parser.add_argument("--orb",default=None,type=str,help="the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH")
         parser.add_argument("--input",default=None,type=str,help="the template of input file, if not specified, the default input will be generated")
@@ -74,27 +74,27 @@ class VacancyModel(Model):
         if not params.job:
             raise ValueError("No job specified, please use -j or --job to specify the job paths.")
         
-        folders = prepare_vacancy_jobs(params.job,
-                                       params.supercell,
-                                       params.index,
-                                       params.cal_reference,
-                                       params.ref_dir,
-                                       params.max_step,
-                                       params.force_thr_ev,
-                                       params.stress_thr_kbar,
-                                       params.ftype,
-                                       params.pp,
-                                       params.orb,
-                                       params.input,
-                                       params.kpt,
-                                       params.lcao,
-                                       params.nspin,
-                                       params.soc,
-                                       params.dftu,
-                                       params.dftu_param,
-                                       params.init_mag,
-                                       params.afm,
-                                       params.copy_pp_orb)
+        folders = prepare_vacancy_jobs(jobs=params.job,
+                                       supercell=params.supercell,
+                                       vacancy_indices=params.index,
+                                       cal_reference=params.cal_reference,
+                                       ref_dir=params.ref_dir,
+                                       max_step=params.max_step,
+                                       force_thr_ev=params.force_thr_ev,
+                                       stress_thr_kbar=params.stress_thr_kbar,
+                                       ftype=params.ftype,
+                                       pp=params.pp,
+                                       orb=params.orb,
+                                       input=params.input,
+                                       kpt=params.kpt,
+                                       lcao=params.lcao,
+                                       nspin=params.nspin,
+                                       soc=params.soc,
+                                       dftu=params.dftu,
+                                       dftu_param=params.dftu_param,
+                                       init_mag=params.init_mag,
+                                       afm=params.afm,
+                                       copy_pp_orb=params.copy_pp_orb)
         
         # Write run scripts
         with open("run.sh", "w") as f1:
@@ -167,7 +167,7 @@ def write_ref_atom_energies(ref_atom_energy_file: str, ref_atom_energies: Dict[s
 def prepare_vacancy_jobs(
     jobs: str,
     supercell: Tuple[int, int, int],
-    original_vacancy_indices: List[int],
+    vacancy_indices: List[int],
     cal_reference: bool = True,
     ref_dir: str = "ref_element",
     max_step: int = 100,
@@ -196,13 +196,13 @@ def prepare_vacancy_jobs(
     if orb is None:
         orb = os.environ.get("ABACUS_ORB_PATH", None)
     prepared_elements = []
-    original_vacancy_indices = remove_redundant_indices(original_vacancy_indices)
+    original_vacancy_indices = remove_redundant_indices(vacancy_indices)
     if cal_reference:
         os.makedirs(ref_dir, exist_ok=True)
 
     folders = []
     for job in jobs:
-        vacancy_indices = copy.deepcopy(original_vacancy_indices)
+        real_vacancy_indices = copy.deepcopy(original_vacancy_indices)
         if not os.path.isdir(job):
             # Create structure with vacancy
             init_mag = {init_mag[0]: float(init_mag[1])} if init_mag is not None else None
@@ -223,12 +223,12 @@ def prepare_vacancy_jobs(
                                           afm=afm,
                                           copy_pp_orb=copy_pp_orb).run()
             
-            if ftype != "abacus/stru":
+            if ftype != "stru":
                 # Transform the vacancy indices to those in ABACUS STRU file
                 categorized_idx = get_categorized_idx(job, ftype)
                 for i in range(len(original_vacancy_indices)):
                     # Get global index in ABACUS STRU file
-                    vacancy_indices[i] = categorized_idx.index(original_vacancy_indices[i]-1) + 1 # Use atom index starting from 1
+                    real_vacancy_indices[i] = categorized_idx.index(original_vacancy_indices[i]-1) + 1 # Use atom index starting from 1
             
             new_path = job.lstrip("./").replace("/", "_") + "_VACANCY"
             if os.path.exists(new_path):
@@ -279,7 +279,7 @@ def prepare_vacancy_jobs(
         folders.append(supercell_jobpath)
 
         # Prepare input files for the supercell with defect
-        for i, idx in enumerate(vacancy_indices):
+        for i, idx in enumerate(real_vacancy_indices):
             # If ABACUS inputs directory is provided
             vacancy_element, labelidx = original_stru.globalidx2labelidx(idx-1) # Use atom index staring from 0 in globalidx2labelidx
             defect_supercell_stru = copy.deepcopy(supercell_stru)
