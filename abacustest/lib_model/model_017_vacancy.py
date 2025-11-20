@@ -1,16 +1,21 @@
 from ..model import Model
 import json, os
-from typing import List, Dict, Any, Literal
+from typing import List, Dict, Any, Literal, Tuple, Optional, Union
 import re
 import shutil, glob, copy
 from pathlib import Path
 from itertools import groupby
 
-from ase.build import bulk
+import numpy as np
+from ase.build import bulk, make_supercell
+from ase import Atoms
+from ase.io import read, write
 
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, AbacusStru, ReadKpt
+from abacustest.lib_prepare.comm import collect_pp
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE, ELEMENT_CRYSTAL_STRUCTURES, A2BOHR
 from abacustest.lib_collectdata.collectdata import RESULT
+from abacustest.lib_model.model_013_inputs import PrepInput, InputsModel
 from abacustest.outresult import pandas_out
 
 class VacancyModel(Model):
@@ -35,7 +40,7 @@ class VacancyModel(Model):
         The arguments can not be command, model, modelcommand 
         '''
         parser.description = "Prepare the inputs for vacancy formation energy calculation."
-        parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of ABACUS jobs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
+        parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of structure files or ABACUS jobs. If structure files, should be in CIF, VASP POSCAR or ABACUS STRU format. If ABACUS job dirs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
         parser.add_argument('-s', '--supercell', type=int, default=[1, 1, 1], nargs=3, help='the supercell size, default is [1, 1, 1]')
         parser.add_argument('-i', "--index", type=int, required=True, nargs="*", help="Index of the atom to be removed. Start from 1")
         parser.add_argument("--cal-reference", type=bool, default=True, help="Whether to do cell-relax calculation for elemental crystals. If not, a file containing element and its energy should be provided.")
@@ -46,6 +51,19 @@ class VacancyModel(Model):
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
         parser.add_argument("--machine", type=str, default=RECOMMAND_MACHINE, help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.")
         parser.add_argument("--abacus_command", type=str, default=RECOMMAND_COMMAND, help=f"The command to run the Abacus job, default is '{RECOMMAND_COMMAND}'.")
+        parser.add_argument('--ftype', type=str, default='cif', help='The format of the structure files. Can be "cif", "poscar" or "stru". Default is cif.')
+        parser.add_argument("--pp",default=None,type=str,help="the path of pseudopotential library, or read from enviroment variable ABACUS_PP_PATH")
+        parser.add_argument("--orb",default=None,type=str,help="the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH")
+        parser.add_argument("--input",default=None,type=str,help="the template of input file, if not specified, the default input will be generated")
+        parser.add_argument("--kpt", default=None, type=int, nargs="*", help="the kpoint setting, should be one or three integers")
+        parser.add_argument("--lcao", action="store_true", help="whether to use lcao basis, default is pw basis")
+        parser.add_argument("--nspin", default=1, type=int, choices=[1, 2, 4], help="the number of spins, can be 1 (no spin), 2 (spin polarized), or 4 (non-collinear spin). Default is 1.")
+        parser.add_argument("--soc", action="store_true", help="whether to use spin-orbit coupling, if True, nspin should be 4.")
+        parser.add_argument("--dftu", action="store_true", help="whether to use DFT+U, default is False.")
+        parser.add_argument("--dftu_param", default=None, nargs="+", help="the DFT+U parameters, should be element symbol and U value pairs like 'Fe 4 Ti 1'. If dftu is set, but dftu_param is not set, the default U values will be used: 4 eV for d orbital elements and 6 eV for f orbital elements.")
+        parser.add_argument("--init_mag", default=None, nargs="+", help="the initial magnetic moment for magnetic elements, should be element symbol and magnetic moment pairs like 'Fe 4 Ti 1'.")
+        parser.add_argument("--afm", action="store_true", help="whether to use antiferromagnetic calculation, default is False. Only valid when init_mag is set.")
+        parser.add_argument("--copy_pp_orb", action="store_true", help="whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.")
 
         return parser
     
@@ -55,15 +73,37 @@ class VacancyModel(Model):
         '''
         if not params.job:
             raise ValueError("No job specified, please use -j or --job to specify the job paths.")
+        if params.dftu_param is not None:
+            dftu_param = InputsModel.parse_dftu_param(params.dftu_param)
+        else:
+            dftu_param = None
+            
+        if params.init_mag is not None:
+            init_mag = InputsModel.parse_init_mag(params.init_mag)
+        else:
+            init_mag = None
         
-        folders = prepare_vacancy_jobs(params.job,
-                                       params.supercell,
-                                       params.index,
-                                       params.cal_reference,
-                                       params.ref_dir,
-                                       params.max_step,
-                                       params.force_thr_ev,
-                                       params.stress_thr_kbar)
+        folders = prepare_vacancy_jobs(jobs=params.job,
+                                       supercell=params.supercell,
+                                       vacancy_indices=params.index,
+                                       cal_reference=params.cal_reference,
+                                       ref_dir=params.ref_dir,
+                                       max_step=params.max_step,
+                                       force_thr_ev=params.force_thr_ev,
+                                       stress_thr_kbar=params.stress_thr_kbar,
+                                       ftype=params.ftype,
+                                       pp=params.pp,
+                                       orb=params.orb,
+                                       input=params.input,
+                                       kpt=params.kpt,
+                                       lcao=params.lcao,
+                                       nspin=params.nspin,
+                                       soc=params.soc,
+                                       dftu=params.dftu,
+                                       dftu_param=dftu_param,
+                                       init_mag=init_mag,
+                                       afm=params.afm,
+                                       copy_pp_orb=params.copy_pp_orb)
         
         # Write run scripts
         with open("run.sh", "w") as f1:
@@ -89,7 +129,7 @@ class VacancyModel(Model):
         json.dump(setting, open(setting_file, "w"), indent=4)
         print("\nThe inputs are generated in", ", ".join(params.job))
         print(f"You can modify '{setting_file}' and 'run.sh', and execute below command to run the abacustest to submit all jobs to bohrium:\n\tabacustest submit -p setting.json\n")
-        print(f"After finishing the calculations, you can enter the results directory, \nand run below command below to postprocess the vacancy formation energy results:\n\tabacustest model vacancy post -j {' '.join(params.job)}\n")
+        print(f"After finishing the calculations, you can enter the results directory, \nand run below command below to postprocess the vacancy formation energy results:\n\tabacustest model vacancy post -j ...\n")
         
 
     def postprocess_args(parser):
@@ -135,25 +175,78 @@ def write_ref_atom_energies(ref_atom_energy_file: str, ref_atom_energies: Dict[s
 
 def prepare_vacancy_jobs(
     jobs: str,
-    supercell: List[int],
+    supercell: Tuple[int, int, int],
     vacancy_indices: List[int],
     cal_reference: bool = True,
     ref_dir: str = "ref_element",
     max_step: int = 100,
     force_thr_ev: float = 0.01,
-    stress_thr_kbar: float = 0.5
+    stress_thr_kbar: float = 0.5,
+    ftype: str = "cif",
+    pp: str = None,
+    orb: str = None,
+    input: str = None,
+    kpt: Optional[Tuple[int, int, int]] = None,
+    lcao: bool = False,
+    nspin: int = 1,
+    soc: bool = False,
+    dftu: bool = False,
+    dftu_param: Optional[Dict[str, Union[float, Tuple[Literal["s", 'p', "d"], float]]]] = None,
+    init_mag: Optional[Dict[str, float]] = None,
+    afm: bool = False,
+    copy_pp_orb: bool = False
 ) -> None:
     '''
     Prepare the vacancy calculation jobs.
     '''
     #ref_atom_energies = read_ref_atom_energies(ref_file)
+    if pp is None:
+        pp = os.environ.get("ABACUS_PP_PATH", None)
+    if orb is None:
+        orb = os.environ.get("ABACUS_ORB_PATH", None)
     prepared_elements = []
-    vacancy_indices = remove_redundant_indices(vacancy_indices)
+    original_vacancy_indices = remove_redundant_indices(vacancy_indices)
     if cal_reference:
         os.makedirs(ref_dir, exist_ok=True)
 
     folders = []
     for job in jobs:
+        print("Job: ", job)
+        real_vacancy_indices = copy.deepcopy(original_vacancy_indices)
+        if not os.path.isdir(job):
+            # Create structure with vacancy
+            #print((job, ftype, "scf", pp, orb, input, kpt, lcao, nspin, soc, dftu, dftu_param, init_mag, afm, copy_pp_orb))
+            setting, job_path = PrepInput(files=job, 
+                                          filetype=ftype, 
+                                          jobtype="scf", 
+                                          pp_path=pp, 
+                                          orb_path=orb, 
+                                          input_file=input, 
+                                          kpt=kpt, 
+                                          lcao=lcao, 
+                                          nspin=nspin,
+                                          soc=soc,
+                                          dftu=dftu,
+                                          dftu_param=dftu_param,
+                                          init_mag=init_mag,
+                                          afm=afm,
+                                          copy_pp_orb=copy_pp_orb).run()
+            
+            if ftype != "stru":
+                # Transform the vacancy indices to those in ABACUS STRU file
+                categorized_idx = get_categorized_idx(job, ftype)
+                for i in range(len(original_vacancy_indices)):
+                    # Get global index in ABACUS STRU file
+                    real_vacancy_indices[i] = categorized_idx.index(original_vacancy_indices[i]-1) + 1 # Use atom index starting from 1
+            
+            new_path = job.lstrip("./").replace("/", "_") + "_VACANCY"
+            if os.path.exists(new_path):
+                shutil.rmtree(new_path)
+            shutil.move(job_path[0], new_path)
+
+            job = new_path
+            
+
         print("Preparing vacancy formation energy calculation for job path:", job)
         # clean old folders
         old_folders = [f for f in glob.glob(os.path.join(job, "vacancy_*")) if os.path.isdir(f)]
@@ -181,6 +274,7 @@ def prepare_vacancy_jobs(
 
         pp_orb_files_fullname = glob.glob(os.path.join(job, "*.upf")) + glob.glob(os.path.join(job, "*.UPF")) \
                        + glob.glob(os.path.join(job, "*.orb"))
+        
         pp_orb_files = [os.path.basename(i) for i in pp_orb_files_fullname]
         original_kpt_file = os.path.join(job, input_params.get('kpt_file', 'KPT'))
 
@@ -194,13 +288,14 @@ def prepare_vacancy_jobs(
         folders.append(supercell_jobpath)
 
         # Prepare input files for the supercell with defect
-        for idx in vacancy_indices:
+        for i, idx in enumerate(real_vacancy_indices):
+            # If ABACUS inputs directory is provided
             vacancy_element, labelidx = original_stru.globalidx2labelidx(idx-1) # Use atom index staring from 0 in globalidx2labelidx
             defect_supercell_stru = copy.deepcopy(supercell_stru)
             defect_supercell_stru.set_empty_atom(vacancy_element, labelidx)
-            defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{idx}_{vacancy_element}_{labelidx}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
+            defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{vacancy_element}_{original_vacancy_indices[i]}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
             os.makedirs(defect_supercell_jobpath, exist_ok=True)
-            copy_pp_orb_kpt_file(job, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
+            copy_pp_orb_kpt_file(supercell_jobpath, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
             write_inputs(defect_supercell_jobpath, input_params, defect_supercell_stru)
             defect_supercell_stru.write2cif(os.path.join(defect_supercell_jobpath, "STRU.cif"), empty2x=True)
             folders.append(defect_supercell_jobpath)
@@ -216,7 +311,7 @@ def prepare_vacancy_jobs(
                 vacancy_element_orb = original_stru.get_orb()[element_type_index]
                 vacancy_element_crys_stru = build_most_stable_elementary_crys_stru(vacancy_element, vacancy_element_pp, vacancy_element_orb)
                 os.makedirs(vacancy_element_crys_jobpath, exist_ok=True)
-                copy_pp_orb_kpt_file(job, vacancy_element_crys_jobpath, pp_orb_files, original_kpt_file)
+                copy_pp_orb_kpt_file(supercell_jobpath, vacancy_element_crys_jobpath, pp_orb_files, original_kpt_file)
                 write_inputs(vacancy_element_crys_jobpath, input_params, vacancy_element_crys_stru)
                 folders.append(vacancy_element_crys_jobpath)
                 prepared_elements.append(vacancy_element)
@@ -275,7 +370,7 @@ def postprocess_vacancy(jobs: List[str],
                 supercell_job_results = read_relax_metrics(sub_folder)
             if os.path.basename(sub_folder).startswith("vacancy_defect"):
                 words = sub_folder.split('/')[-1].split("_")
-                vacancy_element, idx = words[3], int(words[2])
+                vacancy_element, idx = words[2], int(words[3])
                 defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_relax_metrics(sub_folder)
         
         e_supercell = supercell_job_results["energies"][-1]
@@ -293,8 +388,8 @@ def postprocess_vacancy(jobs: List[str],
                 'supercell_relaxed_lattice_constant': supercell_job_results['lattice_constant'],
                 'defect_supercell_job_relax_converge': defect_supercell_job_results[site]['relax_converge'],
                 'defect_supercell_job_normal_end': defect_supercell_job_results[site]['normal_end'],
-                'defect_supercell_job_max_force': supercell_job_results['largest_gradient'][-1],
-                'defect_supercell_job_max_stress': supercell_job_results['largest_gradient_stress'][-1],
+                'defect_supercell_job_max_force': defect_supercell_job_results[site]['largest_gradient'][-1],
+                'defect_supercell_job_max_stress': defect_supercell_job_results[site]['largest_gradient_stress'][-1],
                 'defect_supercell_relaxed_lattice_constant': defect_supercell_job_results[site]['lattice_constant'],
             }
             metrics[f"{job.rstrip('/')}-{site}"] = results
@@ -365,3 +460,23 @@ def read_relax_metrics(job: str) -> List[str]:
     relax_metrics = ["normal_end", "relax_steps", "largest_gradient",
                      "largest_gradient_stress", "relax_converge", "energies", "lattice_constant"]
     return {k: results[k] for k in relax_metrics}
+
+def get_categorized_idx(original_stru_file: str, original_stru_format: str):
+    """
+    Get index correspondace between original structure file and ABACUS STRU file.
+    Return a list, where its index is the index in the transformed ABACUS STRU file, and its value is the index in the original structure file.
+    """
+    original_stru = read(original_stru_file, format=original_stru_format)
+
+    unique_labels = []
+    for label in original_stru.get_chemical_symbols():
+        if label not in unique_labels:
+            unique_labels.append(label)
+    
+    original_indices = []
+    for label in unique_labels:
+        for i, atom_label in enumerate(original_stru.get_chemical_symbols()):
+            if atom_label == label:
+                original_indices.append(i)
+    
+    return original_indices
