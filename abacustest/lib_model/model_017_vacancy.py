@@ -211,10 +211,11 @@ def prepare_vacancy_jobs(
 
     folders = []
     for job in jobs:
+        print("Job: ", job)
         real_vacancy_indices = copy.deepcopy(original_vacancy_indices)
         if not os.path.isdir(job):
             # Create structure with vacancy
-            print((job, ftype, "scf", pp, orb, input, kpt, lcao, nspin, soc, dftu, dftu_param, init_mag, afm, copy_pp_orb))
+            #print((job, ftype, "scf", pp, orb, input, kpt, lcao, nspin, soc, dftu, dftu_param, init_mag, afm, copy_pp_orb))
             setting, job_path = PrepInput(files=job, 
                                           filetype=ftype, 
                                           jobtype="scf", 
