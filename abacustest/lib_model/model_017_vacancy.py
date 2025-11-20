@@ -15,7 +15,7 @@ from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, Abacu
 from abacustest.lib_prepare.comm import collect_pp
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE, ELEMENT_CRYSTAL_STRUCTURES, A2BOHR
 from abacustest.lib_collectdata.collectdata import RESULT
-from abacustest.lib_model.model_013_inputs import PrepInput
+from abacustest.lib_model.model_013_inputs import PrepInput, InputsModel
 from abacustest.outresult import pandas_out
 
 class VacancyModel(Model):
@@ -73,6 +73,15 @@ class VacancyModel(Model):
         '''
         if not params.job:
             raise ValueError("No job specified, please use -j or --job to specify the job paths.")
+        if params.dftu_param is not None:
+            dftu_param = InputsModel.parse_dftu_param(params.dftu_param)
+        else:
+            dftu_param = None
+            
+        if params.init_mag is not None:
+            init_mag = InputsModel.parse_init_mag(params.init_mag)
+        else:
+            init_mag = None
         
         folders = prepare_vacancy_jobs(jobs=params.job,
                                        supercell=params.supercell,
@@ -91,8 +100,8 @@ class VacancyModel(Model):
                                        nspin=params.nspin,
                                        soc=params.soc,
                                        dftu=params.dftu,
-                                       dftu_param=params.dftu_param,
-                                       init_mag=params.init_mag,
+                                       dftu_param=dftu_param,
+                                       init_mag=init_mag,
                                        afm=params.afm,
                                        copy_pp_orb=params.copy_pp_orb)
         
@@ -120,7 +129,7 @@ class VacancyModel(Model):
         json.dump(setting, open(setting_file, "w"), indent=4)
         print("\nThe inputs are generated in", ", ".join(params.job))
         print(f"You can modify '{setting_file}' and 'run.sh', and execute below command to run the abacustest to submit all jobs to bohrium:\n\tabacustest submit -p setting.json\n")
-        print(f"After finishing the calculations, you can enter the results directory, \nand run below command below to postprocess the vacancy formation energy results:\n\tabacustest model vacancy post -j {' '.join(params.job)}\n")
+        print(f"After finishing the calculations, you can enter the results directory, \nand run below command below to postprocess the vacancy formation energy results:\n\tabacustest model vacancy post -j ...\n")
         
 
     def postprocess_args(parser):
@@ -205,7 +214,6 @@ def prepare_vacancy_jobs(
         real_vacancy_indices = copy.deepcopy(original_vacancy_indices)
         if not os.path.isdir(job):
             # Create structure with vacancy
-            init_mag = {init_mag[0]: float(init_mag[1])} if init_mag is not None else None
             print((job, ftype, "scf", pp, orb, input, kpt, lcao, nspin, soc, dftu, dftu_param, init_mag, afm, copy_pp_orb))
             setting, job_path = PrepInput(files=job, 
                                           filetype=ftype, 
