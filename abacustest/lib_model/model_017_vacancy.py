@@ -42,7 +42,8 @@ class VacancyModel(Model):
         parser.description = "Prepare the inputs for vacancy formation energy calculation."
         parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of structure files or ABACUS jobs. If structure files, should be in CIF, VASP POSCAR or ABACUS STRU format. If ABACUS job dirs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
         parser.add_argument('-s', '--supercell', type=int, default=[1, 1, 1], nargs=3, help='the supercell size, default is [1, 1, 1]')
-        parser.add_argument('-i', "--index", type=int, required=True, nargs="*", help="Index of the atom to be removed. Start from 1")
+        parser.add_argument('-i', "--index", type=int, default=None, nargs="*", help="Index of the atom to be removed. Start from 1")
+        parser.add_argument("--index-file", type=str, default=None, help="The file containing the indices of atoms to be removed for each job. Each line corresponds to a job and the indices are separated by space. If provided, will override the --index argument.")
         parser.add_argument("--cal-reference", type=bool, default=True, help="Whether to do cell-relax calculation for elemental crystals. If not, a file containing element and its energy should be provided.")
         parser.add_argument("--ref-dir", type=str, default='ref_element', help="The directory containing the jobs of elemental crystal structures.")
         parser.add_argument("--max-step", type=int, default=100, help="The maximum number of steps to relax calculation. Default is 100.")
@@ -83,9 +84,12 @@ class VacancyModel(Model):
         else:
             init_mag = None
         
+        if params.index_file is None and params.index is None:
+            raise ValueError("No vacancy index specified, please use --index or --index-file to specify the atom indices to be removed.")
+        
         folders = prepare_vacancy_jobs(jobs=params.job,
                                        supercell=params.supercell,
-                                       vacancy_indices=params.index,
+                                       vacancy_indices=params.index_file if params.index_file is not None else params.index,
                                        cal_reference=params.cal_reference,
                                        ref_dir=params.ref_dir,
                                        max_step=params.max_step,
@@ -173,10 +177,32 @@ def write_ref_atom_energies(ref_atom_energy_file: str, ref_atom_energies: Dict[s
         for label, energy in ref_atom_energies.items():
             f.write(f"{label} {energy}\n")
 
+def parser_indices_file(index_file: str) -> Dict[str, List[int]]:
+    """
+    Parse the index file to get the vacancy indices for each job.
+    The file should contain multiple lines, each line corresponds to a job and contains the indices of atoms to be removed, separated by space.
+    Returns a dictionary with job names as keys and list of indices as values.
+
+    Config file example:
+    job1 1 2 3
+    job2 4 5 6
+    """
+    job_indices = {}
+    with open(index_file, "r") as f:
+        for line in f:
+            if line.strip() == "":
+                continue
+            parts = line.strip().split()
+            job_name = parts[0]
+            indices = [int(idx) for idx in parts[1:]]
+            assert all(idx > 0 for idx in indices), f"All indices should be positive integers in line: {line.strip()}"
+            job_indices[job_name] = indices
+    return job_indices
+
 def prepare_vacancy_jobs(
     jobs: str,
     supercell: Tuple[int, int, int],
-    vacancy_indices: List[int],
+    vacancy_indices: Union[str, List[int]],
     cal_reference: bool = True,
     ref_dir: str = "ref_element",
     max_step: int = 100,
@@ -205,13 +231,23 @@ def prepare_vacancy_jobs(
     if orb is None:
         orb = os.environ.get("ABACUS_ORB_PATH", None)
     prepared_elements = []
-    original_vacancy_indices = remove_redundant_indices(vacancy_indices)
     if cal_reference:
         os.makedirs(ref_dir, exist_ok=True)
+
+    if isinstance(vacancy_indices, list):
+        job_indices_dict = {job: vacancy_indices for job in jobs}
+    else:
+        try:
+            job_indices_dict = parser_indices_file(vacancy_indices)
+        except Exception as e:
+            raise ValueError(f"Error parsing vacancy indices file: {e}")
 
     folders = []
     for job in jobs:
         print("Job: ", job)
+        if job not in job_indices_dict:
+            raise ValueError(f"Vacancy indices not specified for job {job} in index file.")
+        original_vacancy_indices = remove_redundant_indices(job_indices_dict[job])
         real_vacancy_indices = copy.deepcopy(original_vacancy_indices)
         if not os.path.isdir(job):
             # Create structure with vacancy
@@ -237,6 +273,7 @@ def prepare_vacancy_jobs(
                 categorized_idx = get_categorized_idx(job, ftype)
                 for i in range(len(original_vacancy_indices)):
                     # Get global index in ABACUS STRU file
+                    assert original_vacancy_indices[i]-1 in categorized_idx, f"Vacancy index {original_vacancy_indices[i]} is out of range for job {job}."
                     real_vacancy_indices[i] = categorized_idx.index(original_vacancy_indices[i]-1) + 1 # Use atom index starting from 1
             
             new_path = job.lstrip("./").replace("/", "_") + "_VACANCY"
@@ -262,6 +299,11 @@ def prepare_vacancy_jobs(
         
         input_params = ReadInput(os.path.join(job, "INPUT"))
         original_stru = AbacusStru.ReadStru(os.path.join(job, input_params.get('stru_file', 'STRU')))
+
+        # all indices should be valid
+        for idx in real_vacancy_indices:
+            if idx < 1 or idx > original_stru.get_natoms():
+                raise ValueError(f"Vacancy index {idx} is out of range for job {job} with {original_stru.get_natoms()} atoms.")
 
         input_params["suffix"] = "ABACUS"
         input_params['calculation'] = 'cell-relax'
