@@ -1,9 +1,10 @@
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple, Any
 import os,sys,traceback, re,copy, json, shutil
 import numpy as np
 from pathlib import Path
 from .. import constant
 from . import comm
+from abacustest.lib_prepare.stru import read_stru_file, write_stru_file, write_poscar
 
 def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=False):
     """
@@ -90,7 +91,6 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=
             "recommand_ecutwfc": [recommand_ecutwfc.get(ie,None) for ie in element] if recommand_ecutwfc else None
         } 
     return jobs
-
 
 class AbacusStru:
     def __init__(self,
@@ -1431,262 +1431,15 @@ class AbacusStru:
             return stru.to_phonopy()
         else:
             raise ValueError("The STRU file is not valid or cannot be read.")
-    
-    @staticmethod
-    def parse_stru_pos(pos_line):
-        '''
-  The content in atom position block:
-  - `m` or NO key word: three numbers, which take value in 0 or 1, control how the atom move in geometry relaxation calculations. In example below, the numbers `0 0 0` following the coordinates of the first atom means this atom are *not allowed* to move in all three directions, and the numbers `1 1 1` following the coordinates of the second atom means this atom *can* move in all three directions.
-  - `v` or `vel` or `velocity`: set the three components of initial velocity of atoms in geometry relaxation calculations(e. g. `v 1.0 1.0 1.0`).
-  - `mag` or `magmom` : set the start magnetization for each atom. In colinear case only one number should be given. In non-colinear case one have two choice:either set one number for the norm of magnetization here and specify two polar angle later(e. g. see below), or set three number for the xyz commponent of magnetization here (e. g. `mag 0.0 0.0 1.0`). Note that if this parameter is set, the initial magnetic moment setting in the second line will be overrided.
-    - `angle1`: in non-colinear case, specify the angle between c-axis and real spin, in angle measure instead of radian measure
-    - `angle2`: in non-colinear case, specify angle between a-axis and real spin in projection in ab-plane , in angle measure instead of radian measure
-
-      e.g.:
-
-      ```
-      Fe
-      1.0
-      2
-      0.0 0.0 0.0 m 0 0 0 mag 1.0 angle1 90 angle2 0 cs 0 0 0
-      0.5 0.5 0.5 m 1 1 1 mag 1.0 angle1 90 angle2 180
-      ```
-        '''
-        sline = pos_line.split()
-        pos = [float(i) for i in sline[:3]]
-        move = None
-        velocity = None
-        magmom = None
-        angle1 = None
-        angle2 = None
-        constrain = None
-        lambda1 = None
-        if len(sline) > 3:
-            mag_list = []
-            velocity_list = []
-            move_list = []
-            angle1_list = []
-            angle2_list = []
-            constrain_list = []
-            lambda_list = []
-            label = "move"
-            for i in range(3,len(sline)):
-                # firstly read the label
-                if sline[i] == "m":
-                    label = "move"
-                    move_list = []
-                elif sline[i] in ["v","vel","velocity"]:
-                    label = "velocity"
-                    velocity_list = []
-                elif sline[i] in ["mag","magmom"]:
-                    label = "magmom"
-                    mag_list = []
-                elif sline[i] == "angle1":
-                    label = "angle1"
-                    angle1_list = []
-                elif sline[i] == "angle2":
-                    label = "angle2"
-                    angle2_list = []
-                elif sline[i] in ["constrain","sc"]:
-                    label = "constrain"
-                    constrain_list = []
-                elif sline[i] in ["lambda"]:
-                    label = "lambda"
-                    lambda_list = []
-                
-                # the read the value to the list    
-                elif label == "move":
-                    move_list.append(int(sline[i]))
-                elif label == "velocity":
-                    velocity_list.append(float(sline[i]))
-                elif label == "magmom":
-                    mag_list.append(float(sline[i]))
-                elif label == "angle1":
-                    angle1_list.append(float(sline[i]))
-                elif label == "angle2":
-                    angle2_list.append(float(sline[i]))
-                elif label == "constrain":
-                    constrain_list.append(bool(int(sline[i])))
-                elif label == "lambda":
-                    lambda_list.append(float(sline[i]))
-
-            if len(move_list) == 3:
-                move = move_list
-            if len(velocity_list) == 3:
-                velocity = velocity_list
-            if len(mag_list) in [1,3]:
-                magmom = mag_list if len(mag_list) == 3 else mag_list[0]
-            if len(angle1_list) == 1:
-                angle1 = angle1_list[0]
-            if len(angle2_list) == 1:
-                angle2 = angle2_list[0]
-            if len(constrain_list) == 3:
-                constrain = constrain_list
-            elif len(constrain_list) == 1:
-                constrain = constrain_list[0]
-            if len(lambda_list) == 3:
-                lambda1 = lambda_list
-            elif len(lambda_list) == 1:
-                lambda1 = lambda_list[0]
-                
-                
-        return pos,move,velocity,magmom,angle1,angle2,constrain,lambda1
 
     @staticmethod
     def ReadStru(stru:str = "STRU"):
+        '''Read the structure from STRU file, and return an AbacusStru object.
         '''
-        read the label, pp, orb, cell, coord, deepks-descriptor
-        
+        stru_values = read_stru_file(stru)
 
-        '''
-        def get_block(keyname):
-            block = []
-            for i,line in enumerate(lines):
-                if line.strip() == "": continue
-                elif line.split('#')[0].strip() == keyname:
-                    for ij in range(i+1,len(lines)):
-                        if lines[ij].strip() == "" or \
-                            lines[ij].strip()[0] in ["#"] or\
-                            ("//" in lines[ij] and lines[ij].strip()[:2] in ["//"]): continue
-                        elif lines[ij].strip() in constant.ABACUS_STRU_KEY_WORD:
-                            return block
-                        else:
-                            block.append(lines[ij].split("#")[0].split("//")[0].strip())
-                    return block
-            return None
-        
-        if not os.path.isfile(stru):
-            return None
-
-        with open(stru) as f1: lines = f1.readlines()  
-
-        atomic_species = get_block("ATOMIC_SPECIES")
-        numerical_orbital = get_block("NUMERICAL_ORBITAL")
-        lattice_constant = get_block("LATTICE_CONSTANT")
-        lattice_vector = get_block("LATTICE_VECTORS")
-        atom_positions = get_block("ATOMIC_POSITIONS")
-        dpks = get_block("NUMERICAL_DESCRIPTOR")
-        pawf = get_block("PAW_FILES")
-        lattice_constant = 1.0 if lattice_constant == None else float(lattice_constant[0].split()[0]) 
-        dpks = None if dpks == None else dpks[0].strip()
-        
-        #read species
-        pp = []
-        labels = []
-        mass = []
-        for line in atomic_species:
-            sline = line.split()
-            labels.append(sline[0])
-            mass.append(float(sline[1]))
-            if len(sline) > 2: 
-                pp.append(sline[2])
-        if len(pp) == 0:
-            pp = None
-            
-        #read orbital
-        if numerical_orbital == None:
-            orb = None
-        else:
-            orb = []
-            for line in numerical_orbital:
-                orb.append(line.split()[0])
-        
-        # read paw files
-        if pawf == None:
-            paw = None
-        else:
-            paw = []
-            for line in pawf:
-                paw.append(line.split("#")[0].strip())
-        
-        #read cell
-        cell = []
-        try:
-            for line in lattice_vector:
-                cell.append([float(i) for i in line.split()[:3]])
-        except:
-            traceback.print_exc()
-            print("WARNING: LATTICE_VECTORS is incorrect !!!!!!")
-
-        #read coordinate and coordinate type and atom number of each type
-        atom_number = []
-        coords = []
-        magmom_global = [] # the initial magmom of each type
-        magmom = [] # the initial magmom of each atom
-        move = []
-        velocity = []
-        angle1 = []
-        angle2 = []
-        constrain = [] # the constrain of each atom
-        lambda1 = [] # the lambda for delta spin
-        coord_type = atom_positions[0].split("#")[0].strip().lower()
-        if coord_type.startswith("dire"):
-            cartesian = False
-        elif coord_type.startswith("cart"):
-            cartesian = True
-        else:
-            print("Not support coordinate type %s now." % atom_positions[0].strip())
-            sys.exit(1)
-        i = 1
-        real_label = []
-        real_pp = []
-        real_orb = []
-        real_paw = []
-        while i < len(atom_positions):
-            label = atom_positions[i].strip()
-            if label not in labels:
-                print("label '%s' is not matched that in ATOMIC_SPECIES" % label)
-                sys.exit(1)
-            an = int(atom_positions[i+2].split()[0])
-            if an == 0:
-                i += 3
-                continue
-            
-            real_label.append(label)
-            label_idx = labels.index(label)
-            if pp:
-                real_pp.append(pp[label_idx])
-            if orb:
-                real_orb.append(orb[label_idx])
-            if paw:
-                real_paw.append(paw[label_idx])
-                
-            magmom_global.append(float(atom_positions[i+1].split()[0]))
-                
-            atom_number.append(an)
-                
-            i += 3
-            for j in range(atom_number[-1]):
-                pos,imove,ivelocity,imag,iangle1,iangle2,iconstrain,ilambda1 = AbacusStru.parse_stru_pos(atom_positions[i+j])
-                coords.append(pos)
-                move.append(imove)
-                velocity.append(ivelocity)
-                magmom.append(imag)
-                angle1.append(iangle1)
-                angle2.append(iangle2)
-                constrain.append(iconstrain)
-                lambda1.append(ilambda1)
-                
-            i += atom_number[-1]
-            
-        return AbacusStru(label=real_label,
-                          atom_number=atom_number,
-                          cell=cell,
-                          coord=coords,
-                          pp=real_pp,
-                          orb=real_orb,
-                          paw = real_paw,
-                          lattice_constant=lattice_constant,
-                          move=move,
-                          magmom=magmom_global,
-                          magmom_atom=magmom,
-                          velocity=velocity,
-                          angle1=angle1,
-                          angle2=angle2,
-                          constrain=constrain,
-                          lambda_=lambda1,
-                          dpks=dpks,
-                          cartesian=cartesian)
+        return AbacusStru(**stru_values)
+    
     @staticmethod
     def FromDpdata(input_stru: Union[str, Path],
                    input_fmt: str):
