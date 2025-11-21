@@ -4,6 +4,12 @@ import os, glob, re, json
 import traceback
 from abacustest.constant import MASS_DICT
 
+def Direct2Cartesian(coord:List[List[float]],cell:List[List[float]]):
+    return np.array(coord).dot(np.array(cell)).tolist()
+
+def Cartesian2Direct(coord:List[List[float]],cell:List[List[float]]):
+    return np.array(coord).dot(np.linalg.inv(np.array(cell))).tolist()
+
 def translate_strus(input_strus, input_stru_type, output_path = "."):
     """
     Translate the structure from one format to ABACUS stru.
@@ -16,6 +22,16 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
     output_strus: list, the output structure.
     """
     import dpdata
+
+    def gen_path_name(base_path):
+        if not os.path.exists(base_path):
+            return base_path
+        idx = 1
+        while os.path.exists(f"{base_path}.{idx}"):
+            idx += 1
+        return f"{base_path}.{idx}"
+    
+    
     
     dpdata_formats = dpdata.format.Format.get_formats()
     if input_stru_type not in dpdata_formats and input_stru_type.lower() != "cif":
@@ -32,7 +48,7 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
         for istru in input_strus:
             for iistru in glob.glob(istru):
                 if input_stru_type in ["abacus/stru", "stru"]:
-                    tpath = os.path.join(output_path,"%06d" % idx)
+                    tpath = gen_path_name(os.path.join(output_path,"%06d" % idx))
                     os.makedirs(tpath,exist_ok=True)
                     os.system("cp %s %s" % (iistru, os.path.join(tpath,"STRU")))
                     output_folders.append(tpath)
