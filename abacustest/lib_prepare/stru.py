@@ -4,7 +4,7 @@ import numpy as np
 import copy
 
 from abacustest.constant import MASS_DICT, A2BOHR, BOHR2A, ABACUS_STRU_KEY_WORD
-from abacustest.prepare import Cartesian2Direct
+from abacustest.lib_prepare.comm import Cartesian2Direct
 
 import traceback
 import os
@@ -803,19 +803,19 @@ def read_stru_file(stru:str = "STRU"):
         "label": real_label,   # list of labels for each atom type
         "atom_number": atom_number,  # list of atom numbers for each atom type
         "cell": cell,              # 3x3 list of cell vectors
-        "coords": coords,       # list of coordinates for each atom
+        "coord": coords,       # list of coordinates for each atom
         "pp": real_pp,          # list of pseudopotential files for each atom type
         "orb": real_orb,        # list of orbital files for each atom type
         "paw": real_paw,        # list of PAW files for each atom type
         "lattice_constant": lattice_constant,  # lattice constant value
         "move": move,              # list of move flags for each atom
-        "magmom_global": magmom_global, # list of global magnetic moments for each atom type
-        "magmom": magmom,       # list of magnetic moments for each atom
+        "magmom": magmom_global, # list of global magnetic moments for each atom type
+        "magmom_atom": magmom,       # list of magnetic moments for each atom
         "velocity": velocity,    # list of velocities for each atom
         "angle1": angle1,       # list of angle1 values for each atom
         "angle2": angle2,       # list of angle2 values for each atom
         "constrain": constrain, # list of constrain flags for each atom
-        "lambda1": lambda1,     # list of lambda1 values for each atom
+        "lambda_": lambda1,     # list of lambda1 values for each atom
         "dpks": dpks,           # dpks value
         "cartesian": cartesian  # boolean indicating if coordinates are cartesian
     }
