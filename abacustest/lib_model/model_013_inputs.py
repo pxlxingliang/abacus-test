@@ -115,7 +115,8 @@ class InputsModel(Model):
         parser.add_argument("--download-pporb", nargs="?", type=str,default=None,const="apns-v1",choices=["apns-v1"], help="Download the recommended pseudopotential and orbital files from AISquare.")
         return parser
     
-    def parse_dftu_param(self, values):
+    @staticmethod
+    def parse_dftu_param(values):
         """
         Parse the values from the command line arguments.
         """
@@ -131,7 +132,8 @@ class InputsModel(Model):
                 warnings.warn(f"Element {element} already has a DFT+U value, overwriting it with {u_value}.")
         return dftu_param
      
-    def parse_init_mag(self, values):
+    @staticmethod
+    def parse_init_mag(values):
         """
         Parse the initial magnetic moment values from the command line arguments.
         """
