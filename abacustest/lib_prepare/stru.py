@@ -4,7 +4,6 @@ import numpy as np
 import copy
 
 from abacustest.constant import MASS_DICT, A2BOHR, BOHR2A, ABACUS_STRU_KEY_WORD
-from abacustest.lib_prepare.abacus import AbacusStru
 from abacustest.prepare import Cartesian2Direct
 
 import traceback
