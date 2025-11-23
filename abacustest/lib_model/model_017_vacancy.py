@@ -335,7 +335,7 @@ def prepare_vacancy_jobs(
             vacancy_element, labelidx = original_stru.globalidx2labelidx(idx-1) # Use atom index staring from 0 in globalidx2labelidx
             defect_supercell_stru = copy.deepcopy(supercell_stru)
             defect_supercell_stru.set_empty_atom(vacancy_element, labelidx)
-            defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{vacancy_element}_{original_vacancy_indices[i]}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
+            defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{original_vacancy_indices[i]}_{vacancy_element}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
             os.makedirs(defect_supercell_jobpath, exist_ok=True)
             copy_pp_orb_kpt_file(supercell_jobpath, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
             write_inputs(defect_supercell_jobpath, input_params, defect_supercell_stru)
@@ -412,7 +412,7 @@ def postprocess_vacancy(jobs: List[str],
                 supercell_job_results = read_relax_metrics(sub_folder)
             if os.path.basename(sub_folder).startswith("vacancy_defect"):
                 words = sub_folder.split('/')[-1].split("_")
-                vacancy_element, idx = words[2], int(words[3])
+                vacancy_element, idx = words[3], int(words[2])
                 defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_relax_metrics(sub_folder)
         
         e_supercell = supercell_job_results["energies"][-1]
