@@ -414,12 +414,12 @@ def postprocess_vacancy(jobs: List[str],
                 words = sub_folder.split('/')[-1].split("_")
                 vacancy_element, idx = words[3], int(words[2])
                 defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_relax_metrics(sub_folder)
-        
-        e_supercell = supercell_job_results["energies"][-1]
 
         for site in defect_supercell_job_results.keys():
-            e_defect_supercell = defect_supercell_job_results[site]["energies"][-1]
-            e_vac_form = (e_defect_supercell + ref_atom_energies[vacancy_element]) - e_supercell
+            if supercell_job_results["energies"] is None or defect_supercell_job_results[site]["energies"] is None:
+                e_vac_form = None
+            else:
+                e_vac_form = (defect_supercell_job_results[site]["energies"][-1] + ref_atom_energies[vacancy_element]) - supercell_job_results["energies"][-1]
 
             results = {
                 'vac_formation_energy': e_vac_form,
