@@ -84,7 +84,7 @@ def CollectDataArgs(parser):
     parser.description = "This script is used to collect some key values from the output of ABACUS/QE/VASP jobs"
     parser.add_argument('-j', '--jobs', default=["."], help='the path of jobs', action="extend",nargs="*")
     parser.add_argument('-t', '--type', type=int, default=0, help='0:abacus, 1:qe, 2:vasp. Default: 0',choices=[0,1,2])
-    parser.add_argument('-p', '--param', type=str, default=None, help='the parameter file, should be .json type')
+    parser.add_argument('-p', '--param', type=str, default=None,nargs="*", help='the parameter file, or parameter name.')
     parser.add_argument('-o', '--output', type=str, default="metrics.json",help='the file name to store the output results, default is "metrics.json"')
     parser.add_argument('-m', '--modules',help='add extra modules. Default only module \'job-type\' will be loaded, such as: \'abacus\' for abacus type. You can check all modules by --outparam', action="extend",nargs="*")
     parser.add_argument('--newmethods', help='the self-defined python modules, and shuold be format of import, such as "abc"(the file name is abc.py), "a.b.c" (teh file is a/b/c.py)', action="extend",nargs="*")
@@ -117,11 +117,13 @@ def collectdata(param):
         return   
     if paramf == None:
         allparams = []
-    elif not os.path.isfile(paramf):
-        print("ERROR: can not find parameter file %s!!!" % paramf)
-        return
     else:
-        allparams = parse_param(paramf)
+        allparams = []
+        for iparam in paramf:
+            if os.path.isfile(iparam) and iparam.endswith(".json"):
+                allparams += parse_param(iparam)
+            else:
+                allparams.append(iparam)
     
     if len(allparams) == 0:
         print(NO_PARAM_WARNING)
