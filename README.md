@@ -485,17 +485,13 @@ stress = abacusresult["stress"]
 
 If the key is not supported by the RESULT class, the value will be `None`.
 
-
-## 4. example
-[examples](https://github.com/pxlxingliang/abacus-test/tree/develop/example)
-
-## 5. Models
+## 4. Models
 `abacustest` supports automatically generating calculation input files and postprocessing results for specific ABACUS calculations using predefined models. The core workflow consists of three steps:
 1. Use `abacustest model <modelname> prepare [args]` to prepare input files using provided inputs
 2. Submit ABACUS calculation jobs
 3. uSE `abacustest model <modelname> post [args]` to extract results from ABACUS calculation and postprocess these results to obtain the target property.
 
-### 5.1 Vacancy formation energy
+### 4.1 Vacancy formation energy
 Formation energy of non-charged vacancies is defined as:
 $$ E_\text{f, vac} = E_\text{orig} - E_\text{vac} - \mu_\text{A} = E_\text{orig} - E_\text{vac} - \frac{E_\text{crys}}{A}{n} $$
 Where $E_\text{f, vac}$ is the vacancy formation energy, $E_\text{orig}$ is the energy of structure with no vacancies,
@@ -503,29 +499,22 @@ and $E_\text{crys}(A){n}$ is energy of the most stable crystale of the element a
 most stable crystal.
 
 Input structure files (supports CIF, POSCAR, or ABACUS STRU format) or pre-prepared ABACUS input files are required, along with vacancy-related parameters and ABACUS calculation parameters (if structure files are provided).
-The supported parameters are as follows:
-*  `-j, --job`: the paths of structure files or ABACUS jobs. If structure files, should be in CIF, VASP POSCAR or ABACUS STRU format. If ABACUS job dirs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files
-*  `-s`, `--supercell`: the supercell size, default is [1, 1, 1]
-*  `-i`, `--index`: Index of the atom to be removed. Start from 1
-*  `--index-file`: The file containing the indices of atoms to be removed for each job. Each line corresponds to a job and the indices are separated by space. If provided, will override the --index argument.
-*  `--cal-reference`: Whether to do cell-relax calculation for elemental crystals. If not, a file containing element and its energy should be provided.
-*  `--ref-dir`: The directory containing the jobs of elemental crystal structures.
-*  `--max-step`: The maximum number of steps to relax calculation. Default is 100.
-*  `--force-thr-ev`: The threshold of force convergence
-*  `--stress-thr-kbar`: The threshold of stress convergence
-*  `--image`: The image to use for the Bohrium job, default is registry.dp.tech/dptech/abacus-stable:LTSv3.10
-*  `--machine`: The machine to use for the Bohrium job, default is 'c32_m64_cpu'.
-*  `--abacus_command`: The command to run the Abacus job, default is 'OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log'.
-*  `--ftype`: The format of the structure files. Can be "cif", "poscar" or "stru". Default is cif.
-*  `--pp`: the path of pseudopotential library, or read from enviroment variable ABACUS_PP_PATH
-*  `--orb`: the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH
-*  `--input`: the template of input file, if not specified, the default input will be generated
-*  `--kpt`: the kpoint setting, should be one or three integers
-*  `--lcao`: whether to use lcao basis, default is pw basis
-*  `--nspin`: the number of spins, can be 1 (no spin), 2 (spin polarized), or 4 (non-collinear spin). Default is 1.
-*  `--soc`: whether to use spin-orbit coupling, if True, nspin should be 4.
-*  `--dftu`: whether to use DFT+U, default is False.
-*  `--dftu_param`: the DFT+U parameters, should be element symbol and U value pairs like 'Fe 4 Ti 1'. If dftu is set, but dftu_param is not set, the default U values will be used: 4 eV for d orbital elements and 6 eV for f orbital elements.
-*  `--init_mag`: the initial magnetic moment for magnetic elements, should be element symbol and magnetic moment pairs like 'Fe 4 Ti 1'.
-*  `--afm`: whether to use antiferromagnetic calculation, default is False. Only valid when init_mag is set.
-*  `--copy_pp_orb`: whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.
+If structure file are used, use the command such as following:
+```
+abacustest model vacancy prepare -j stru.cif --ftype cif -i 1 -s 1 1 1 --lcao
+```
+If abacus input file directory is used, use the command such as following:
+```
+abacustest model vacancy prepare -j 000000 -i 1 -s 1 1 1
+```
+For more details, use `abacustest model vacancy prepare -h` to get help message.
+
+After calculation using prepared input files finished, you can use command to extract results and postprocess them:
+```
+abacustest model vacancy post -j 000000
+```
+Then vacancy formation energy will be printed and saved to `metrics_vacancy.json`. A file named `ref_energy.txt` will be generated
+and contains the reference energy of the vacancy atom and can be used in later calculation. Use `abacustest model vacancy post -h` for more details.
+
+## 5. example
+[examples](https://github.com/pxlxingliang/abacus-test/tree/develop/example)
