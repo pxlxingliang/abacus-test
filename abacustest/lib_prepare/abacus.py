@@ -1720,7 +1720,7 @@ def WriteInput(input_context:Dict[str,any],
         if v != None:
             if isinstance(v, (list,tuple)):
                 v = ' '.join([str(i) for i in v])
-            out += f"{k} \t{v}\n"    
+            out += f"{k}     {v}\n"    
         else:
-            out += f"#{k}\t \n"
+            out += f"#{k}  \n"
     with open(INPUTf,'w') as f1: f1.write(out)        
