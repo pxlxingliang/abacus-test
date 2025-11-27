@@ -1,7 +1,7 @@
 import traceback,json,sys,os
 from dp.launching.typing.basic import BaseModel,String,Float,Int
 from dp.launching.typing import Field
-from abacustest.constant import RECOMMAND_IMAGE
+from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 from . import (comm_class,
                comm_func,
@@ -22,10 +22,10 @@ class NewSetting(BaseModel):
     abacus_image: String = Field(default=RECOMMAND_IMAGE,
                           title="Abacus Image",
                           description="The image to run abaucs.",)
-    abacus_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
+    abacus_command: String = Field(default=RECOMMAND_COMMAND,
                             title="Abacus Command",
                             description="The command to execute abacus",)
-    bohrium_machine: String = Field(default="c32_m64_cpu",
+    bohrium_machine: String = Field(default=RECOMMAND_MACHINE,
                             title="Bohrium Machine",
                             description="The bohrium machine type to run abacus",)
 

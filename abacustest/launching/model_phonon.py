@@ -4,7 +4,7 @@ from dp.launching.typing import Field
 import os
 
 from abacustest.lib_model.model_005_Phonon import PreparePhono,PostprocessPhonon
-from abacustest.constant import RECOMMAND_IMAGE
+from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 from . import (comm_class,
                comm_func,
@@ -17,10 +17,10 @@ class Images(BaseModel):
     abacus_image: String = Field(default=RECOMMAND_IMAGE,
                           title="abacus Image",
                           description="If you do not want to use the default image, please enter the new image here.",)
-    abacus_command: String = Field(default="OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log",
+    abacus_command: String = Field(default=RECOMMAND_COMMAND,
                             title="abacus Command",
                             description="The command to run abacus",)
-    abacus_machine: String = Field(default="c32_m64_cpu",
+    abacus_machine: String = Field(default=RECOMMAND_MACHINE,
                                    title="abacus Machine",
                                     description="The machine to run abacus",)
     phonopy_setting: String = Field(default="setting.conf",

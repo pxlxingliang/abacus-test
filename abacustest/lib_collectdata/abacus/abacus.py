@@ -62,7 +62,7 @@ class Abacus(ResultAbacus):
         else:
             self['normal_end'] = False
 
-            print("Job is not normal ending!!! The latest 10 lines is:")
+            print("Job is not normal ending!!! The latest 10 lines are:")
             if len(self.LOG) < 10:
                 print(''.join(self.LOG))
             else:
@@ -124,7 +124,16 @@ class Abacus(ResultAbacus):
                 nbase = int(line.split()[2])
                 break
         self['nbase'] = nbase
-    
+
+    @ResultAbacus.register(noccu_band="number of occupied bands")
+    def GetNumOccuBand(self):
+        noccu_band = None
+        for i,line in enumerate(self.LOG):
+            if "occupied bands" in line:
+                noccu_band = int(line.split()[3])
+                break
+        self['noccu_band'] = noccu_band
+
     @ResultAbacus.register(nbands="number of bands",
                            nkstot = "total K point number",
                            ibzk = "irreducible K point number",
@@ -642,7 +651,7 @@ class Abacus(ResultAbacus):
         for i,line in enumerate(self.OUTPUT):
             if line[1:5] == 'ITER':
                 for j in range(i+1,len(self.OUTPUT)):
-                    if self.OUTPUT[j][1:3] in KS_SOLVER_LIST:
+                    if self.OUTPUT[j][1:3] in KS_SOLVER_LIST or (self.OUTPUT[j].startswith("1") and self.OUTPUT[j][2:4] in KS_SOLVER_LIST): 
                         scftime.append(float(self.OUTPUT[j].split()[-1]))
                 break
         if len(scftime) > 0:
@@ -735,6 +744,8 @@ Fe2
                            atom_mags_mul="list of atom_mag_mul of each ION step.",
                            atom_elec_mul="list of mulliken atomic electron.",
                            atom_orb_elec_mul="list of mulliken atomic orbital electron.",
+                           atom_elecs_mul="list of mulliken atomic electron of each ION step.",
+                           atom_orb_elecs_mul="list of mulliken atomic orbital electron of each ION step",
                            )
     def GetAtomMagMul(self):
         mullikenf = os.path.join(os.path.split(self.LOGf)[0],"mulliken.txt")
@@ -744,32 +755,7 @@ Fe2
             self["atom_elec"] = None
             return
         
-        atom_mag = []
-        atom_elec = []
-        with open(mullikenf) as f1: lines = f1.readlines()
-        for idx,line in enumerate(lines):
-            if line[:5] == "STEP:":
-                atom_mag.append([])
-            elif "Total Magnetism on atom" in line:
-                if "(" in line and ")" in line:
-                    # for nspin = 4
-                    sline = line.split("(")[1].split(")")[0].split(",")
-                    if len(sline) == 3:
-                        atom_mag[-1].append([float(sline[0]),float(sline[1]),float(sline[2])])
-                else:
-                    atom_mag[-1].append(float(line.split()[-1]))
-            elif "Zeta of" in line:
-                two_spin = True if "Spin 2" in line else False
-                atom_elec.append([])
-                j = idx + 1
-                while j < len(lines) and lines[j].strip() != "":
-                    if "Zeta of" in lines[j]:
-                        break
-                    if "sum over m+zeta" in lines[j]:
-                        atom_elec[-1].append([float(lines[j].split()[3])])
-                        if two_spin:
-                            atom_elec[-1][-1].append(float(lines[j].split()[4]))
-                    j += 1
+        atom_mag, atom_elec, _ = comm.get_mulliken(mullikenf)
         
         if len(atom_mag) == 0:
             self['atom_mags_mul'] = None
@@ -781,15 +767,19 @@ Fe2
         if not atom_elec:
             self["atom_elec_mul"] = None
             self["atom_orb_elec_mul"] = None
+            self["atom_elecs_mul"] = None
+            self["atom_orb_elecs_mul"] = None
         else:
-            self["atom_orb_elec_mul"] = atom_elec
-            atom_elec = []
-            for i in self["atom_orb_elec_mul"]:
-                t = 0
-                for j in i:
-                    t += sum(j)
-                atom_elec.append(t)
-            self["atom_elec_mul"] = atom_elec
+            self["atom_orb_elecs_mul"] = atom_elec # atom orb elecs of each ION step
+            self["atom_orb_elec_mul"] = atom_elec[-1] # atom orb elec of last ION step
+            atom_elecs = []
+            for atom_orb_elec in self["atom_orb_elecs_mul"]:
+                atom_elec = []
+                for i in atom_orb_elec:
+                    atom_elec.append(sum([sum(j) for j in i]))
+                atom_elecs.append(atom_elec)
+            self["atom_elecs_mul"] = atom_elecs
+            self["atom_elec_mul"] = atom_elecs[-1]
             
     '''
     repeat to charge, not used anymore

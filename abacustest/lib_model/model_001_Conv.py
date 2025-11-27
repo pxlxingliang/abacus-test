@@ -2,7 +2,7 @@ from ..model import Model
 import os, glob, json
 from . import comm,comm_conv,comm_plot
 from abacustest.lib_collectdata.collectdata import RESULT
-from abacustest.constant import RECOMMAND_IMAGE
+from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 SETTING_TMP = {
     "save_path": "results",
@@ -12,7 +12,7 @@ SETTING_TMP = {
         "command": "OMP_NUM_THREADS=1 mpirun -n 16 abacus | tee out.log",
         "image": RECOMMAND_IMAGE,
         "bohrium": {
-            "scass_type": "c32_m64_cpu",
+            "scass_type": RECOMMAND_MACHINE,
             "job_type": "container",
             "platform": "ali",
         },

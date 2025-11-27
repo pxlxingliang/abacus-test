@@ -4,7 +4,7 @@ import argparse,json, os
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, gen_stru, ReadInput, AbacusStru
 from pathlib import Path
 from abacustest.lib_model.model_012_band import PrepBand
-from abacustest.constant import RECOMMAND_IMAGE
+from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 import warnings
 
@@ -14,11 +14,15 @@ from typing import List, Dict, Union, Optional, Tuple, Literal
 JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                     "mixing_beta": 0.8,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                    "pw_diag_ndim":    2, "pw_diag_nmax":    20,
+                    "precision": "double  # or single",
                     "#cal_force": 1, "#cal_stress": 1,
                     "kspacing": "0.14 # unit in 1/bohr"}, 
              "relax": {"calculation": "relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "pw_diag_ndim":    2, "pw_diag_nmax":    20,
+                       "precision": "double  # or single",
                        "cal_force": 1, "#cal_stress": 1,"kspacing": "0.14 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs bfgs_trad cg_bfgs sd fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "#stress_thr": "0.5 # unit in kbar",
@@ -26,6 +30,8 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
              "cell-relax":{"calculation": "cell-relax", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "pw_diag_ndim":    2, "pw_diag_nmax":    20,
+                       "precision": "double  # or single",
                        "cal_force": 1, "cal_stress": 1, "kspacing": "0.14 # unit in 1/bohr",
                        "relax_method": "cg # or bfgs, bfgs_trad, cg_bfgs, sd, fire",
                        "relax_nmax": 60, "force_thr_ev": "0.01  # unit in eV/A", "stress_thr": "0.5 # unit in kbar",
@@ -34,6 +40,8 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
              "md":{"calculation": "md", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                        "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                        "mixing_beta": 0.8, "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                       "pw_diag_ndim":    2, "pw_diag_nmax":    20,
+                       "precision": "double  # or single",
                        "#cal_force": 1, "#cal_stress": 1,
                        "kspacing": "0.14 # unit in 1/bohr", 
                        "md_type": "nvt  # or npt, nve, langevin, fire, msst",
@@ -44,6 +52,8 @@ JOB_TYPES = {"scf": {"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_th
              "band":{"calculation": "scf", "symmetry": 1, "ecutwfc": 80, "scf_thr": 1e-8, "scf_nmax": 100,
                     "smearing_method": "gauss", "smearing_sigma": 0.015, "mixing_type": "broyden",
                     "mixing_beta": 0.8,  "basis_type": "pw  # or lcao", "ks_solver": "dav_subspace  # or genelpa for lcao basis",
+                    "pw_diag_ndim":    2, "pw_diag_nmax":    20,
+                    "precision": "double  # or single",
                     "#cal_force": 1, "#cal_stress": 1,
                     "kspacing": "0.14 # unit in 1/bohr"}
         }
@@ -102,9 +112,11 @@ class InputsModel(Model):
         parser.add_argument("--init_mag", default=None, nargs="+", help="the initial magnetic moment for magnetic elements, should be element symbol and magnetic moment pairs like 'Fe 4 Ti 1'.")
         parser.add_argument("--afm", action="store_true", help="whether to use antiferromagnetic calculation, default is False. Only valid when init_mag is set.")
         parser.add_argument("--copy_pp_orb", action="store_true", help="whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.")
+        parser.add_argument("--download-pporb", nargs="?", type=str,default=None,const="apns-v1",choices=["apns-v1"], help="Download the recommended pseudopotential and orbital files from AISquare.")
         return parser
     
-    def parse_dftu_param(self, values):
+    @staticmethod
+    def parse_dftu_param(values):
         """
         Parse the values from the command line arguments.
         """
@@ -120,7 +132,8 @@ class InputsModel(Model):
                 warnings.warn(f"Element {element} already has a DFT+U value, overwriting it with {u_value}.")
         return dftu_param
      
-    def parse_init_mag(self, values):
+    @staticmethod
+    def parse_init_mag(values):
         """
         Parse the initial magnetic moment values from the command line arguments.
         """
@@ -135,9 +148,40 @@ class InputsModel(Model):
             else:
                 warnings.warn(f"Element {element} already has an initial magnetic moment, overwriting it with {mag_value}.")
         return init_mag   
+    
+    def download_pporb(self, version):
+        """
+        Download the recommended pseudopotential and orbital files from AISquare.
+        """
+        if version is None:
+            return
+        
+        apns_v1 = "https://store.aissquare.com/datasets/af21b5d9-19e6-462f-ada1-532f47f165f2/ABACUS-APNS-PPORBs-v1.zip"
+        
+        if version == "apns-v1":
+            # download the apns-v1 pseudopotential and orbital files
+            import urllib.request
+            import zipfile
+            
+            zip_file = "ABACUS-APNS-PPORBs-v1.zip"
+            print(f"Downloading the recommended pseudopotential and orbital files from {apns_v1} ...")
+            urllib.request.urlretrieve(apns_v1, zip_file)
+            print(f"Unzipping the file {zip_file} ...")
+            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                zip_ref.extractall(".")
+            os.remove(zip_file)
+            print("Download and unzip completed.")
+            # set the pp and orb path
+        
+            print("You can set the pseudopotential and orbital path by --pp and --orb, or set the environment variable ABACUS_PP_PATH and ABACUS_ORB_PATH.")
+            
         
     
     def run(self,params):
+        if params.download_pporb is not None:
+            self.download_pporb(params.download_pporb)
+            return 0
+        
         if params.kpt is not None and len(params.kpt) not in [1, 3]:
             raise ValueError("The kpoint setting should be one or three integers.")
         
@@ -166,8 +210,8 @@ class InputsModel(Model):
             dftu_param=dftu_param,
             init_mag=init_mag,
             afm=params.afm,
-            abacus_command="OMP_NUM_THREADS=1 mpirun -np 16 abacus",
-            machine="c32_m64_cpu",  # default Bohrium machine type for CPU jobs
+            abacus_command=RECOMMAND_COMMAND,
+            machine=RECOMMAND_MACHINE,  # default Bohrium machine type for CPU jobs
             image=RECOMMAND_IMAGE,  # default recommended image for ABACUS jobs 
             copy_pp_orb=params.copy_pp_orb 
         )
@@ -193,9 +237,9 @@ class PrepInput:
     kpt : list
         The kpoint setting, should be a list of three int, will generate a KPT file
     abacus_command : str
-        The command to run ABACUS, default is "OMP_NUM_THREADS=1 mpirun -np 16 abacus"
+        The command to run ABACUS, default is RECOMMAND_COMMAND
     machine : str
-        The machine type, default is "c32_m64_cpu", which is the Bohrium machine type for CPU jobs.
+        The machine type, default is RECOMMAND_MACHINE, which is the Bohrium machine type for CPU jobs.
     image : str
         The Docker image to use, default is RECOMMAND_IMAGE, which is the recommended image for ABACUS jobs.
     lcao : bool
@@ -226,8 +270,8 @@ class PrepInput:
                  orb_path: Optional[Union[str, Path]]=None, 
                  input_file: Optional[Union[str, Path]]=None, 
                  kpt: Optional[Tuple[int, int, int]]=None,
-                 abacus_command: str="OMP_NUM_THREADS=1 mpirun -np 16 abacus", 
-                 machine: str="c32_m64_cpu", 
+                 abacus_command: str=RECOMMAND_COMMAND, 
+                 machine: str=RECOMMAND_MACHINE, 
                  image: str=RECOMMAND_IMAGE,
                  lcao: bool=False,
                  nspin: Literal[1,2,4]=1,  # can be 1 or 2 or 4, 1: no spin, 2: spin polarized, 4: non-collinear spin
@@ -434,6 +478,12 @@ class PrepInput:
             if recommand_ecutwfc is not None and list(set(recommand_ecutwfc)) != [None]:
                 input_param["ecutwfc"] = max([i for i in recommand_ecutwfc if i is not None])
                 print(f"Set ecutwfc to {input_param['ecutwfc']}, element: {element}, recommended ecutwfc: {recommand_ecutwfc}")
+        
+        if not input_param.get("basis_type", "pw").startswith("pw"):
+            # remove pw specific parameters
+            input_param.pop("pw_diag_ndim", None)
+            input_param.pop("pw_diag_nmax", None)
+            
         return input_param
     
     def generate_input(self, element):
@@ -446,6 +496,8 @@ class PrepInput:
         # LCAO
         if self.lcao:
             input_param.update(LCAO_PARAM)
+            input_param.pop("pw_diag_ndim", None)
+            input_param.pop("pw_diag_nmax", None)
         
         # NSPIN
         if self.nspin == 2:

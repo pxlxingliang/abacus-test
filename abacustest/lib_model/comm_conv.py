@@ -305,7 +305,8 @@ class PostConv:
                 if self.shift_idx is None or ikey in ["band_gap"]:
                     new_plotdata[ik][ikey] = [iv[ikey][i] for i in sort_idx]
                 else:
-                    new_plotdata[ik][ikey] = shift_data(iv[ikey],base_index=sort_idx[self.shift_idx])
+                    iv_shifted = shift_data(iv[ikey],base_index=sort_idx[self.shift_idx])
+                    new_plotdata[ik][ikey] = [iv_shifted[i] for i in sort_idx] if iv_shifted is not None else None
         return new_plotdata
     
     def plot_data(self, plotdata):

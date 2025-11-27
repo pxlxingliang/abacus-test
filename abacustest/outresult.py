@@ -585,7 +585,7 @@ def check_file(ifile):
             i += 1
     return ifile
 
-def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=True, print_list_seperate = False):
+def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=True, print_list_seperate = False, float_prec=None):
     """
     allresult = {sample1: {key1:value,key2:value},
                  sample2: {key1:value,key2:value}}
@@ -595,6 +595,9 @@ def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=Tru
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
     pd.set_option('display.width', 200)
+    if float_prec != None:
+        s = "{:." + str(float_prec) + "f}"
+        pd.set_option('display.float_format', s.format)
 
     normal_result = {}
     list_result = []
@@ -683,6 +686,7 @@ def OutResultArgs(parser):
     parser.add_argument('-m', '--metrics', default=["ALL"], help='The metrics that needed to be shown. Use ALL to show all metrics, default is ALL.', action="extend",nargs="*")
     parser.add_argument('-o', '--output', type=str, help='output the selected metrics to a json file')
     parser.add_argument('--csv', type=str, help='if output the selected metrics to csv file')
+    parser.add_argument('--prec', type=int, default=None, help='the precision of float number in pandas output, default is None')
     parser.add_argument("--list_sep", default=0, const=1, nargs='?', type=int, help="if print the list separately, default is 0")
     
     return parser
@@ -714,7 +718,7 @@ def outresult(param):
             allresult = new_result
         if param.output != None:
             json.dump(allresult,open(param.output,'w'),indent=4)
-        pandas_out(allresult,param.csv,print_list_seperate=param.list_sep)
+        pandas_out(allresult,param.csv,print_list_seperate=param.list_sep,float_prec=param.prec)
     
     if param.param!= None:
         if not CheckFile(param.param):

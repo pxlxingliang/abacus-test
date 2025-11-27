@@ -10,12 +10,6 @@ from abacustest.lib_prepare import abacus2qe as Aba2Qe
 from abacustest.lib_prepare import abacus2vasp as Aba2Vasp
 from abacustest.lib_prepare import abacus2cp2k as Aba2Cp2k
 from abacustest.lib_prepare.comm import translate_strus, collect_pp
-
-def Direct2Cartesian(coord:List[List[float]],cell:List[List[float]]):
-    return np.array(coord).dot(np.array(cell)).tolist()
-
-def Cartesian2Direct(coord:List[List[float]],cell:List[List[float]]):
-    return np.array(coord).dot(np.linalg.inv(np.array(cell))).tolist()
  
 class PrepareAbacus:
     def __init__(self,
