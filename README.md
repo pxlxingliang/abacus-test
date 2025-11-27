@@ -485,7 +485,36 @@ stress = abacusresult["stress"]
 
 If the key is not supported by the RESULT class, the value will be `None`.
 
+## 4. Models
+`abacustest` supports automatically generating calculation input files and postprocessing results for specific ABACUS calculations using predefined models. The core workflow consists of three steps:
+1. Use `abacustest model <modelname> prepare [args]` to prepare input files using provided inputs
+2. Submit ABACUS calculation jobs
+3. uSE `abacustest model <modelname> post [args]` to extract results from ABACUS calculation and postprocess these results to obtain the target property.
 
-## 4. example
+### 4.1 Vacancy formation energy
+Formation energy of non-charged vacancies is defined as:
+$$ E_\text{f, vac} = E_\text{orig} - E_\text{vac} - \mu_\text{A} = E_\text{orig} - E_\text{vac} - \frac{E_\text{crys}}{A}{n} $$
+Where $E_\text{f, vac}$ is the vacancy formation energy, $E_\text{orig}$ is the energy of structure with no vacancies,
+and $E_\text{crys}(A){n}$ is energy of the most stable crystale of the element at the vacancy site, n is the number of atoms in the
+most stable crystal.
+
+Input structure files (supports CIF, POSCAR, or ABACUS STRU format) or pre-prepared ABACUS input files are required, along with vacancy-related parameters and ABACUS calculation parameters (if structure files are provided).
+If structure file are used, use the command such as following:
+```
+abacustest model vacancy prepare -j stru.cif --ftype cif -i 1 -s 1 1 1 --lcao
+```
+If abacus input file directory is used, use the command such as following:
+```
+abacustest model vacancy prepare -j 000000 -i 1 -s 1 1 1
+```
+For more details, use `abacustest model vacancy prepare -h` to get help message.
+
+After calculation using prepared input files finished, you can use command to extract results and postprocess them:
+```
+abacustest model vacancy post -j 000000
+```
+Then vacancy formation energy will be printed and saved to `metrics_vacancy.json`. A file named `ref_energy.txt` will be generated
+and contains the reference energy of the vacancy atom and can be used in later calculation. Use `abacustest model vacancy post -h` for more details.
+
+## 5. example
 [examples](https://github.com/pxlxingliang/abacus-test/tree/develop/example)
-
