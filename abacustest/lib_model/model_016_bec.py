@@ -185,6 +185,9 @@ def prepare_bec_jobs(jobs: str,
         kpt, kpt_model = ReadKpt(job)
         input_param.pop("kspacing", None) # we should remove kspacing, but use KPT instead
         input_param["suffix"] = "ABACUS"
+        # if SPIN1_CHG.cube exists, use it as initial charge density
+        if os.path.isfile(os.path.join(job, "OUT.ABACUS/SPIN1_CHG.cube")):
+            input_param["init_chg"] = "file"
         
         if disp_type != "c":
             org_path = os.path.join(job, f"bec_org")
@@ -340,6 +343,7 @@ def postprocess_bec(jobs: List[str]) -> Dict[str, Any]:
                     "bec_tensor (e)": [None, None, None],
                     "displacement (A)": [None, None, None],
                     "p_vec_org ((e/Volume)*A)": p_vec_org,
+                    "mod_org ((e/Volume)*A)": metrics[org_folder]["mod"],
                     "p_vec_disp ((e/Volume)*A)": [None, None, None]
                 }
 
