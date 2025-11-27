@@ -4,7 +4,7 @@ import numpy as np
 import copy
 
 from abacustest.constant import MASS_DICT, A2BOHR, BOHR2A, ABACUS_STRU_KEY_WORD
-from abacustest.lib_prepare.comm import Cartesian2Direct
+from abacustest.lib_prepare.comm import Cartesian2Direct, Direct2Cartesian
 
 import traceback
 import os
@@ -330,6 +330,10 @@ class AbacusSTRU:
             c += f"  {vec[0]:%12.7f} {vec[1]:%12.7f} {vec[2]:%12.7f}\n"
         return c
 
+    # write len function
+    def __len__(self):
+        return len(self._atoms)
+
     def sort(self,
              keep_first_order=True) -> List[int]:
         """Classify atoms according to their atom types.
@@ -437,7 +441,121 @@ class AbacusSTRU:
         else:
             assert len(value) == 3 and all(len(vec) == 3 for vec in value), "Cell must be a list of three 3D vectors."
         self._cell = value
+    
+    @coords.setter
+    def coords(self, value: List[Tuple[float,float,float]]):
+        assert len(value) == self.natoms, "Number of coordinates must match number of atoms."
+        for i in range(self.natoms):
+            self._atoms[i].coord = value[i]
+    
+    @coords_direct.setter
+    def coords_direct(self, value: List[Tuple[float,float,float]]):
+        assert len(value) == self.natoms, "Number of coordinates must match number of atoms."
+        cart_coords = Direct2Cartesian(value, self.cell)
+        for i in range(self.natoms):
+            self._atoms[i].coord = cart_coords[i]
+    
+    def set_pp(self, pp_dict: Dict[str, str], key_type=Literal["element","label"]="element"):
+        """Set pseudopotential file names for atoms based on a provided dictionary.
 
+        Args:
+            pp_dict (Dict[str, str]): Dictionary mapping element symbols to pseudopotential file names.
+        """
+        for atom in self._atoms:
+            key = atom.element if key_type == "element" else atom.label
+            if key in pp_dict:
+                atom.pp = pp_dict[key]
+            else:
+                raise KeyError(f"Pseudopotential for {key_type}: {key} not found in provided dictionary.")
+
+    def set_orb(self, orb_dict: Dict[str, str], key_type=Literal["element","label"]="element"):
+        """Set orbital file names for atoms based on a provided dictionary.
+
+        Args:
+            orb_dict (Dict[str, str]): Dictionary mapping element symbols to orbital file names.
+        """
+        for atom in self._atoms:
+            key = atom.element if key_type == "element" else atom.label
+            if key in orb_dict:
+                atom.orb = orb_dict[key]
+            else:
+                raise KeyError(f"Orbital for {key_type}: {key} not found in provided dictionary.")
+    
+    def set_paw(self, paw_dict: Dict[str, str], key_type=Literal["element","label"]="element"):
+        """Set PAW file names for atoms based on a provided dictionary.
+
+        Args:
+            paw_dict (Dict[str, str]): Dictionary mapping element symbols to PAW file names.
+        """
+        for atom in self._atoms:
+            key = atom.element if key_type == "element" else atom.label
+            if key in paw_dict:
+                atom.paw = paw_dict[key]
+            else:
+                raise KeyError(f"PAW for {key_type}: {key} not found in provided dictionary.")
+    
+    
+
+    @staticmethod
+    def read(filename: str, fmt: Literal["stru", "abacus/stru", "poscar","vasp", "cif"]="stru") -> "AbacusSTRU":
+        """Read structure from a file in the specified format.
+
+        Args:
+            filename (str): Input file name.
+            fmt (str): Format of the input file. Options are "stru", "poscar", "cif". Default is "stru".
+
+        Returns:
+            AbacusSTRU: An AbacusSTRU object representing the structure.
+        """
+        fmt = fmt.lower()
+        if fmt in ["stru", "abacus/stru"]:
+            stru_data = read_stru_file(stru=filename)
+            cell = stru_data["cell"]
+            coords = stru_data["coord"]
+            atom_list = []
+            for i in range(len(coords)):
+                atom = AbacusATOM(
+                    label=stru_data["label"][i],
+                    coord=tuple(coords[i]),
+                    element=None,
+                    mass=None,
+                    pp=stru_data["pp"][i],
+                    orb=stru_data["orb"][i],
+                    paw=stru_data["paw"][i],
+                    type_mag=stru_data["magmom"][i],
+                    move=stru_data["move"][i],
+                    mag=stru_data["magmom_atom"][i],
+                    angle1=stru_data["angle1"][i],
+                    angle2=stru_data["angle2"][i],
+                    velocity=stru_data["velocity"][i],
+                    constrain=stru_data["constrain"][i],
+                    lambda_=stru_data["lambda_"][i],
+                )
+                atom_list.append(atom)
+            dpks = stru_data.get("dpks", None)
+            metadata = {
+                "lattice_constant": stru_data.get("lattice_constant", 1.0),
+                "atom_type": "cartesian" if stru_data.get("cartesian", True) else "direct",
+            }
+            return AbacusSTRU(cell=cell, atoms=atom_list, dpks=dpks, metadata=metadata)
+        elif fmt in ["poscar", "vasp", "cif"]:
+            # use ase to read poscar/vasp/cif file
+            from ase.io import read as ase_read
+            if fmt == "poscar":
+                fmt = "vasp"
+            atom_type = "direct"
+            if fmt == "vasp":
+                with open(filename, 'r') as f: lines = f.readlines()
+                if lines[5].strip().lower().startswith("c"):
+                    atom_type = "cartesian"
+    
+            ase_stru = ase_read(filename, format=fmt)
+            return AbacusSTRU.from_ase(ase_stru, meta_data={
+                "lattice_constant": A2BOHR,
+                "atom_type": atom_type,
+            })
+        else:
+            raise ValueError(f"Unsupported format: {fmt}")
 
     def write(self, filename: str,
               fmt: Literal["stru", "poscar","vasp", "cif"]="stru",
@@ -504,6 +622,122 @@ class AbacusSTRU:
         else:
             raise ValueError(f"Unsupported format: {fmt}")
     
+    @staticmethod
+    def from_ase(ase_stru,
+                 meta_data: Dict[str, Any] = {}) -> "AbacusSTRU":
+        """Create an AbacusSTRU object from an ASE Atoms object.
+        Args:
+            ase_stru: ASE Atoms object.
+            meta_data (Dict[str, Any], optional): Additional metadata for the AbacusSTRU object. Default is an empty dictionary.
+        Returns:
+            AbacusSTRU: An AbacusSTRU object representing the structure.
+        """
+        from ase import Atoms
+        assert isinstance(ase_stru, Atoms), "Input structure must be an ASE Atoms object."
+        cell = ase_stru.get_cell().tolist()
+        atom_list = []
+        mags = ase_stru.get_magnetic_moments() if ase_stru.has_magnetic_moments() else [None]*len(ase_stru)
+        for i in range(len(ase_stru)):
+            atom = AbacusATOM(
+                label=ase_stru[i].symbol,
+                coord=tuple(ase_stru[i].position.tolist()),
+                element=ase_stru[i].symbol,
+                mass=ase_stru[i].mass,
+                pp=ase_stru.info.get("pp", {}).get(ase_stru[i].symbol, None),
+                orb=ase_stru.info.get("orb", {}).get(ase_stru[i].symbol, None),
+                paw=ase_stru.info.get("paw", {}).get(ase_stru[i].symbol, None),
+                type_mag= 0.0 if mags[i] is None else mags[i],
+                move=(True, True, True),
+                mag= mags[i],
+            )
+            atom_list.append(atom)
+
+        return AbacusSTRU(cell=cell, atom_list=atom_list, meta_data=meta_data)
+
+    @staticmethod
+    def from_pymatgen(pymatgen_stru,
+        meta_data: Dict[str, Any] = {}) -> "AbacusSTRU":
+        """Create an AbacusSTRU object from a Pymatgen Structure object.
+        Args:
+            pymatgen_stru: Pymatgen Structure object.
+            meta_data (Dict[str, Any], optional): Additional metadata for the AbacusSTRU object. Default is an empty dictionary.
+        Returns:
+            AbacusSTRU: An AbacusSTRU object representing the structure.
+        """
+        from pymatgen.core import Structure
+        assert isinstance(pymatgen_stru, Structure), "Input structure must be a Pymatgen Structure object."
+        cell = pymatgen_stru.lattice.matrix.tolist()
+        atom_list = []
+        for site in pymatgen_stru.sites:
+            atom = AbacusATOM(
+                label=site.specie.symbol,
+                coord=tuple(site.coords.tolist()),
+                element=site.specie.symbol,
+                mass=site.specie.atomic_mass,
+                type_mag=0.0,
+                move=(True, True, True),
+            )
+            atom_list.append(atom)
+
+        return AbacusSTRU(cell=cell, atom_list=atom_list, meta_data=meta_data)
+    
+    @staticmethod
+    def from_dpdata(dpdata_stru,
+                    index : int = 0,
+                    meta_data: Dict[str, Any] = {}) -> "AbacusSTRU":
+        """Create an AbacusSTRU object from a DPData System object.
+        Args:
+            dpdata_stru: DPData System object.
+            index (int): Index of the configuration in the DPData System to convert. Default is 0.
+            meta_data (Dict[str, Any], optional): Additional metadata for the AbacusSTRU object. Default is an empty dictionary.
+        Returns:
+            AbacusSTRU: An AbacusSTRU object representing the structure.
+        """
+        from dpdata import System
+        assert isinstance(dpdata_stru, System), "Input structure must be a DPData System object."
+        data = dpdata_stru.data
+        coords = data['coords'][index]
+        atom_list = []
+        for i in range(dpdata_stru.get_natoms()):
+            atom_list.append(AbacusATOM(
+                label=data['atom_names'][data["atom_types"][i]],
+                coord=tuple(coords[i].tolist()),
+                element=data['atom_names'][data["atom_types"][i]],
+                mass=data["masses"][data["atom_types"][i]],
+                type_mag=0.0,
+                move=(True, True, True) if "move" not in data else tuple(data["move"][index][i]),
+                mag = None if "spins" not in data else data["spins"][index][i]
+            ))
+        cell = data['cells'][index].tolist()
+        return AbacusSTRU(cell=cell, atom_list=atom_list, meta_data=meta_data)
+        
+    @staticmethod
+    def from_phonopy(phonopy_stru,
+                     meta_data: Dict[str, Any] = {}) -> "AbacusSTRU":
+        """Create an AbacusSTRU object from a Phonopy Atoms object.
+        Args:
+            phonopy_stru: Phonopy Atoms object.
+            meta_data (Dict[str, Any], optional): Additional metadata for the AbacusSTRU object
+        Returns:
+            AbacusSTRU: An AbacusSTRU object representing the structure.
+        """
+        from phonopy.structure.atoms import PhonopyAtoms
+        assert isinstance(phonopy_stru, PhonopyAtoms), "Input structure must be a Phonopy Atoms object."
+        cell = phonopy_stru.cell.tolist()
+        atom_list = []
+        for i in range(len(phonopy_stru)):
+            atom = AbacusATOM(
+                label=phonopy_stru.get_chemical_symbols()[i],
+                coord=tuple(phonopy_stru.get_positions()[i].tolist()),
+                element=phonopy_stru.get_chemical_symbols()[i],
+                mass=phonopy_stru.get_masses()[i],
+                type_mag=0.0,
+                move=(True, True, True),
+            )
+            atom_list.append(atom)
+        return AbacusSTRU(cell=cell, atom_list=atom_list, meta_data=meta_data)
+        
+
     def to(self, fmt: Literal["ase", "pymatgen", "dpdata", "phonopy"],
            empty2x: bool = False):
         """Convert the structure to another format.
