@@ -468,7 +468,7 @@ class AbacusSTRU:
             else:
                 raise KeyError(f"Pseudopotential for {key_type}: {key} not found in provided dictionary.")
 
-    def set_orb(self, orb_dict: Dict[str, str], key_type=Literal["element","label"]="element"):
+    def set_orb(self, orb_dict: Dict[str, str], key_type: Literal["element","label"]="element"):
         """Set orbital file names for atoms based on a provided dictionary.
 
         Args:
@@ -481,7 +481,7 @@ class AbacusSTRU:
             else:
                 raise KeyError(f"Orbital for {key_type}: {key} not found in provided dictionary.")
     
-    def set_paw(self, paw_dict: Dict[str, str], key_type=Literal["element","label"]="element"):
+    def set_paw(self, paw_dict: Dict[str, str], key_type: Literal["element","label"]="element"):
         """Set PAW file names for atoms based on a provided dictionary.
 
         Args:
