@@ -455,7 +455,7 @@ class AbacusSTRU:
         for i in range(self.natoms):
             self._atoms[i].coord = cart_coords[i]
     
-    def set_pp(self, pp_dict: Dict[str, str], key_type=Literal["element","label"]="element"):
+    def set_pp(self, pp_dict: Dict[str, str], key_type:Literal["element","label"]="element"):
         """Set pseudopotential file names for atoms based on a provided dictionary.
 
         Args:
