@@ -321,23 +321,22 @@ def prepare_vacancy_jobs(
         original_kpt_file = os.path.join(job, input_params.get('kpt_file', 'KPT'))
 
         # Prepare input files for the supercell
-        supercell_stru = original_stru.supercell(supercell)
-        supercell_jobpath = os.path.join(job, f"vacancy_supercell_{supercell[0]}_{supercell[1]}_{supercell[2]}")
-        os.makedirs(supercell_jobpath, exist_ok=True)
-        copy_pp_orb_kpt_file(job, supercell_jobpath, pp_orb_files, original_kpt_file)
-        write_inputs(supercell_jobpath, input_params, supercell_stru)
-        supercell_stru.write2cif(os.path.join(supercell_jobpath, "STRU.cif"))
-        folders.append(supercell_jobpath)
+        original_stru_jobpath = os.path.join(job, "vacancy_original_stru")
+        os.makedirs(original_stru_jobpath, exist_ok=True)
+        copy_pp_orb_kpt_file(job, original_stru_jobpath, pp_orb_files, original_kpt_file)
+        write_inputs(original_stru_jobpath, input_params, original_stru)
+        folders.append(original_stru_jobpath)
 
         # Prepare input files for the supercell with defect
         for i, idx in enumerate(real_vacancy_indices):
             # If ABACUS inputs directory is provided
             vacancy_element, labelidx = original_stru.globalidx2labelidx(idx-1) # Use atom index staring from 0 in globalidx2labelidx
+            supercell_stru = original_stru.supercell(supercell)
             defect_supercell_stru = copy.deepcopy(supercell_stru)
             defect_supercell_stru.set_empty_atom(vacancy_element, labelidx)
             defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{original_vacancy_indices[i]}_{vacancy_element}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
             os.makedirs(defect_supercell_jobpath, exist_ok=True)
-            copy_pp_orb_kpt_file(supercell_jobpath, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
+            copy_pp_orb_kpt_file(original_stru_jobpath, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
             write_inputs(defect_supercell_jobpath, input_params, defect_supercell_stru)
             defect_supercell_stru.write2cif(os.path.join(defect_supercell_jobpath, "STRU.cif"), empty2x=True)
             folders.append(defect_supercell_jobpath)
@@ -353,7 +352,7 @@ def prepare_vacancy_jobs(
                 vacancy_element_orb = original_stru.get_orb()[element_type_index]
                 vacancy_element_crys_stru = build_most_stable_elementary_crys_stru(vacancy_element, vacancy_element_pp, vacancy_element_orb)
                 os.makedirs(vacancy_element_crys_jobpath, exist_ok=True)
-                copy_pp_orb_kpt_file(supercell_jobpath, vacancy_element_crys_jobpath, pp_orb_files, original_kpt_file)
+                copy_pp_orb_kpt_file(original_stru_jobpath, vacancy_element_crys_jobpath, pp_orb_files, original_kpt_file)
                 write_inputs(vacancy_element_crys_jobpath, input_params, vacancy_element_crys_stru)
                 folders.append(vacancy_element_crys_jobpath)
                 prepared_elements.append(vacancy_element)
@@ -408,26 +407,27 @@ def postprocess_vacancy(jobs: List[str],
 
         defect_supercell_job_results = {}
         for sub_folder in sub_folders:
-            if os.path.basename(sub_folder).startswith("vacancy_supercell"):
-                supercell_job_results = read_relax_metrics(sub_folder)
+            if os.path.basename(sub_folder).startswith("vacancy_original_stru"):
+                original_stru_job_results = read_relax_metrics(sub_folder)
             if os.path.basename(sub_folder).startswith("vacancy_defect"):
                 words = sub_folder.split('/')[-1].split("_")
                 vacancy_element, idx = words[3], int(words[2])
+                supercell = (int(words[4]), int(words[5]), int(words[6]))
                 defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_relax_metrics(sub_folder)
 
         for site in defect_supercell_job_results.keys():
-            if supercell_job_results["energies"] is None or defect_supercell_job_results[site]["energies"] is None:
+            if original_stru_job_results["energies"] is None or defect_supercell_job_results[site]["energies"] is None:
                 e_vac_form = None
             else:
-                e_vac_form = (defect_supercell_job_results[site]["energies"][-1] + ref_atom_energies[vacancy_element]) - supercell_job_results["energies"][-1]
+                e_vac_form = (defect_supercell_job_results[site]["energies"][-1] + ref_atom_energies[vacancy_element]) - original_stru_job_results["energies"][-1] * supercell[0] * supercell[1] * supercell[2]
 
             results = {
                 'vac_formation_energy': e_vac_form,
-                'supercell_job_relax_converge': supercell_job_results['relax_converge'],
-                'supercell_job_normal_end': supercell_job_results['normal_end'],
-                'supercell_job_max_force': supercell_job_results['largest_gradient'][-1],
-                'supercell_job_max_stress': supercell_job_results['largest_gradient_stress'][-1],
-                'supercell_relaxed_lattice_constant': supercell_job_results['lattice_constant'],
+                'original_stru_job_relax_converge': original_stru_job_results['relax_converge'],
+                'original_stru_job_normal_end': original_stru_job_results['normal_end'],
+                'original_stru_job_max_force': original_stru_job_results['largest_gradient'][-1],
+                'original_stru_job_max_stress': original_stru_job_results['largest_gradient_stress'][-1],
+                'original_stru_relaxed_lattice_constant': original_stru_job_results['lattice_constant'],
                 'defect_supercell_job_relax_converge': defect_supercell_job_results[site]['relax_converge'],
                 'defect_supercell_job_normal_end': defect_supercell_job_results[site]['normal_end'],
                 'defect_supercell_job_max_force': defect_supercell_job_results[site]['largest_gradient'][-1],
