@@ -887,6 +887,7 @@ Fe2
                            cells = "a list of [[],[],[]], which is a two-dimension list of cell vector, unit in Angstrom.",
                            cell_init = "[[],[],[]], two-dimension list, unit in Angstrom. The initial cell",
                            coordinate = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. If is relax or md, will output the last one",
+                           coordinates = "[[[], ...], ...], three dimension list, is a cartesian type, unit in Angstrom. The coordinate of each ION step If is relax or md",
                            coordinate_init = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. The initial coordinate",
                            element = "list[], a list of the element name of all atoms",
                            label = "list[], a list of atom label of all atoms",
@@ -967,6 +968,30 @@ Fe2
                 traceback.print_exc()
                 self['coordinate'] = None 
             
+            try:
+                coordinates = []
+                for i in range(len(self.LOG)):
+                    iline = i
+                    line = self.LOG[iline]
+                    if len(line.split()) >= 2 and line.split()[1] == "COORDINATES":  
+                        coordinate = []
+                        if line.split()[0] == "DIRECT":
+                            for k in range(2, 2 + natom):
+                                coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
+                            coordinate = np.array(coordinate).dot(np.array(cell)).tolist()
+                            coordinates.append(coordinate)
+                        elif line.split()[0] == "CARTESIAN":
+                            for k in range(2, 2 + natom):
+                                coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
+                            coordinates.append(coordinate)
+                        else:
+                            print("Unrecongnized coordinate type: %s" % (line))   
+                            
+                self['coordinates'] = coordinates
+            except:
+                traceback.print_exc()
+                self['coordinates'] = None
+
             try:
                 for i in range(len(self.LOG)): 
                     iline = i
