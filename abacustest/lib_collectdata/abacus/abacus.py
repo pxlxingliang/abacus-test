@@ -901,15 +901,13 @@ Fe2
                 break
         
         cells = []
-        for i in range(len(self.LOG)): 
-            iline = -i - 1 
-            line = self.LOG[iline]
+        for i in range(len(self.LOG)):
+            line = self.LOG[i]
             if "Lattice vectors: (Cartesian coordinate: in unit of a_0)" in line:
-                icell = []
+                cell = []
                 for k in range(1, 4):
-                    icell.append([float(x) * lc for x in self.LOG[iline + k].split()[0:3]])
-                cells.append(icell)
-                break
+                    cell.append([float(x) * lc for x in self.LOG[i + k].split()[0:3]])
+                cells.append(cell)
                     
         if cells:
             self['cells'] = cells
