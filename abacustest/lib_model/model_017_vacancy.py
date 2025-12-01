@@ -56,7 +56,7 @@ class VacancyModel(Model):
         parser.add_argument("--pp",default=None,type=str,help="the path of pseudopotential library, or read from enviroment variable ABACUS_PP_PATH")
         parser.add_argument("--orb",default=None,type=str,help="the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH")
         parser.add_argument("--input",default=None,type=str,help="the template of input file, if not specified, the default input will be generated")
-        parser.add_argument("--kpt", default=None, type=int, nargs="*", help="the kpoint setting, should be one or three integers")
+        parser.add_argument("--kspacing", default=None, type=float, help="the kspacing for kpoint generation, default is None, which means kspacing in original input file will be used.")
         parser.add_argument("--lcao", action="store_true", help="whether to use lcao basis, default is pw basis")
         parser.add_argument("--nspin", default=1, type=int, choices=[1, 2, 4], help="the number of spins, can be 1 (no spin), 2 (spin polarized), or 4 (non-collinear spin). Default is 1.")
         parser.add_argument("--soc", action="store_true", help="whether to use spin-orbit coupling, if True, nspin should be 4.")
@@ -99,7 +99,7 @@ class VacancyModel(Model):
                                        pp=params.pp,
                                        orb=params.orb,
                                        input=params.input,
-                                       kpt=params.kpt,
+                                       kspacing=params.kspacing,
                                        lcao=params.lcao,
                                        nspin=params.nspin,
                                        soc=params.soc,
@@ -209,10 +209,10 @@ def prepare_vacancy_jobs(
     force_thr_ev: float = 0.01,
     stress_thr_kbar: float = 0.5,
     ftype: str = "cif",
-    pp: str = None,
-    orb: str = None,
-    input: str = None,
-    kpt: Optional[Tuple[int, int, int]] = None,
+    pp: Optinal[str] = None,
+    orb: Optinal[str] = None,
+    input: Optinal[str] = None,
+    kspacing: Optinal[float] = None,
     lcao: bool = False,
     nspin: int = 1,
     soc: bool = False,
@@ -258,7 +258,7 @@ def prepare_vacancy_jobs(
                                           pp_path=pp, 
                                           orb_path=orb, 
                                           input_file=input, 
-                                          kpt=kpt, 
+                                          kpt=None, 
                                           lcao=lcao, 
                                           nspin=nspin,
                                           soc=soc,
@@ -313,6 +313,8 @@ def prepare_vacancy_jobs(
         input_params['relax_nmax'] = max_step
         input_params['force_thr_ev'] = force_thr_ev
         input_params['stress_thr'] = stress_thr_kbar
+        if kspacing is not None:
+            input_params['kspacing'] = kspacing
 
         pp_orb_files_fullname = glob.glob(os.path.join(job, "*.upf")) + glob.glob(os.path.join(job, "*.UPF")) \
                        + glob.glob(os.path.join(job, "*.orb"))
