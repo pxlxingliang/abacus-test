@@ -56,7 +56,7 @@ class VacancyModel(Model):
         parser.add_argument("--pp",default=None,type=str,help="the path of pseudopotential library, or read from enviroment variable ABACUS_PP_PATH")
         parser.add_argument("--orb",default=None,type=str,help="the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH")
         parser.add_argument("--input",default=None,type=str,help="the template of input file, if not specified, the default input will be generated")
-        parser.add_argument("--kspacing", default=0.14, type=float, help="the kspacing for kpoint generation, default is 0.14.")
+        parser.add_argument("--kspacing", default=None, type=float, help="the kspacing for kpoint generation, default is None, which means kspacing in original input file will be used.")
         parser.add_argument("--lcao", action="store_true", help="whether to use lcao basis, default is pw basis")
         parser.add_argument("--nspin", default=1, type=int, choices=[1, 2, 4], help="the number of spins, can be 1 (no spin), 2 (spin polarized), or 4 (non-collinear spin). Default is 1.")
         parser.add_argument("--soc", action="store_true", help="whether to use spin-orbit coupling, if True, nspin should be 4.")
@@ -212,7 +212,7 @@ def prepare_vacancy_jobs(
     pp: str = None,
     orb: str = None,
     input: str = None,
-    kspacing: float = 0.14,
+    kspacing: float = None,
     lcao: bool = False,
     nspin: int = 1,
     soc: bool = False,
@@ -311,9 +311,10 @@ def prepare_vacancy_jobs(
         input_params['stru_file'] = None
         input_params['ntype'] = None
         input_params['relax_nmax'] = max_step
-        input_params['kspacing'] = kspacing
         input_params['force_thr_ev'] = force_thr_ev
         input_params['stress_thr'] = stress_thr_kbar
+        if kspacing is not None:
+            input_params['kspacing'] = kspacing
 
         pp_orb_files_fullname = glob.glob(os.path.join(job, "*.upf")) + glob.glob(os.path.join(job, "*.UPF")) \
                        + glob.glob(os.path.join(job, "*.orb"))
