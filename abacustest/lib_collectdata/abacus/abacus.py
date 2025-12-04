@@ -963,13 +963,20 @@ Fe2
                             coordinates.append(coordinate)
                         else:
                             print("Unrecongnized coordinate type: %s" % (line))   
-                            
-                self['coordinates'] = coordinates
-                self['coordinate'] = coordinates[-1]
-                self['coordinate_init'] = coordinates[0]
+                
+                if len(coordinates) > 0:
+                    self['coordinates'] = coordinates
+                    self['coordinate'] = coordinates[-1]
+                    self['coordinate_init'] = coordinates[0]
+                else:
+                    self['coordinates'] = None
+                    self['coordinate'] = None
+                    self['coordinate_init'] = None
             except:
                 traceback.print_exc()
                 self['coordinates'] = None
+                self['coordinate'] = None
+                self['coordinate_init'] = None
 
         else:
             print("No cell or natom, skip the catch of coordinate info")
