@@ -37,7 +37,7 @@ class BECModel(Model):
         parser.add_argument("--index", default=[0], nargs="*", type=int, help="The indices of atoms to calculate the Born effective charge, default is 0 (the first atom). You can specify multiple indices separated by space.")
         parser.add_argument("--dir", default=["x", "y", "z"], nargs="*", choices=["x", "y", "z"],type=str, help="The directions to displace the atoms, can be x, y, or z. Default is x y z. You can specify multiple directions separated by space.")
         parser.add_argument("--type", type=str, default="f", choices=["f", "b", "c"], help="The type of displacement, f: forward displacement, b: backward displacement, c: central difference (both forward and backward displacements). Default is f.")
-        parser.add_argument("--no-k-continuity", action="store_true", help="Whether to not set use_k_continuity in nscf calculations. Default is set. This parameter is used for ABACUS >= 3.10.1")
+        #parser.add_argument("--no-k-continuity", action="store_true", help="Whether to not set use_k_continuity in nscf calculations. Default is set. This parameter is used for ABACUS >= 3.10.1")
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
         parser.add_argument("--machine", type=str, default=RECOMMAND_MACHINE, help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.")
         parser.add_argument("--abacus_command", type=str, default=RECOMMAND_COMMAND, help=f"The command to run the Abacus job, default is '{RECOMMAND_COMMAND}'.")
@@ -59,7 +59,7 @@ class BECModel(Model):
                                    params.index,
                                    params.dir,
                                    params.type,
-                                   k_continuity=not params.no_k_continuity)
+                                   k_continuity=False)
         # write run scripts
         with open("run.sh", "w") as f1:
             f1.write(f"cp INPUT.scf INPUT\ncp KPT.scf KPT\n{params.abacus_command} | tee scf.log\n\n")
