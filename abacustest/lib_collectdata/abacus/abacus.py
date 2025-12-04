@@ -887,6 +887,7 @@ Fe2
                            cells = "a list of [[],[],[]], which is a two-dimension list of cell vector, unit in Angstrom.",
                            cell_init = "[[],[],[]], two-dimension list, unit in Angstrom. The initial cell",
                            coordinate = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. If is relax or md, will output the last one",
+                           coordinates = "[[[], ...], ...], three dimension list, is a cartesian type, unit in Angstrom. The coordinate of each ION step If is relax or md",
                            coordinate_init = "[[],..], two dimension list, is a cartesian type, unit in Angstrom. The initial coordinate",
                            element = "list[], a list of the element name of all atoms",
                            label = "list[], a list of atom label of all atoms",
@@ -900,15 +901,13 @@ Fe2
                 break
         
         cells = []
-        for i in range(len(self.LOG)): 
-            iline = -i - 1 
-            line = self.LOG[iline]
+        for i in range(len(self.LOG)):
+            line = self.LOG[i]
             if "Lattice vectors: (Cartesian coordinate: in unit of a_0)" in line:
-                icell = []
+                cell = []
                 for k in range(1, 4):
-                    icell.append([float(x) * lc for x in self.LOG[iline + k].split()[0:3]])
-                cells.append(icell)
-                break
+                    cell.append([float(x) * lc for x in self.LOG[i + k].split()[0:3]])
+                cells.append(cell)
                     
         if cells:
             self['cells'] = cells
@@ -947,8 +946,9 @@ Fe2
         natom = self['natom']
         if cell != None and natom != None:
             try:
-                for i in range(len(self.LOG)): 
-                    iline = -i - 1 
+                coordinates = []
+                for i in range(len(self.LOG)):
+                    iline = i
                     line = self.LOG[iline]
                     if len(line.split()) >= 2 and line.split()[1] == "COORDINATES":  
                         coordinate = []
@@ -956,37 +956,28 @@ Fe2
                             for k in range(2, 2 + natom):
                                 coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
                             coordinate = np.array(coordinate).dot(np.array(cell)).tolist()
+                            coordinates.append(coordinate)
                         elif line.split()[0] == "CARTESIAN":
                             for k in range(2, 2 + natom):
                                 coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
+                            coordinates.append(coordinate)
                         else:
                             print("Unrecongnized coordinate type: %s" % (line))   
-                        break
-                self['coordinate'] = coordinate  
+                
+                if len(coordinates) > 0:
+                    self['coordinates'] = coordinates
+                    self['coordinate'] = coordinates[-1]
+                    self['coordinate_init'] = coordinates[0]
+                else:
+                    self['coordinates'] = None
+                    self['coordinate'] = None
+                    self['coordinate_init'] = None
             except:
                 traceback.print_exc()
-                self['coordinate'] = None 
-            
-            try:
-                for i in range(len(self.LOG)): 
-                    iline = i
-                    line = self.LOG[iline]
-                    if len(line.split()) >= 2 and line.split()[1] == "COORDINATES":  
-                        coordinate_init = []
-                        if line.split()[0] == "DIRECT":
-                            for k in range(2, 2 + natom):
-                                coordinate_init.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                            coordinate_init = np.array(coordinate_init).dot(np.array(cell)).tolist()
-                        elif line.split()[0] == "CARTESIAN":
-                            for k in range(2, 2 + natom):
-                                coordinate_init.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                        else:
-                            print("Unrecongnized coordinate type: %s" % (line))   
-                        break
-                self['coordinate_init'] = coordinate_init 
-            except:
-                traceback.print_exc()
-                self['coordinate_init'] = None   
+                self['coordinates'] = None
+                self['coordinate'] = None
+                self['coordinate_init'] = None
+
         else:
             print("No cell or natom, skip the catch of coordinate info")
             self['coordinate'] = None
