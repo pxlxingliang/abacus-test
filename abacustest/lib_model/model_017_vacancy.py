@@ -109,9 +109,17 @@ class VacancyModel(Model):
                                        afm=params.afm,
                                        copy_pp_orb=params.copy_pp_orb)
         
+        run_sh = f"""{params.abacus_command} | tee log
+if [ -d "final_scf" ]; then
+    cp OUT.*/STRU_ION_D final_scf/STRU
+    cd final_scf
+    {params.abacus_command} | tee log
+    cd ..
+fi
+"""
         # Write run scripts
         with open("run.sh", "w") as f1:
-            f1.write(f"{params.abacus_command} | tee log\n")
+            f1.write(run_sh)
         
         setting = {
             "save_path": "results",
@@ -209,10 +217,10 @@ def prepare_vacancy_jobs(
     force_thr_ev: float = 0.01,
     stress_thr_kbar: float = 0.5,
     ftype: str = "cif",
-    pp: Optinal[str] = None,
-    orb: Optinal[str] = None,
-    input: Optinal[str] = None,
-    kspacing: Optinal[float] = None,
+    pp: Optional[str] = None,
+    orb: Optional[str] = None,
+    input: Optional[str] = None,
+    kspacing: Optional[float] = None,
     lcao: bool = False,
     nspin: int = 1,
     soc: bool = False,
@@ -308,6 +316,7 @@ def prepare_vacancy_jobs(
         input_params["suffix"] = "ABACUS"
         input_params['calculation'] = 'cell-relax'
         input_params['relax_method'] = 'cg'
+        input_params['symmetry'] = 0
         input_params['stru_file'] = None
         input_params['ntype'] = None
         input_params['relax_nmax'] = max_step
@@ -327,6 +336,7 @@ def prepare_vacancy_jobs(
         os.makedirs(original_stru_jobpath, exist_ok=True)
         copy_pp_orb_kpt_file(job, original_stru_jobpath, pp_orb_files, original_kpt_file)
         write_inputs(original_stru_jobpath, input_params, original_stru)
+        create_final_scf_dir(original_stru_jobpath, os.path.join(original_stru_jobpath, "final_scf"), copy_stru=False)
         folders.append(original_stru_jobpath)
 
         # Prepare input files for the supercell with defect
@@ -340,6 +350,7 @@ def prepare_vacancy_jobs(
             os.makedirs(defect_supercell_jobpath, exist_ok=True)
             copy_pp_orb_kpt_file(original_stru_jobpath, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
             write_inputs(defect_supercell_jobpath, input_params, defect_supercell_stru)
+            create_final_scf_dir(defect_supercell_jobpath, os.path.join(defect_supercell_jobpath, "final_scf"), copy_stru=False)
             defect_supercell_stru.write2cif(os.path.join(defect_supercell_jobpath, "STRU.cif"), empty2x=True)
             folders.append(defect_supercell_jobpath)
 
@@ -397,7 +408,7 @@ def postprocess_vacancy(jobs: List[str],
         for element_crys_job in glob.glob(os.path.join(ref_dir, "*")):
             vac_ele_crys_stru = AbacusStru.ReadStru(os.path.join(element_crys_job, "STRU"))
             vacancy_element = vac_ele_crys_stru.get_element(number=False)[0]
-            element_crys_job_result = read_relax_metrics(element_crys_job)
+            element_crys_job_result = read_metrics(element_crys_job, jobtype="relax")
             e_vac_elem_crys = element_crys_job_result["energies"][-1]
             ref_atom_energies[vacancy_element] = e_vac_elem_crys / vac_ele_crys_stru.get_natoms()
 
@@ -407,21 +418,25 @@ def postprocess_vacancy(jobs: List[str],
 
         sub_folders = [f for f in glob.glob(os.path.join(job, "vacancy_*")) if os.path.isdir(f)]
 
-        defect_supercell_job_results = {}
+        defect_supercell_job_results, defect_supercell_scf_results = {}, {}
         for sub_folder in sub_folders:
             if os.path.basename(sub_folder).startswith("vacancy_original_stru"):
-                original_stru_job_results = read_relax_metrics(sub_folder)
+                original_stru_job_results = read_metrics(sub_folder, jobtype="relax")
+                original_stru_scf_results = read_metrics(os.path.join(sub_folder, 'final_scf'), jobtype="scf")
             if os.path.basename(sub_folder).startswith("vacancy_defect"):
                 words = sub_folder.split('/')[-1].split("_")
                 vacancy_element, idx = words[3], int(words[2])
                 supercell = (int(words[4]), int(words[5]), int(words[6]))
-                defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_relax_metrics(sub_folder)
+                defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_metrics(sub_folder, jobtype="relax")
+                defect_supercell_scf_results[f'{vacancy_element}{idx}'] = read_metrics(os.path.join(sub_folder, 'final_scf'), jobtype="scf")
 
         for site in defect_supercell_job_results.keys():
             if original_stru_job_results["energies"] is None or defect_supercell_job_results[site]["energies"] is None:
                 e_vac_form = None
+            elif original_stru_scf_results["converge"] is False or defect_supercell_scf_results[site]["converge"] is False:
+                e_vac_form = None
             else:
-                e_vac_form = (defect_supercell_job_results[site]["energies"][-1] + ref_atom_energies[vacancy_element]) - original_stru_job_results["energies"][-1] * supercell[0] * supercell[1] * supercell[2]
+                e_vac_form = (defect_supercell_scf_results[site]["energy"] + ref_atom_energies[vacancy_element]) - original_stru_scf_results["energy"] * supercell[0] * supercell[1] * supercell[2]
 
             results = {
                 'vac_formation_energy': e_vac_form,
@@ -440,6 +455,37 @@ def postprocess_vacancy(jobs: List[str],
 
     return metrics, ref_atom_energies
 
+def create_final_scf_dir(src_dir: str, dst_dir: str, copy_stru: bool=True):
+    '''
+    Create the directory from a finished relax or cell-relax calculation
+    for final scf to get more accurate energy for vacancy calculation.
+    '''
+    if not os.path.isdir(dst_dir):
+        os.makedirs(dst_dir, exist_ok=True)
+    
+    input_params = ReadInput(os.path.join(src_dir, "INPUT"))
+    input_params['calculation'] = 'scf'
+    kspacing = input_params.get('kspacing', None)
+    if kspacing is None or kspacing > 0.10:
+        print("Automatically set kspacing for final scf calculation to 0.10")
+        input_params['kspacing'] = 0.10
+    WriteInput(input_params, os.path.join(dst_dir, "INPUT"))
+    # Should use STRU_ION_D file from outputed directory from a finished relax or cell-relax calculation
+    if copy_stru:
+        shutil.copy(os.path.join(src_dir, f"OUT.{input_params.get('suffix', 'ABACUS')}/STRU_ION_D"), os.path.join(dst_dir, "STRU"))
+    
+    # Copy pp, orb, and kpt file
+    pp_orb_files = glob.glob(os.path.join(src_dir, "*.upf")) + \
+                   glob.glob(os.path.join(src_dir, "*.UPF")) + \
+                   glob.glob(os.path.join(src_dir, "*.orb"))
+    
+    for f in pp_orb_files:
+        filename = os.path.basename(f)
+        dst_file = os.path.join(dst_dir, filename)
+        if os.path.exists(dst_file):
+            os.remove(dst_file)
+        os.symlink(os.path.abspath(f), dst_file)
+    
 def copy_pp_orb_kpt_file(src_dir: str, dst_dir: str, pp_orb_files: str, kpt_file: str):
     '''
     Copy the pp, orb, and kpt file from source directory to the destination directory.
@@ -492,7 +538,7 @@ def build_most_stable_elementary_crys_stru(element: str, pp: str, orb: str) -> A
 
     return stru_abacus
 
-def read_relax_metrics(job: str) -> List[str]:
+def read_metrics(job: str, jobtype: Literal['relax', 'scf']) -> List[str]:
     """
     Read the relaxation metrics from the log file.
     Args:
@@ -501,9 +547,15 @@ def read_relax_metrics(job: str) -> List[str]:
         List[str]: The relaxation metrics.
     """
     results = RESULT(path=job, fmt='abacus')
-    relax_metrics = ["normal_end", "relax_steps", "largest_gradient",
-                     "largest_gradient_stress", "relax_converge", "energies", "lattice_constant"]
-    return {k: results[k] for k in relax_metrics}
+    if jobtype == 'relax':
+        relax_metrics = ["normal_end", "relax_steps", "largest_gradient",
+                         "largest_gradient_stress", "relax_converge", "energies", "lattice_constant"]
+        return {k: results[k] for k in relax_metrics}
+    elif jobtype == 'scf':
+        scf_metrics = ["normal_end", "energy", "converge"]
+        return {k: results[k] for k in scf_metrics}
+    else:
+        raise ValueError(f"Job type {jobtype} not supported.")
 
 def get_categorized_idx(original_stru_file: str, original_stru_format: str):
     """
