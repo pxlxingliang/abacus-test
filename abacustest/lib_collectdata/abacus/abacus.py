@@ -946,27 +946,6 @@ Fe2
         natom = self['natom']
         if cell != None and natom != None:
             try:
-                for i in range(len(self.LOG)): 
-                    iline = -i - 1 
-                    line = self.LOG[iline]
-                    if len(line.split()) >= 2 and line.split()[1] == "COORDINATES":  
-                        coordinate = []
-                        if line.split()[0] == "DIRECT":
-                            for k in range(2, 2 + natom):
-                                coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                            coordinate = np.array(coordinate).dot(np.array(cell)).tolist()
-                        elif line.split()[0] == "CARTESIAN":
-                            for k in range(2, 2 + natom):
-                                coordinate.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                        else:
-                            print("Unrecongnized coordinate type: %s" % (line))   
-                        break
-                self['coordinate'] = coordinate  
-            except:
-                traceback.print_exc()
-                self['coordinate'] = None 
-            
-            try:
                 coordinates = []
                 for i in range(len(self.LOG)):
                     iline = i
@@ -984,32 +963,21 @@ Fe2
                             coordinates.append(coordinate)
                         else:
                             print("Unrecongnized coordinate type: %s" % (line))   
-                            
-                self['coordinates'] = coordinates
+                
+                if len(coordinates) > 0:
+                    self['coordinates'] = coordinates
+                    self['coordinate'] = coordinates[-1]
+                    self['coordinate_init'] = coordinates[0]
+                else:
+                    self['coordinates'] = None
+                    self['coordinate'] = None
+                    self['coordinate_init'] = None
             except:
                 traceback.print_exc()
                 self['coordinates'] = None
+                self['coordinate'] = None
+                self['coordinate_init'] = None
 
-            try:
-                for i in range(len(self.LOG)): 
-                    iline = i
-                    line = self.LOG[iline]
-                    if len(line.split()) >= 2 and line.split()[1] == "COORDINATES":  
-                        coordinate_init = []
-                        if line.split()[0] == "DIRECT":
-                            for k in range(2, 2 + natom):
-                                coordinate_init.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                            coordinate_init = np.array(coordinate_init).dot(np.array(cell)).tolist()
-                        elif line.split()[0] == "CARTESIAN":
-                            for k in range(2, 2 + natom):
-                                coordinate_init.append([float(x) for x in self.LOG[iline + k].split()[1:4]])
-                        else:
-                            print("Unrecongnized coordinate type: %s" % (line))   
-                        break
-                self['coordinate_init'] = coordinate_init 
-            except:
-                traceback.print_exc()
-                self['coordinate_init'] = None   
         else:
             print("No cell or natom, skip the catch of coordinate info")
             self['coordinate'] = None
