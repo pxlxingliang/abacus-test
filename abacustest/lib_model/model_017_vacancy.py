@@ -348,7 +348,7 @@ def prepare_vacancy_jobs(
         if scf_kspacing is None:
             if 'kspacing' not in input_params.keys():
                 original_kpt = ReadKpt(os.path.join(original_stru_jobpath, "KPT"))
-                original_kspacing = kpt2kspacing(original_kpt, original_stru.get_cell())
+                original_kspacing = kpt2kspacing(original_kpt[0][:3], original_stru.get_cell())
             else:
                 original_kspacing = input_params['kspacing']
             scf_kspacing = min(original_kspacing*0.9, 0.10)
