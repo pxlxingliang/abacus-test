@@ -56,7 +56,8 @@ class VacancyModel(Model):
         parser.add_argument("--pp",default=None,type=str,help="the path of pseudopotential library, or read from enviroment variable ABACUS_PP_PATH")
         parser.add_argument("--orb",default=None,type=str,help="the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH")
         parser.add_argument("--input",default=None,type=str,help="the template of input file, if not specified, the default input will be generated")
-        parser.add_argument("--kspacing", default=None, type=float, help="the kspacing for kpoint generation, default is None, which means kspacing in original input file will be used.")
+        parser.add_argument("--relax-kspacing", default=None, type=float, help="the kspacing for kpoint generation of relax calculation, default is None, which means kspacing in original input file will be used.")
+        parser.add_argument("--scf-kspacing", default=None, type=float, help="the kspacing for scf calculation after relax, default is None, which means kspacing in original input file will be used.")
         parser.add_argument("--lcao", action="store_true", help="whether to use lcao basis, default is pw basis")
         parser.add_argument("--nspin", default=1, type=int, choices=[1, 2, 4], help="the number of spins, can be 1 (no spin), 2 (spin polarized), or 4 (non-collinear spin). Default is 1.")
         parser.add_argument("--soc", action="store_true", help="whether to use spin-orbit coupling, if True, nspin should be 4.")
@@ -99,7 +100,8 @@ class VacancyModel(Model):
                                        pp=params.pp,
                                        orb=params.orb,
                                        input=params.input,
-                                       kspacing=params.kspacing,
+                                       relax_kspacing=params.relax_kspacing,
+                                       scf_kspacing=params.scf_kspacing,
                                        lcao=params.lcao,
                                        nspin=params.nspin,
                                        soc=params.soc,
@@ -220,7 +222,8 @@ def prepare_vacancy_jobs(
     pp: Optional[str] = None,
     orb: Optional[str] = None,
     input: Optional[str] = None,
-    kspacing: Optional[float] = None,
+    relax_kspacing: Optional[float] = None,
+    scf_kspacing: Optional[float] = None,
     lcao: bool = False,
     nspin: int = 1,
     soc: bool = False,
@@ -322,8 +325,8 @@ def prepare_vacancy_jobs(
         input_params['relax_nmax'] = max_step
         input_params['force_thr_ev'] = force_thr_ev
         input_params['stress_thr'] = stress_thr_kbar
-        if kspacing is not None:
-            input_params['kspacing'] = kspacing
+        if relax_kspacing is not None:
+            input_params['kspacing'] = relax_kspacing
 
         pp_orb_files_fullname = glob.glob(os.path.join(job, "*.upf")) + glob.glob(os.path.join(job, "*.UPF")) \
                        + glob.glob(os.path.join(job, "*.orb"))
@@ -332,11 +335,23 @@ def prepare_vacancy_jobs(
         original_kpt_file = os.path.join(job, input_params.get('kpt_file', 'KPT'))
 
         # Prepare input files for the supercell
+        # cell-relax job for the original structure
         original_stru_jobpath = os.path.join(job, "vacancy_original_stru")
         os.makedirs(original_stru_jobpath, exist_ok=True)
-        copy_pp_orb_kpt_file(job, original_stru_jobpath, pp_orb_files, original_kpt_file)
-        write_inputs(original_stru_jobpath, input_params, original_stru)
-        create_final_scf_dir(original_stru_jobpath, os.path.join(original_stru_jobpath, "final_scf"), copy_stru=False)
+        create_new_abacus_job(job,
+                              original_stru_jobpath,
+                              pp_orb_files,
+                              extra_input=input_params,
+                              stru=original_stru, 
+                              kpt_file=original_kpt_file)
+        # scf job after cell-relax job for the original structure
+        create_new_abacus_job(job,
+                              os.path.join(original_stru_jobpath, "final_scf"),
+                              pp_orb_files,
+                              extra_input={'calculation': 'scf', 'kspacing': scf_kspacing},
+                              stru=None, # Don't prepare STRU file
+                              kpt_file=None)
+        
         folders.append(original_stru_jobpath)
 
         # Prepare input files for the supercell with defect
@@ -348,9 +363,20 @@ def prepare_vacancy_jobs(
             defect_supercell_stru.set_empty_atom(vacancy_element, labelidx)
             defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{original_vacancy_indices[i]}_{vacancy_element}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
             os.makedirs(defect_supercell_jobpath, exist_ok=True)
-            copy_pp_orb_kpt_file(original_stru_jobpath, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
-            write_inputs(defect_supercell_jobpath, input_params, defect_supercell_stru)
-            create_final_scf_dir(defect_supercell_jobpath, os.path.join(defect_supercell_jobpath, "final_scf"), copy_stru=False)
+            # cell-relax job for the defect structure
+            create_new_abacus_job(job,
+                                  defect_supercell_jobpath,
+                                  pp_orb_files,
+                                  extra_input=input_params,
+                                  stru=defect_supercell_stru,
+                                  kpt_file=original_kpt_file)
+            # scf job after cell-relax job for the defect structure
+            create_new_abacus_job(job,
+                                  os.path.join(defect_supercell_jobpath, "final_scf"),
+                                  pp_orb_files,
+                                  extra_input={'calculation': 'scf', 'kspacing': scf_kspacing},
+                                  stru=None, # Don't prepare STRU file
+                                  kpt_file=None) 
             defect_supercell_stru.write2cif(os.path.join(defect_supercell_jobpath, "STRU.cif"), empty2x=True)
             folders.append(defect_supercell_jobpath)
 
@@ -364,9 +390,14 @@ def prepare_vacancy_jobs(
                 vacancy_element_pp = original_stru.get_pp()[element_type_index]
                 vacancy_element_orb = original_stru.get_orb()[element_type_index]
                 vacancy_element_crys_stru = build_most_stable_elementary_crys_stru(vacancy_element, vacancy_element_pp, vacancy_element_orb)
-                os.makedirs(vacancy_element_crys_jobpath, exist_ok=True)
-                copy_pp_orb_kpt_file(original_stru_jobpath, vacancy_element_crys_jobpath, pp_orb_files, original_kpt_file)
-                write_inputs(vacancy_element_crys_jobpath, input_params, vacancy_element_crys_stru)
+
+                create_new_abacus_job(job,
+                                      vacancy_element_crys_jobpath,
+                                      pp_orb_files,
+                                      extra_input=input_params,
+                                      stru=vacancy_element_crys_stru,
+                                      kpt_file=None)
+                
                 folders.append(vacancy_element_crys_jobpath)
                 prepared_elements.append(vacancy_element)
     
@@ -455,51 +486,38 @@ def postprocess_vacancy(jobs: List[str],
 
     return metrics, ref_atom_energies
 
-def create_final_scf_dir(src_dir: str, dst_dir: str, copy_stru: bool=True):
-    '''
-    Create the directory from a finished relax or cell-relax calculation
-    for final scf to get more accurate energy for vacancy calculation.
-    '''
+def create_new_abacus_job(src_dir: str,
+                          dst_dir: str,
+                          pp_orb_files: str,
+                          extra_input: dict=None,
+                          stru: Tuple[AbacusStru, str]=None,
+                          kpt_file: str=None):
+    """
+    Create new abacus job from a source directory and new settings.
+    """
     if not os.path.isdir(dst_dir):
         os.makedirs(dst_dir, exist_ok=True)
     
-    input_params = ReadInput(os.path.join(src_dir, "INPUT"))
-    input_params['calculation'] = 'scf'
-    kspacing = input_params.get('kspacing', None)
-    if kspacing is None or kspacing > 0.10:
-        print("Automatically set kspacing for final scf calculation to 0.10")
-        input_params['kspacing'] = 0.10
-    WriteInput(input_params, os.path.join(dst_dir, "INPUT"))
-    # Should use STRU_ION_D file from outputed directory from a finished relax or cell-relax calculation
-    if copy_stru:
-        shutil.copy(os.path.join(src_dir, f"OUT.{input_params.get('suffix', 'ABACUS')}/STRU_ION_D"), os.path.join(dst_dir, "STRU"))
-    
-    # Copy pp, orb, and kpt file
-    pp_orb_files = glob.glob(os.path.join(src_dir, "*.upf")) + \
-                   glob.glob(os.path.join(src_dir, "*.UPF")) + \
-                   glob.glob(os.path.join(src_dir, "*.orb"))
-    
-    for f in pp_orb_files:
-        filename = os.path.basename(f)
-        dst_file = os.path.join(dst_dir, filename)
-        if os.path.exists(dst_file):
-            os.remove(dst_file)
-        os.symlink(os.path.abspath(f), dst_file)
-    
-def copy_pp_orb_kpt_file(src_dir: str, dst_dir: str, pp_orb_files: str, kpt_file: str):
-    '''
-    Copy the pp, orb, and kpt file from source directory to the destination directory.
-    '''
     for file in pp_orb_files:
         os.symlink(os.path.abspath(os.path.join(src_dir, file)), os.path.join(dst_dir, file))
     
-    if os.path.isfile(kpt_file):
-        shutil.copy(kpt_file, os.path.join(dst_dir, os.path.basename(kpt_file)))
+    if extra_input is None:
+        shutil.copy(os.path.join(src_dir, "INPUT"), os.path.join(dst_dir, "INPUT"))
+    else:
+        input_params = ReadInput(os.path.join(src_dir, "INPUT"))
+        for key, value in extra_input.items():
+            input_params[key] = value
+        WriteInput(input_params, os.path.join(dst_dir, "INPUT"))
+    
+    
+    if stru is not None:
+        if isinstance(stru, AbacusStru):
+            stru.write(os.path.join(dst_dir, "STRU"))
+        elif isinstance(stru, str):
+            shutil.copy(stru, os.path.join(dst_dir, "STRU"))
 
-def write_inputs(folder, input_params: dict, stru: AbacusStru):
-    # Write INPUT and STRU file
-    WriteInput(input_params, os.path.join(folder, "INPUT"))
-    stru.write(os.path.join(folder, "STRU"))
+    if kpt_file is not None and os.path.isfile(kpt_file):
+        shutil.copy(kpt_file, os.path.join(dst_dir, os.path.basename(kpt_file)))
 
 def build_most_stable_elementary_crys_stru(element: str, pp: str, orb: str) -> AbacusStru:
     """
