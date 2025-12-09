@@ -12,7 +12,7 @@ from ase import Atoms
 from ase.io import read, write
 
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, AbacusStru, ReadKpt
-from abacustest.lib_prepare.comm import collect_pp
+from abacustest.lib_prepare.comm import kpt2kspacing
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE, ELEMENT_CRYSTAL_STRUCTURES, A2BOHR
 from abacustest.lib_collectdata.collectdata import RESULT
 from abacustest.lib_model.model_013_inputs import PrepInput, InputsModel
@@ -345,6 +345,14 @@ def prepare_vacancy_jobs(
                               stru=original_stru, 
                               kpt_file=original_kpt_file)
         # scf job after cell-relax job for the original structure
+        if scf_kspacing is None:
+            if 'kspacing' not in input_params.keys():
+                original_kpt = ReadKpt(os.path.join(original_stru_jobpath, "KPT"))
+                original_kspacing = kpt2kspacing(original_kpt, original_stru.get_cell())
+            else:
+                original_kspacing = input_params['kspacing']
+            scf_kspacing = min(original_kspacing*0.9, 0.10)
+        
         create_new_abacus_job(job,
                               os.path.join(original_stru_jobpath, "final_scf"),
                               pp_orb_files,
