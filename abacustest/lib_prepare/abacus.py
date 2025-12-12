@@ -1065,6 +1065,23 @@ class AbacusStru:
         new_stru._check()
         return new_stru 
     
+    def get_ieee_standard_stru(self):
+        """
+        Rotate the structure to the 1987 IEEE standard orientation.
+        """
+        from pymatgen.core.tensors import Tensor
+        from copy import deepcopy
+
+        stru_pymatgen = self.to_pymatgen()
+        rotation = Tensor.get_ieee_rotation(stru_pymatgen)
+
+        std_stru = deepcopy(self)
+        std_stru.set_cell(self.get_cell(bohr=False) @ rotation.T, bohr=False)
+        if std_stru._cartesian:
+            std_stru.set_coord(self.get_coord(direct=False) @ rotation.T)
+
+        return std_stru
+
     def delete_atom(self, 
                     label:str, 
                     idx: Union[int, List[int], None] = None):
