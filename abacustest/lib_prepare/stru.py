@@ -603,8 +603,6 @@ class AbacusSTRU:
                 coord = coord.tolist()
             cell = cell.tolist()
 
-            print(filename)
-
             write_stru_file(cell=cell, coord=coord, 
                             label=[ut.label for ut in unique_types],
                             atom_number=[ut.natom for ut in unique_types],
@@ -803,9 +801,9 @@ class AbacusSTRU:
             elif only:
                 self._atoms[i].move = (True, True, True)
     
-    def fix_atom_by_height(self, min: float, max: float, cartesian: bool=True, direction: Literal[0, 1, 2]=2, only: bool=False):
+    def fix_atom_by_coord(self, min: float, max: float, cartesian: bool=True, direction: Literal[0, 1, 2]=2, only: bool=False):
         """
-        Fix atoms by height.
+        Fix atoms by coordinates (cartesian or direct).
         
         Args:
             min (float): Minimum height of atoms to fix.
