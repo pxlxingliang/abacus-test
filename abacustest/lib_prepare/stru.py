@@ -515,14 +515,14 @@ class AbacusSTRU:
             atom_list = []
             for i in range(len(coords)):
                 atom = AbacusATOM(
-                    label=stru_data["label"][i],
+                    label=get_total_property(stru_data, "label")[i],
                     coord=tuple(coords[i]),
                     element=None,
                     mass=None,
-                    pp=stru_data["pp"][i],
-                    orb=stru_data["orb"][i],
-                    paw=stru_data["paw"][i],
-                    type_mag=stru_data["magmom"][i],
+                    pp=get_total_property(stru_data, "pp")[i],
+                    orb=get_total_property(stru_data, "orb")[i],
+                    paw=get_total_property(stru_data, "paw")[i],
+                    type_mag=get_total_property(stru_data, "magmom")[i],
                     move=stru_data["move"][i],
                     mag=stru_data["magmom_atom"][i],
                     angle1=stru_data["angle1"][i],
@@ -1010,10 +1010,16 @@ def read_stru_file(stru:str = "STRU"):
         label_idx = labels.index(label)
         if pp:
             real_pp.append(pp[label_idx])
+        else:
+            real_pp.append(None)
         if orb:
             real_orb.append(orb[label_idx])
+        else:
+            real_orb.append(None)
         if paw:
             real_paw.append(paw[label_idx])
+        else:
+            real_paw.append(None)
             
         magmom_global.append(float(atom_positions[i+1].split()[0]))
             
@@ -1255,3 +1261,20 @@ def write_poscar(
     with open(poscar,"w") as f1:
         f1.write(cc)
     return cc
+
+def get_total_property(stru_data: Dict[str, Any],
+                       prop: Literal['label', 'magmom', 'pp', 'orb', 'paw']):
+    """
+    Get selected property in stru_data (read by read_stru_file) for each atom stored for each type .
+    Args:
+        stru_data (Dict[str, Any]): The structure data.
+        prop (Literal['label', 'magmom', 'pp', 'orb', 'paw']): The property name.
+    Returns:
+        float: The total property.
+    """
+    assert len(stru_data[prop]) == len(stru_data['atom_number'])
+    result = []
+    for item, count in zip(stru_data[prop], stru_data['atom_number']):
+        result.extend([item] * count)
+    
+    return result
