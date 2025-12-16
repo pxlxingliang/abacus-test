@@ -409,6 +409,13 @@ class AbacusSTRU:
     def coords(self):
         # Return the list of coordinates of all atoms
         return [atom.coord for atom in self._atoms]
+    
+    @property
+    def coords_angs(self):
+        # Return the list of coordinates of all atoms in Angstrom
+        return [(atom.coord[0]*self.metadata['lattice_constant']*BOHR2A,
+                 atom.coord[1]*self.metadata['lattice_constant']*BOHR2A,
+                 atom.coord[2]*self.metadata['lattice_constant']*BOHR2A) for atom in self._atoms]
 
     @property
     def coords_direct(self):
@@ -511,7 +518,10 @@ class AbacusSTRU:
         if fmt in ["stru", "abacus/stru"]:
             stru_data = read_stru_file(stru=filename)
             cell = stru_data["cell"]
-            coords = stru_data["coord"]
+            if stru_data["cartesian"]:
+                coords = stru_data["coord"]
+            else:
+                coords = Direct2Cartesian(stru_data["coord"], stru_data["cell"])
             atom_list = []
             for i in range(len(coords)):
                 atom = AbacusATOM(
@@ -592,6 +602,8 @@ class AbacusSTRU:
             else:
                 coord = coord.tolist()
             cell = cell.tolist()
+
+            print(filename)
 
             write_stru_file(cell=cell, coord=coord, 
                             label=[ut.label for ut in unique_types],
@@ -775,7 +787,44 @@ class AbacusSTRU:
                             magnetic_moments=self.atom_mags)
         else:
             raise ValueError(f"Unsupported format: {fmt}")
-
+    
+    def fix_atom_by_index(self, indices: List[int], move: List[Tuple[bool, bool, bool]], only: False):
+        """
+        Fix atoms by index.
+        
+        Args:
+            indices (List[int]): List of indices of atoms to fix. Starts from 0.
+            move (List[Tuple[bool, bool, bool]]): List of tuples indicating whether each atom is allowed to move in each direction.
+            only (bool): If True, override the move settings for unselected atoms and allow all unselected atoms to move. Default is False.
+        """
+        for i in range(self.natoms):
+            if i in indices:
+                self._atoms[i].move = move[indices.index(i)]
+            elif only:
+                self._atoms[i].move = (True, True, True)
+    
+    def fix_atom_by_height(self, min: float, max: float, cartesian: bool=True, direction: Literal[0, 1, 2]=2, only: bool=False):
+        """
+        Fix atoms by height.
+        
+        Args:
+            min (float): Minimum height of atoms to fix.
+            max (float): Maximum height of atoms to fix.
+            cartesian (bool): Whether to use cartesian coordinates. Default is True.
+            direction (int): Direction of atoms to fix. Can be 0, 1 or 2, means 'x', 'y' and 'z' respectively. Default is 2.
+            only (bool): If True, override the move settings for unselected atoms and allow all unselected atoms to move. Default is False.
+        """
+        for i in range(self.natoms):
+            if cartesian:
+                if self.coords_angs[i][direction] >= min and self.coords_angs[i][direction] <= max:
+                    self._atoms[i].move = (False, False, False)
+                elif only:
+                    self._atoms[i].move = (True, True, True)
+            else:
+                if self.coords_direct[i][direction] >= min and self.coords_direct[i][direction] <= max:
+                    self._atoms[i].move = (False, False, False)
+                elif only:
+                    self._atoms[i].move = (True, True, True)
 
 
 
@@ -1195,7 +1244,9 @@ def write_stru_file(
         cc += "\nNUMERICAL_DESCRIPTOR\n"
         cc += dpks    
 
-    os.makedirs(os.path.dirname(struf), exist_ok=True)
+    dirname = os.path.dirname(struf)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
     with open(struf,"w") as f1:
         f1.write(cc)
     
