@@ -785,23 +785,31 @@ class AbacusSTRU:
                             magnetic_moments=self.atom_mags)
         else:
             raise ValueError(f"Unsupported format: {fmt}")
-    
-    def fix_atom_by_index(self, indices: List[int], move: List[Tuple[bool, bool, bool]], only: False):
+
+    def fix_atom_by_index(self, indices: List[int],
+                          move: Optional[Tuple[bool, bool, bool]] = (False, False, False),
+                          only: Optional[bool]=False):
         """
         Fix atoms by index.
         
         Args:
             indices (List[int]): List of indices of atoms to fix. Starts from 0.
-            move (List[Tuple[bool, bool, bool]]): List of tuples indicating whether each atom is allowed to move in each direction.
+            move (Tuple[bool, bool, bool]): Tuple indicating whether the atom is allowed to move in each direction. Default is (False, False, False), which means all 3 directions are fixed.
             only (bool): If True, override the move settings for unselected atoms and allow all unselected atoms to move. Default is False.
         """
         for i in range(self.natoms):
             if i in indices:
-                self._atoms[i].move = move[indices.index(i)]
+                self._atoms[i].move = move
             elif only:
                 self._atoms[i].move = (True, True, True)
-    
-    def fix_atom_by_coord(self, min: float, max: float, cartesian: bool=True, direction: Literal[0, 1, 2]=2, only: bool=False):
+
+    def fix_atom_by_coord(self,
+                          min: float,
+                          max: float,
+                          cartesian: Optional[bool]=True,
+                          direction: Optional[Literal[0, 1, 2]]=2, 
+                          move: Optional[Tuple[bool, bool, bool]]=(False, False, False),
+                          only: Optional[bool]=False):
         """
         Fix atoms by coordinates (cartesian or direct).
         
@@ -810,17 +818,18 @@ class AbacusSTRU:
             max (float): Maximum height of atoms to fix.
             cartesian (bool): Whether to use cartesian coordinates. Default is True.
             direction (int): Direction of atoms to fix. Can be 0, 1 or 2, means 'x', 'y' and 'z' respectively. Default is 2.
+            move: Tuple[bool, bool, bool]: Tuple indicating whether the selected atoms are allowed to move in each direction. Default is (False, False, False), which means all 3 directions are fixed.
             only (bool): If True, override the move settings for unselected atoms and allow all unselected atoms to move. Default is False.
         """
         for i in range(self.natoms):
             if cartesian:
                 if self.coords_angs[i][direction] >= min and self.coords_angs[i][direction] <= max:
-                    self._atoms[i].move = (False, False, False)
+                    self._atoms[i].move = move
                 elif only:
                     self._atoms[i].move = (True, True, True)
             else:
                 if self.coords_direct[i][direction] >= min and self.coords_direct[i][direction] <= max:
-                    self._atoms[i].move = (False, False, False)
+                    self._atoms[i].move = move
                 elif only:
                     self._atoms[i].move = (True, True, True)
 
