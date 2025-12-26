@@ -529,9 +529,9 @@ class AbacusSTRU:
                     coord=tuple(coords[i]),
                     element=None,
                     mass=None,
-                    pp=get_total_property(stru_data, "pp")[i],
-                    orb=get_total_property(stru_data, "orb")[i],
-                    paw=get_total_property(stru_data, "paw")[i],
+                    pp=None if len(stru_data['pp']) == 0 else get_total_property(stru_data, "pp")[i],
+                    orb=None if len(stru_data['orb']) == 0 else get_total_property(stru_data, "orb")[i],
+                    paw=None if len(stru_data['paw']) == 0 else get_total_property(stru_data, "paw")[i],
                     type_mag=get_total_property(stru_data, "magmom")[i],
                     move=stru_data["move"][i],
                     mag=stru_data["magmom_atom"][i],
@@ -1066,16 +1066,10 @@ def read_stru_file(stru:str = "STRU"):
         label_idx = labels.index(label)
         if pp:
             real_pp.append(pp[label_idx])
-        else:
-            real_pp.append(None)
         if orb:
             real_orb.append(orb[label_idx])
-        else:
-            real_orb.append(None)
         if paw:
             real_paw.append(paw[label_idx])
-        else:
-            real_paw.append(None)
             
         magmom_global.append(float(atom_positions[i+1].split()[0]))
             
