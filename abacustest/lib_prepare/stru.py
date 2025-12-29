@@ -109,8 +109,8 @@ class AbacusATOM(BaseModel):
     pp: Optional[str] = None
     orb: Optional[str] = None
     paw: Optional[str] = None
-    type_mag: float = 0.0
-    move: Tuple[bool, bool, bool] = (True, True, True)
+    type_mag: Optional[float] = 0.0
+    move: Optional[Tuple[bool, bool, bool]] = (True, True, True)
     velocity: Optional[Tuple[float, float, float]] = None
     constrain: Optional[Union[bool, Tuple[bool, bool, bool]]] = None
     lambda_: Optional[Union[float, Tuple[float, float, float]]] = None
@@ -409,7 +409,7 @@ class AbacusSTRU:
     def coords(self):
         # Return the list of coordinates of all atoms
         return [atom.coord for atom in self._atoms]
-
+    
     @property
     def coords_direct(self):
         return Cartesian2Direct(self.coords, self.cell)
@@ -510,19 +510,28 @@ class AbacusSTRU:
         fmt = fmt.lower()
         if fmt in ["stru", "abacus/stru"]:
             stru_data = read_stru_file(stru=filename)
-            cell = stru_data["cell"]
-            coords = stru_data["coord"]
+            cell = (np.array(stru_data["cell"]) * stru_data['lattice_constant'] * BOHR2A).tolist()
+            if stru_data["cartesian"]:
+                coords = (np.array(stru_data["coord"]) * stru_data['lattice_constant'] * BOHR2A).tolist()
+            else:
+                coords = Direct2Cartesian(stru_data["coord"], cell)
             atom_list = []
+            label_tot = get_total_property(stru_data, "label")
+            pp_tot = get_total_property(stru_data, "pp")
+            orb_tot = get_total_property(stru_data, "orb")
+            paw_tot = get_total_property(stru_data, "paw")
+            type_mag_tot = get_total_property(stru_data, "magmom")
+
             for i in range(len(coords)):
                 atom = AbacusATOM(
-                    label=stru_data["label"][i],
+                    label=label_tot[i],
                     coord=tuple(coords[i]),
                     element=None,
                     mass=None,
-                    pp=stru_data["pp"][i],
-                    orb=stru_data["orb"][i],
-                    paw=stru_data["paw"][i],
-                    type_mag=stru_data["magmom"][i],
+                    pp=None if len(stru_data['pp']) == 0 else pp_tot[i],
+                    orb=None if len(stru_data['orb']) == 0 else orb_tot[i],
+                    paw=None if len(stru_data['paw']) == 0 else paw_tot[i],
+                    type_mag=type_mag_tot[i],
                     move=stru_data["move"][i],
                     mag=stru_data["magmom_atom"][i],
                     angle1=stru_data["angle1"][i],
@@ -776,6 +785,52 @@ class AbacusSTRU:
         else:
             raise ValueError(f"Unsupported format: {fmt}")
 
+    def fix_atom_by_index(self, indices: List[int],
+                          move: Optional[Tuple[bool, bool, bool]] = (False, False, False),
+                          only: Optional[bool]=False):
+        """
+        Fix atoms by index.
+        
+        Args:
+            indices (List[int]): List of indices of atoms to fix. Starts from 0.
+            move (Tuple[bool, bool, bool]): Tuple indicating whether the atom is allowed to move in each direction. Default is (False, False, False), which means all 3 directions are fixed.
+            only (bool): If True, override the move settings for unselected atoms and allow all unselected atoms to move. Default is False.
+        """
+        for i in range(self.natoms):
+            if i in indices:
+                self._atoms[i].move = move
+            elif only:
+                self._atoms[i].move = (True, True, True)
+
+    def fix_atom_by_coord(self,
+                          min: float,
+                          max: float,
+                          cartesian: Optional[bool]=True,
+                          direction: Optional[Literal[0, 1, 2]]=2, 
+                          move: Optional[Tuple[bool, bool, bool]]=(False, False, False),
+                          only: Optional[bool]=False):
+        """
+        Fix atoms by coordinates (cartesian or direct).
+        
+        Args:
+            min (float): Minimum height of atoms to fix.
+            max (float): Maximum height of atoms to fix.
+            cartesian (bool): Whether to use cartesian coordinates. Default is True.
+            direction (int): Direction of atoms to fix. Can be 0, 1 or 2, means 'x', 'y' and 'z' respectively. Default is 2.
+            move: Tuple[bool, bool, bool]: Tuple indicating whether the selected atoms are allowed to move in each direction. Default is (False, False, False), which means all 3 directions are fixed.
+            only (bool): If True, override the move settings for unselected atoms and allow all unselected atoms to move. Default is False.
+        """
+        for i in range(self.natoms):
+            if cartesian:
+                if self.coords_angs[i][direction] >= min and self.coords_angs[i][direction] <= max:
+                    self._atoms[i].move = move
+                elif only:
+                    self._atoms[i].move = (True, True, True)
+            else:
+                if self.coords_direct[i][direction] >= min and self.coords_direct[i][direction] <= max:
+                    self._atoms[i].move = move
+                elif only:
+                    self._atoms[i].move = (True, True, True)
 
 
 
@@ -1118,6 +1173,8 @@ def write_stru_file(
         cc += "\nNUMERICAL_ORBITAL\n"
         for i in orb:
             cc += i + "\n"
+    elif all([i is None for i in orb]):
+        pass
     elif orb and None in orb:
         print("WARNING: orb list contains None, skip writing NUMERICAL_ORBITAL block")
     
@@ -1126,6 +1183,8 @@ def write_stru_file(
         cc += "\nPAW_FILES\n"
         for i in paw:
             cc += i + "\n"
+    elif all([i is None for i in paw]):
+        pass
     elif paw and None in paw:
         print("WARNING: paw list contains None, skip writing PAW_FILES block")
     
@@ -1255,3 +1314,23 @@ def write_poscar(
     with open(poscar,"w") as f1:
         f1.write(cc)
     return cc
+
+def get_total_property(stru_data: Dict[str, Any],
+                       prop: Literal['label', 'magmom', 'pp', 'orb', 'paw']):
+    """
+    Get selected property in stru_data (read by read_stru_file) for each atom stored for each type .
+    Args:
+        stru_data (Dict[str, Any]): The structure data.
+        prop (Literal['label', 'magmom', 'pp', 'orb', 'paw']): The property name.
+    Returns:
+        float: The total property.
+    """
+    result = []
+    if len(stru_data[prop]) == 0:
+        return []
+    else:
+        assert len(stru_data[prop]) == len(stru_data['atom_number'])
+        for item, count in zip(stru_data[prop], stru_data['atom_number']):
+            result.extend([item] * count)
+
+        return result
