@@ -109,8 +109,8 @@ class AbacusATOM(BaseModel):
     pp: Optional[str] = None
     orb: Optional[str] = None
     paw: Optional[str] = None
-    type_mag: float = 0.0
-    move: Tuple[bool, bool, bool] = (True, True, True)
+    type_mag: Optional[float] = 0.0
+    move: Optional[Tuple[bool, bool, bool]] = (True, True, True)
     velocity: Optional[Tuple[float, float, float]] = None
     constrain: Optional[Union[bool, Tuple[bool, bool, bool]]] = None
     lambda_: Optional[Union[float, Tuple[float, float, float]]] = None
@@ -411,13 +411,6 @@ class AbacusSTRU:
         return [atom.coord for atom in self._atoms]
     
     @property
-    def coords_angs(self):
-        # Return the list of coordinates of all atoms in Angstrom
-        return [(atom.coord[0]*self.metadata['lattice_constant']*BOHR2A,
-                 atom.coord[1]*self.metadata['lattice_constant']*BOHR2A,
-                 atom.coord[2]*self.metadata['lattice_constant']*BOHR2A) for atom in self._atoms]
-
-    @property
     def coords_direct(self):
         return Cartesian2Direct(self.coords, self.cell)
     
@@ -517,22 +510,28 @@ class AbacusSTRU:
         fmt = fmt.lower()
         if fmt in ["stru", "abacus/stru"]:
             stru_data = read_stru_file(stru=filename)
-            cell = stru_data["cell"]
+            cell = (np.array(stru_data["cell"]) * stru_data['lattice_constant'] * BOHR2A).tolist()
             if stru_data["cartesian"]:
-                coords = stru_data["coord"]
+                coords = (np.array(stru_data["coord"]) * stru_data['lattice_constant'] * BOHR2A).tolist()
             else:
-                coords = Direct2Cartesian(stru_data["coord"], stru_data["cell"])
+                coords = Direct2Cartesian(stru_data["coord"], cell)
             atom_list = []
+            label_tot = get_total_property(stru_data, "label")
+            pp_tot = get_total_property(stru_data, "pp")
+            orb_tot = get_total_property(stru_data, "orb")
+            paw_tot = get_total_property(stru_data, "paw")
+            type_mag_tot = get_total_property(stru_data, "magmom")
+
             for i in range(len(coords)):
                 atom = AbacusATOM(
-                    label=get_total_property(stru_data, "label")[i],
+                    label=label_tot[i],
                     coord=tuple(coords[i]),
                     element=None,
                     mass=None,
-                    pp=None if len(stru_data['pp']) == 0 else get_total_property(stru_data, "pp")[i],
-                    orb=None if len(stru_data['orb']) == 0 else get_total_property(stru_data, "orb")[i],
-                    paw=None if len(stru_data['paw']) == 0 else get_total_property(stru_data, "paw")[i],
-                    type_mag=get_total_property(stru_data, "magmom")[i],
+                    pp=None if len(stru_data['pp']) == 0 else pp_tot[i],
+                    orb=None if len(stru_data['orb']) == 0 else orb_tot[i],
+                    paw=None if len(stru_data['paw']) == 0 else paw_tot[i],
+                    type_mag=type_mag_tot[i],
                     move=stru_data["move"][i],
                     mag=stru_data["magmom_atom"][i],
                     angle1=stru_data["angle1"][i],
@@ -1174,6 +1173,8 @@ def write_stru_file(
         cc += "\nNUMERICAL_ORBITAL\n"
         for i in orb:
             cc += i + "\n"
+    elif all([i is None for i in orb]):
+        pass
     elif orb and None in orb:
         print("WARNING: orb list contains None, skip writing NUMERICAL_ORBITAL block")
     
@@ -1182,6 +1183,8 @@ def write_stru_file(
         cc += "\nPAW_FILES\n"
         for i in paw:
             cc += i + "\n"
+    elif all([i is None for i in paw]):
+        pass
     elif paw and None in paw:
         print("WARNING: paw list contains None, skip writing PAW_FILES block")
     
@@ -1324,9 +1327,12 @@ def get_total_property(stru_data: Dict[str, Any],
     Returns:
         float: The total property.
     """
-    assert len(stru_data[prop]) == len(stru_data['atom_number'])
     result = []
-    for item, count in zip(stru_data[prop], stru_data['atom_number']):
-        result.extend([item] * count)
-    
-    return result
+    if len(stru_data[prop]) == 0:
+        return []
+    else:
+        assert len(stru_data[prop]) == len(stru_data['atom_number'])
+        for item, count in zip(stru_data[prop], stru_data['atom_number']):
+            result.extend([item] * count)
+
+        return result
