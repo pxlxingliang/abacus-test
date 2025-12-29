@@ -1248,9 +1248,7 @@ def write_stru_file(
         cc += "\nNUMERICAL_DESCRIPTOR\n"
         cc += dpks    
 
-    dirname = os.path.dirname(struf)
-    if dirname:
-        os.makedirs(dirname, exist_ok=True)
+    os.makedirs(os.path.dirname(struf), exist_ok=True)
     with open(struf,"w") as f1:
         f1.write(cc)
     
