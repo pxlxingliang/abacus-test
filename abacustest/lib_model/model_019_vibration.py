@@ -61,23 +61,9 @@ class VibrationModel(Model):
 
         folders = []
         for i, job_path in enumerate(params.job):
-            input_params = ReadInput(os.path.join(job_path, "INPUT"))
-            stru_file = input_params.get('stru_file', "STRU")
-            stru = AbacusStru.ReadStru(os.path.join(job_path, stru_file))
-            input_params['calculation'] = 'scf'
-            input_params['cal_force'] = 1
-
-            vib_work_path = os.path.join(job_path, "vib")
-
-            if os.path.exists(vib_work_path) and os.path.isdir(vib_work_path):
-                shutil.rmtree(vib_work_path) # Clear the existed job folder
-
-            disped_stru_job_paths = prepare_abacus_vibration_analysis(input_params,
-                                                                      stru,
-                                                                      work_path=os.path.join(job_path, "vib"),
-                                                                      abacus_inputs_dir=Path(job_path),
-                                                                      selected_atoms=params.index,
-                                                                      stepsize=params.stepsize)
+            disped_stru_job_paths = prepare_abacus_vibration_analysis(job_path,
+                                                                      params.index,
+                                                                      params.stepsize)
 
             folders.append(disped_stru_job_paths)
         
@@ -179,63 +165,70 @@ def copy_abacusjob(src_dir: str, dst_dir: str, input_file=True, stru=True, kpt=T
             target_out_dir = os.path.join(dst_dir, os.path.basename(out_dir_path))
             shutil.copytree(out_dir_path, target_out_dir, dirs_exist_ok=True)
 
-def prepare_abacus_vibration_analysis(input_params: Dict[str, Any],
-                                      stru: AbacusStru,
-                                      work_path: Path,
-                                      abacus_inputs_dir: Path,
+def prepare_abacus_vibration_analysis(job_path: Path,
                                       selected_atoms: List[int] = None,
-                                      stepsize: float = 0.01,
-):
-    """
-    Prepare ABACUS input files for vibrational analysis.
-    """
-    stru_file = input_params.get('stru_file', "STRU")
-    displaced_stru = copy.deepcopy(stru)
-    original_stru_coord = np.array(stru.get_coord(bohr=False, direct=False))
+                                      stepsize: float = 0.01):
+        """
+        Prepare ABACUS input files for vibrational analysis.
+        """
+        input_params = ReadInput(os.path.join(job_path, "INPUT"))
+        input_params['calculation'] = 'scf'
+        input_params['cal_force'] = 1
 
-    if selected_atoms is None:
-        selected_atoms = [i for i in range(stru.get_natoms())]
-    else:
-        selected_atoms = [i-1 for i in selected_atoms] # Use 0-based index
-        selected_atoms.sort()
+        stru_file = input_params.get('stru_file', "STRU")
+        stru = AbacusStru.ReadStru(os.path.join(job_path, stru_file))
+        displaced_stru = copy.deepcopy(stru)
+        original_stru_coord = np.array(stru.get_coord(bohr=False, direct=False))
+
+        if selected_atoms is None:
+            selected_atoms = [i for i in range(stru.get_natoms())]
+        else:
+            selected_atoms = [i-1 for i in selected_atoms] # Use 0-based index
+            selected_atoms.sort()
+        
+        vib_work_path = os.path.join(job_path, "vib")
+
+        if os.path.exists(vib_work_path) and os.path.isdir(vib_work_path):
+            shutil.rmtree(vib_work_path) # Clear the existed job folder
+        
+        DIRECTION_MAP = ['x', 'y', 'z']
+        STEP_MAP = {'+': 1, '-': -1}
+        vib_job_paths = []
+
+        # Prepare ABACUS input files for the given structure
+        abacus_scf_work_path = os.path.join(vib_work_path, "SCF")
+        original_stru_job_path = os.path.join(abacus_scf_work_path, "eq")
+        os.makedirs(original_stru_job_path)
+
+        copy_abacusjob(job_path, original_stru_job_path, input_file=False)
+        WriteInput(input_params, os.path.join(original_stru_job_path, "INPUT"))
+        vib_job_paths.append(original_stru_job_path)
+
+        # Dump selected atoms and stepsize info to a json file used in postprocess
+        prepare_params = {
+            "selected_atoms": selected_atoms,
+            "stepsize": stepsize
+        }
+        with open(os.path.join(original_stru_job_path, "prepare_params.json"), "w") as f:
+            json.dump(prepare_params, f, indent=2)
+
+        # Prepare ABACUS input files for each displaced structure. nfree is assumed to be 2.
+        for selected_atom in selected_atoms:
+            for direction in range(3): # x, y and z directions
+                displaced_stru_coord = copy.deepcopy(original_stru_coord)
+                for step in STEP_MAP.keys(): # Two steps along one direction
+                    disped_stru_job_path = os.path.join(abacus_scf_work_path, f"disp_{selected_atom+1}_{DIRECTION_MAP[direction]}{step}")
+                    copy_abacusjob(job_path, disped_stru_job_path, input_file=False, stru=False)
+
+                    displaced_stru_coord[selected_atom][direction] = original_stru_coord[selected_atom][direction] + stepsize * STEP_MAP[step]
+                    displaced_stru.set_coord(displaced_stru_coord, bohr=False, direct=False)
+                    WriteInput(input_params, os.path.join(disped_stru_job_path, "INPUT"))
+                    displaced_stru.write(os.path.join(disped_stru_job_path, stru_file))
+
+                    vib_job_paths.append(disped_stru_job_path)
+
+        return vib_job_paths
     
-    DIRECTION_MAP = ['x', 'y', 'z']
-    STEP_MAP = {'+': 1, '-': -1}
-    job_paths = []
-
-    # Prepare ABACUS input files for the given structure
-    abacus_scf_work_path = os.path.join(work_path, "SCF")
-    original_stru_job_path = os.path.join(abacus_scf_work_path, "eq")
-    os.makedirs(original_stru_job_path)
-
-    copy_abacusjob(abacus_inputs_dir, original_stru_job_path, input_file=False)
-    WriteInput(input_params, os.path.join(original_stru_job_path, "INPUT"))
-    job_paths.append(original_stru_job_path)
-
-    # Dump selected atoms and stepsize info to a json file used in postprocess
-    prepare_params = {
-        "selected_atoms": selected_atoms,
-        "stepsize": stepsize
-    }
-    with open(os.path.join(original_stru_job_path, "prepare_params.json"), "w") as f:
-        json.dump(prepare_params, f, indent=2)
-
-    # Prepare ABACUS input files for each displaced structure. nfree is assumed to be 2.
-    for selected_atom in selected_atoms:
-        for direction in range(3): # x, y and z directions
-            displaced_stru_coord = copy.deepcopy(original_stru_coord)
-            for step in STEP_MAP.keys(): # Two steps along one direction
-                disped_stru_job_path = os.path.join(abacus_scf_work_path, f"disp_{selected_atom+1}_{DIRECTION_MAP[direction]}{step}")
-                copy_abacusjob(abacus_inputs_dir, disped_stru_job_path, input_file=False, stru=False)
-
-                displaced_stru_coord[selected_atom][direction] = original_stru_coord[selected_atom][direction] + stepsize * STEP_MAP[step]
-                displaced_stru.set_coord(displaced_stru_coord, bohr=False, direct=False)
-                WriteInput(input_params, os.path.join(disped_stru_job_path, "INPUT"))
-                displaced_stru.write(os.path.join(disped_stru_job_path, stru_file))
-
-                job_paths.append(disped_stru_job_path)
-
-    return job_paths
 
 def identify_complex_types(complex_array):
     real_part = np.real(complex_array)
@@ -279,7 +272,7 @@ def dump_cache_forces_json(stru: AbacusSTRU,
         cache_forces_json["forces"]["__ndarray__"][2] = collect_force(disped_stru_job_path)
         disped_stru_job_basename = os.path.basename(disped_stru_job_path)
         if os.path.basename(disped_stru_job_path) == "eq":
-            cache_file = "eq"
+            cache_file = "cache.eq.json"
         else:
             # get filename from job path
             infos = disped_stru_job_basename.split("_")
