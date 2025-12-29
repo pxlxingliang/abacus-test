@@ -6,23 +6,16 @@ from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MA
 from typing import List, Dict, Any
 
 import shutil, glob, copy
-from abacustest.lib_collectdata.collectdata import RESULT
-from abacustest.lib_model.comm import clean_none_list
 import numpy as np
 from ase.vibrations import Vibrations
-from ase.calculators.abacus import Abacus, AbacusProfile
 from ase.thermochemistry import HarmonicThermo
-from ase.io.abacus import read_kpt
 from abacustest.lib_prepare.abacus import AbacusStru, ReadInput, WriteInput
 from abacustest.lib_prepare.stru import AbacusSTRU
-from abacustest.lib_model.comm import check_abacus_inputs
 from pathlib import Path
 import math
-from itertools import groupby
 import os
 import copy
 import json
-from ase.io import read
 
 
 class VibrationModel(Model):
@@ -143,6 +136,49 @@ class VibrationModel(Model):
         print("\nThe vibration analysis results are saved in 'metrics_vibration.json'")
 
 
+def copy_abacusjob(src_dir: str, dst_dir: str, input_file=True, stru=True, kpt=True, pp=True, orb=True, out_dir=False, link_pp_orb=True):
+    """
+    Copy ABACUS job files from src_dir to dst_dir.
+    """
+    os.makedirs(dst_dir, exist_ok=True)
+    input_params = ReadInput(os.path.join(src_dir, "INPUT"))
+    if input_file:
+        shutil.copy2(os.path.join(src_dir, "INPUT"), os.path.join(dst_dir, "INPUT"))
+    if stru:
+        stru_file = input_params.get('stru_file', "STRU")
+        shutil.copy2(os.path.join(src_dir, stru_file), os.path.join(dst_dir, stru_file))
+    if kpt:
+        kpt_file = input_params.get('kpt_file', "KPT")
+        try:
+            shutil.copy2(os.path.join(src_dir, kpt_file), os.path.join(dst_dir, kpt_file))
+        except FileNotFoundError:
+            pass
+    if pp:
+        if link_pp_orb:
+            pp_files = glob.glob(os.path.join(src_dir, "*.upf")) + glob.glob(os.path.join(src_dir, "*.UPF"))
+            for pp_file in pp_files:
+                dst_path = os.path.join(dst_dir, os.path.basename(pp_file))
+                if os.path.islink(dst_path) or os.path.exists(dst_path):
+                    os.remove(dst_path)
+                os.symlink(os.path.abspath(pp_file), dst_path)
+        else:
+            pp_files = glob.glob(os.path.join(src_dir, "*.upf")) + glob.glob(os.path.join(src_dir, "*.UPF"))
+            for pp_file in pp_files:
+                shutil.copy2(pp_file, os.path.join(dst_dir, os.path.basename(pp_file)))
+    if orb:
+        if link_pp_orb:
+            orb_files = glob.glob(os.path.join(src_dir, "*.orb"))
+            for orb_file in orb_files:
+                dst_path = os.path.join(dst_dir, os.path.basename(orb_file))
+                if os.path.islink(dst_path) or os.path.exists(dst_path):
+                    os.remove(dst_path)
+                os.symlink(os.path.abspath(orb_file), dst_path)
+    if out_dir:
+        out_dir_path = os.path.join(src_dir, f"OUT.{input_params.get('suffix', 'ABACUS')}")
+        if os.path.exists(out_dir_path) and os.path.isdir(out_dir_path):
+            target_out_dir = os.path.join(dst_dir, os.path.basename(out_dir_path))
+            shutil.copytree(out_dir_path, target_out_dir, dirs_exist_ok=True)
+
 def prepare_abacus_vibration_analysis(input_params: Dict[str, Any],
                                       stru: AbacusStru,
                                       work_path: Path,
@@ -165,33 +201,16 @@ def prepare_abacus_vibration_analysis(input_params: Dict[str, Any],
     
     DIRECTION_MAP = ['x', 'y', 'z']
     STEP_MAP = {'+': 1, '-': -1}
-    disped_stru_job_paths = []
+    job_paths = []
 
     # Prepare ABACUS input files for the given structure
     abacus_scf_work_path = os.path.join(work_path, "SCF")
     original_stru_job_path = os.path.join(abacus_scf_work_path, "eq")
     os.makedirs(original_stru_job_path)
 
-    files = [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "*.upf"))] + \
-            [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "*.UPF"))] + \
-            [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "*.orb"))] + \
-            [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "INPUT"))] + \
-            [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "STRU"))] + \
-            [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "KPT"))]
-
-    os.makedirs(original_stru_job_path, exist_ok=True)
-    for f in files:
-        if f.endswith(".upf") or f.endswith(".UPF") or f.endswith(".orb"):
-            src_path = Path(os.path.join(abacus_inputs_dir, f)).absolute()
-            dst_path = os.path.join(original_stru_job_path, f)
-            if os.path.islink(dst_path) or os.path.exists(dst_path):
-                os.remove(dst_path)
-            os.symlink(src_path, dst_path)
-        else:
-            shutil.copy2(os.path.join(abacus_inputs_dir, f), os.path.join(original_stru_job_path, f))
-
+    copy_abacusjob(abacus_inputs_dir, original_stru_job_path, input_file=False)
     WriteInput(input_params, os.path.join(original_stru_job_path, "INPUT"))
-    disped_stru_job_paths.append(original_stru_job_path)
+    job_paths.append(original_stru_job_path)
 
     # Dump selected atoms and stepsize info to a json file used in postprocess
     prepare_params = {
@@ -207,34 +226,16 @@ def prepare_abacus_vibration_analysis(input_params: Dict[str, Any],
             displaced_stru_coord = copy.deepcopy(original_stru_coord)
             for step in STEP_MAP.keys(): # Two steps along one direction
                 disped_stru_job_path = os.path.join(abacus_scf_work_path, f"disp_{selected_atom+1}_{DIRECTION_MAP[direction]}{step}")
-                os.makedirs(disped_stru_job_path)
-
-                files = [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "*.upf"))] + \
-                        [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "*.UPF"))] + \
-                        [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "*.orb"))] + \
-                        [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "INPUT"))] + \
-                        [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "STRU"))] + \
-                        [os.path.basename(f) for f in glob.glob(os.path.join(abacus_inputs_dir, "KPT"))]
-            
-                os.makedirs(disped_stru_job_path, exist_ok=True)
-                for f in files:
-                    if f.endswith(".upf") or f.endswith(".UPF") or f.endswith(".orb"):
-                        src_path = Path(os.path.join(abacus_inputs_dir, f)).absolute()
-                        dst_path = os.path.join(disped_stru_job_path, f)
-                        if os.path.islink(dst_path) or os.path.exists(dst_path):
-                            os.remove(dst_path)
-                        os.symlink(src_path, dst_path)
-                    else:
-                        shutil.copy2(os.path.join(abacus_inputs_dir, f), os.path.join(disped_stru_job_path, f))
+                copy_abacusjob(abacus_inputs_dir, disped_stru_job_path, input_file=False, stru=False)
 
                 displaced_stru_coord[selected_atom][direction] = original_stru_coord[selected_atom][direction] + stepsize * STEP_MAP[step]
                 displaced_stru.set_coord(displaced_stru_coord, bohr=False, direct=False)
                 WriteInput(input_params, os.path.join(disped_stru_job_path, "INPUT"))
                 displaced_stru.write(os.path.join(disped_stru_job_path, stru_file))
 
-                disped_stru_job_paths.append(disped_stru_job_path)
+                job_paths.append(disped_stru_job_path)
 
-    return disped_stru_job_paths
+    return job_paths
 
 def identify_complex_types(complex_array):
     real_part = np.real(complex_array)
@@ -265,7 +266,7 @@ def dump_cache_forces_json(stru: AbacusSTRU,
                            disped_stru_job_paths: List[str]
 ):
     """
-    Dump cache forces json files for ase.vibration module.
+    Dump cache forces json files for ase.vibration module needed.
     """
     vib_cache_dir = os.path.join(work_dir, "vib/cache")
     os.makedirs(vib_cache_dir, exist_ok=True)
@@ -325,9 +326,9 @@ def post_abacus_vibration_analysis_onejob(work_dir: Path,
     # Thermochemistry calculations
     # Vibrations.get_energies() gets `h \nu` for each mode, which is from the eigenvalues of force constant
     # matrix. The force constant matrix should be a real symmetric matrix mathematically, but due to numerical
-    # errors during calculating its matrix element, it will deviate from symmetric matric slightly, and its eigenvalue
-    # will have quite small imaginary parts. Magnitude of imaginary parts will decrease as the calculation accuracy
-    # increases, and it's safe to use norm of the complex eigenvalue as vibration energy if the calculation is 
+    # errors during calculating its matrix element, it will deviate from symmetric matrix slightly, and its eigenvalue
+    # will have quite small imaginary parts. Magnitude of imaginary parts will decrease as accuracy of force
+    # increases, and it's safe to use norm of the complex eigenvalue as vibration energy if force is 
     # accurate enough.
     vib_energies = vib.get_energies()
     vib_energies_float = [float(np.linalg.norm(i)) for i in vib_energies]
