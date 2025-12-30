@@ -494,7 +494,17 @@ class AbacusSTRU:
             else:
                 raise KeyError(f"PAW for {key_type}: {key} not found in provided dictionary.")
     
-    
+    def set_coords(self, coords: List[Tuple[float,float,float]], direct: bool=False):
+        """
+        Set coordinates of all atoms using given coordinates.
+        Args:
+            coords (List[Tuple[float,float,float]]): List of coordinates for each atom. If direct is False, the unit of coordinates is Angstrom.
+            direct (bool): Whether the coordinates are in direct or cartesian coordinates. Default is False.
+        """
+        if direct:
+            coords = Direct2Cartesian(coords, self.cell)
+        for i in range(len(self._atoms)):
+            self._atoms[i].coord = coords[i]
 
     @staticmethod
     def read(filename: str, fmt: Literal["stru", "abacus/stru", "poscar","vasp", "cif"]="stru") -> "AbacusSTRU":
