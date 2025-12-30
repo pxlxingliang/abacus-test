@@ -10,6 +10,7 @@ from ase.vibrations import Vibrations
 from ase.thermochemistry import HarmonicThermo
 
 from abacustest.lib_prepare.abacus import WriteInput, ReadInput, AbacusStru
+from abacustest.lib_model.comm import copy_abacusjob
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 
@@ -37,7 +38,7 @@ class VibrationModel(Model):
         parser.description = "Prepare the inputs for vibration frequency calculation."
         parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of ABACUS jobs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
         parser.add_argument('-s', "--stepsize", default=0.01, type=float, help="The step size for finite difference calculation, default is 0.01 Angstrom, which should be a small positive value.")
-        parser.add_argument('-i', "--index", default=None, nargs="*", type=int, help="The indices of atoms to calculate the vibration frequency, starts from 1. You can specify multiple indices separated by space.")
+        parser.add_argument('-i', "--index", default=None, nargs="*", type=int, help="The indices of atoms to calculate the vibration frequency, starts from 1. You can specify multiple indices separated by space. If not specified, all atoms will be considered.")
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
         parser.add_argument("--machine", type=str, default=RECOMMAND_MACHINE, help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.")
         parser.add_argument("--abacus_command", type=str, default=RECOMMAND_COMMAND, help=f"The command to run the Abacus job, default is '{RECOMMAND_COMMAND}'.")
@@ -62,19 +63,12 @@ class VibrationModel(Model):
 
             folders.append(disped_stru_job_paths)
         
-        run_sh = f"""#!/bin/bash
-{params.abacus_command}
-"""        
-        with open("run.sh", "w") as f1:
-            f1.write(run_sh)
-
         setting = {
             "save_path": "results",
             "run_dft": [{
                 "ifrun": True,
                 "example": folders,
-                "extra_files":["run.sh"],
-                "command": "bash run.sh",
+                "command": f"{params.abacus_command}",
                 "image": params.image,
                 "bohrium": {
                     "scass_type": params.machine,
@@ -116,49 +110,6 @@ class VibrationModel(Model):
         json.dump(results, open("metrics_vibration.json", "w"), indent=4)
         print("\nThe vibration analysis results are saved in 'metrics_vibration.json'")
 
-
-def copy_abacusjob(src_dir: str, dst_dir: str, input_file=True, stru=True, kpt=True, pp=True, orb=True, out_dir=False, link_pp_orb=True):
-    """
-    Copy ABACUS job files from src_dir to dst_dir.
-    """
-    os.makedirs(dst_dir, exist_ok=True)
-    input_params = ReadInput(os.path.join(src_dir, "INPUT"))
-    if input_file:
-        shutil.copy2(os.path.join(src_dir, "INPUT"), os.path.join(dst_dir, "INPUT"))
-    if stru:
-        stru_file = input_params.get('stru_file', "STRU")
-        shutil.copy2(os.path.join(src_dir, stru_file), os.path.join(dst_dir, stru_file))
-    if kpt:
-        kpt_file = input_params.get('kpt_file', "KPT")
-        try:
-            shutil.copy2(os.path.join(src_dir, kpt_file), os.path.join(dst_dir, kpt_file))
-        except FileNotFoundError:
-            pass
-    if pp:
-        if link_pp_orb:
-            pp_files = glob.glob(os.path.join(src_dir, "*.upf")) + glob.glob(os.path.join(src_dir, "*.UPF"))
-            for pp_file in pp_files:
-                dst_path = os.path.join(dst_dir, os.path.basename(pp_file))
-                if os.path.islink(dst_path) or os.path.exists(dst_path):
-                    os.remove(dst_path)
-                os.symlink(os.path.abspath(pp_file), dst_path)
-        else:
-            pp_files = glob.glob(os.path.join(src_dir, "*.upf")) + glob.glob(os.path.join(src_dir, "*.UPF"))
-            for pp_file in pp_files:
-                shutil.copy2(pp_file, os.path.join(dst_dir, os.path.basename(pp_file)))
-    if orb:
-        if link_pp_orb:
-            orb_files = glob.glob(os.path.join(src_dir, "*.orb"))
-            for orb_file in orb_files:
-                dst_path = os.path.join(dst_dir, os.path.basename(orb_file))
-                if os.path.islink(dst_path) or os.path.exists(dst_path):
-                    os.remove(dst_path)
-                os.symlink(os.path.abspath(orb_file), dst_path)
-    if out_dir:
-        out_dir_path = os.path.join(src_dir, f"OUT.{input_params.get('suffix', 'ABACUS')}")
-        if os.path.exists(out_dir_path) and os.path.isdir(out_dir_path):
-            target_out_dir = os.path.join(dst_dir, os.path.basename(out_dir_path))
-            shutil.copytree(out_dir_path, target_out_dir, dirs_exist_ok=True)
 
 def prepare_abacus_vibration_analysis(job_path: Path,
                                       selected_atoms: List[int] = None,

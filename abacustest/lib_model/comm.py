@@ -785,3 +785,46 @@ def data2dpdata(lattice, coords, atom_types):
         "cells": np.array([lattice]),
         "coords": np.array([coords])
     })
+
+def copy_abacusjob(src_dir: str, dst_dir: str, input_file=True, stru=True, kpt=True, pp=True, orb=True, out_dir=False, link_pp_orb=True):
+    """
+    Copy ABACUS job files from src_dir to dst_dir.
+    """
+    os.makedirs(dst_dir, exist_ok=True)
+    input_params = ReadInput(os.path.join(src_dir, "INPUT"))
+    if input_file:
+        shutil.copy2(os.path.join(src_dir, "INPUT"), os.path.join(dst_dir, "INPUT"))
+    if stru:
+        stru_file = input_params.get('stru_file', "STRU")
+        shutil.copy2(os.path.join(src_dir, stru_file), os.path.join(dst_dir, stru_file))
+    if kpt:
+        kpt_file = input_params.get('kpt_file', "KPT")
+        try:
+            shutil.copy2(os.path.join(src_dir, kpt_file), os.path.join(dst_dir, kpt_file))
+        except FileNotFoundError:
+            pass
+    if pp:
+        if link_pp_orb:
+            pp_files = glob.glob(os.path.join(src_dir, "*.upf")) + glob.glob(os.path.join(src_dir, "*.UPF"))
+            for pp_file in pp_files:
+                dst_path = os.path.join(dst_dir, os.path.basename(pp_file))
+                if os.path.islink(dst_path) or os.path.exists(dst_path):
+                    os.remove(dst_path)
+                os.symlink(os.path.abspath(pp_file), dst_path)
+        else:
+            pp_files = glob.glob(os.path.join(src_dir, "*.upf")) + glob.glob(os.path.join(src_dir, "*.UPF"))
+            for pp_file in pp_files:
+                shutil.copy2(pp_file, os.path.join(dst_dir, os.path.basename(pp_file)))
+    if orb:
+        if link_pp_orb:
+            orb_files = glob.glob(os.path.join(src_dir, "*.orb"))
+            for orb_file in orb_files:
+                dst_path = os.path.join(dst_dir, os.path.basename(orb_file))
+                if os.path.islink(dst_path) or os.path.exists(dst_path):
+                    os.remove(dst_path)
+                os.symlink(os.path.abspath(orb_file), dst_path)
+    if out_dir:
+        out_dir_path = os.path.join(src_dir, f"OUT.{input_params.get('suffix', 'ABACUS')}")
+        if os.path.exists(out_dir_path) and os.path.isdir(out_dir_path):
+            target_out_dir = os.path.join(dst_dir, os.path.basename(out_dir_path))
+            shutil.copytree(out_dir_path, target_out_dir, dirs_exist_ok=True)
