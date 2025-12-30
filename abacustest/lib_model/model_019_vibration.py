@@ -3,13 +3,13 @@ import json, os
 import math
 import shutil, glob, copy
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 from ase.vibrations import Vibrations
 from ase.thermochemistry import HarmonicThermo
 
-from abacustest.lib_prepare.abacus import WriteInput, ReadInput, AbacusStru
+from abacustest.lib_prepare.abacus import WriteInput, ReadInput
 from abacustest.lib_model.comm import copy_abacusjob
 from abacustest.lib_prepare.stru import AbacusSTRU
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
@@ -128,7 +128,7 @@ def prepare_abacus_vibration_analysis(job_path: Path,
         original_stru_coord = np.array(stru.coords)
 
         if selected_atoms is None:
-            selected_atoms = [i for i in range(stru.get_natoms())]
+            selected_atoms = [i for i in range(stru.natoms)]
         else:
             selected_atoms = [i-1 for i in selected_atoms] # Use 0-based index
             selected_atoms.sort()
@@ -167,7 +167,7 @@ def prepare_abacus_vibration_analysis(job_path: Path,
                     copy_abacusjob(job_path, disped_stru_job_path, input_file=False, stru=False)
 
                     displaced_stru_coord[selected_atom][dire_idx] = original_stru_coord[selected_atom][dire_idx] + stepsize * STEP_MAP[step]
-                    displaced_stru.set_coord(displaced_stru_coord, bohr=False, direct=False)
+                    displaced_stru.set_coords(displaced_stru_coord, direct=False)
                     WriteInput(input_params, os.path.join(disped_stru_job_path, "INPUT"))
                     displaced_stru.write(os.path.join(disped_stru_job_path, stru_file))
 
@@ -242,7 +242,7 @@ def post_abacus_vibration_analysis_onejob(work_dir: Path,
     disped_stru_job_paths = glob.glob(os.path.join(work_dir, "vib/SCF/*"))
     vib_cache_dir = dump_cache_forces_json(stru, work_dir, disped_stru_job_paths)
     
-    vib = Vibrations(stru.to_ase(),
+    vib = Vibrations(stru.to(fmt='ase'),
                      name=vib_cache_dir,
                      indices=prepare_params['selected_atoms'],
                      delta=prepare_params['stepsize'],
