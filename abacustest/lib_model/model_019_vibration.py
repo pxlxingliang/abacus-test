@@ -106,7 +106,7 @@ class VibrationModel(Model):
             raise ValueError("No job specified, please use -j or --job to specify the job paths.")
         
         if len(params.temperature) == 1:
-            temperature = params.temperature[0]
+            temperature = [params.temperature[0]]
         elif len(params.temperature) == 3:
             t_start, t_end, t_num = params.temperature
             t_num = int(t_num)
@@ -179,7 +179,7 @@ def prepare_abacus_vibration_analysis(job_path: Path,
                     copy_abacusjob(job_path, disped_stru_job_path, input_file=False, stru=False)
 
                     displaced_stru_coord[selected_atom][dire_idx] = original_stru_coord[selected_atom][dire_idx] + stepsize * STEP_MAP[step]
-                    displaced_stru.set_coords(displaced_stru_coord, direct=False)
+                    displaced_stru.coords = displaced_stru_coord
                     WriteInput(input_params, os.path.join(disped_stru_job_path, "INPUT"))
                     displaced_stru.write(os.path.join(disped_stru_job_path, stru_file))
 
@@ -241,7 +241,7 @@ def dump_cache_forces_json(stru: AbacusSTRU,
     return vib_cache_dir
 
 def post_abacus_vibration_analysis_onejob(work_dir: Path,
-                                          temperature: float = 298.15):
+                                          temperature: List[float] = [298.15]):
     """
     Post-process ABACUS vibration analysis results for one job.
     """
@@ -284,23 +284,14 @@ def post_abacus_vibration_analysis_onejob(work_dir: Path,
     vib_energies_float = [float(np.linalg.norm(i)) for i in vib_energies]
     zero_point_energy = sum(vib_energies_float) / 2
     thermo = HarmonicThermo(vib_energies, ignore_imag_modes=True)
-    
-    if isinstance(temperature, float):
-        entropy = thermo.get_entropy(temperature)
-        free_energy = thermo.get_helmholtz_energy(temperature)
 
-        return {'frequencies': freqs,
-                'zero_point_energy': float(zero_point_energy),
-                'vib_entropy': float(entropy),
-                'vib_free_energy': float(free_energy)}
-    else:
-        thermo_corr = {}
-        for t in temperature:
-            entropy = thermo.get_entropy(t)
-            free_energy = thermo.get_helmholtz_energy(t)
-            thermo_corr[f'{t}K'] = {'entropy': float(entropy),
-                                    'free_energy': float(free_energy)}
-        
-        return {'frequencies': freqs,
-                'zero_point_energy': float(zero_point_energy),
-                'thermo_corr': thermo_corr}
+    thermo_corr = {}
+    for t in temperature:
+        entropy = thermo.get_entropy(t)
+        free_energy = thermo.get_helmholtz_energy(t)
+        thermo_corr[f'{t}K'] = {'entropy': float(entropy),
+                                'free_energy': float(free_energy)}
+    
+    return {'frequencies': freqs,
+            'zero_point_energy': float(zero_point_energy),
+            'thermo_corr': thermo_corr}
