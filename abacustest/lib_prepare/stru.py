@@ -832,7 +832,7 @@ class AbacusSTRU:
         """
         for i in range(self.natoms):
             if cartesian:
-                if self.coords_angs[i][direction] >= min and self.coords_angs[i][direction] <= max:
+                if self.coords[i][direction] >= min and self.coords[i][direction] <= max:
                     self._atoms[i].move = move
                 elif only:
                     self._atoms[i].move = (True, True, True)
