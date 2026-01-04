@@ -643,11 +643,11 @@ class AbacusSTRU:
     
     @staticmethod
     def from_ase(ase_stru,
-                 meta_data: Dict[str, Any] = {}) -> "AbacusSTRU":
+                 metadata: Dict[str, Any] = {}) -> "AbacusSTRU":
         """Create an AbacusSTRU object from an ASE Atoms object.
         Args:
             ase_stru: ASE Atoms object.
-            meta_data (Dict[str, Any], optional): Additional metadata for the AbacusSTRU object. Default is an empty dictionary.
+            metadata (Dict[str, Any], optional): Additional metadata for the AbacusSTRU object. Default is an empty dictionary.
         Returns:
             AbacusSTRU: An AbacusSTRU object representing the structure.
         """
@@ -655,7 +655,7 @@ class AbacusSTRU:
         assert isinstance(ase_stru, Atoms), "Input structure must be an ASE Atoms object."
         cell = ase_stru.get_cell().tolist()
         atom_list = []
-        mags = ase_stru.get_magnetic_moments() if ase_stru.has_magnetic_moments() else [None]*len(ase_stru)
+        mags = ase_stru.arrays["initial_magmoms"] if "initial_magmoms" in ase_stru.arrays.keys() else [None]*len(ase_stru)
         for i in range(len(ase_stru)):
             atom = AbacusATOM(
                 label=ase_stru[i].symbol,
@@ -671,7 +671,7 @@ class AbacusSTRU:
             )
             atom_list.append(atom)
 
-        return AbacusSTRU(cell=cell, atom_list=atom_list, meta_data=meta_data)
+        return AbacusSTRU(cell=cell, atoms=atom_list, metadata=metadata)
 
     @staticmethod
     def from_pymatgen(pymatgen_stru,
