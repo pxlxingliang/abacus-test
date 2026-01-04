@@ -454,7 +454,7 @@ class AbacusSTRU:
         cart_coords = Direct2Cartesian(value, self.cell)
         for i in range(self.natoms):
             self._atoms[i].coord = cart_coords[i]
-    
+
     def set_pp(self, pp_dict: Dict[str, str], key_type:Literal["element","label"]="element"):
         """Set pseudopotential file names for atoms based on a provided dictionary.
 
@@ -505,6 +505,36 @@ class AbacusSTRU:
             coords = Direct2Cartesian(coords, self.cell)
         for i in range(len(self._atoms)):
             self._atoms[i].coord = coords[i]
+    
+    def pp_dict(self):
+        """
+        Get dict of pps
+        """
+        pps = {}
+        for atom in self._atoms:
+            if atom.label not in pps.keys():
+                pps[atom.label] = atom.pp
+        return pps
+    
+    def orb_dict(self):
+        """
+        Get dict of orbs
+        """
+        orbs = {}
+        for atom in self._atoms:
+            if atom.label not in orbs.keys():
+                orbs[atom.label] = atom.orb
+        return orbs
+    
+    def paw_dict(self):
+        """
+        Get dict od paws
+        """
+        paws = {}
+        for atom in self._atoms:
+            if atom.label not in paws.keys():
+                paws[atom.label] = atom.paw
+        return paws
 
     @staticmethod
     def read(filename: str, fmt: Literal["stru", "abacus/stru", "poscar","vasp", "cif"]="stru") -> "AbacusSTRU":
