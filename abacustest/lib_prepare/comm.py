@@ -156,7 +156,7 @@ def kspacing2kpt(kspacing, cell):
     """
     Convert kspacing to kpt.
     """
-    if isinstance(kspacing, float):
+    if isinstance(kspacing, (float,int)):
         kspacing = [kspacing, kspacing, kspacing]
     elif isinstance(kspacing, str):
         a = kspacing.split()
