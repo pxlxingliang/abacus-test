@@ -454,7 +454,7 @@ class AbacusSTRU:
         cart_coords = Direct2Cartesian(value, self.cell)
         for i in range(self.natoms):
             self._atoms[i].coord = cart_coords[i]
-    
+
     def set_pp(self, pp_dict: Dict[str, str], key_type:Literal["element","label"]="element"):
         """Set pseudopotential file names for atoms based on a provided dictionary.
 
@@ -505,6 +505,36 @@ class AbacusSTRU:
             coords = Direct2Cartesian(coords, self.cell)
         for i in range(len(self._atoms)):
             self._atoms[i].coord = coords[i]
+    
+    def pp_dict(self):
+        """
+        Get dict of pps
+        """
+        pps = {}
+        for atom in self._atoms:
+            if atom.label not in pps.keys():
+                pps[atom.label] = atom.pp
+        return pps
+    
+    def orb_dict(self):
+        """
+        Get dict of orbs
+        """
+        orbs = {}
+        for atom in self._atoms:
+            if atom.label not in orbs.keys():
+                orbs[atom.label] = atom.orb
+        return orbs
+    
+    def paw_dict(self):
+        """
+        Get dict od paws
+        """
+        paws = {}
+        for atom in self._atoms:
+            if atom.label not in paws.keys():
+                paws[atom.label] = atom.paw
+        return paws
 
     @staticmethod
     def read(filename: str, fmt: Literal["stru", "abacus/stru", "poscar","vasp", "cif"]="stru") -> "AbacusSTRU":
@@ -569,7 +599,7 @@ class AbacusSTRU:
                     atom_type = "cartesian"
     
             ase_stru = ase_read(filename, format=fmt)
-            return AbacusSTRU.from_ase(ase_stru, meta_data={
+            return AbacusSTRU.from_ase(ase_stru, metadata={
                 "lattice_constant": A2BOHR,
                 "atom_type": atom_type,
             })
@@ -645,6 +675,8 @@ class AbacusSTRU:
     def from_ase(ase_stru,
                  metadata: Dict[str, Any] = {}) -> "AbacusSTRU":
         """Create an AbacusSTRU object from an ASE Atoms object.
+        pps, orbs and paws in the obtained AbacusSTRU object will be from ase_stru.info, which should be a dictionary with keys "pp", "orb", "paw".
+        ase_stru.info['pp'] should be a dictionary with keys being element symbols and values being the pp file. "orb" abd "paw" should also be given as "pp".
         Args:
             ase_stru: ASE Atoms object.
             metadata (Dict[str, Any], optional): Additional metadata for the AbacusSTRU object. Default is an empty dictionary.
@@ -657,6 +689,17 @@ class AbacusSTRU:
         atom_list = []
         mags = ase_stru.arrays["initial_magmoms"] if "initial_magmoms" in ase_stru.arrays.keys() else [None]*len(ase_stru)
         for i in range(len(ase_stru)):
+            atom_move = (True, True, True)
+            # Get atom coordinate fix from constraints
+            for constraint in ase_stru.constraints:
+                const_type = type(constraint).__name__
+                if const_type == "FixAtoms":
+                    if i in constraint.index:
+                        atom_move = (False, False, False)
+                elif const_type in ["FixCartesian", "FixScaled"]:
+                    if i in constraint.index:
+                        atom_move = constraint.mask
+
             atom = AbacusATOM(
                 label=ase_stru[i].symbol,
                 coord=tuple(ase_stru[i].position.tolist()),
@@ -665,8 +708,8 @@ class AbacusSTRU:
                 pp=ase_stru.info.get("pp", {}).get(ase_stru[i].symbol, None),
                 orb=ase_stru.info.get("orb", {}).get(ase_stru[i].symbol, None),
                 paw=ase_stru.info.get("paw", {}).get(ase_stru[i].symbol, None),
-                type_mag= 0.0 if mags[i] is None else mags[i],
-                move=(True, True, True),
+                type_mag=0.0,
+                move=atom_move,
                 mag= mags[i],
             )
             atom_list.append(atom)
@@ -782,7 +825,7 @@ class AbacusSTRU:
         if fmt == "ase":
             from ase import Atoms
             return Atoms(symbols=elements, positions=self.coords, cell=self.cell, pbc=True, magmoms=self.atom_mags,
-                          info={"pp": self.pps,"orb": self.orbs,"paw": self.paws,"dpks": self.dpks})
+                          info={"pp": self.pp_dict(),"orb": self.orb_dict(),"paw": self.paw_dict(),"dpks": self.dpks})
         elif fmt == "pymatgen":
             from pymatgen.core import Structure
             return Structure(lattice=self.cell, species=elements, coords=self.coords, coords_are_cartesian=True,labels=self.labels,)
@@ -1258,7 +1301,7 @@ def write_stru_file(
         cc += "\nNUMERICAL_DESCRIPTOR\n"
         cc += dpks    
 
-    os.makedirs(os.path.dirname(struf), exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(struf)), exist_ok=True)
     with open(struf,"w") as f1:
         f1.write(cc)
     
