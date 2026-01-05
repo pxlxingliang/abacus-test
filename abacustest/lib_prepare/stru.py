@@ -145,7 +145,7 @@ class AbacusATOM(BaseModel):
         c += f"Real atomic mag/magnitude: {self.atommag} / {self.atommag_magnitude}\n"
         return c
 
-    def _permute_axis(self, mode: Literal["bca", "cab"]):
+    def _permute_coord(self, mode: Literal["bca", "cab"]):
         """
         Update properties including coord, mag (for non-collinear case) and velocity of an atom during permuting axis.
         """
@@ -158,7 +158,7 @@ class AbacusATOM(BaseModel):
         
         # permute coord
         self.coord = np.dot(trans_mat, np.array(self.coord))
-
+        
         # permute velocity
         if self.velocity is not None:
             self.velocity = np.dot(trans_mat, np.array(self.velocity))
@@ -930,7 +930,7 @@ class AbacusSTRU:
         if mode == "bca":
             trans_mat = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
         elif mode == "cab":
-            trans_mat = np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]])
+            trans_mat = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
         else:
             raise ValueError(f"Invalid mode: {mode}")
         
