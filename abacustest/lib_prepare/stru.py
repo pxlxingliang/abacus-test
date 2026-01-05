@@ -145,6 +145,40 @@ class AbacusATOM(BaseModel):
         c += f"Real atomic mag/magnitude: {self.atommag} / {self.atommag_magnitude}\n"
         return c
 
+    def _permute_axis(self, mode: Literal["bca", "cab"]):
+        """
+        Update properties including coord, mag (for non-collinear case) and velocity of an atom during permuting axis.
+        """
+        if mode == "bca":
+            trans_mat = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
+        elif mode == "cab":
+            trans_mat = np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]])
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
+        
+        # permute coord
+        self.coord = np.dot(trans_mat, np.array(self.coord))
+
+        # permute velocity
+        if self.velocity is not None:
+            self.velocity = np.dot(trans_mat, np.array(self.velocity))
+        
+        # permute move
+        if mode == "bca":
+            self.move = (self.move[1], self.move[2], self.move[0])
+        elif mode == "cab":
+            self.move = (self.move[2], self.move[0], self.move[1])
+        
+        # permute non-collinear mag
+        if self.angle1 is not None and self.angle2 is not None:
+            if mode == "bca":
+                self.angle1 = np.arccos(np.sin(self.angle1) * np.cos(self.angle2))
+                self.angle2 = np.arctan2(np.cos(self.angle1), np.sin(self.angle1) * np.sin(self.angle2))
+            elif mode == "cab":
+                self.angle1 = np.arccos(np.sin(self.angle1) * np.sin(self.angle2))
+                self.angle2 = np.arctan2(np.sin(self.angle1) * np.cos(self.angle2), np.cos(self.angle1))
+
+        
     @property
     def atomtype(self) -> AbacusAtomType:
         """Get the AbacusAtomType object for this atom."""
@@ -884,7 +918,25 @@ class AbacusSTRU:
                     self._atoms[i].move = move
                 elif only:
                     self._atoms[i].move = (True, True, True)
+    
+    def permute_axis(self, mode=Literal["bca", "cab"]):
+        """
+        Permute the axis of the structure.
+        Properties including cell, coords, velocity and atom mag (non-collinear case) will also be updated.
 
+        Args:
+            mode (str): The mode of permuting axis. Can be "bca" or "cab", which means transform from "abc" to "bca" or "cab".
+        """
+        if mode == "bca":
+            trans_mat = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
+        elif mode == "cab":
+            trans_mat = np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]])
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
+        
+        self.cell = np.dot(trans_mat, self.cell)
+        for i in range(len(self._atoms)):
+            self._atoms[i]._permute_axis(mode=mode)
 
 
 def parse_stru_position(pos_line):
