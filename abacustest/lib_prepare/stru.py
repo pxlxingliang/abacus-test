@@ -145,40 +145,17 @@ class AbacusATOM(BaseModel):
         c += f"Real atomic mag/magnitude: {self.atommag} / {self.atommag_magnitude}\n"
         return c
 
-    def _permute_coord(self, mode=Literal["yzx", "zxy"]):
+    def _rotate_cart_coord(self, rot_mat: np.ndarray):
         """
-        Update properties including coord, mag (for non-collinear case) and velocity of an atom during permuting axis.
+        Rotate the cartesian coordinates of an atom. Related properties, including velocity will be updated.
         """
-        if mode == "yzx":
-            trans_mat = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
-        elif mode == "zxy":
-            trans_mat = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
-        else:
-            raise ValueError(f"Invalid mode: {mode}")
-        
-        # permute coord
-        self.coord = np.dot(np.array(self.coord).T, trans_mat)
-        
-        # permute velocity
-        if self.velocity is not None:
-            self.velocity = np.dot(np.array(self.velocity), trans_mat)
-        
-        # permute move
-        if mode == "yzx":
-            self.move = (self.move[1], self.move[2], self.move[0])
-        elif mode == "zxy":
-            self.move = (self.move[2], self.move[0], self.move[1])
-        
-        # permute non-collinear mag
-        if self.angle1 is not None and self.angle2 is not None:
-            if mode == "yzx":
-                self.angle1 = np.arccos(np.sin(self.angle1) * np.cos(self.angle2))
-                self.angle2 = np.arctan2(np.cos(self.angle1), np.sin(self.angle1) * np.sin(self.angle2))
-            elif mode == "zxy":
-                self.angle1 = np.arccos(np.sin(self.angle1) * np.sin(self.angle2))
-                self.angle2 = np.arctan2(np.sin(self.angle1) * np.cos(self.angle2), np.cos(self.angle1))
+        # Rotate cartesian coordinate
+        self.coord = tuple(np.dot(rot_mat, np.array(self.coord)))
 
-        
+        # Rotate velocity
+        if self.velocity is not None:
+            self.velocity = tuple(np.dot(rot_mat, np.array(self.velocity)))
+
     @property
     def atomtype(self) -> AbacusAtomType:
         """Get the AbacusAtomType object for this atom."""
@@ -871,6 +848,12 @@ class AbacusSTRU:
                             magnetic_moments=self.atom_mags)
         else:
             raise ValueError(f"Unsupported format: {fmt}")
+    
+    def rotate(self, rot_mat):
+        # rotate the cell using given rotation matric
+        self.cell = np.dot(rot_mat, np.array(self.cell).T).T.tolist()
+        for i in range(len(self._atoms)):
+            self._atoms[i]._rotate_cart_coord(rot_mat)
 
     def fix_atom_by_index(self, indices: List[int],
                           move: Optional[Tuple[bool, bool, bool]] = (False, False, False),
@@ -919,11 +902,11 @@ class AbacusSTRU:
                 elif only:
                     self._atoms[i].move = (True, True, True)
     
-    def permute_lat_vec(self, mode=Literal["bca", "cab"]):
+    def permute_lat_vec(self, mode=Literal["bca", "cab"], rotate_cart_coord=False):
         """
         Permute the axis of the structure.
         Args:
-            mode (str): The mode of permuting axis. Can be "bca" or "cab", which means transform from "abc" to "bca" or "cab".
+            mode (str): The mode of permuting axis. Can be "bca" or "cab", which means transform from (\vec{a}, \vec{b}, \vec{c}).T to (\vec{b}, \vec{c}, \vec{a}).T or (\vec{c}, \vec{a}, \vec{b}).T).
         """
         if mode == "bca":
             trans_mat = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
@@ -933,26 +916,12 @@ class AbacusSTRU:
             raise ValueError(f"Invalid mode: {mode}")
         
         self.cell = np.dot(trans_mat, self.cell)
-    
-    def permute_coord(self, mode=Literal["yzx", "zxy"]):
-        """
-        Permute the coordinates of the structure.
-        Properties including cell, coords, velocity and atom mag (non-collinear case) will also be updated.
 
-        Args:
-            mode (str): The mode of permuting coordinates. Can be "yzx" or "zxy", which means transform from "xyz" to "yzx" or "zxy".
-        """
-        if mode == "yzx":
-            trans_mat = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
-        elif mode == "zxy":
-            trans_mat = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
-        else:
-            raise ValueError(f"Invalid mode: {mode}")
-        
-        self.cell = np.dot(self.cell, trans_mat)
-        for i in range(len(self._atoms)):
-            self._atoms[i]._permute_coord(mode=mode)
+        # rotate cartesian coordinates
+        if rotate_cart_coord:
+            self.rotate(trans_mat)
 
+        return trans_mat
 
 def parse_stru_position(pos_line):
     '''
