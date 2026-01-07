@@ -4,7 +4,7 @@ import numpy as np
 import copy
 
 from abacustest.constant import MASS_DICT, A2BOHR, BOHR2A, ABACUS_STRU_KEY_WORD
-from abacustest.lib_prepare.comm import Cartesian2Direct, Direct2Cartesian
+from abacustest.lib_prepare.comm import Cartesian2Direct, Direct2Cartesian, mag_to_angle, angle_to_mag
 
 import traceback
 import os
@@ -115,9 +115,9 @@ class AbacusATOM(BaseModel):
     constrain: Optional[Union[bool, Tuple[bool, bool, bool]]] = None
     lambda_: Optional[Union[float, Tuple[float, float, float]]] = None
 
-    mag: Optional[Union[float, Tuple[float, float, float]]] = Field(default=None, frozen=True)  # magnitude of magnetic moment
-    angle1: Optional[float] = Field(default=None, frozen=True)  # angle between magnetic moment and z-axis
-    angle2: Optional[float] = Field(default=None, frozen=True)  # angle between projection of magnetic moment on xy-plane and x-axis
+    mag: Optional[Union[float, Tuple[float, float, float]]] = None  # magnitude of magnetic moment
+    angle1: Optional[float] =  None  # angle between magnetic moment and z-axis
+    angle2: Optional[float] =  None  # angle between projection of magnetic moment on xy-plane and x-axis
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -188,7 +188,7 @@ class AbacusATOM(BaseModel):
         """
         import numpy as np
         if self.noncolinear:
-            mag_norm = self.atommag_moment
+            mag_norm = self.mag
             angle1 = angle2 = 0.0
             if self.angle1 is not None:
                 angle1 = self.angle1    
@@ -203,6 +203,21 @@ class AbacusATOM(BaseModel):
                 return self.type_mag
             else:
                 return self.mag
+    
+    def mag_angle(self):
+        # Calculate angle of noncollinear magnetic moment
+        if self.noncolinear:
+            if self.angle1 is None and self.angle2 is None:
+                angle1, angle2 = mag_to_angle(*self.mag)
+            else:
+                angle1, angle2 = 0, 0
+                if self.angle1:
+                    angle1 = self.angle1
+                if self.angle2:
+                    angle2 = self.angle2
+            return (angle1, angle2)
+        else:
+            return (None, None)
 
     def set_atommag(self, mag: Union[float,Tuple[float,float,float]],
                     angle1: float = None,
@@ -218,6 +233,12 @@ class AbacusATOM(BaseModel):
         """
         if isinstance(mag, (list, tuple)):
             assert len(mag) == 3, f"Magnetic moment tuple must have three components, got {mag}."
+        elif isinstance(mag, np.ndarray):
+            mag = mag.tolist()
+        elif isinstance(mag, (int, float)):
+            pass
+        else:
+            raise TypeError("Magnetic moment must be float or tuple of three floats")
 
         self.mag = mag
         self.angle1 = angle1
@@ -296,6 +317,29 @@ class AbacusATOM(BaseModel):
             if atomlist[i].atomtype != atomlist[0].atomtype:
                 return False
         return True
+    
+    def rotate(self, rot_mat: np.ndarray):
+        """
+        Rotate the cartesian coordinates of an atom. Related properties, including velocity will be updated.
+        """
+        # Rotate cartesian coordinate
+        self.coord = tuple(np.dot(rot_mat, np.array(self.coord)))
+
+        # Rotate velocity
+        if self.velocity is not None:
+            self.velocity = tuple(np.dot(rot_mat, np.array(self.velocity)))
+        
+        # Rotate non-collinear magnetic moment
+        if self.noncolinear:
+            new_mag = np.dot(rot_mat, np.array(self.atommag))
+            if self.angle1 is None or self.angle2 is None:
+                self.set_atommag(new_mag.tolist())
+            else:
+                angle1, angle2 = mag_to_angle(*new_mag)
+                self.set_atommag(np.linalg.norm(new_mag).tolist(),
+                                 angle1,
+                                 angle2)
+
 
 class AbacusSTRU:
     """ABACUS STRU class
@@ -837,6 +881,12 @@ class AbacusSTRU:
                             magnetic_moments=self.atom_mags)
         else:
             raise ValueError(f"Unsupported format: {fmt}")
+    
+    def rotate(self, rot_mat):
+        # rotate the cell using given rotation matric
+        self.cell = np.dot(rot_mat, np.array(self.cell).T).T.tolist()
+        for i in range(len(self._atoms)):
+            self._atoms[i].rotate(rot_mat)
 
     def fix_atom_by_index(self, indices: List[int],
                           move: Optional[Tuple[bool, bool, bool]] = (False, False, False),
@@ -884,8 +934,27 @@ class AbacusSTRU:
                     self._atoms[i].move = move
                 elif only:
                     self._atoms[i].move = (True, True, True)
+    
+    def permute_lat_vec(self, mode=Literal["bca", "cab"], rotate_cart_coord=False):
+        """
+        Permute the axis of the structure.
+        Args:
+            mode (str): The mode of permuting axis. Can be "bca" or "cab", which means transform from (\vec{a}, \vec{b}, \vec{c}).T to (\vec{b}, \vec{c}, \vec{a}).T or (\vec{c}, \vec{a}, \vec{b}).T).
+        """
+        if mode == "bca":
+            trans_mat = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
+        elif mode == "cab":
+            trans_mat = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
+        
+        self.cell = np.dot(trans_mat, self.cell)
 
+        # rotate cartesian coordinates
+        if rotate_cart_coord:
+            self.rotate(trans_mat)
 
+        return trans_mat
 
 def parse_stru_position(pos_line):
     '''
@@ -1265,6 +1334,8 @@ def write_stru_file(
             cc += "%17.11f %17.11f %17.11f " % tuple(coord[icoord + j])
             if move and move[icoord + j] and len(move[icoord + j]) == 3:
                 cc += "%d %d %d " % tuple(move[icoord + j])
+            if velocity and velocity[icoord + j] and len(velocity[icoord + j]) == 3:
+                cc += "v %f %f %f " % tuple(velocity[icoord + j])
             if magmom and magmom[icoord + j] is not None:
                 if isinstance(magmom[icoord + j],list):
                     if len(magmom[icoord + j]) == 3:
@@ -1273,8 +1344,6 @@ def write_stru_file(
                         cc += "mag %12.8f " % magmom[icoord + j][0]
                 elif magmom[icoord + j] != None:
                     cc += "mag %12.8f " % magmom[icoord + j]
-            if velocity and velocity[icoord + j] and len(velocity[icoord + j]) == 3:
-                cc += "v %f %f %f " % tuple(velocity[icoord + j])
             if angle1 and angle1[icoord + j] != None:
                     cc += "angle1 %f " % angle1[icoord + j]
             if angle2 and angle2[icoord + j] != None:
