@@ -401,6 +401,8 @@ def angle_to_mag(totmag,angle1,angle2):
 def real2rec(cell:List[List[float]]):
     """
     Transform real space lattice vectors to reciprocal lattice vectors (2π included).
+    
+    NOTE: it can be also used to transform a reciprocal lattice vectors to real lattice vectors 
 
     Parameters
     ----------
@@ -425,27 +427,3 @@ def real2rec(cell:List[List[float]]):
     B = 2 * np.pi * np.linalg.inv(A.T)
     return B.tolist()
 
-def rec2real(cell:List[List[float]]):
-    """Transform reciprocal lattice vectors (included 2π) back to real space lattice vectors.
-
-    Parameters
-    ----------
-    rec_cell : list of list of float or np.ndarray
-        Reciprocal space lattice vectors, shape (3,3), rec_cell = [b1, b2, b3],
-        where b1 = [x1, y1, z1], b2 = [x2, y2, z2], b3 = [x3, y3, z3].
-    
-    Returns
-    -------
-    List[List[float]]
-        Real space lattice vectors A = [a1, a2, a3], shape (3,3).
-    """
-    B = np.array(cell, dtype=np.float64)
-    if B.shape != (3, 3):
-        raise ValueError(f"Input reciprocal cell must be 3×3 matrix, got shape {B.shape}")
-    
-    det_B = np.linalg.det(B)
-    if np.isclose(det_B, 0):
-        raise np.linalg.LinAlgError("Reciprocal cell is singular (det=0), cannot compute real cell.")
-
-    A = 2 * np.pi * np.linalg.inv(B.T)
-    return A.tolist()
