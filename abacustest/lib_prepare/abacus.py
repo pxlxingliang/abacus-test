@@ -524,24 +524,12 @@ class AbacusStru:
     @staticmethod
     def mag_to_angle(magx,magy,magz):
         '''return the angle1 and angle2 of the magnetization'''
-        mag = np.array([magx,magy,magz])
-        mag /= np.linalg.norm(mag)
-        angle1 = np.arccos(mag[2]) * 180 / np.pi
-        angle2 = np.arctan2(mag[1],mag[0]) * 180 / np.pi
-        return angle1,angle2
+        return comm.mag_to_angle(magx,magy,magz)
     
     @staticmethod
     def angle_to_mag(totmag,angle1,angle2):
         '''return the magnetization of the magnetization'''
-        if angle1 is None:
-            angle1 = 0
-        if angle2 is None:
-            angle2 = 0
-        angle1 = angle1 * np.pi / 180
-        angle2 = angle2 * np.pi / 180
-        mag = np.array([np.sin(angle1)*np.cos(angle2),np.sin(angle1)*np.sin(angle2),np.cos(angle1)])
-        mag *= totmag
-        return mag.tolist()
+        return comm.angle_to_mag(totmag,angle1,angle2)
         
     
     def get_mag(self):

@@ -12,7 +12,7 @@ from ase import Atoms
 from ase.io import read, write
 
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, AbacusStru, ReadKpt
-from abacustest.lib_prepare.comm import collect_pp
+from abacustest.lib_prepare.comm import kpt2kspacing
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE, ELEMENT_CRYSTAL_STRUCTURES, A2BOHR
 from abacustest.lib_collectdata.collectdata import RESULT
 from abacustest.lib_model.model_013_inputs import PrepInput, InputsModel
@@ -56,7 +56,8 @@ class VacancyModel(Model):
         parser.add_argument("--pp",default=None,type=str,help="the path of pseudopotential library, or read from enviroment variable ABACUS_PP_PATH")
         parser.add_argument("--orb",default=None,type=str,help="the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH")
         parser.add_argument("--input",default=None,type=str,help="the template of input file, if not specified, the default input will be generated")
-        parser.add_argument("--kpt", default=None, type=int, nargs="*", help="the kpoint setting, should be one or three integers")
+        parser.add_argument("--relax-kspacing", default=None, type=float, help="the kspacing for kpoint generation of relax calculation, default is None, which means kspacing in original input file will be used.")
+        parser.add_argument("--scf-kspacing", default=None, type=float, help="the kspacing for scf calculation after relax, default is None, which means kspacing in original input file will be used.")
         parser.add_argument("--lcao", action="store_true", help="whether to use lcao basis, default is pw basis")
         parser.add_argument("--nspin", default=1, type=int, choices=[1, 2, 4], help="the number of spins, can be 1 (no spin), 2 (spin polarized), or 4 (non-collinear spin). Default is 1.")
         parser.add_argument("--soc", action="store_true", help="whether to use spin-orbit coupling, if True, nspin should be 4.")
@@ -99,7 +100,8 @@ class VacancyModel(Model):
                                        pp=params.pp,
                                        orb=params.orb,
                                        input=params.input,
-                                       kpt=params.kpt,
+                                       relax_kspacing=params.relax_kspacing,
+                                       scf_kspacing=params.scf_kspacing,
                                        lcao=params.lcao,
                                        nspin=params.nspin,
                                        soc=params.soc,
@@ -109,9 +111,17 @@ class VacancyModel(Model):
                                        afm=params.afm,
                                        copy_pp_orb=params.copy_pp_orb)
         
+        run_sh = f"""{params.abacus_command} | tee log
+if [ -d "final_scf" ]; then
+    cp OUT.*/STRU_ION_D final_scf/STRU
+    cd final_scf
+    {params.abacus_command} | tee log
+    cd ..
+fi
+"""
         # Write run scripts
         with open("run.sh", "w") as f1:
-            f1.write(f"{params.abacus_command} | tee log\n")
+            f1.write(run_sh)
         
         setting = {
             "save_path": "results",
@@ -209,10 +219,11 @@ def prepare_vacancy_jobs(
     force_thr_ev: float = 0.01,
     stress_thr_kbar: float = 0.5,
     ftype: str = "cif",
-    pp: str = None,
-    orb: str = None,
-    input: str = None,
-    kpt: Optional[Tuple[int, int, int]] = None,
+    pp: Optional[str] = None,
+    orb: Optional[str] = None,
+    input: Optional[str] = None,
+    relax_kspacing: Optional[float] = None,
+    scf_kspacing: Optional[float] = None,
     lcao: bool = False,
     nspin: int = 1,
     soc: bool = False,
@@ -258,7 +269,7 @@ def prepare_vacancy_jobs(
                                           pp_path=pp, 
                                           orb_path=orb, 
                                           input_file=input, 
-                                          kpt=kpt, 
+                                          kpt=None, 
                                           lcao=lcao, 
                                           nspin=nspin,
                                           soc=soc,
@@ -308,11 +319,14 @@ def prepare_vacancy_jobs(
         input_params["suffix"] = "ABACUS"
         input_params['calculation'] = 'cell-relax'
         input_params['relax_method'] = 'cg'
+        input_params['symmetry'] = 0
         input_params['stru_file'] = None
         input_params['ntype'] = None
         input_params['relax_nmax'] = max_step
         input_params['force_thr_ev'] = force_thr_ev
         input_params['stress_thr'] = stress_thr_kbar
+        if relax_kspacing is not None:
+            input_params['kspacing'] = relax_kspacing
 
         pp_orb_files_fullname = glob.glob(os.path.join(job, "*.upf")) + glob.glob(os.path.join(job, "*.UPF")) \
                        + glob.glob(os.path.join(job, "*.orb"))
@@ -321,24 +335,56 @@ def prepare_vacancy_jobs(
         original_kpt_file = os.path.join(job, input_params.get('kpt_file', 'KPT'))
 
         # Prepare input files for the supercell
-        supercell_stru = original_stru.supercell(supercell)
-        supercell_jobpath = os.path.join(job, f"vacancy_supercell_{supercell[0]}_{supercell[1]}_{supercell[2]}")
-        os.makedirs(supercell_jobpath, exist_ok=True)
-        copy_pp_orb_kpt_file(job, supercell_jobpath, pp_orb_files, original_kpt_file)
-        write_inputs(supercell_jobpath, input_params, supercell_stru)
-        supercell_stru.write2cif(os.path.join(supercell_jobpath, "STRU.cif"))
-        folders.append(supercell_jobpath)
+        # cell-relax job for the original structure
+        original_stru_jobpath = os.path.join(job, "vacancy_original_stru")
+        os.makedirs(original_stru_jobpath, exist_ok=True)
+        create_new_abacus_job(job,
+                              original_stru_jobpath,
+                              pp_orb_files,
+                              extra_input=input_params,
+                              stru=original_stru, 
+                              kpt_file=original_kpt_file)
+        # scf job after cell-relax job for the original structure
+        if scf_kspacing is None:
+            if 'kspacing' not in input_params.keys():
+                original_kpt = ReadKpt(os.path.join(original_stru_jobpath, "KPT"))
+                original_kspacing = kpt2kspacing(original_kpt[0][:3], original_stru.get_cell())
+            else:
+                original_kspacing = input_params['kspacing']
+            scf_kspacing = min(original_kspacing*0.9, 0.10)
+        
+        create_new_abacus_job(job,
+                              os.path.join(original_stru_jobpath, "final_scf"),
+                              pp_orb_files,
+                              extra_input={'calculation': 'scf', 'kspacing': scf_kspacing},
+                              stru=None, # Don't prepare STRU file
+                              kpt_file=None)
+        
+        folders.append(original_stru_jobpath)
 
         # Prepare input files for the supercell with defect
         for i, idx in enumerate(real_vacancy_indices):
             # If ABACUS inputs directory is provided
             vacancy_element, labelidx = original_stru.globalidx2labelidx(idx-1) # Use atom index staring from 0 in globalidx2labelidx
+            supercell_stru = original_stru.supercell(supercell)
             defect_supercell_stru = copy.deepcopy(supercell_stru)
             defect_supercell_stru.set_empty_atom(vacancy_element, labelidx)
             defect_supercell_jobpath = os.path.join(job, f"vacancy_defect_{original_vacancy_indices[i]}_{vacancy_element}_{supercell[0]}_{supercell[1]}_{supercell[2]}")
             os.makedirs(defect_supercell_jobpath, exist_ok=True)
-            copy_pp_orb_kpt_file(supercell_jobpath, defect_supercell_jobpath, pp_orb_files, original_kpt_file)
-            write_inputs(defect_supercell_jobpath, input_params, defect_supercell_stru)
+            # cell-relax job for the defect structure
+            create_new_abacus_job(job,
+                                  defect_supercell_jobpath,
+                                  pp_orb_files,
+                                  extra_input=input_params,
+                                  stru=defect_supercell_stru,
+                                  kpt_file=original_kpt_file)
+            # scf job after cell-relax job for the defect structure
+            create_new_abacus_job(job,
+                                  os.path.join(defect_supercell_jobpath, "final_scf"),
+                                  pp_orb_files,
+                                  extra_input={'calculation': 'scf', 'kspacing': scf_kspacing},
+                                  stru=None, # Don't prepare STRU file
+                                  kpt_file=None) 
             defect_supercell_stru.write2cif(os.path.join(defect_supercell_jobpath, "STRU.cif"), empty2x=True)
             folders.append(defect_supercell_jobpath)
 
@@ -352,9 +398,14 @@ def prepare_vacancy_jobs(
                 vacancy_element_pp = original_stru.get_pp()[element_type_index]
                 vacancy_element_orb = original_stru.get_orb()[element_type_index]
                 vacancy_element_crys_stru = build_most_stable_elementary_crys_stru(vacancy_element, vacancy_element_pp, vacancy_element_orb)
-                os.makedirs(vacancy_element_crys_jobpath, exist_ok=True)
-                copy_pp_orb_kpt_file(supercell_jobpath, vacancy_element_crys_jobpath, pp_orb_files, original_kpt_file)
-                write_inputs(vacancy_element_crys_jobpath, input_params, vacancy_element_crys_stru)
+
+                create_new_abacus_job(job,
+                                      vacancy_element_crys_jobpath,
+                                      pp_orb_files,
+                                      extra_input=input_params,
+                                      stru=vacancy_element_crys_stru,
+                                      kpt_file=None)
+                
                 folders.append(vacancy_element_crys_jobpath)
                 prepared_elements.append(vacancy_element)
     
@@ -396,7 +447,7 @@ def postprocess_vacancy(jobs: List[str],
         for element_crys_job in glob.glob(os.path.join(ref_dir, "*")):
             vac_ele_crys_stru = AbacusStru.ReadStru(os.path.join(element_crys_job, "STRU"))
             vacancy_element = vac_ele_crys_stru.get_element(number=False)[0]
-            element_crys_job_result = read_relax_metrics(element_crys_job)
+            element_crys_job_result = read_metrics(element_crys_job, jobtype="relax")
             e_vac_elem_crys = element_crys_job_result["energies"][-1]
             ref_atom_energies[vacancy_element] = e_vac_elem_crys / vac_ele_crys_stru.get_natoms()
 
@@ -406,28 +457,33 @@ def postprocess_vacancy(jobs: List[str],
 
         sub_folders = [f for f in glob.glob(os.path.join(job, "vacancy_*")) if os.path.isdir(f)]
 
-        defect_supercell_job_results = {}
+        defect_supercell_job_results, defect_supercell_scf_results = {}, {}
         for sub_folder in sub_folders:
-            if os.path.basename(sub_folder).startswith("vacancy_supercell"):
-                supercell_job_results = read_relax_metrics(sub_folder)
+            if os.path.basename(sub_folder).startswith("vacancy_original_stru"):
+                original_stru_job_results = read_metrics(sub_folder, jobtype="relax")
+                original_stru_scf_results = read_metrics(os.path.join(sub_folder, 'final_scf'), jobtype="scf")
             if os.path.basename(sub_folder).startswith("vacancy_defect"):
                 words = sub_folder.split('/')[-1].split("_")
                 vacancy_element, idx = words[3], int(words[2])
-                defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_relax_metrics(sub_folder)
+                supercell = (int(words[4]), int(words[5]), int(words[6]))
+                defect_supercell_job_results[f'{vacancy_element}{idx}'] = read_metrics(sub_folder, jobtype="relax")
+                defect_supercell_scf_results[f'{vacancy_element}{idx}'] = read_metrics(os.path.join(sub_folder, 'final_scf'), jobtype="scf")
 
         for site in defect_supercell_job_results.keys():
-            if supercell_job_results["energies"] is None or defect_supercell_job_results[site]["energies"] is None:
+            if original_stru_job_results["energies"] is None or defect_supercell_job_results[site]["energies"] is None:
+                e_vac_form = None
+            elif original_stru_scf_results["converge"] is False or defect_supercell_scf_results[site]["converge"] is False:
                 e_vac_form = None
             else:
-                e_vac_form = (defect_supercell_job_results[site]["energies"][-1] + ref_atom_energies[vacancy_element]) - supercell_job_results["energies"][-1]
+                e_vac_form = (defect_supercell_scf_results[site]["energy"] + ref_atom_energies[vacancy_element]) - original_stru_scf_results["energy"] * supercell[0] * supercell[1] * supercell[2]
 
             results = {
                 'vac_formation_energy': e_vac_form,
-                'supercell_job_relax_converge': supercell_job_results['relax_converge'],
-                'supercell_job_normal_end': supercell_job_results['normal_end'],
-                'supercell_job_max_force': supercell_job_results['largest_gradient'][-1],
-                'supercell_job_max_stress': supercell_job_results['largest_gradient_stress'][-1],
-                'supercell_relaxed_lattice_constant': supercell_job_results['lattice_constant'],
+                'original_stru_job_relax_converge': original_stru_job_results['relax_converge'],
+                'original_stru_job_normal_end': original_stru_job_results['normal_end'],
+                'original_stru_job_max_force': original_stru_job_results['largest_gradient'][-1],
+                'original_stru_job_max_stress': original_stru_job_results['largest_gradient_stress'][-1],
+                'original_stru_relaxed_lattice_constant': original_stru_job_results['lattice_constant'],
                 'defect_supercell_job_relax_converge': defect_supercell_job_results[site]['relax_converge'],
                 'defect_supercell_job_normal_end': defect_supercell_job_results[site]['normal_end'],
                 'defect_supercell_job_max_force': defect_supercell_job_results[site]['largest_gradient'][-1],
@@ -438,20 +494,38 @@ def postprocess_vacancy(jobs: List[str],
 
     return metrics, ref_atom_energies
 
-def copy_pp_orb_kpt_file(src_dir: str, dst_dir: str, pp_orb_files: str, kpt_file: str):
-    '''
-    Copy the pp, orb, and kpt file from source directory to the destination directory.
-    '''
+def create_new_abacus_job(src_dir: str,
+                          dst_dir: str,
+                          pp_orb_files: str,
+                          extra_input: dict=None,
+                          stru: Tuple[AbacusStru, str]=None,
+                          kpt_file: str=None):
+    """
+    Create new abacus job from a source directory and new settings.
+    """
+    if not os.path.isdir(dst_dir):
+        os.makedirs(dst_dir, exist_ok=True)
+    
     for file in pp_orb_files:
         os.symlink(os.path.abspath(os.path.join(src_dir, file)), os.path.join(dst_dir, file))
     
-    if os.path.isfile(kpt_file):
-        shutil.copy(kpt_file, os.path.join(dst_dir, os.path.basename(kpt_file)))
+    if extra_input is None:
+        shutil.copy(os.path.join(src_dir, "INPUT"), os.path.join(dst_dir, "INPUT"))
+    else:
+        input_params = ReadInput(os.path.join(src_dir, "INPUT"))
+        for key, value in extra_input.items():
+            input_params[key] = value
+        WriteInput(input_params, os.path.join(dst_dir, "INPUT"))
+    
+    
+    if stru is not None:
+        if isinstance(stru, AbacusStru):
+            stru.write(os.path.join(dst_dir, "STRU"))
+        elif isinstance(stru, str):
+            shutil.copy(stru, os.path.join(dst_dir, "STRU"))
 
-def write_inputs(folder, input_params: dict, stru: AbacusStru):
-    # Write INPUT and STRU file
-    WriteInput(input_params, os.path.join(folder, "INPUT"))
-    stru.write(os.path.join(folder, "STRU"))
+    if kpt_file is not None and os.path.isfile(kpt_file):
+        shutil.copy(kpt_file, os.path.join(dst_dir, os.path.basename(kpt_file)))
 
 def build_most_stable_elementary_crys_stru(element: str, pp: str, orb: str) -> AbacusStru:
     """
@@ -490,7 +564,7 @@ def build_most_stable_elementary_crys_stru(element: str, pp: str, orb: str) -> A
 
     return stru_abacus
 
-def read_relax_metrics(job: str) -> List[str]:
+def read_metrics(job: str, jobtype: Literal['relax', 'scf']) -> List[str]:
     """
     Read the relaxation metrics from the log file.
     Args:
@@ -499,9 +573,15 @@ def read_relax_metrics(job: str) -> List[str]:
         List[str]: The relaxation metrics.
     """
     results = RESULT(path=job, fmt='abacus')
-    relax_metrics = ["normal_end", "relax_steps", "largest_gradient",
-                     "largest_gradient_stress", "relax_converge", "energies", "lattice_constant"]
-    return {k: results[k] for k in relax_metrics}
+    if jobtype == 'relax':
+        relax_metrics = ["normal_end", "relax_steps", "largest_gradient",
+                         "largest_gradient_stress", "relax_converge", "energies", "lattice_constant"]
+        return {k: results[k] for k in relax_metrics}
+    elif jobtype == 'scf':
+        scf_metrics = ["normal_end", "energy", "converge"]
+        return {k: results[k] for k in scf_metrics}
+    else:
+        raise ValueError(f"Job type {jobtype} not supported.")
 
 def get_categorized_idx(original_stru_file: str, original_stru_format: str):
     """

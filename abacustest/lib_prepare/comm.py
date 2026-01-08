@@ -156,7 +156,7 @@ def kspacing2kpt(kspacing, cell):
     """
     Convert kspacing to kpt.
     """
-    if isinstance(kspacing, float):
+    if isinstance(kspacing, (float,int)):
         kspacing = [kspacing, kspacing, kspacing]
     elif isinstance(kspacing, str):
         a = kspacing.split()
@@ -376,4 +376,23 @@ def pert_vector(vectors:List[List[float]],max_angle):
     for ivector in vectors:
         new_vectors.append(np.dot(R_matrix,ivector).tolist())
     return new_vectors
-        
+
+def mag_to_angle(magx,magy,magz):
+    '''return the angle1 and angle2 of the magnetization'''
+    mag = np.array([magx,magy,magz])
+    mag /= np.linalg.norm(mag)
+    angle1 = np.arccos(mag[2]) * 180 / np.pi
+    angle2 = np.arctan2(mag[1],mag[0]) * 180 / np.pi
+    return angle1,angle2
+
+def angle_to_mag(totmag,angle1,angle2):
+    '''return the magnetization of the magnetization'''
+    if angle1 is None:
+        angle1 = 0
+    if angle2 is None:
+        angle2 = 0
+    angle1 = angle1 * np.pi / 180
+    angle2 = angle2 * np.pi / 180
+    mag = np.array([np.sin(angle1)*np.cos(angle2),np.sin(angle1)*np.sin(angle2),np.cos(angle1)])
+    mag *= totmag
+    return mag.tolist()

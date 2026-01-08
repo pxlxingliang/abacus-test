@@ -36,7 +36,8 @@ dependencies = [
     "phonopy",
     "dpdata",
     "ase",
-    "matplotlib"
+    "matplotlib",
+    "pydantic"
 ]
 requires-python = ">=3.8"
 

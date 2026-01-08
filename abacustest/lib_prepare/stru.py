@@ -1,10 +1,10 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from typing import List, Tuple, Union, Dict, Any, Optional, Literal
 import numpy as np
 import copy
 
 from abacustest.constant import MASS_DICT, A2BOHR, BOHR2A, ABACUS_STRU_KEY_WORD
-from abacustest.lib_prepare.comm import Cartesian2Direct, Direct2Cartesian
+from abacustest.lib_prepare.comm import Cartesian2Direct, Direct2Cartesian, mag_to_angle, angle_to_mag
 
 import traceback
 import os
@@ -109,15 +109,15 @@ class AbacusATOM(BaseModel):
     pp: Optional[str] = None
     orb: Optional[str] = None
     paw: Optional[str] = None
-    type_mag: float = 0.0
-    move: Tuple[bool, bool, bool] = (True, True, True)
+    type_mag: Optional[float] = 0.0
+    move: Optional[Tuple[bool, bool, bool]] = (True, True, True)
     velocity: Optional[Tuple[float, float, float]] = None
     constrain: Optional[Union[bool, Tuple[bool, bool, bool]]] = None
     lambda_: Optional[Union[float, Tuple[float, float, float]]] = None
 
-    mag: Optional[Union[float, Tuple[float, float, float]]] = Field(default=None, frozen=True)  # magnitude of magnetic moment
-    angle1: Optional[float] = Field(default=None, frozen=True)  # angle between magnetic moment and z-axis
-    angle2: Optional[float] = Field(default=None, frozen=True)  # angle between projection of magnetic moment on xy-plane and x-axis
+    mag: Optional[Union[float, Tuple[float, float, float]]] = None  # magnitude of magnetic moment
+    angle1: Optional[float] =  None  # angle between magnetic moment and z-axis
+    angle2: Optional[float] =  None  # angle between projection of magnetic moment on xy-plane and x-axis
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -188,7 +188,7 @@ class AbacusATOM(BaseModel):
         """
         import numpy as np
         if self.noncolinear:
-            mag_norm = self.atommag_moment
+            mag_norm = self.mag
             angle1 = angle2 = 0.0
             if self.angle1 is not None:
                 angle1 = self.angle1    
@@ -203,6 +203,21 @@ class AbacusATOM(BaseModel):
                 return self.type_mag
             else:
                 return self.mag
+    
+    def mag_angle(self):
+        # Calculate angle of noncollinear magnetic moment
+        if self.noncolinear:
+            if self.angle1 is None and self.angle2 is None:
+                angle1, angle2 = mag_to_angle(*self.mag)
+            else:
+                angle1, angle2 = 0, 0
+                if self.angle1:
+                    angle1 = self.angle1
+                if self.angle2:
+                    angle2 = self.angle2
+            return (angle1, angle2)
+        else:
+            return (None, None)
 
     def set_atommag(self, mag: Union[float,Tuple[float,float,float]],
                     angle1: float = None,
@@ -218,6 +233,12 @@ class AbacusATOM(BaseModel):
         """
         if isinstance(mag, (list, tuple)):
             assert len(mag) == 3, f"Magnetic moment tuple must have three components, got {mag}."
+        elif isinstance(mag, np.ndarray):
+            mag = mag.tolist()
+        elif isinstance(mag, (int, float)):
+            pass
+        else:
+            raise TypeError("Magnetic moment must be float or tuple of three floats")
 
         self.mag = mag
         self.angle1 = angle1
@@ -296,6 +317,29 @@ class AbacusATOM(BaseModel):
             if atomlist[i].atomtype != atomlist[0].atomtype:
                 return False
         return True
+    
+    def rotate(self, rot_mat: np.ndarray):
+        """
+        Rotate the cartesian coordinates of an atom. Related properties, including velocity will be updated.
+        """
+        # Rotate cartesian coordinate
+        self.coord = tuple(np.dot(rot_mat, np.array(self.coord)))
+
+        # Rotate velocity
+        if self.velocity is not None:
+            self.velocity = tuple(np.dot(rot_mat, np.array(self.velocity)))
+        
+        # Rotate non-collinear magnetic moment
+        if self.noncolinear:
+            new_mag = np.dot(rot_mat, np.array(self.atommag))
+            if self.angle1 is None or self.angle2 is None:
+                self.set_atommag(new_mag.tolist())
+            else:
+                angle1, angle2 = mag_to_angle(*new_mag)
+                self.set_atommag(np.linalg.norm(new_mag).tolist(),
+                                 angle1,
+                                 angle2)
+
 
 class AbacusSTRU:
     """ABACUS STRU class
@@ -409,7 +453,7 @@ class AbacusSTRU:
     def coords(self):
         # Return the list of coordinates of all atoms
         return [atom.coord for atom in self._atoms]
-
+    
     @property
     def coords_direct(self):
         return Cartesian2Direct(self.coords, self.cell)
@@ -454,8 +498,8 @@ class AbacusSTRU:
         cart_coords = Direct2Cartesian(value, self.cell)
         for i in range(self.natoms):
             self._atoms[i].coord = cart_coords[i]
-    
-    def set_pp(self, pp_dict: Dict[str, str], key_type=Literal["element","label"]="element"):
+
+    def set_pp(self, pp_dict: Dict[str, str], key_type:Literal["element","label"]="element"):
         """Set pseudopotential file names for atoms based on a provided dictionary.
 
         Args:
@@ -468,7 +512,7 @@ class AbacusSTRU:
             else:
                 raise KeyError(f"Pseudopotential for {key_type}: {key} not found in provided dictionary.")
 
-    def set_orb(self, orb_dict: Dict[str, str], key_type=Literal["element","label"]="element"):
+    def set_orb(self, orb_dict: Dict[str, str], key_type: Literal["element","label"]="element"):
         """Set orbital file names for atoms based on a provided dictionary.
 
         Args:
@@ -481,7 +525,7 @@ class AbacusSTRU:
             else:
                 raise KeyError(f"Orbital for {key_type}: {key} not found in provided dictionary.")
     
-    def set_paw(self, paw_dict: Dict[str, str], key_type=Literal["element","label"]="element"):
+    def set_paw(self, paw_dict: Dict[str, str], key_type: Literal["element","label"]="element"):
         """Set PAW file names for atoms based on a provided dictionary.
 
         Args:
@@ -494,7 +538,47 @@ class AbacusSTRU:
             else:
                 raise KeyError(f"PAW for {key_type}: {key} not found in provided dictionary.")
     
+    def set_coords(self, coords: List[Tuple[float,float,float]], direct: bool=False):
+        """
+        Set coordinates of all atoms using given coordinates.
+        Args:
+            coords (List[Tuple[float,float,float]]): List of coordinates for each atom. If direct is False, the unit of coordinates is Angstrom.
+            direct (bool): Whether the coordinates are in direct or cartesian coordinates. Default is False.
+        """
+        if direct:
+            coords = Direct2Cartesian(coords, self.cell)
+        for i in range(len(self._atoms)):
+            self._atoms[i].coord = coords[i]
     
+    def pp_dict(self):
+        """
+        Get dict of pps
+        """
+        pps = {}
+        for atom in self._atoms:
+            if atom.label not in pps.keys():
+                pps[atom.label] = atom.pp
+        return pps
+    
+    def orb_dict(self):
+        """
+        Get dict of orbs
+        """
+        orbs = {}
+        for atom in self._atoms:
+            if atom.label not in orbs.keys():
+                orbs[atom.label] = atom.orb
+        return orbs
+    
+    def paw_dict(self):
+        """
+        Get dict od paws
+        """
+        paws = {}
+        for atom in self._atoms:
+            if atom.label not in paws.keys():
+                paws[atom.label] = atom.paw
+        return paws
 
     @staticmethod
     def read(filename: str, fmt: Literal["stru", "abacus/stru", "poscar","vasp", "cif"]="stru") -> "AbacusSTRU":
@@ -510,19 +594,28 @@ class AbacusSTRU:
         fmt = fmt.lower()
         if fmt in ["stru", "abacus/stru"]:
             stru_data = read_stru_file(stru=filename)
-            cell = stru_data["cell"]
-            coords = stru_data["coord"]
+            cell = (np.array(stru_data["cell"]) * stru_data['lattice_constant'] * BOHR2A).tolist()
+            if stru_data["cartesian"]:
+                coords = (np.array(stru_data["coord"]) * stru_data['lattice_constant'] * BOHR2A).tolist()
+            else:
+                coords = Direct2Cartesian(stru_data["coord"], cell)
             atom_list = []
+            label_tot = get_total_property(stru_data, "label")
+            pp_tot = get_total_property(stru_data, "pp")
+            orb_tot = get_total_property(stru_data, "orb")
+            paw_tot = get_total_property(stru_data, "paw")
+            type_mag_tot = get_total_property(stru_data, "magmom")
+
             for i in range(len(coords)):
                 atom = AbacusATOM(
-                    label=stru_data["label"][i],
+                    label=label_tot[i],
                     coord=tuple(coords[i]),
                     element=None,
                     mass=None,
-                    pp=stru_data["pp"][i],
-                    orb=stru_data["orb"][i],
-                    paw=stru_data["paw"][i],
-                    type_mag=stru_data["magmom"][i],
+                    pp=None if len(stru_data['pp']) == 0 else pp_tot[i],
+                    orb=None if len(stru_data['orb']) == 0 else orb_tot[i],
+                    paw=None if len(stru_data['paw']) == 0 else paw_tot[i],
+                    type_mag=type_mag_tot[i],
                     move=stru_data["move"][i],
                     mag=stru_data["magmom_atom"][i],
                     angle1=stru_data["angle1"][i],
@@ -550,7 +643,7 @@ class AbacusSTRU:
                     atom_type = "cartesian"
     
             ase_stru = ase_read(filename, format=fmt)
-            return AbacusSTRU.from_ase(ase_stru, meta_data={
+            return AbacusSTRU.from_ase(ase_stru, metadata={
                 "lattice_constant": A2BOHR,
                 "atom_type": atom_type,
             })
@@ -624,11 +717,13 @@ class AbacusSTRU:
     
     @staticmethod
     def from_ase(ase_stru,
-                 meta_data: Dict[str, Any] = {}) -> "AbacusSTRU":
+                 metadata: Dict[str, Any] = {}) -> "AbacusSTRU":
         """Create an AbacusSTRU object from an ASE Atoms object.
+        pps, orbs and paws in the obtained AbacusSTRU object will be from ase_stru.info, which should be a dictionary with keys "pp", "orb", "paw".
+        ase_stru.info['pp'] should be a dictionary with keys being element symbols and values being the pp file. "orb" abd "paw" should also be given as "pp".
         Args:
             ase_stru: ASE Atoms object.
-            meta_data (Dict[str, Any], optional): Additional metadata for the AbacusSTRU object. Default is an empty dictionary.
+            metadata (Dict[str, Any], optional): Additional metadata for the AbacusSTRU object. Default is an empty dictionary.
         Returns:
             AbacusSTRU: An AbacusSTRU object representing the structure.
         """
@@ -636,8 +731,19 @@ class AbacusSTRU:
         assert isinstance(ase_stru, Atoms), "Input structure must be an ASE Atoms object."
         cell = ase_stru.get_cell().tolist()
         atom_list = []
-        mags = ase_stru.get_magnetic_moments() if ase_stru.has_magnetic_moments() else [None]*len(ase_stru)
+        mags = ase_stru.arrays["initial_magmoms"] if "initial_magmoms" in ase_stru.arrays.keys() else [None]*len(ase_stru)
         for i in range(len(ase_stru)):
+            atom_move = (True, True, True)
+            # Get atom coordinate fix from constraints
+            for constraint in ase_stru.constraints:
+                const_type = type(constraint).__name__
+                if const_type == "FixAtoms":
+                    if i in constraint.index:
+                        atom_move = (False, False, False)
+                elif const_type in ["FixCartesian", "FixScaled"]:
+                    if i in constraint.index:
+                        atom_move = constraint.mask
+
             atom = AbacusATOM(
                 label=ase_stru[i].symbol,
                 coord=tuple(ase_stru[i].position.tolist()),
@@ -646,13 +752,13 @@ class AbacusSTRU:
                 pp=ase_stru.info.get("pp", {}).get(ase_stru[i].symbol, None),
                 orb=ase_stru.info.get("orb", {}).get(ase_stru[i].symbol, None),
                 paw=ase_stru.info.get("paw", {}).get(ase_stru[i].symbol, None),
-                type_mag= 0.0 if mags[i] is None else mags[i],
-                move=(True, True, True),
+                type_mag=0.0,
+                move=atom_move,
                 mag= mags[i],
             )
             atom_list.append(atom)
 
-        return AbacusSTRU(cell=cell, atom_list=atom_list, meta_data=meta_data)
+        return AbacusSTRU(cell=cell, atoms=atom_list, metadata=metadata)
 
     @staticmethod
     def from_pymatgen(pymatgen_stru,
@@ -763,7 +869,7 @@ class AbacusSTRU:
         if fmt == "ase":
             from ase import Atoms
             return Atoms(symbols=elements, positions=self.coords, cell=self.cell, pbc=True, magmoms=self.atom_mags,
-                          info={"pp": self.pps,"orb": self.orbs,"paw": self.paws,"dpks": self.dpks})
+                          info={"pp": self.pp_dict(),"orb": self.orb_dict(),"paw": self.paw_dict(),"dpks": self.dpks})
         elif fmt == "pymatgen":
             from pymatgen.core import Structure
             return Structure(lattice=self.cell, species=elements, coords=self.coords, coords_are_cartesian=True,labels=self.labels,)
@@ -775,9 +881,80 @@ class AbacusSTRU:
                             magnetic_moments=self.atom_mags)
         else:
             raise ValueError(f"Unsupported format: {fmt}")
+    
+    def rotate(self, rot_mat):
+        # rotate the cell using given rotation matric
+        self.cell = np.dot(rot_mat, np.array(self.cell).T).T.tolist()
+        for i in range(len(self._atoms)):
+            self._atoms[i].rotate(rot_mat)
 
+    def fix_atom_by_index(self, indices: List[int],
+                          move: Optional[Tuple[bool, bool, bool]] = (False, False, False),
+                          only: Optional[bool]=False):
+        """
+        Fix atoms by index.
+        
+        Args:
+            indices (List[int]): List of indices of atoms to fix. Starts from 0.
+            move (Tuple[bool, bool, bool]): Tuple indicating whether the atom is allowed to move in each direction. Default is (False, False, False), which means all 3 directions are fixed.
+            only (bool): If True, override the move settings for unselected atoms and allow all unselected atoms to move. Default is False.
+        """
+        for i in range(self.natoms):
+            if i in indices:
+                self._atoms[i].move = move
+            elif only:
+                self._atoms[i].move = (True, True, True)
 
+    def fix_atom_by_coord(self,
+                          min: float,
+                          max: float,
+                          cartesian: Optional[bool]=True,
+                          direction: Optional[Literal[0, 1, 2]]=2, 
+                          move: Optional[Tuple[bool, bool, bool]]=(False, False, False),
+                          only: Optional[bool]=False):
+        """
+        Fix atoms by coordinates (cartesian or direct).
+        
+        Args:
+            min (float): Minimum height of atoms to fix.
+            max (float): Maximum height of atoms to fix.
+            cartesian (bool): Whether to use cartesian coordinates. Default is True.
+            direction (int): Direction of atoms to fix. Can be 0, 1 or 2, means 'x', 'y' and 'z' respectively. Default is 2.
+            move: Tuple[bool, bool, bool]: Tuple indicating whether the selected atoms are allowed to move in each direction. Default is (False, False, False), which means all 3 directions are fixed.
+            only (bool): If True, override the move settings for unselected atoms and allow all unselected atoms to move. Default is False.
+        """
+        for i in range(self.natoms):
+            if cartesian:
+                if self.coords[i][direction] >= min and self.coords[i][direction] <= max:
+                    self._atoms[i].move = move
+                elif only:
+                    self._atoms[i].move = (True, True, True)
+            else:
+                if self.coords_direct[i][direction] >= min and self.coords_direct[i][direction] <= max:
+                    self._atoms[i].move = move
+                elif only:
+                    self._atoms[i].move = (True, True, True)
+    
+    def permute_lat_vec(self, mode=Literal["bca", "cab"], rotate_cart_coord=False):
+        """
+        Permute the axis of the structure.
+        Args:
+            mode (str): The mode of permuting axis. Can be "bca" or "cab", which means transform from (\vec{a}, \vec{b}, \vec{c}).T to (\vec{b}, \vec{c}, \vec{a}).T or (\vec{c}, \vec{a}, \vec{b}).T).
+        """
+        if mode == "bca":
+            trans_mat = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
+        elif mode == "cab":
+            trans_mat = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
+        
+        self.cell = np.dot(trans_mat, self.cell)
 
+        # rotate cartesian coordinates
+        if rotate_cart_coord:
+            self.rotate(trans_mat)
+
+        return trans_mat
 
 def parse_stru_position(pos_line):
     '''
@@ -1118,6 +1295,8 @@ def write_stru_file(
         cc += "\nNUMERICAL_ORBITAL\n"
         for i in orb:
             cc += i + "\n"
+    elif all([i is None for i in orb]):
+        pass
     elif orb and None in orb:
         print("WARNING: orb list contains None, skip writing NUMERICAL_ORBITAL block")
     
@@ -1126,6 +1305,8 @@ def write_stru_file(
         cc += "\nPAW_FILES\n"
         for i in paw:
             cc += i + "\n"
+    elif all([i is None for i in paw]):
+        pass
     elif paw and None in paw:
         print("WARNING: paw list contains None, skip writing PAW_FILES block")
     
@@ -1153,6 +1334,8 @@ def write_stru_file(
             cc += "%17.11f %17.11f %17.11f " % tuple(coord[icoord + j])
             if move and move[icoord + j] and len(move[icoord + j]) == 3:
                 cc += "%d %d %d " % tuple(move[icoord + j])
+            if velocity and velocity[icoord + j] and len(velocity[icoord + j]) == 3:
+                cc += "v %f %f %f " % tuple(velocity[icoord + j])
             if magmom and magmom[icoord + j] is not None:
                 if isinstance(magmom[icoord + j],list):
                     if len(magmom[icoord + j]) == 3:
@@ -1161,8 +1344,6 @@ def write_stru_file(
                         cc += "mag %12.8f " % magmom[icoord + j][0]
                 elif magmom[icoord + j] != None:
                     cc += "mag %12.8f " % magmom[icoord + j]
-            if velocity and velocity[icoord + j] and len(velocity[icoord + j]) == 3:
-                cc += "v %f %f %f " % tuple(velocity[icoord + j])
             if angle1 and angle1[icoord + j] != None:
                     cc += "angle1 %f " % angle1[icoord + j]
             if angle2 and angle2[icoord + j] != None:
@@ -1189,7 +1370,7 @@ def write_stru_file(
         cc += "\nNUMERICAL_DESCRIPTOR\n"
         cc += dpks    
 
-    os.makedirs(os.path.dirname(struf), exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(struf)), exist_ok=True)
     with open(struf,"w") as f1:
         f1.write(cc)
     
@@ -1255,3 +1436,23 @@ def write_poscar(
     with open(poscar,"w") as f1:
         f1.write(cc)
     return cc
+
+def get_total_property(stru_data: Dict[str, Any],
+                       prop: Literal['label', 'magmom', 'pp', 'orb', 'paw']):
+    """
+    Get selected property in stru_data (read by read_stru_file) for each atom stored for each type .
+    Args:
+        stru_data (Dict[str, Any]): The structure data.
+        prop (Literal['label', 'magmom', 'pp', 'orb', 'paw']): The property name.
+    Returns:
+        float: The total property.
+    """
+    result = []
+    if len(stru_data[prop]) == 0:
+        return []
+    else:
+        assert len(stru_data[prop]) == len(stru_data['atom_number'])
+        for item, count in zip(stru_data[prop], stru_data['atom_number']):
+            result.extend([item] * count)
+
+        return result
