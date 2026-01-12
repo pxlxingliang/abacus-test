@@ -530,6 +530,8 @@ This will generate directories named "Fe" and "Al". Alternatively, set `--folder
 
 For POSCAR files stored in different folders (e.g., Fe/POSCAR, Al/POSCAR, Cu/POSCAR), execute the command: `abacustest model inputs -f */POSCAR --folder-syntax {x[:-7]}`. The program will generate folders named Fe, Al, Cu.
 
+NOTE: IF the generated folder name conflicts with the name of an existing folder, the program will automatically add a number suffix to the folder name, like "Fe.1", "Fe.2", "Fe.3", ...
+
 ### 4.2 Vacancy formation energy
 Formation energy of non-charged vacancies is defined as:
 $$ E_\text{f, vac} = E_\text{orig} - E_\text{vac} - \mu_\text{A} = E_\text{orig} - E_\text{vac} - \frac{E_\text{crys}}{A}{n} $$
