@@ -10,29 +10,54 @@ def Direct2Cartesian(coord:List[List[float]],cell:List[List[float]]):
 def Cartesian2Direct(coord:List[List[float]],cell:List[List[float]]):
     return np.array(coord).dot(np.linalg.inv(np.array(cell))).tolist()
 
-def translate_strus(input_strus, input_stru_type, output_path = "."):
+def translate_strus(input_strus, input_stru_type, output_path = ".", folder_syntax=None):
     """
     Translate the structure from one format to ABACUS stru.
     
     input_strus: str/list, the input structure.
     input_stru_type: str, the input structure type.
     output_stru_type: str, the output structure type.
+    output_path: str, the output path.
+    folder_syntax: str, the python syntax for each structure corresponding to its folder, 
+                   using string variable "x" to denote the input structure filename, and write the python syntax in {}. 
+                   For example, if the structure file is "Fe.cif", the syntax "{x[:-4]}" represents "Fe", and "aa-{x[:-4]}-yy" represents "aa-Fe-yy". 
+                   This function will create the new directory and save the structure inside it. 
+                   The default is None, indicating the generation of 00001, 00002
+                   If the folder already exists, the function will add a number to the folder name. 
+                   Like Fe.1, Fe.2, ...
     
     Return:
     output_strus: list, the output structure.
     """
     import dpdata
 
-    def gen_path_name(base_path):
+    def gen_path_name(base_path, create=False):
         if not os.path.exists(base_path):
+            if create:
+                os.makedirs(base_path)
             return base_path
-        idx = 1
-        while os.path.exists(f"{base_path}.{idx}"):
-            idx += 1
-        return f"{base_path}.{idx}"
+        else:
+            idx = 1
+            while os.path.exists(f"{base_path}.{idx}"):
+                idx += 1
+            if create:
+                os.makedirs(f"{base_path}.{idx}")
+            return f"{base_path}.{idx}"
     
-    
-    
+    def gen_folder_by_syntax(x, idx, output_path, syntax=None, create=False):
+        # generate the folder name based on the syntax or idx
+        # if use idx, then True, otherwise False
+        if syntax is None:
+            return gen_path_name(os.path.join(output_path,"%06d" % idx),create=create), True
+        else:
+            try:
+                v = eval(f"f'{syntax}'")
+                return gen_path_name(os.path.join(output_path,v),create=create), False
+            except:
+                traceback.print_exc()
+                print("ERROR: %s is not a valid syntax" % syntax)
+                return gen_path_name(os.path.join(output_path,"%06d" % idx),create=create), True
+
     dpdata_formats = dpdata.format.Format.get_formats()
     if input_stru_type not in dpdata_formats and input_stru_type.lower() != "cif":
         print("ERROR: input_stru_type should be in cif, %s, but not %s" % (str(dpdata_formats),input_stru_type))
@@ -47,12 +72,13 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
     try:
         for istru in input_strus:
             for iistru in glob.glob(istru):
+                tpath, use_idx = gen_folder_by_syntax(iistru, idx, output_path, folder_syntax, create=True)
+                if use_idx: 
+                    idx += 1
+                
                 if input_stru_type in ["abacus/stru", "stru"]:
-                    tpath = gen_path_name(os.path.join(output_path,"%06d" % idx))
-                    os.makedirs(tpath,exist_ok=True)
                     os.system("cp %s %s" % (iistru, os.path.join(tpath,"STRU")))
                     output_folders.append(tpath)
-                    idx += 1
                     print("Copy %s to %s" % (iistru, os.path.join(tpath,"STRU")))
                     with open(os.path.join(tpath,"struinfo.txt"),"w") as f:
                         f.write(istru)
@@ -77,15 +103,17 @@ def translate_strus(input_strus, input_stru_type, output_path = "."):
                     print("Translating %s to ABACUS stru:" % iistru)
                     struinfo[istru] = []
                     for i in range(stru.get_nframes()):
-                        tpath = os.path.join(output_path,"%06d" % idx)
-                        os.makedirs(tpath,exist_ok=True)
-                        stru.to("abacus/stru", os.path.join(tpath,"STRU"),i, pp_file=["" for _ in stru.data["atom_names"]])
-                        output_folders.append(tpath)
-                        idx += 1
-                        print("    Save to %s" % os.path.join(tpath,"STRU"))
-                        with open(os.path.join(tpath,"struinfo.txt"),"w") as f:
+                        if len(stru.get_nframes()) > 1:
+                            ipath = gen_path_name(tpath + f".{i}", create=True)
+                        else:
+                            itpath = tpath
+
+                        stru.to("abacus/stru", os.path.join(itpath,"STRU"),i, pp_file=["" for _ in stru.data["atom_names"]])
+                        output_folders.append(itpath)
+                        print("    Save to %s" % os.path.join(itpath,"STRU"))
+                        with open(os.path.join(itpath,"struinfo.txt"),"w") as f:
                             f.write(istru)
-                        struinfo[istru].append(os.path.basename(tpath))
+                        struinfo[istru].append(os.path.basename(itpath))
     except:
         traceback.print_exc()
         print("ERROR: %s to ABACUS STRU failed" % (input_stru_type))
