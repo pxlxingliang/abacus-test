@@ -491,7 +491,46 @@ If the key is not supported by the RESULT class, the value will be `None`.
 2. Submit ABACUS calculation jobs. In most cases, the previous step will automatically generate a "setting. json" file. You can directly use 'abacustest submit - p setting. json' (of course, you need to configure your own Bohrium account first, please refer to Part 2) to submit the calculation task to Bohrium. If you are not using the Bohrium platform, you can also check the content of "run_dft/examples" in seting.json, submit all directories defined by this field to your computing platform for calculation, and then perform post-processing after the calculation is completed. 
 3. uSE `abacustest model <modelname> post [args]` to extract results from ABACUS calculation and postprocess these results to obtain the target property.
 
-### 4.1 Vacancy formation energy
+### 4.1 Inputs
+This module is used to batch convert structure files into input files for ABACUS. For the main parameters, please use the command `abacustest model inputs -h` to view them.
+
+1. Download ABACUS-recommended pseudopotentials and orbitals
+
+Executing the command `abacustest model inputs --download-pporb apns-v1` can download the recommended pseudopotentials and orbitals. After the download is complete, two folders named "apns-pseudopotentials-v1" and "apns-orbitals-efficiency-v1" will be generated in the current directory, which store the pseudopotential and orbital files of the apns-v1 version respectively. 
+
+In subsequent steps, you can specify the pseudopotential library and orbital library directories via the `--pp` or `--orb` parameters. This allows ``abacustest` to automatically write the corresponding pseudopotential and orbital file names into the generated STRU files and create soft links.
+
+Alternatively, you can prepare the pseudopotential and orbital libraries yourself. Each file should start with the element name, or you can additionally prepare an "element.json" file in the directory, which contains the element names and their corresponding pseudopotential/orbital file names (e.g., {"Fe": "Fe.upf"}).
+
+2. Batch convert structure files into ABACUS input files
+
+If you have a series of CIF files (e.g., Fe.cif, Al.cif), you can convert them into ABACUS input files by executing the command `abacustest model inputs -f *.cif --ftype cif`. 
+
+You can additionally specify the pseudopotential and orbital library directories using the --pp or --orb parameters. The program will then automatically write the pseudopotential and orbital file names into the corresponding STRU files and create soft links (if you specify --copy_pp_orb, it will copy the files instead of creating soft links).
+In addition, you can assign the pseudopotential and orbital library directories to the environment variables ABACUS_PP_PATH and ABACUS_ORB_PATH using the commands:
+```
+export ABACUS_PP_PATH=/path/to/pp/dir
+export ABACUS_ORB_PATH=/path/to/orb/dir
+```
+By this way, you do not need to specify the --pp or --orb parameters every time.
+
+Currently supported file formats include: cif, poscar, stru, and all formats supported by dpdata. 
+
+You can also specify the type of INPUT file to be generated via the `--jtype` parameter (the default is "scf"). Other supported values include "relax", "cell-relax", "md", and "band". The program will generate the corresponding INPUT file based on the value of jtype. If you need to specify custom INPUT parameters, you can prepare an INPUT file and use the `--input` parameter to specify it. The program will automatically overwrite the parameters in the generated INPUT file with those from the specified INPUT file.
+
+3. Specify the naming format of generated folders
+
+By default, the program creates a folder for each structure, named with sequential numbers (e.g., 000000, 000001, 000002, ...). A "struinfo.json" file is generated to record the folder name corresponding to each structure, and a "struinfo.txt file" is also created in each folder, which contains the name of the original structure file.
+
+You can specify the naming format of the folders using the `--folder-syntax` parameter, which accepts an f-string-formatted string. Use "x" to represent the string variable of the input structure path, and place the processing logic for this variable inside {} (e.g., x[:-4] means removing the last 4 characters of the file name).
+
+Examples:
+For a series of .cif structure files (e.g., Fe.cif, Al.cif), execute the command: `abacustest model inputs -f *.cif --ftype cif --folder-syntax {x[:-4]}`.
+This will generate directories named "Fe" and "Al". Alternatively, set `--folder-syntax` to `aa-{x[:-4]}-bb` to generate directories like "aa-Fe-bb" and "aa-Al-bb".
+
+For POSCAR files stored in different folders (e.g., Fe/POSCAR, Al/POSCAR, Cu/POSCAR), execute the command: `abacustest model inputs -f */POSCAR --folder-syntax {x[:-7]}`. The program will generate folders named Fe, Al, Cu.
+
+### 4.2 Vacancy formation energy
 Formation energy of non-charged vacancies is defined as:
 $$ E_\text{f, vac} = E_\text{orig} - E_\text{vac} - \mu_\text{A} = E_\text{orig} - E_\text{vac} - \frac{E_\text{crys}}{A}{n} $$
 Where $E_\text{f, vac}$ is the vacancy formation energy, $E_\text{orig}$ is the energy of structure with no vacancies,
@@ -516,7 +555,7 @@ abacustest model vacancy post -j 000000
 Then vacancy formation energy will be printed and saved to `metrics_vacancy.json`. A file named `ref_energy.txt` will be generated
 and contains the reference energy of the vacancy atom and can be used in later calculation. Use `abacustest model vacancy post -h` for more details.
 
-### 4.2 Born effective charge
+### 4.3 Born effective charge
 Born effective charge ($Z_{s,ij}^{*}$, BEC) represents the effective charge response of lattice ions under an electric field, or the response of the system's polarization to ionic displacements, and is usually calculated by:
 
 $Z_{s,ij}^{*}$ = $\frac{\Omega}{e}$ $\frac{\partial P_i}{\partial u_{s,j}}$,
