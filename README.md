@@ -506,13 +506,13 @@ Alternatively, you can prepare the pseudopotential and orbital libraries yoursel
 
 If you have a series of CIF files (e.g., Fe.cif, Al.cif), you can convert them into ABACUS input files by executing the command `abacustest model inputs -f *.cif --ftype cif`. 
 
-You can additionally specify the pseudopotential and orbital library directories using the --pp or --orb parameters. The program will then automatically write the pseudopotential and orbital file names into the corresponding STRU files and create soft links (if you specify --copy_pp_orb, it will copy the files instead of creating soft links).
-In addition, you can assign the pseudopotential and orbital library directories to the environment variables ABACUS_PP_PATH and ABACUS_ORB_PATH using the commands:
+You can additionally specify the pseudopotential and orbital library directories using the `--pp` or `--orb` parameters. The program will then automatically write the pseudopotential and orbital file names into the corresponding STRU files and create soft links (if you specify `--copy_pp_orb`, it will copy the files instead of creating soft links).
+In addition, you can assign the pseudopotential and orbital library directories to the environment variables "ABACUS_PP_PATH" and "ABACUS_ORB_PATH" using the commands:
 ```
 export ABACUS_PP_PATH=/path/to/pp/dir
 export ABACUS_ORB_PATH=/path/to/orb/dir
 ```
-By this way, you do not need to specify the --pp or --orb parameters every time.
+By this way, you do not need to specify the `--pp` or `--orb` parameters every time.
 
 Currently supported file formats include: cif, poscar, stru, and all formats supported by dpdata. 
 
