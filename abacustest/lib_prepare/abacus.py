@@ -1076,9 +1076,9 @@ class AbacusStru:
         rotation = Tensor.get_ieee_rotation(stru_pymatgen)
 
         std_stru = deepcopy(self)
-        std_stru.set_cell(self.get_cell(bohr=False) @ rotation.T, bohr=False)
+        std_stru.set_cell((rotation @ np.array(self.get_cell(bohr=False)).T).T.tolist(), bohr=False)
         if std_stru._cartesian:
-            std_stru.set_coord(self.get_coord(direct=False) @ rotation.T)
+            std_stru.set_coord((rotation @ np.array(self.get_coord(direct=False)).T).T.tolist())
 
         return std_stru
 
