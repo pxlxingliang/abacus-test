@@ -103,7 +103,7 @@ def translate_strus(input_strus, input_stru_type, output_path = ".", folder_synt
                     print("Translating %s to ABACUS stru:" % iistru)
                     struinfo[istru] = []
                     for i in range(stru.get_nframes()):
-                        if len(stru.get_nframes()) > 1:
+                        if stru.get_nframes() > 1:
                             ipath = gen_path_name(tpath + f".{i}", create=True)
                         else:
                             itpath = tpath
