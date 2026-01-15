@@ -1,7 +1,7 @@
 from ..model import Model
 from . import comm
 import argparse,json, os
-from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, gen_stru, ReadInput, AbacusStru
+from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, AbacusStru
 from pathlib import Path
 
 from typing import List, Dict, Any

@@ -6,7 +6,7 @@ from .. import constant
 from . import comm
 from abacustest.lib_prepare.stru import read_stru_file, write_stru_file, write_poscar
 
-def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=False):
+def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=False, folder_syntax=None):
     """
     Generate the structure files for ABACUS.
     
@@ -15,6 +15,15 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=
         stru_type (str): Type of the structure files.
         pp_path (str): Path to the pseudopotential files.
         orb_path (str): Path to the orbital files.
+        tpath (str, optional): The path to save the structure files. Defaults to ".".
+        copy_pp_orb (bool, optional): Whether to copy the pseudopotential files to the structure path. Defaults to False which means create symbolic link.
+        folder_syntax: str, the python syntax for each structure corresponding to its folder, 
+                   using string variable "x" to denote the input structure filename, and write the python syntax in {}. 
+                   For example, if the structure file is "Fe.cif", the syntax "{x[:-4]}" represents "Fe", and "aa-{x[:-4]}-yy" represents "aa-Fe-yy". 
+                   This function will create the new directory and save the structure inside it. 
+                   The default is None, indicating the generation of 00001, 00002
+                   If the folder already exists, the function will add a number to the folder name. 
+                   Like Fe.1, Fe.2, ...
     
     Returns:
         jobs (dict): Dictionary, key is the job path, value is:
@@ -26,7 +35,7 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=
             }
     """
     # Translate structure files to ABACUS STRU format
-    stru_paths = comm.translate_strus(stru_files, stru_type, output_path = tpath)
+    stru_paths = comm.translate_strus(stru_files, stru_type, output_path = tpath, folder_syntax=folder_syntax)
     if stru_paths is None:
         print("Error: tanslate structure files failed.")
         return None
