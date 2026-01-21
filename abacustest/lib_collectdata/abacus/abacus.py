@@ -412,9 +412,21 @@ class Abacus(ResultAbacus):
                     lg = []
                 lg.append(float(line.split()[-1]))
             elif "Largest gradient in stress" in line:
+                # Largest gradient in stress is 10.208693
                 if lg_stress == None:
                     lg_stress = []
-                lg_stress.append(float(line.split()[-2]))
+                lg_stress.append(float(line.split()[5]))
+        
+        if lg is None:
+            forces = self["forces"]
+            if forces is not None:
+                lg = [max([abs(i) for i in j]) for j in forces]
+        
+        if lg_stress is None:
+            stresses = self["stresses"]
+            if stresses is not None:
+                lg_stress = [max([abs(i) for i in j]) for j in stresses]
+
         self['largest_gradient'] = lg
         self['largest_gradient_stress'] = lg_stress
     
@@ -1046,24 +1058,37 @@ class AbacusRelax(ResultAbacus):
     @ResultAbacus.register(relax_converge="if the relax is converged")
     def GetRelaxConverge(self):
         #need read self.LOG
+        converge = None
         if self.LOG:
             for i in range(len(self.LOG)):
                 line = self.LOG[-i-1]
                 if "Relaxation is converged!" in line:
-                    self["relax_converge"] = True
-                    return
+                    converge = True
                 elif "Relaxation is not converged yet!" in line:
-                    self["relax_converge"] = False
-                    return
+                    converge = False
                 elif "Ion relaxation is not converged yet" in line or \
                     "Lattice relaxation is not converged yet" in line:
-                    self["relax_converge"] = False
-                    return
+                    converge = False
                 elif "Lattice relaxation is converged!" in line or \
                     "Ion relaxation is converged!" in line:
-                    self["relax_converge"] = True
-                    return
-        self["relax_converge"] = None
+                    converge = True
+
+            # in some version, ABACUS will not output the statement of convergence, we need to check the last step
+            if converge is None:
+                lg_force = self["largest_gradient"]
+                lg_stress = self["largest_gradient_stress"]
+                job_type = self["INPUT"].get("calculation", "scf")
+                force_thr = self["INPUT"].get("force_thr_ev")
+                stress_thr = self["INPUT"].get("stress_thr")
+                if job_type == "relax" and \
+                    lg_force is not None and force_thr is not None and lg_force[-1] < force_thr:
+                    converge = True
+                elif job_type == "cell-relax" and \
+                    lg_force is not None and force_thr is not None and lg_force[-1] < force_thr and \
+                    lg_stress is not None and stress_thr is not None and lg_stress[-1] < stress_thr:
+                    converge = True
+
+        self["relax_converge"] = converge
     
     @ResultAbacus.register(relax_steps= "the total ION steps")
     def GetRelaxSteps(self):
