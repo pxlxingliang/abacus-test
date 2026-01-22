@@ -1012,13 +1012,13 @@ Fe2
         dos_datas = []
         for dosfile in dosfiles:
             dos_data = np.loadtxt(dosfile)
-            energy = dos_data[:, 0]
-            dos_datas.append(dos_data[:, 1])
+            energy = dos_data[:, 0].tolist()
+            dos_datas.append(dos_data[:, 1].tolist())
 
         if len(dos_datas) == 1: # nspin = 1 or 4
-            dos_datas = np.array(dos_datas[0])
+            dos_datas = dos_datas[0]
         else:
-            dos_datas = np.array(dos_datas).T
+            dos_datas = np.array(dos_datas).T.tolist()
         
         dos = {'energy': energy, 'data': dos_datas}
 
@@ -1035,11 +1035,11 @@ Fe2
             from io import StringIO
             tree = ET.parse(pdos_file)
             root = tree.getroot()
-            energy = np.array([float(i) for i in root.find('energy_values').text.split()])
+            energy = [float(i) for i in root.find('energy_values').text.split()]
 
             all_orbitals = []
             for iorb in root.findall('orbital'):
-                pdos_data = np.loadtxt(StringIO(iorb.find('data').text))
+                pdos_data = np.loadtxt(StringIO(iorb.find('data').text)).tolist()
                 
                 orbital_info = {
                     "index": int(iorb.get('index')),
