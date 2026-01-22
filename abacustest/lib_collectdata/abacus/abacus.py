@@ -1080,13 +1080,16 @@ class AbacusRelax(ResultAbacus):
                 job_type = self["INPUT"].get("calculation", "scf")
                 force_thr = self["INPUT"].get("force_thr_ev")
                 stress_thr = self["INPUT"].get("stress_thr")
-                if job_type == "relax" and \
-                    lg_force is not None and force_thr is not None and lg_force[-1] < force_thr:
-                    converge = True
-                elif job_type == "cell-relax" and \
-                    lg_force is not None and force_thr is not None and lg_force[-1] < force_thr and \
-                    lg_stress is not None and stress_thr is not None and lg_stress[-1] < stress_thr:
-                    converge = True
+                if job_type == "relax" and lg_force is not None and force_thr is not None:
+                    if lg_force[-1] < force_thr:
+                        converge = True
+                    else:
+                        converge = False
+                elif job_type == "cell-relax" and lg_force is not None and force_thr is not None and lg_stress is not None and stress_thr is not None:
+                    if lg_force[-1] < force_thr and  lg_stress[-1] < stress_thr:
+                        converge = True
+                    else:
+                        converge = False
 
         self["relax_converge"] = converge
     
