@@ -1072,6 +1072,8 @@ class AbacusRelax(ResultAbacus):
                 elif "Lattice relaxation is converged!" in line or \
                     "Ion relaxation is converged!" in line:
                     converge = True
+                if converge is not None:
+                    break
 
             # in some version, ABACUS will not output the statement of convergence, we need to check the last step
             if converge is None:
