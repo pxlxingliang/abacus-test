@@ -673,24 +673,45 @@ def write_pdos(pdosdatas: List[np.ndarray], energy: np.ndarray, labels: List[str
         - filename (str): Name of the file to write the data to.
     """
     assert len(pdosdatas) == len(labels)
+    
+    min_width = 12
+
+    energy_header = 'E-E_F(eV)' if shifted else 'Energy(eV)'
+    column_headers = []
+    for pdosdata, label in zip(pdosdatas, labels):
+        if pdosdata.shape[1] == 1:
+            column_headers.append(label)
+        elif pdosdata.shape[1] == 2:
+            column_headers.extend([label+'_up', label+'_dn'])
+    
+    # Calculate column widths
+    col_widths = []
+    energy_col_width = max(min_width, len(energy_header))
+    col_widths.append(energy_col_width)
+    for header in column_headers:
+        calculated_width = max(min_width, len(header)+1)
+        col_widths.append(calculated_width)
 
     with open(filename, "w") as writefile:
-        if shifted:
-            header_line = f"{'E-E_F(eV)':>14s}"
-        else:
-            header_line = f"{'Energy(eV)':>14s}"
+        header_line = f"{energy_header:>{col_widths[0]}s}"
+        header_idx = 1
         for pdosdata, label in zip(pdosdatas, labels):
             if pdosdata.shape[1] == 1:
-                header_line += f"{label:>20s}"
+                header_line += f"{label:>{col_widths[header_idx]}s}"
+                header_idx += 1
             elif pdosdata.shape[1] == 2:
-                header_line += f"{label+'_up':>20s}{label+'_dn':>20s}"
+                header_line += f"{label+'_up':>{col_widths[header_idx]}s}{label+'_dn':>{col_widths[header_idx+1]}s}"
+                header_idx += 2
         writefile.write(header_line + "\n")
 
         for i in range(len(energy)):
-            line = f"{energy[i]:>14.6f}"
+            line = f"{energy[i]:>{col_widths[0]}.6f}"
+            data_idx = 0
             for pdosdata in pdosdatas:
                 if pdosdata.shape[1] == 1:
-                    line += f"{pdosdata[i]:>20.6f}"
+                    line += f"{pdosdata[i]:>{col_widths[data_idx+1]}.6f}"
+                    data_idx += 1
                 elif pdosdata.shape[1] == 2:
-                    line += f"{pdosdata[i,0]:>20.6f}{pdosdata[i,1]:>20.6f}"
+                    line += f"{pdosdata[i,0]:>{col_widths[data_idx+1]}.6f}{pdosdata[i,1]:>{col_widths[data_idx+2]}.6f}"
+                    data_idx += 2
             writefile.write(line + "\n")
