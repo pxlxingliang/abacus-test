@@ -1016,6 +1016,26 @@ Fe2
         self['element_list'] = element_list
         self['atomlabel_list'] = atomlabel_list
     
+    @ResultAbacus.register(dos="dict, where keys are 'energy' and 'total', and value of 'total' is a dict of (nenergy,spin)",)
+    def GetDOS(self):
+        import glob
+        dosfiles = glob.glob(os.path.join(self.PATH,f"OUT.{self.SUFFIX}","DOS*_smearing.dat"))
+        print("DOS file: ", dosfiles)
+        dos_datas = []
+        for dosfile in dosfiles:
+            dos_data = np.loadtxt(dosfile)
+            energy = dos_data[:, 0].tolist()
+            dos_datas.append(dos_data[:, 1])
+
+        if len(dos_datas) == 1: # nspin = 1 or 4
+            dos_datas = dos_datas[0].T.reshape(-1, 1).tolist()
+        else:
+            dos_datas = np.array(dos_datas).T.tolist()
+        
+        dos = {'energy': energy, 'data': dos_datas}
+
+        self['dos'] = dos
+
     @ResultAbacus.register(pdos="dict, where keys are 'energy' and 'orbitals', and value of 'orbitals' is a dict of (index,species,l,m,z,data)",
                            )
     def GetPDOS(self): 
@@ -1024,33 +1044,28 @@ Fe2
         pdos = None
         if os.path.isfile(pdos_file):
             import xml.etree.ElementTree as ET
+            from io import StringIO
             tree = ET.parse(pdos_file)
             root = tree.getroot()
-            nspin = int(root.find('nspin').text)
             energy = [float(i) for i in root.find('energy_values').text.split()]
-
-            ne = len(energy)
 
             all_orbitals = []
             for iorb in root.findall('orbital'):
-                data = [[] for i in range(nspin)]
-                for i in iorb.find('data').text.split("\n"):
-                    for j,jj in enumerate(i.split()):
-                        if j == 1:
-                            data[j].append(-1*float(jj))
-                        else:
-                            data[j].append(float(jj))
-                if len(data[0]) != ne:
-                    print("WARNING: PDOS len(data[0]) != ne")      
-                all_orbitals.append({
+                pdos_data = np.loadtxt(StringIO(iorb.find('data').text))
+                if len(pdos_data.shape) == 1:
+                    pdos_data = pdos_data.reshape(-1, 1)
+                pdos_data = pdos_data.tolist()
+                
+                orbital_info = {
                     "index": int(iorb.get('index')),
                     "atom_index": int(iorb.get('atom_index')),
                     "species": iorb.get('species'),
                     "l": int(iorb.get('l')),
                     "m": int(iorb.get('m')),
                     "z": int(iorb.get('z')),
-                    "data": data
-                })
+                    "data": pdos_data
+                }
+                all_orbitals.append(orbital_info)
             pdos = {"energy":energy,"orbitals":all_orbitals}
         self["pdos"] = pdos
 
