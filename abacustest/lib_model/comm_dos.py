@@ -2,6 +2,7 @@
 
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Union
+from pathlib import Path
 
 from abacustest.lib_collectdata.collectdata import RESULT
 
@@ -65,10 +66,13 @@ class DOSData:
             dosdata: Total DOS data. If nspin=1 or 4, should be a 1D array with shape (nenergy,), or nspin=2 with shape (nenergy, 2).
             efermi: Fermi energy.
         """
+        self.efermi = efermi
         if efermi is not None:
             self.energy = energy - efermi
         else:
             self.energy = energy
+        
+        assert energy.shape[0] == dosdata.shape[0]
 
         self.dosdata = dosdata
     
@@ -121,12 +125,12 @@ class DOSData:
         Write DOS data to a file.
         """
         with open(fname, "w") as dosfile:
-            if len(dosdata.shape) == 1:
+            if dosdata.shape[1] == 1:
                 dosfile.write(f"{'Energy (eV)':>14s}{'Total DOS':>14s}\n")
                 for i in range(len(energy)):
                     dosfile.write(f"{energy[i]:>14.6f}{dosdata[i]:>14.6f}\n")
             else:
-                dosfile.write(f"{'Energy (eV)':>14s}{'Spin up':>14s}{'Spin down':>14s}\n")
+                dosfile.write(f"{'Energy (eV)':>14s}{'Spin_up':>14s}{'Spin_down':>14s}\n")
                 for i in range(len(energy)):
                     dosfile.write(f"{energy[i]:>14.6f}{dosdata[i, 0]:>14.6f}{dosdata[i, 1]:>14.6f}\n")
 
@@ -149,11 +153,12 @@ class PDOSData:
         efermi (float):
             Fermi energy. Original energy data is subtracted by this value. If None, will use the original energy data.
         """
+        self.efermi = efermi
         if efermi is not None:
             self.energy = np.array(energy) - efermi
 
         for orbital_pdos in pdosdata:
-            assert len(energy) == orbital_pdos['data'].shape[0] # Length of energy and PDOS data of one orbital must match
+            assert energy.shape[0] == orbital_pdos['data'].shape[0] # Length of energy and PDOS data of one orbital must match
             
         self.projected_dos = pdosdata
 
@@ -308,6 +313,7 @@ class PDOSData:
             return PDOSData.sum_pdos_data(pdos_datas)
         else:
             return pdos_datas
+
     def get_pdos_by_species(self, species: str, sum_only: bool=True) -> Union[np.ndarray, List[Dict]]:
         """
         Get PDOS data for a specific species.
@@ -396,6 +402,166 @@ class PDOSData:
             return PDOSData.sum_pdos_data(pdos_datas)
         else:
             return pdos_datas
+    
+    def get_species(self) -> List[str]:
+        # Get all species in the PDOS data
+        return list(set([orb['species'] for orb in self.projected_dos]))
+    
+    def get_species_shell(self, species: str) -> List[int]:
+        # Get all shells for a specific species in the PDOS data
+        return list(set([orb['l'] for orb in self.projected_dos if orb['species'] == species]))
+    
+    def get_species_shell_orbital(self, species: str, l: int) -> List[str]:
+        # Get all orbitals for a specific species and shell in the PDOS data
+        return list(set([orb['m'] for orb in self.projected_dos if (orb['species'] == species and orb['l'] == l)]))
+    
+    def get_atom_species(self, atom_index: int) -> str:
+        # Get the species for a specific atom in the PDOS data
+        species = list(set([orb['species'] for orb in self.projected_dos if orb['atom_index'] == atom_index]))
+        assert len(species) == 1
+        return species[0]
+
+    def get_atom_shell(self, atom_index: int) -> List[int]:
+        # Get all shells for a specific atom in the PDOS data
+        return list(set([orb['l'] for orb in self.projected_dos if orb['atom_index'] == atom_index]))
+    
+    def get_atom_shell_orbital(self, atom_index: int, l: int) -> List[str]:
+        # Get all orbitals for a specific atom and shell in the PDOS data
+        return list(set([orb['m'] for orb in self.projected_dos if (orb['atom_index'] == atom_index and orb['l'] == l)]))
+    
+    def plot_species_pdos(self, emin: float=-20, emax: float=10, pdos_fig_name: str='PDOS.png') -> None:
+        #Plot PDOS for all species in the PDOS data.
+        species = self.get_species()
+        species_pdosdata = [self.get_pdos_by_species(species[i]) for i in range(len(species))]
+
+        plot_pdos([species_pdosdata],
+                  [species],
+                  titles=['Projected density of States of different species'],
+                  energy=self.energy,
+                  energy_min=emin,
+                  energy_max=emax,
+                  shifted=self.efermi is not None,
+                  pdos_fig_name=pdos_fig_name)
+    
+    def plot_species_shell_pdos(self, emin: float=-20, emax: float=10, pdos_fig_name: str='PDOS.png') -> None:
+        species = self.get_species()
+        pdosdatas, labels, titles = [], [], []
+        for species_i in species:
+            species_shells = self.get_species_shell(species_i)
+            pdosdatas.append([self.get_pdos_by_species_shell(species_i, species_shells[i]) for i in range(len(species_shells))])
+            labels.append([f'{species_i}-{l_map[l]}' for l in species_shells])
+            titles.append(f"PDOS for {species_i}")
+        
+        plot_pdos(pdosdatas,
+                  labels,
+                  titles,
+                  self.energy,
+                  emin,
+                  emax,
+                  self.efermi is not None,
+                  pdos_fig_name)
+    
+    def plot_species_orbital_pdos(self, emin: float=-20, emax: float=10, pdos_fig_name: str='PDOS.png') -> None:
+        # Plot PDOS for all orbitals of all species in the PDOS data.
+        species = self.get_species()
+        pdosdatas, labels, titles = [], [], []
+        for species_i in species:
+            species_shells = self.get_species_shell(species_i)
+            for shell in species_shells:
+                species_shell_orbitals = self.get_species_shell_orbital(species_i, shell)
+                pdosdatas.append([self.get_pdos_by_species_orbital(species_i, shell, species_shell_orbitals[i]) for i in range(len(species_shell_orbitals))])
+                labels.append([f'{species_i}-{orbital_names[(shell, orbital)]}' for orbital in species_shell_orbitals])
+                titles.append(f"PDOS for {species_i}-{l_map[shell]}")
+        
+        plot_pdos(pdosdatas,
+                  labels,
+                  titles,
+                  self.energy,
+                  emin,
+                  emax,
+                  self.efermi is not None,
+                  pdos_fig_name)
+    
+    def plot_atoms_pdos(self, atom_indices: List[int], emin: float=-20, emax: float=10, pdos_fig_name: str='PDOS.png') -> None:
+        # Plot PDOS for all atoms specified in atom_indices.
+        pdosdatas, labels, titles = [], [], []
+        for i in atom_indices:
+            species = self.get_atom_species(i)
+            atom_shells = self.get_atom_shell(i)
+            for shell in atom_shells:
+                atom_shell_orbitals = self.get_atom_shell_orbital(i, shell)
+                pdosdatas.append([self.get_pdos_by_atom_orbital(i, shell, orbital) for orbital in atom_shell_orbitals])
+                labels.append([f'{species}{i}-{orbital_names[(shell, orbital)]}' for orbital in atom_shell_orbitals])
+                titles.append(f"PDOS for {species}{i}-{l_map[shell]}")
+        
+        plot_pdos(pdosdatas,
+                  labels,
+                  titles,
+                  self.energy,
+                  emin,
+                  emax,
+                  self.efermi is not None,
+                  pdos_fig_name)
+
+        
+    def write_species_pdos(self, pdos_dat_file: str='PDOS.dat') -> None:
+        #Write PDOS data of different species to a file.
+        species = self.get_species()
+        species_pdosdata = [self.get_pdos_by_species(species[i]) for i in range(len(species))]
+
+        write_pdos(species_pdosdata,
+                   self.energy,
+                   species,
+                   self.efermi is not None,
+                   pdos_dat_file)
+    
+    def write_species_shell_pdos(self, pdos_dat_file: str='PDOS.dat') -> None:
+        species = self.get_species()
+        pdosdatas, labels = [], []
+        for species_i in species:
+            species_shells = self.get_species_shell(species_i)
+            pdosdatas.extend([self.get_pdos_by_species_shell(species_i, species_shells[i]) for i in range(len(species_shells))])
+            labels.extend([f'{species_i}-{l_map[l]}' for l in species_shells])
+        
+        write_pdos(pdosdatas,
+                   self.energy,
+                   labels,
+                   self.efermi is not None,
+                   pdos_dat_file)
+    
+    def write_species_orbital_pdos(self, pdos_dat_file: str='PDOS.dat') -> None:
+        # Write PDOS data of different orbitals of different species to a file.
+        species = self.get_species()
+        pdosdatas, labels = [], []
+        for species_i in species:
+            species_shells = self.get_species_shell(species_i)
+            for shell in species_shells:
+                species_shell_orbitals = self.get_species_shell_orbital(species_i, shell)
+                pdosdatas.extend([self.get_pdos_by_species_orbital(species_i, shell, species_shell_orbitals[i]) for i in range(len(species_shell_orbitals))])
+                labels.extend([f'{species_i}-{orbital_names[(shell, orbital)].replace("$", "")}' for orbital in species_shell_orbitals])
+        
+        write_pdos(pdosdatas,
+                   self.energy,
+                   labels,
+                   self.efermi is not None,
+                   pdos_dat_file)
+    
+    def write_atoms_pdos(self, atom_indices: List[int], pdos_dat_file: str='PDOS.dat') -> None:
+        # Write PDOS data of different atoms to a file.
+        pdosdatas, labels = [], []
+        for i in atom_indices:
+            species = self.get_atom_species(i)
+            atom_shells = self.get_atom_shell(i)
+            for shell in atom_shells:
+                atom_shell_orbitals = self.get_atom_shell_orbital(i, shell)
+                pdosdatas.extend([self.get_pdos_by_atom_orbital(i, shell, orbital) for orbital in atom_shell_orbitals])
+                labels.extend([f'{species}{i}-{orbital_names[(shell, orbital)].replace("$", "")}' for orbital in atom_shell_orbitals])
+        
+        write_pdos(pdosdatas,
+                   self.energy,
+                   labels,
+                   self.efermi is not None,
+                   pdos_dat_file)
 
     @staticmethod
     def sum_pdos_data(pdos_datas: List[Dict]) -> np.ndarray:
@@ -418,94 +584,95 @@ class PDOSData:
         for pdos_data in pdos_datas:
             pdos_sum += np.array(pdos_data['data'])
         return pdos_sum
-    
-    @staticmethod
-    def plot_pdos(pdosdatas: List[List[np.ndarray]],
-                  labels: List[List[str]],
-                  titles: List[str],
-                  energy: np.ndarray,
-                  energy_min: float,
-                  energy_max: float,
-                  pdos_fig_name: str):
-        """
-        Plot PDOS using given PDOS data, titles and labels.
 
-        Args:
-            - pdosdata (List[List[np.ndarray]]): PDOS datas used in the plot. The length of PDOS data is the number of subplots in the plot, and
-              the length of each element of the list is number of PDOS data plotted in each subplot. If nspin=2, the spin up and spin down PDOS
-              will be plotted in a subplot separately.
-            - labels (List[List[str]]): Labels for each PDOS data in each subplot. The length of labels is the number of subplots in the plot, and
-              the length of each element of the list is number of PDOS data plotted in each subplot. If nspin=2, up and down arrows will be added automatically.
-            - titles (List[str]): Titles for each subplot. The length of titles is the number of subplots in the plot.
-            - energy (np.ndarray): Energy values for the PDOS data.
-            - energy_min (float): Minimum energy value for the plot.
-            - energy_max (float): Maximum energy value for the plot.
-            - pdos_fig_name (str): Name of the PDOS figure.
-        """
-        import matplotlib.pyplot as plt
 
-        num_subplots = len(pdosdatas)
-        fig, axes = plt.subplots(num_subplots, 1, figsize=(8, 4*num_subplots))
-
-        for idx, pdosdata in enumerate(pdosdatas):
-            assert len(pdosdata) == len(labels[idx]) # Check if number of PDOS data matches number of labels
-
-            if num_subplots > 1:
-                ax = axes[idx]
-            else:
-                ax = axes
-            
-            if_spin_polarized = False
-            for i, (data, label) in enumerate(zip(pdosdata, labels[idx])):
-                if len(data.shape) == 1: # nspin = 1 or 4
-                    ax.plot(energy, data, label=label, linestyle='-', color=color_list[i], linewidth=1.0)
-                elif len(data.shape) == 2: # nspin = 2
-                    if_spin_polarized = True
-                    ax.plot(energy, data[:,0], label=f"{label} "+r"$\uparrow$", linestyle='-', color=color_list[i], linewidth=1.0)
-                    ax.plot(energy, -data[:,1], label=f"{label} "+r"$\downarrow$", linestyle='--', color=color_list[i], linewidth=1.0)
-            
-            ax.set_xlim(energy_min, energy_max)
-            ax.relim(visible_only=True)
-            ax.autoscale_view()
-            ax.set_xlabel("Energy (eV)", fontsize=12)
-            ax.set_ylabel(r"States ($eV^{-1}$)", fontsize=12)
-            ax.axvline(x=0, color="k", linestyle=":", alpha=0.5)
-            ax.legend(loc='best', fontsize=8, ncol=if_spin_polarized+1)
-            ax.grid(alpha=0.3)
-            ax.set_title(titles[idx])
+def plot_pdos(pdosdatas: List[List[np.ndarray]],
+              labels: List[List[str]],
+              titles: List[str],
+              energy: np.ndarray,
+              energy_min: float,
+              energy_max: float,
+              shifted: bool,
+              pdos_fig_name: str):
+    """
+    Plot PDOS using given PDOS data, titles and labels.
+    Args:
+        - pdosdata (List[List[np.ndarray]]): PDOS datas used in the plot. The length of PDOS data is the number of subplots in the plot, and
+          the length of each element of the list is number of PDOS data plotted in each subplot. If nspin=2, the spin up and spin down PDOS
+          will be plotted in a subplot separately.
+        - labels (List[List[str]]): Labels for each PDOS data in each subplot. The length of labels is the number of subplots in the plot, and
+          the length of each element of the list is number of PDOS data plotted in each subplot. If nspin=2, up and down arrows will be added automatically.
+        - titles (List[str]): Titles for each subplot. The length of titles is the number of subplots in the plot.
+        - energy (np.ndarray): Energy values for the PDOS data.
+        - energy_min (float): Minimum energy value for the plot.
+        - energy_max (float): Maximum energy value for the plot.
+        - pdos_fig_name (str): Name of the PDOS figure.
+    """
+    import matplotlib.pyplot as plt
+    num_subplots = len(pdosdatas)
+    fig, axes = plt.subplots(num_subplots, 1, figsize=(8, 4*num_subplots))
+    for idx, pdosdata in enumerate(pdosdatas):
+        assert len(pdosdata) == len(labels[idx]) # Check if number of PDOS data matches number of labels
+        if num_subplots > 1:
+            ax = axes[idx]
+        else:
+            ax = axes
         
-        plt.tight_layout()
-        plt.savefig(pdos_fig_name, dpi=300)
-        plt.close()
+        if_spin_polarized = False
+        for i, (data, label) in enumerate(zip(pdosdata, labels[idx])):
+            if data.shape[1] == 1: # nspin = 1 or 4
+                ax.plot(energy, data, label=label, linestyle='-', color=color_list[i], linewidth=1.0)
+            elif data.shape[1] == 2: # nspin = 2
+                if_spin_polarized = True
+                ax.plot(energy, data[:,0], label=f"{label} "+r"$\uparrow$", linestyle='-', color=color_list[i], linewidth=1.0)
+                ax.plot(energy, -data[:,1], label=f"{label} "+r"$\downarrow$", linestyle='--', color=color_list[i], linewidth=1.0)
+        
+        ax.set_xlim(energy_min, energy_max)
+        ax.relim(visible_only=True)
+        ax.autoscale_view()
+        if shifted:
+            ax.set_xlabel(r"$E-E_F$ (eV)", fontsize=12)
+            ax.axvline(x=0, color="k", linestyle=":", alpha=0.5)
+        else:
+            ax.set_xlabel("Energy (eV)", fontsize=12)
+        ax.set_ylabel("States", fontsize=12)
+        ax.legend(loc='best', fontsize=8, ncol=if_spin_polarized+1)
+        ax.grid(alpha=0.3)
+        ax.set_title(titles[idx])
     
-    @staticmethod
-    def write_pdos(pdosdatas: List[np.ndarray], energy: np.ndarray, labels: List[str], filename: str):
-        """
-        Write processed PDOS data to a file.
+    plt.tight_layout()
+    plt.savefig(pdos_fig_name, dpi=300)
+    plt.close()
 
-        Args:
-            - pdosdata (List[np.ndarray]): Processed PDOS data. The shape of each element is same with self.projected_dos[i]['data'].
-            - energy (np.ndarray): Energy values for the PDOS data.
-            - labels (List[str]): Labels for each PDOS data. If nspin=2. up and down PDOS will be written in different columns.
-            - filename (str): Name of the file to write the data to.
-        """
-        assert len(pdosdatas) == len(labels)
+def write_pdos(pdosdatas: List[np.ndarray], energy: np.ndarray, labels: List[str], shifted: bool, filename: str):
+    """
+    Write processed PDOS data to a file.
 
-        with open(filename, "w") as writefile:
-            header_line = f"{'Energy (eV)':>14s}"
-            for pdosdata, label in zip(pdosdatas, labels):
-                if len(pdosdata.shape) == 1:
-                    header_line += f"{label:>20s}"
-                elif len(pdosdata.shape) == 2:
-                    header_line += f"{label+'_up':>20s}{label+'_dn':>20s}"
-            writefile.write(header_line + "\n")
+    Args:
+        - pdosdata (List[np.ndarray]): Processed PDOS data. The shape of each element is same with self.projected_dos[i]['data'].
+        - energy (np.ndarray): Energy values for the PDOS data.
+        - labels (List[str]): Labels for each PDOS data. If nspin=2. up and down PDOS will be written in different columns.
+        - filename (str): Name of the file to write the data to.
+    """
+    assert len(pdosdatas) == len(labels)
 
-            for i in range(len(energy)):
-                line = f"{energy[i]:>14.6f}"
-                for pdosdata in pdosdatas:
-                    if len(pdosdata.shape) == 1:
-                        line += f"{pdosdata[i]:>20.6f}"
-                    elif len(pdosdata.shape) == 2:
-                        line += f"{pdosdata[i,0]:>20.6f}{pdosdata[i,1]:>20.6f}"
-                writefile.write(line + "\n")
+    with open(filename, "w") as writefile:
+        if shifted:
+            header_line = f"{'E-E_F(eV)':>14s}"
+        else:
+            header_line = f"{'Energy(eV)':>14s}"
+        for pdosdata, label in zip(pdosdatas, labels):
+            if pdosdata.shape[1] == 1:
+                header_line += f"{label:>20s}"
+            elif pdosdata.shape[1] == 2:
+                header_line += f"{label+'_up':>20s}{label+'_dn':>20s}"
+        writefile.write(header_line + "\n")
 
+        for i in range(len(energy)):
+            line = f"{energy[i]:>14.6f}"
+            for pdosdata in pdosdatas:
+                if pdosdata.shape[1] == 1:
+                    line += f"{pdosdata[i]:>20.6f}"
+                elif pdosdata.shape[1] == 2:
+                    line += f"{pdosdata[i,0]:>20.6f}{pdosdata[i,1]:>20.6f}"
+            writefile.write(line + "\n")

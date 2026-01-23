@@ -1013,10 +1013,10 @@ Fe2
         for dosfile in dosfiles:
             dos_data = np.loadtxt(dosfile)
             energy = dos_data[:, 0].tolist()
-            dos_datas.append(dos_data[:, 1].tolist())
+            dos_datas.append(dos_data[:, 1])
 
         if len(dos_datas) == 1: # nspin = 1 or 4
-            dos_datas = dos_datas[0]
+            dos_datas = dos_datas[0].T.reshape(-1, 1).tolist()
         else:
             dos_datas = np.array(dos_datas).T.tolist()
         
@@ -1039,7 +1039,10 @@ Fe2
 
             all_orbitals = []
             for iorb in root.findall('orbital'):
-                pdos_data = np.loadtxt(StringIO(iorb.find('data').text)).tolist()
+                pdos_data = np.loadtxt(StringIO(iorb.find('data').text))
+                if len(pdos_data.shape) == 1:
+                    pdos_data = pdos_data.reshape(-1, 1)
+                pdos_data = pdos_data.tolist()
                 
                 orbital_info = {
                     "index": int(iorb.get('index')),
