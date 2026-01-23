@@ -516,6 +516,37 @@ def write_gaussian_cube(data: dict, fcube: str, ndigits: int = 6):
             f.write("\n")
     return
 
+def profile1d(data: dict, axis: str, average: bool = False):
+    """integrate the 3D cube data to 2D plane.
+    Args:
+        data (dict): the dictionary containing the cube data.
+        axis (str): the axis to be integrated. 'x' means integrate yz plane, 'y' means xz plane, 'z' means xy plane.
+    
+    Returns:
+        data (dict): the dictionary containing the cube data.
+    """
+    import numpy as np
+    
+    mat3d = data["data"].reshape(int(data["nx"]), int(data["ny"]), int(data["nz"]))
+
+    func = np.mean if average else np.sum
+    if axis == "x":
+        val = func(mat3d, axis=2)
+        val = func(val, axis=1)
+    elif axis == "y":
+        val = func(mat3d, axis=0)
+        val = func(val, axis=1)
+    elif axis == "z":
+        val = func(mat3d, axis=0)
+        val = func(val, axis=0)
+
+    # remember to write the axis data
+    ngrid = data["nx"] if axis == "x" else data["ny"] if axis == "y" else data["nz"]
+    var = np.linspace(0, 1, int(ngrid))
+    # then combine the var and val to n x 2 array
+    data["data"] = np.vstack((var, val)).T
+    return data
+
 def read_abacus_chg(fcube: str):
     """Read the ABACUS CHG cube format volumetric data.
     
