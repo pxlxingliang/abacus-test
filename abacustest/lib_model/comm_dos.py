@@ -610,11 +610,29 @@ def plot_pdos(pdosdatas: List[List[np.ndarray]],
     """
     import matplotlib.pyplot as plt
     num_subplots = len(pdosdatas)
-    fig, axes = plt.subplots(num_subplots, 1, figsize=(8, 4*num_subplots))
+
+    # Create subplots
+    if num_subplots > 3:
+        ncol = max(3, int(np.sqrt(num_subplots)))
+        nrow = int(num_subplots/ncol) + 1
+        fig, axes = plt.subplots(nrow, ncol, figsize=(8*ncol, 4*nrow))
+        
+        # Hide extra subplots with no data
+        if hasattr(axes, '__len__') and len(np.shape(axes)) > 1:
+            axes_flat = axes.flatten()
+            for j in range(num_subplots, len(axes_flat)):
+                axes_flat[j].set_visible(False)
+    else:
+        fig, axes = plt.subplots(num_subplots, 1, figsize=(8, 4*num_subplots))
+    
     for idx, pdosdata in enumerate(pdosdatas):
         assert len(pdosdata) == len(labels[idx]) # Check if number of PDOS data matches number of labels
+        
         if num_subplots > 1:
-            ax = axes[idx]
+            if num_subplots > 3:
+                ax = axes[idx//ncol, idx%ncol]
+            else:
+                ax = axes[idx]
         else:
             ax = axes
         
