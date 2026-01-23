@@ -8,10 +8,10 @@ import numpy as np
 from abacustest.constant import RY2EV, RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 from abacustest.lib_prepare.abacus import WriteInput, ReadInput
 from abacustest.lib_prepare.stru import AbacusSTRU
-from abacustest.lib_model.comm import copy_abacusjob, read_gaussian_cube, profile1d
+from abacustest.lib_model.comm import copy_abacusjob, read_gaussian_cube, profile1d, get_largest_vacuum_dir
 from abacustest.lib_collectdata.collectdata import RESULT
 
-EFIELD_DIRECTION_MAP = ["x", "y", "z"]
+EFIELD_DIRECTION_MAP = ["a", "b", "c"]
 
 class WorkFuncModel(Model):
     @staticmethod
@@ -36,13 +36,12 @@ class WorkFuncModel(Model):
         '''
         parser.description = "Prepare the inputs for the elastic calculation."
         parser.add_argument('-j', '--job', default=[], action="extend", nargs="*", help='the paths of ABACUS jobs, should contain INPUT, STRU, or KPT, and pseudopotential and orbital files')
-        parser.add_argument("--vacuum", default="c", choices=["a", "b", "c"], help="The direction of the elastic calculation, default is c.")
+        parser.add_argument("--vacuum", default="c", choices=["a", "b", "c", "auto"], help="The direction of the elastic calculation, default is c. If set to auto, the direction will try to be determined automatically.")
         parser.add_argument("--dipole-corr", action="store_true", help="Whether to use dipole correction for the elastic calculation, default is not using.")
         parser.add_argument("--image", type=str, default=RECOMMAND_IMAGE, help="The image to use for the Bohrium job, default is %s" % RECOMMAND_IMAGE)
         parser.add_argument("--machine", type=str, default=RECOMMAND_MACHINE, help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.")
         parser.add_argument("--abacus_command", type=str, default=RECOMMAND_COMMAND, help=f"The command to run the Abacus job, default is '{RECOMMAND_COMMAND}'.")
         return parser
-    
     
     def run_prepare(self,params):
         '''
@@ -109,7 +108,7 @@ class WorkFuncModel(Model):
         print("\nThe postprocess is done. The metrics are saved in 'metrics.json'.")
 
 
-def prep_abacus_workfunc_calc(job: Path, vacuum_dir: Literal["a", "b", "c"] = "c", dipole_corr: bool = False) -> Path:
+def prep_abacus_workfunc_calc(job: Path, vacuum_dir: Literal["a", "b", "c", "auto"] = "c", dipole_corr: bool = False) -> Path:
     
     if "workfunc_job" in os.listdir(job):
         print("Old workfunc_job directory found, remove and recreate it.")
@@ -128,7 +127,18 @@ def prep_abacus_workfunc_calc(job: Path, vacuum_dir: Literal["a", "b", "c"] = "c
     if dipole_corr:
         input_params['efield_flag'] = 1
         input_params['dip_cor_flag'] = 1
-        input_params['efield_dir'] = EFIELD_DIRECTION_MAP.index(vacuum_dir)
+        if vacuum_dir in ['a', 'b', 'c']:
+            input_params['efield_dir'] = EFIELD_DIRECTION_MAP.index(vacuum_dir)
+        elif vacuum_dir == 'auto':
+            stru_file = os.path.join(workfunc_dir, input_params.get('stru_file', "STRU"))
+            direction, max_vacuum_cart = get_largest_vacuum_dir(stru_file)
+            if max_vacuum_cart < 4.0:
+                print(f"WARNING: The largest vacuum is less than 4.0 Angstrom in struture in {stru_file}")
+            
+            print(f"Automatically identified the vacuum along {direction} direction in {stru_file}")
+            input_params['efield_dir'] = EFIELD_DIRECTION_MAP.index(direction)
+        else:
+            raise ValueError("Invalid vacuum direction: %s" % vacuum_dir)
         input_params['efield_amp'] = 0.0 # Automatically determine electric field strength
         input_params['efield_pos_max'] = None # Automatically determine electric field position
         input_params['efield_pos_dec'] = None # Automatically determine range of electric field
@@ -150,7 +160,8 @@ def post_abacus_workfunc_calc(job: Path) -> Dict[str, Any]:
     pot = read_gaussian_cube(pot_file)
 
     vacuum_dir = EFIELD_DIRECTION_MAP[input_params.get("efield_dir", 2)]
-    profile_result = profile1d(pot, axis=vacuum_dir, average=True)
+    axis_map = {'a': 'x', 'b': 'y', 'c': 'z'}
+    profile_result = profile1d(pot, axis=axis_map[vacuum_dir], average=True)
     profile_result['data'][:, 1] *= RY2EV # convert Ry to eV
 
     work_function_results = calculate_work_functions(profile_result['data'][:, 1],
@@ -160,7 +171,8 @@ def post_abacus_workfunc_calc(job: Path) -> Dict[str, Any]:
                                            profile_result['data'][:, 1],
                                            results['efermi'],
                                            axis=vacuum_dir,
-                                           work_function_results=work_function_results)
+                                           work_function_results=work_function_results,
+                                           plot_filename=os.path.join(workfunc_job, "elecstat_pot_profile.png"))
     
     return work_function_results, plot_path
 

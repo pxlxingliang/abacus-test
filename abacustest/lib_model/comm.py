@@ -1,6 +1,7 @@
 import os,json,glob,shutil,traceback
 import subprocess,copy
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,ReadKpt
+from abacustest.lib_prepare.stru import AbacusSTRU
 import select
 from typing import List, Dict, Union, Optional, Tuple, Literal
 from abacustest.lib_prepare.comm import IsTrue
@@ -859,3 +860,42 @@ def copy_abacusjob(src_dir: str, dst_dir: str, input_file=True, stru=True, kpt=T
         if os.path.exists(out_dir_path) and os.path.isdir(out_dir_path):
             target_out_dir = os.path.join(dst_dir, os.path.basename(out_dir_path))
             shutil.copytree(out_dir_path, target_out_dir, dirs_exist_ok=True)
+
+def get_largest_vacuum_dir(stru_file: str = "STRU", fmt: str = "stru"):
+    # Get the direction containing largest vacuum (compare using cartesian coordinates)
+    import numpy as np
+
+    stru = AbacusSTRU.read(stru_file, fmt=fmt)
+    direct_coords = np.array(stru.coords_direct)
+
+    vacuums_direct = [0, 0, 0]
+    for i in range(3): # Loop over the three directions
+        # Algorithm from void Efield::autoset in source/module_elecstate/potentials/efield.cpp in ABACUS source code
+        sorted_coords = direct_coords[np.argsort(direct_coords[:, i])]
+        vacuum = 0
+        for idx in range(1, stru.natoms):
+            diff = sorted_coords[idx][i] - sorted_coords[idx-1][i]
+            if diff > vacuum:
+                vacuum = diff
+        
+        diff = sorted_coords[0][i] + 1 - sorted_coords[-1][i]
+        if diff > vacuum:
+            vacuum = diff
+        
+        vacuums_direct[i] = vacuum
+  
+    a, b, c, alpha, beta, gamma = stru.get_cell_param()
+    vacuums_cart = [vacuums_direct[0]*a, vacuums_direct[1]*b, vacuums_direct[2]*c]
+    
+    max_vacuum_cart = max(vacuums_cart)
+    max_vacuum_idx = vacuums_cart.index(max_vacuum_cart)
+
+    if max_vacuum_cart < 4.0: # In Angstrom
+        print(f"WARNING: The largest vacuum is less than 4.0 Angstrom in struture in {stru_file}")
+
+    if max_vacuum_idx == 0:
+        return 'a', max_vacuum_cart
+    elif max_vacuum_idx == 1:
+        return 'b', max_vacuum_cart
+    else:
+        return 'c', max_vacuum_cart
