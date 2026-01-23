@@ -615,15 +615,8 @@ def plot_dos_pdos(pdosdatas: List[List[np.ndarray]],
     
     for idx, pdosdata in enumerate(pdosdatas):
         assert len(pdosdata) == len(labels[idx]) # Check if number of PDOS data matches number of labels
-        
-        if num_subplots > 1:
-            if num_subplots >= START_MUTL_COL_SUBPLOT_NUM:
-                ax = axes[idx//ncol, idx%ncol]
-            else:
-                ax = axes[idx]
-        else:
-            ax = axes
-        
+        ax = axes[idx]
+
         if_spin_polarized = False
         for i, (data, label) in enumerate(zip(pdosdata, labels[idx])):
             if data.shape[1] == 1: # nspin = 1 or 4
