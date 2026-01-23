@@ -617,7 +617,7 @@ def plot_dos_pdos(pdosdatas: List[List[np.ndarray]],
         assert len(pdosdata) == len(labels[idx]) # Check if number of PDOS data matches number of labels
         
         if num_subplots > 1:
-            if num_subplots > START_MUTL_COL_SUBPLOT_NUM:
+            if num_subplots >= START_MUTL_COL_SUBPLOT_NUM:
                 ax = axes[idx//ncol, idx%ncol]
             else:
                 ax = axes[idx]
