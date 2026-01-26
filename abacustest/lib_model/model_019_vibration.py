@@ -9,9 +9,8 @@ import numpy as np
 from ase.vibrations import Vibrations
 from ase.thermochemistry import HarmonicThermo
 
-from abacustest.lib_prepare.abacus import WriteInput, ReadInput
+from abacustest import AbacusSTRU, WriteInput, ReadInput
 from abacustest.lib_model.comm import copy_abacusjob
-from abacustest.lib_prepare.stru import AbacusSTRU
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
 

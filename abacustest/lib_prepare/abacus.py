@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import Path
 from .. import constant
 from . import comm
-from abacustest.lib_prepare.stru import read_stru_file, write_stru_file, write_poscar
+from abacustest.lib_prepare.stru import read_stru_file
 
 def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=False, folder_syntax=None):
     """
