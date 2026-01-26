@@ -101,7 +101,7 @@ class WorkFuncModel(Model):
             if not os.path.isdir(job):
                 raise ValueError("The job path is not a directory: %s" % job)
             
-            results, plot_path, pot_file = post_abacus_workfunc_calc(job)
+            results, plot_path, pot_file, plot_data_file = post_workfunc_calc(job)
             results_all[job] = results
         
         json.dump(results_all, open("metrics.json", "w"), indent=4)
@@ -155,23 +155,29 @@ def prep_abacus_workfunc_calc(job: Path, vacuum_dir: Literal["a", "b", "c", "aut
 
     return workfunc_dir
 
-def post_abacus_workfunc_calc(job: Path) -> Dict[str, Any]:
-    # Postprocess abacus calculation to obtain work function data
-    workfunc_job = os.path.join(job, "workfunc_job")
-    results = RESULT(fmt="abacus", path=workfunc_job)
+def post_workfunc_calc(job: Path, jobtype: Literal['abacus', 'vasp']="abacus") -> Dict[str, Any]:
+    # Postprocess calculation to obtain work function data
+    if jobtype == "abacus":
+        workfunc_job = os.path.join(job, "workfunc_job")
+        results = RESULT(fmt="abacus", path=workfunc_job)
 
-    if results['normal_end'] is not True or results['converge'] is not True:
-        raise RuntimeError("ABACUS calculation didn't end normally or didn't reached SCF converge.")
+        if results['normal_end'] is not True or results['converge'] is not True:
+            raise RuntimeError("ABACUS calculation didn't end normally or didn't reached SCF converge.")
 
-    input_params = ReadInput(os.path.join(workfunc_job, "INPUT"))
-    pot_file = os.path.join(workfunc_job, f"OUT.{input_params.get('suffix', 'ABACUS')}/ElecStaticPot.cube")
-    pot = read_gaussian_cube(pot_file)
+        input_params = ReadInput(os.path.join(workfunc_job, "INPUT"))
+        pot_file = os.path.join(workfunc_job, f"OUT.{input_params.get('suffix', 'ABACUS')}/ElecStaticPot.cube")
+        pot = read_gaussian_cube(pot_file)
 
-    prep_info = json.load(open(os.path.join(workfunc_job, "prep_info.json")))
-    vacuum_dir = prep_info['vacuum_dir']
-    axis_map = {'a': 'x', 'b': 'y', 'c': 'z'}
-    profile_result = profile1d(pot, axis=axis_map[vacuum_dir], average=True)
-    profile_result['data'][:, 1] *= RY2EV # convert Ry to eV
+        prep_info = json.load(open(os.path.join(workfunc_job, "prep_info.json")))
+        vacuum_dir = prep_info['vacuum_dir']
+        axis_map = {'a': 'x', 'b': 'y', 'c': 'z'}
+        profile_result = profile1d(pot, axis=axis_map[vacuum_dir], average=True)
+        profile_result['data'][:, 1] *= RY2EV # convert Ry to eV
+    elif jobtype == "vasp":
+        # TODO
+        pass
+    else:
+        raise ValueError(f"Unsupported job type: {jobtype}")
 
     profile_data_file = os.path.join(workfunc_job, "profiled.dat")
     with open(profile_data_file, "w") as f:
