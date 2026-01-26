@@ -124,18 +124,26 @@ def prep_abacus_workfunc_calc(job: Path, vacuum_dir: Literal["a", "b", "c", "aut
     input_params['calculation'] = 'scf'
     input_params['out_pot'] = 2
 
+    # Find vacuum direction in automatic mode
+    if vacuum_dir == 'auto':
+        stru_file = os.path.join(workfunc_dir, input_params.get('stru_file', "STRU"))
+        stru = AbacusSTRU.read(stru_file)
+        direction, max_vacuum_cart = get_largest_vacuum_dir(coords=stru.coords, cell=stru.cell)
+        prep_info = {'vacuum_dir': direction}
+        print(f"Automatically identified the vacuum along {direction} direction in {stru_file}")
+    else:
+        prep_info = {'vacuum_dir': vacuum_dir}
+    
+    # Dump vacuum direction for postprocess
+    with open(os.path.join(workfunc_dir, "prep_info.json"), "w") as f:
+        json.dump(prep_info, f, indent=2)
+    
     if dipole_corr:
         input_params['efield_flag'] = 1
         input_params['dip_cor_flag'] = 1
         if vacuum_dir in ['a', 'b', 'c']:
             input_params['efield_dir'] = EFIELD_DIRECTION_MAP.index(vacuum_dir)
         elif vacuum_dir == 'auto':
-            stru_file = os.path.join(workfunc_dir, input_params.get('stru_file', "STRU"))
-            direction, max_vacuum_cart = get_largest_vacuum_dir(stru_file)
-            if max_vacuum_cart < 4.0:
-                print(f"WARNING: The largest vacuum is less than 4.0 Angstrom in struture in {stru_file}")
-            
-            print(f"Automatically identified the vacuum along {direction} direction in {stru_file}")
             input_params['efield_dir'] = EFIELD_DIRECTION_MAP.index(direction)
         else:
             raise ValueError("Invalid vacuum direction: %s" % vacuum_dir)
@@ -159,7 +167,8 @@ def post_abacus_workfunc_calc(job: Path) -> Dict[str, Any]:
     pot_file = os.path.join(workfunc_job, f"OUT.{input_params.get('suffix', 'ABACUS')}/ElecStaticPot.cube")
     pot = read_gaussian_cube(pot_file)
 
-    vacuum_dir = EFIELD_DIRECTION_MAP[input_params.get("efield_dir", 2)]
+    prep_info = json.load(open(os.path.join(workfunc_job, "prep_info.json")))
+    vacuum_dir = prep_info['vacuum_dir']
     axis_map = {'a': 'x', 'b': 'y', 'c': 'z'}
     profile_result = profile1d(pot, axis=axis_map[vacuum_dir], average=True)
     profile_result['data'][:, 1] *= RY2EV # convert Ry to eV
@@ -174,7 +183,7 @@ def post_abacus_workfunc_calc(job: Path) -> Dict[str, Any]:
                                            work_function_results=work_function_results,
                                            plot_filename=os.path.join(workfunc_job, "elecstat_pot_profile.png"))
     
-    return work_function_results, plot_path
+    return work_function_results, plot_path, pot_file
 
 def identify_potential_plateaus(
     averaged_potential: List,
