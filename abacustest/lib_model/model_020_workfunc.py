@@ -101,7 +101,7 @@ class WorkFuncModel(Model):
             if not os.path.isdir(job):
                 raise ValueError("The job path is not a directory: %s" % job)
             
-            results, plot_path = post_abacus_workfunc_calc(job)
+            results, plot_path, pot_file = post_abacus_workfunc_calc(job)
             results_all[job] = results
         
         json.dump(results_all, open("metrics.json", "w"), indent=4)
@@ -173,6 +173,13 @@ def post_abacus_workfunc_calc(job: Path) -> Dict[str, Any]:
     profile_result = profile1d(pot, axis=axis_map[vacuum_dir], average=True)
     profile_result['data'][:, 1] *= RY2EV # convert Ry to eV
 
+    profile_data_file = os.path.join(workfunc_job, "profiled.dat")
+    with open(profile_data_file, "w") as f:
+        f.write(f"{'fraction_coord':>16s}{'ave_elec_stat':>16s}\n")
+        frac_coord, ave_elec_stat = profile_result['data'][:, 0], profile_result['data'][:, 1]
+        for i in range(len(profile_result['data'][:, 0])):
+            f.write(f"{frac_coord[i]:16.8f}{ave_elec_stat[i]:16.8f}\n")
+
     work_function_results = calculate_work_functions(profile_result['data'][:, 1],
                                                      fermi_energy=results['efermi'])
 
@@ -183,7 +190,7 @@ def post_abacus_workfunc_calc(job: Path) -> Dict[str, Any]:
                                            work_function_results=work_function_results,
                                            plot_filename=os.path.join(workfunc_job, "elecstat_pot_profile.png"))
     
-    return work_function_results, plot_path, pot_file
+    return work_function_results, plot_path, pot_file, profile_data_file
 
 def identify_potential_plateaus(
     averaged_potential: List,
