@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Union, Optional, Tuple
+from typing import List, Union, Optional, Tuple, Literal
 import os
 from abacustest.constant import BOHR2A, RY2EV
 from abacustest import AbacusStru
@@ -247,7 +247,40 @@ class Grid:
         new_origin = self.origin
         
         return Grid(new_data, new_cell, new_atom_positions, new_atom_types, new_atom_charges, new_origin)
+    
+    def profile1d(self, axis: Literal['a', 'b', 'c'] = 'c', average: bool=False, cartesian: bool=False):
+        """Integrate the 3D cube data to 2D plane.
+        Args:
+            axis (str): the axis to be integrated. 'a' means integrate bc plane, 'b' means ac plane, 'c' means ab plane.
+            average (bool): whether to take the average of the integrated values. If False, the integrated values will be summed.
+            cartesian (bool): whether to return the coordinates of profile in cartesian coordinates. If False, the profile will be returned in direct coordinates.
         
+        Returns:
+            tuple: A tuple containing the integrated values and the coordinates of the profile.
+        """
+        import numpy as np
+
+        func = np.mean if average else np.sum
+        if axis == "a":
+            val = func(self.data, axis=2) # integrate along c
+            val = func(val, axis=1) # integrate along b (axis 1 in integrated val)
+        elif axis == "b":
+            val = func(self.data, axis=0) # integrate along a
+            val = func(val, axis=1) # integrate along c (axis 1 in integrated val)
+        elif axis == "c":
+            val = func(self.data, axis=0) # integrate along a
+            val = func(val, axis=0) # integrate along b (axis 0 in integrated val)
+        else:
+            raise ValueError(f"Invalid axis: {axis} is not a, b or c")
+        
+        ngrid = self.data.shape[0] if axis == "a" else self.data.shape[1] if axis == "b" else self.data.shape[2]
+        if cartesian:
+            vec_length = np.linalg.norm(self.cell[0]) if axis == "a" else np.linalg.norm(self.cell[1]) if axis == "b" else np.linalg.norm(self.cell[2])
+            coord = np.linspace(0, vec_length, ngrid)
+        else:
+            coord = np.linspace(0, 1, ngrid)
+
+        return val, coord
 
 class Charge(Grid):
     """Subclass for charge density data.

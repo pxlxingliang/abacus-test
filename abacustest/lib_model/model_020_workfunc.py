@@ -5,11 +5,10 @@ from typing import List, Dict, Any, Literal, Optional
 
 import numpy as np
 
-from abacustest.constant import RY2EV, RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
-from abacustest.lib_prepare.abacus import WriteInput, ReadInput
-from abacustest.lib_prepare.stru import AbacusSTRU
-from abacustest.lib_model.comm import copy_abacusjob, read_gaussian_cube, profile1d, get_largest_vacuum_dir
-from abacustest.lib_collectdata.collectdata import RESULT
+from abacustest import AbacusSTRU, WriteInput, ReadInput, RESULT
+from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
+from abacustest.lib_model.comm import copy_abacusjob, get_largest_vacuum_dir
+from abacustest.lib_data.grid import Potential
 
 EFIELD_DIRECTION_MAP = ["a", "b", "c"]
 
@@ -166,13 +165,12 @@ def post_workfunc_calc(job: Path, jobtype: Literal['abacus', 'vasp']="abacus") -
 
         input_params = ReadInput(os.path.join(workfunc_job, "INPUT"))
         pot_file = os.path.join(workfunc_job, f"OUT.{input_params.get('suffix', 'ABACUS')}/ElecStaticPot.cube")
-        pot = read_gaussian_cube(pot_file)
+        pot = Potential.from_cube(pot_file)
 
         prep_info = json.load(open(os.path.join(workfunc_job, "prep_info.json")))
         vacuum_dir = prep_info['vacuum_dir']
-        axis_map = {'a': 'x', 'b': 'y', 'c': 'z'}
-        profile_result = profile1d(pot, axis=axis_map[vacuum_dir], average=True)
-        profile_result['data'][:, 1] *= RY2EV # convert Ry to eV
+        ave_elec_stat, coord_direct = pot.profile1d(axis=vacuum_dir, average=True)
+        ave_elec_stat = - ave_elec_stat # consider negative charge of electron
     elif jobtype == "vasp":
         # TODO
         pass
@@ -182,15 +180,14 @@ def post_workfunc_calc(job: Path, jobtype: Literal['abacus', 'vasp']="abacus") -
     profile_data_file = os.path.join(workfunc_job, "profiled.dat")
     with open(profile_data_file, "w") as f:
         f.write(f"{'fraction_coord':>16s}{'ave_elec_stat':>16s}\n")
-        frac_coord, ave_elec_stat = profile_result['data'][:, 0], profile_result['data'][:, 1]
-        for i in range(len(profile_result['data'][:, 0])):
-            f.write(f"{frac_coord[i]:16.8f}{ave_elec_stat[i]:16.8f}\n")
+        for i in range(len(coord_direct)):
+            f.write(f"{coord_direct[i]:16.8f}{ave_elec_stat[i]:16.8f}\n")
 
-    work_function_results = calculate_work_functions(profile_result['data'][:, 1],
+    work_function_results = calculate_work_functions(ave_elec_stat,
                                                      fermi_energy=results['efermi'])
 
-    plot_path = plot_averaged_elecstat_pot(profile_result['data'][:, 0],
-                                           profile_result['data'][:, 1],
+    plot_path = plot_averaged_elecstat_pot(coord_direct,
+                                           ave_elec_stat,
                                            results['efermi'],
                                            axis=vacuum_dir,
                                            work_function_results=work_function_results,
@@ -269,11 +266,11 @@ def plot_averaged_elecstat_pot(
 ) -> Path:
     import matplotlib.pyplot as plt
     plt.figure(figsize=(8, 4))
-    plt.plot(coord, averaged_elecstat_data, label='Average Electrostatic Potential')
+    plt.plot(coord, averaged_elecstat_data, label='Average electrostatic potential')
     plt.axhline(y=efermi, linestyle='--', color='gray', alpha=0.5, label=f'Fermi Energy (={efermi:.2f} eV)')
     plt.xlim(min(coord), max(coord))
-    plt.xlabel("Fractional Coordinate along " + axis)
-    plt.ylabel("Electrostatic Potential (eV)")
+    plt.xlabel("Fractional coordinate along " + axis)
+    plt.ylabel("Electrostatic potential (eV)")
 
     if work_function_results is not None:
         for result in work_function_results:
