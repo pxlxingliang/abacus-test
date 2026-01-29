@@ -189,6 +189,40 @@ def ParamAbacus2Vasp(abacus_input):
             abacus_input.pop("alpha_trial",None)
             abacus_input.pop("sccut",None)
     
+    # output potential
+    if "out_pot" in abacus_input:
+        out_pot = abacus_input.pop("out_pot")
+
+        if out_pot in [1, "1"]:
+            vasp_input["LVTOT"] = ".TRUE."
+        elif out_pot in [2, "2"]:
+            vasp_input["LVHAR"] = ".TRUE."
+        elif out_pot in [3, "3"]:
+            print("WARNING: out_pot = 3 is not supported in VASP, please use out_pot = 1/2 instead.")
+        elif out_pot in [0, "0"]:
+            pass
+    
+    # dipole 
+    if "dip_cor_flag" in abacus_input:
+        dip_cor_flag = abacus_input.pop("dip_cor_flag")
+        if comm.IsTrue(dip_cor_flag):
+            vasp_input["LDIPOL"] = ".TRUE."
+
+    # electric field   
+    if "efield_flag" in abacus_input:
+        efield_flag = abacus_input.pop("efield_flag")
+        if comm.IsTrue(efield_flag):
+            efield_dir = abacus_input.pop("efield_dir",2)
+            if efield_dir in [0, 1, 2]:
+                vasp_input["IDIPOL"] = efield_dir + 1
+            else:
+                print(f"WARNING: efield_dir = {efield_dir} is not supported in VASP, please use efield_dir = 0/1/2 instead.")
+            
+            efield_amp = abacus_input.pop("efield_amp",0.0)
+            if efield_amp > 0.0:
+                vasp_input["EFIELD"] = efield_amp * 51.4220632 # transfer a.u. to eV/A: 1 a.u. = 51.4220632*10^10 V/m.
+        
+
     if len(abacus_input) > 0:
         print("WARNING: The following parameters are not converted to VASP:")
         for ip in abacus_input.keys():
