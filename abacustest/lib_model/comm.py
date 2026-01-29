@@ -1,6 +1,7 @@
 import os,json,glob,shutil,traceback
 import subprocess,copy
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,ReadKpt
+from abacustest.lib_prepare.stru import AbacusSTRU
 import select
 from typing import List, Dict, Union, Optional, Tuple, Literal
 from abacustest.lib_prepare.comm import IsTrue
@@ -516,6 +517,37 @@ def write_gaussian_cube(data: dict, fcube: str, ndigits: int = 6):
             f.write("\n")
     return
 
+def profile1d(data: dict, axis: str, average: bool = False):
+    """integrate the 3D cube data to 2D plane.
+    Args:
+        data (dict): the dictionary containing the cube data.
+        axis (str): the axis to be integrated. 'x' means integrate yz plane, 'y' means xz plane, 'z' means xy plane.
+    
+    Returns:
+        data (dict): the dictionary containing the cube data.
+    """
+    import numpy as np
+    
+    mat3d = data["data"].reshape(int(data["nx"]), int(data["ny"]), int(data["nz"]))
+
+    func = np.mean if average else np.sum
+    if axis == "x":
+        val = func(mat3d, axis=2)
+        val = func(val, axis=1)
+    elif axis == "y":
+        val = func(mat3d, axis=0)
+        val = func(val, axis=1)
+    elif axis == "z":
+        val = func(mat3d, axis=0)
+        val = func(val, axis=0)
+
+    # remember to write the axis data
+    ngrid = data["nx"] if axis == "x" else data["ny"] if axis == "y" else data["nz"]
+    var = np.linspace(0, 1, int(ngrid))
+    # then combine the var and val to n x 2 array
+    data["data"] = np.vstack((var, val)).T
+    return data
+
 def read_abacus_chg(fcube: str):
     """Read the ABACUS CHG cube format volumetric data.
     
@@ -828,3 +860,47 @@ def copy_abacusjob(src_dir: str, dst_dir: str, input_file=True, stru=True, kpt=T
         if os.path.exists(out_dir_path) and os.path.isdir(out_dir_path):
             target_out_dir = os.path.join(dst_dir, os.path.basename(out_dir_path))
             shutil.copytree(out_dir_path, target_out_dir, dirs_exist_ok=True)
+
+def get_largest_vacuum_dir(coords: List[List[float]], cell: List[List[float]], coord_type: Optional[Literal['cart', 'direct']]="cart"):
+    # Get the direction containing largest vacuum (compare using cartesian coordinates)
+    import numpy as np
+    from abacustest.lib_prepare.comm import Cartesian2Direct
+
+    if coord_type == "cart":
+        direct_coords = np.array(Cartesian2Direct(coords, cell))
+    elif coord_type == "direct":
+        direct_coords = np.array(coords)
+    else:
+        raise ValueError(f"Invalid coord type: {coord_type}")
+
+    vacuums_direct = [0, 0, 0]
+    for i in range(3): # Loop over the three directions
+        # Algorithm from void Efield::autoset in source/module_elecstate/potentials/efield.cpp in ABACUS source code
+        sorted_coords = direct_coords[np.argsort(direct_coords[:, i])]
+        vacuum = 0
+        for idx in range(1, sorted_coords.shape[0]): # loop over sorted coords
+            diff = sorted_coords[idx][i] - sorted_coords[idx-1][i]
+            if diff > vacuum:
+                vacuum = diff
+        
+        diff = sorted_coords[0][i] + 1 - sorted_coords[-1][i]
+        if diff > vacuum:
+            vacuum = diff
+        
+        vacuums_direct[i] = vacuum
+
+    a, b, c, alpha, beta, gamma = cal_cellparam(cell)
+    vacuums_cart = [vacuums_direct[0]*a, vacuums_direct[1]*b, vacuums_direct[2]*c]
+    
+    max_vacuum_cart = max(vacuums_cart)
+    max_vacuum_idx = vacuums_cart.index(max_vacuum_cart)
+
+    if max_vacuum_cart < 4.0: # In Angstrom
+        print(f"WARNING: The largest vacuum ({max_vacuum_cart} Angstrom) is less than 4.0 Angstrom")
+
+    if max_vacuum_idx == 0:
+        return 'a', max_vacuum_cart
+    elif max_vacuum_idx == 1:
+        return 'b', max_vacuum_cart
+    else:
+        return 'c', max_vacuum_cart
