@@ -149,38 +149,10 @@ class InputsModel(Model):
             else:
                 warnings.warn(f"Element {element} already has an initial magnetic moment, overwriting it with {mag_value}.")
         return init_mag   
-    
-    def download_pporb(self, version):
-        """
-        Download the recommended pseudopotential and orbital files from AISquare.
-        """
-        if version is None:
-            return
-        
-        apns_v1 = "https://store.aissquare.com/datasets/af21b5d9-19e6-462f-ada1-532f47f165f2/ABACUS-APNS-PPORBs-v1.zip"
-        
-        if version == "apns-v1":
-            # download the apns-v1 pseudopotential and orbital files
-            import urllib.request
-            import zipfile
-            
-            zip_file = "ABACUS-APNS-PPORBs-v1.zip"
-            print(f"Downloading the recommended pseudopotential and orbital files from {apns_v1} ...")
-            urllib.request.urlretrieve(apns_v1, zip_file)
-            print(f"Unzipping the file {zip_file} ...")
-            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-                zip_ref.extractall(".")
-            os.remove(zip_file)
-            print("Download and unzip completed.")
-            # set the pp and orb path
-        
-            print("You can set the pseudopotential and orbital path by --pp and --orb, or set the environment variable ABACUS_PP_PATH and ABACUS_ORB_PATH.")
-            
-        
-    
+
     def run(self,params):
         if params.download_pporb is not None:
-            self.download_pporb(params.download_pporb)
+            download_abacus_pporb(params.download_pporb)
             return 0
         
         if params.kpt is not None and len(params.kpt) not in [1, 3]:
@@ -219,6 +191,32 @@ class InputsModel(Model):
         )
         pinput.run()
         return 0
+
+def download_abacus_pporb(version):
+    """
+    Download the recommended pseudopotential and orbital files from AISquare.
+    """
+    import shutil
+
+    if version is None:
+        return
+    if version == "apns-v1":
+        url = "https://store.aissquare.com/datasets/af21b5d9-19e6-462f-ada1-532f47f165f2/ABACUS-APNS-PPORBs-v1.zip"
+        target_name = "ABACUS-APNS-PPORBs-v1.zip"
+    else:
+        raise ValueError(f"Invalid version: {version}")
+    download_file = comm.download_file(url, target_name)
+    out_files = None
+    if download_file is not None:
+        print("Downloaded file:", download_file)
+        out_files = comm.smart_extract(download_file, ".")
+
+        if out_files is not None:
+            os.remove(download_file)
+            print("Extracted files:", out_files)
+            print("You can set the pseudopotential and orbital path by --pp and --orb, or set the environment variable ABACUS_PP_PATH and ABACUS_ORB_PATH.")
+    
+    return out_files
 
 class PrepInput:
     """Prepare the ABACUS inputs for the specified model.

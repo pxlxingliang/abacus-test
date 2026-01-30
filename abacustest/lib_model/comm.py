@@ -904,3 +904,71 @@ def get_largest_vacuum_dir(coords: List[List[float]], cell: List[List[float]], c
         return 'b', max_vacuum_cart
     else:
         return 'c', max_vacuum_cart
+
+def download_file(url: str, save_file: str):
+    import requests
+    from tqdm import tqdm
+
+    try:
+        dir_name = os.path.dirname(save_file)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+
+        print(f"Downloading from {url} ...")
+        response = requests.get(url, stream=True, timeout=30)
+        response.raise_for_status()
+        total_size = int(response.headers.get('content-length', 0))
+
+        progress_bar = tqdm(
+            total=total_size, 
+            unit='iB', 
+            unit_scale=True, 
+            desc=os.path.basename(save_file)
+        )
+
+        with open(save_file, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    progress_bar.update(len(chunk))
+        progress_bar.close()
+        #
+        if not os.path.exists(save_file) or os.path.getsize(save_file) == 0:
+            raise Exception("File download failed.")
+        return save_file
+    
+    except Exception as e:
+        print(f"Download failed: {e}")
+        return None
+
+def smart_extract(archive_path, extract_dir="."):
+    """
+    utility function to extract archives
+    """
+    from pathlib import Path
+
+    archive_path = Path(archive_path)
+    if not archive_path.exists():
+        print(f"Error, can not find file {archive_path}")
+        return None
+
+    # get pre content
+    pre_content = set(os.listdir(extract_dir))
+
+    try:
+        print(f"Extracting {archive_path.name} ...")
+        shutil.unpack_archive(str(archive_path), extract_dir)
+        
+        post_content = set(os.listdir(extract_dir))
+        new_items = list(post_content - pre_content)
+
+        print(f"Extracted successfully: {new_items} items!")
+        return new_items
+
+    except ValueError:
+        print(f"Do not support: {archive_path.suffix}")
+    except Exception as e:
+        print(f"{e}")
+    
+    return None
+
