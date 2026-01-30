@@ -369,22 +369,26 @@ class Potential(Grid):
     (102, 102, 102)
     >>> supercell.save_cube("supercell.cube")
     """
-    def __init__(self, 
-                 data: np.ndarray,
-                 cell: np.ndarray,
-                 atom_positions: Optional[np.ndarray] = None,
-                 atom_types: Optional[List[str]] = None,
-                 atom_charges: Optional[List[float]] = None,
-                 origin: np.ndarray = np.zeros(3)
-                 ):
+
+    def __init__(
+        self,
+        data: np.ndarray,
+        cell: np.ndarray,
+        atom_positions: Optional[np.ndarray] = None,
+        atom_types: Optional[List[str]] = None,
+        atom_charges: Optional[List[float]] = None,
+        origin: np.ndarray = np.zeros(3),
+    ):
         super().__init__(data, cell, atom_positions, atom_types, atom_charges, origin)
 
-    @staticmethod        
+    @staticmethod
     def from_cube(cube_file: str, format: str = "abacus"):
         """Load potential from a cube file"""
-        
+
         if format == "abacus":
-            data_factor = -1 * RY2EV  # ABACUS potential is in Ry, convert to eV. In abacus the electron is positive, so we need a negative sign here.
+            data_factor = (
+                -1 * RY2EV
+            )  # ABACUS potential is in Ry, convert to eV. In abacus the electron is positive, so we need a negative sign here.
             box_factor = BOHR2A  # ABACUS cell is in Bohr, convert to Angstrom
         else:
             raise ValueError(f"Unsupported format {format}. Supported formats is 'abacus'.")
@@ -402,69 +406,34 @@ class Potential(Grid):
     @staticmethod
     def from_locpot(locpot_file: str):
         """Read the local potential from a LOCPOT file written by VASP"""
+        from ase.io import read
+        import uuid
+
         with open(locpot_file, "r") as f:
             lines = [line.strip() for line in f if line.strip() != "" or line == "\n"]
 
-        # Read poscar file in the head of LOCPOT
-        line_idx = 1
-        scale = float(lines[line_idx].split()[0])
+        # Get total number of atoms
+        atom_nums = [int(x) for x in lines[6].split()]
+        total_atom_nums = sum(atom_nums)
 
-        # read lattice
-        line_idx += 1
-        lattice = np.zeros((3, 3))
-        for i in range(3):
-            lattice[i] = np.array([float(x) for x in lines[line_idx + i].split()])
+        # Dump POSCAR file in the head of LOCPOT
+        end_line_idx = total_atom_nums + 7
+        if lines[7].lower == "selective dynamics":
+            end_line_idx += 1
 
-        # read atom types
-        line_idx += 3
-        atom_symbols = lines[line_idx].split()
+        poscar_dump = "_dumped_POSCAR"
+        while os.path.exists(poscar_dump):
+            poscar_dump = "_dumped_POSCAR_" + str(uuid.uuid4())[:8]
 
-        # read atom counts
-        line_idx += 1
-        atom_counts = [int(x) for x in lines[line_idx].split()]
-        total_nums = sum(atom_counts)
+        with open(poscar_dump, "w") as f:
+            for line_idx in range(end_line_idx + 1):
+                f.write(lines[line_idx] + "\n")
 
-        # Expand atom symbols based on counts and convert to atomic numbers
-        atom_types = []
-        for symbol, count in zip(atom_symbols, atom_counts):
-            # Convert element symbol to atomic number
-            symbol = symbol.strip().capitalize()
-            if symbol in PERIOD_DICT_NUMBER:
-                atomic_number = PERIOD_DICT_NUMBER[symbol]
-            else:
-                # Try to parse as atomic number directly
-                try:
-                    atomic_number = int(symbol)
-                except ValueError:
-                    raise ValueError(f"Unknown element symbol: {symbol}")
-            atom_types.extend([atomic_number] * count)
+        pos = read(poscar_dump, format="vasp")
+        os.unlink(poscar_dump)
 
-        # get coordinate type (check for selective dynamics first)
-        line_idx += 1
-        if lines[line_idx].lower().startswith("s"):
-            # selective dynamics line
-            line_idx += 1
-
-        coord_type = lines[line_idx].lower()
-        is_direct = coord_type.startswith("d")
-        line_idx += 1
-
-        # read atom coords
-        coords = []
-        for _ in range(total_nums):
-            coords.append([float(x) for x in lines[line_idx].split()[:3]])
-            line_idx += 1
-        coords = np.array(coords)
-
-        if is_direct:
-            positions = coords @ lattice
-        else:
-            positions = coords * scale
-
-        # jump over empty line
-        while line_idx < len(lines) and lines[line_idx] == "":
-            line_idx += 1
-
+        # Read size of gird data
+        line_idx = end_line_idx + 1
         grid = tuple(int(x) for x in lines[line_idx].split())
         nx, ny, nz = grid
         total_grid_points = nx * ny * nz
@@ -479,51 +448,41 @@ class Potential(Grid):
                 values.extend([float(x) for x in lines[idx].split()])
                 idx += 1
             if len(values) != n_points:
-                raise RuntimeError(
-                    f"expected {n_points} data points, read {len(values)} data points"
-                )
+                raise RuntimeError( f"expected {n_points} data points, read {len(values)} data points")
             # reshape data - VASP stores data in z, y, x order (fastest to slowest: x, y, z)
-            return (
-                np.array(values).reshape((nz, ny, nx)).transpose(2, 1, 0)
-            )  # Convert to (nx, ny, nz)
+            return (np.array(values).reshape((nz, ny, nx)).transpose(2, 1, 0))  # Convert to (nx, ny, nz)
 
         data_first = read_grid_data(line_idx, total_grid_points)
         line_idx += int(np.ceil(total_grid_points / 5))
 
         # check if there are any remaining lines
         remaining_lines = len(lines) - line_idx
-        min_spin_lines = (
-            1 + int(np.ceil(total_nums / 5)) + int(np.ceil(total_grid_points / 5))
-        )
+        min_spin_lines = (1 + int(np.ceil(total_atom_nums / 5)) + int(np.ceil(total_grid_points / 5)))
         is_spin_polarized = remaining_lines >= min_spin_lines
 
         if is_spin_polarized:
             # skip atom count lines of "1" (5 per line)
-            spin_marker_lines = int(np.ceil(total_nums / 5))
+            spin_marker_lines = int(np.ceil(total_atom_nums / 5))
             line_idx += spin_marker_lines
 
             grid2 = tuple(int(x) for x in lines[line_idx].split())
             if grid2 != grid:
-                raise Warning(
-                    f"Mesh size of second data is {grid2}, not same with first data ({grid})"
-                )
+                raise Warning(f"Mesh size of second data is {grid2}, not same with first data ({grid})")
             line_idx += 1
 
             data_second = read_grid_data(line_idx, total_grid_points)
             data = data_first + data_second
         else:
             data = data_first
-        
+
         # Convert to potential of electrons
         data *= -1
 
         # Create atom_charges (default to 0) and origin (default to [0, 0, 0])
-        atom_charges = np.array([0.0] * len(atom_types))
+        atom_charges = np.array([0.0] * total_atom_nums)
         origin = np.zeros(3)
 
-        return Potential(
-            data, lattice, positions, np.array(atom_types), atom_charges, origin
-        )
+        return Potential(data, np.array(pos.get_cell()), pos.get_positions(), pos.get_atomic_numbers(), atom_charges, origin)
 
     def save_cube(self, filename, format: str = "abacus"):
         """Save the potential to a cube file"""
