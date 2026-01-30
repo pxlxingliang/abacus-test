@@ -66,21 +66,20 @@ class WorkFuncModel(Model):
         parser.add_argument(
             "--image",
             type=str,
-            default=RECOMMAND_IMAGE,
-            help="The image to use for the Bohrium job, default is %s"
-            % RECOMMAND_IMAGE,
+            default=None,
+            help="The image to use for the Bohrium job. Default is none, which means determine by used DFT software."
         )
         parser.add_argument(
             "--machine",
             type=str,
-            default=RECOMMAND_MACHINE,
-            help="The machine to use for the Bohrium job, default is 'c32_m64_cpu'.",
+            default=None,
+            help="The machine to use for the Bohrium job. Default is none, which means determine by used DFT software.",
         )
         parser.add_argument(
             "--dft-command",
             type=str,
-            default=RECOMMAND_COMMAND,
-            help=f"The command to run the dft job, default is '{RECOMMAND_COMMAND}' for running ABACUS jobs.",
+            default=None,
+            help=f"The command to run the dft job. Default is none, which means determine by used DFT software.",
         )
         parser.add_argument(
             "--dft",
@@ -101,87 +100,44 @@ class WorkFuncModel(Model):
         Run the model with the given parameters
         """
         if not params.job:
-            raise ValueError(
-                "No job specified, please use -j or --job to specify the job paths."
-            )
+            raise ValueError("No job specified, please use -j or --job to specify the job paths.")
 
-        # Check if VASP input generation is requested
-        generate_vasp = params.dft == "vasp"
-        if generate_vasp and not params.potcar_path:
-            raise ValueError(
-                "POTCAR path is required for VASP input generation. Use --potcar_path to specify the directory containing VASP POTCAR files."
-            )
+        paths = prep_all_workfunc_jobs(params.job, params.dft, params.vacuum, params.dipole_corr, params.potcar_path)
+        
+        if params.image is None:
+            image = RECOMMAND_IMAGE if params.dft == "abacus" else RECOMMAND_VASP_IMAGE if params.dft == "vasp" else None
+        if params.machine is None:
+            machine = RECOMMAND_MACHINE if params.dft == "abacus" else RECOMMAND_VASP_MACHINE if params.dft == "vasp" else None
+        if params.dft_command is None:
+            dft_command = RECOMMAND_COMMAND if params.dft == "abacus" else RECOMMAND_VASP_COMMAND if params.dft == "vasp" else None
 
-        abacus_paths = []
-        vasp_paths = []
-
-        for job in params.job:
-            if not os.path.isdir(job):
-                raise ValueError("The job path is not a directory: %s" % job)
-
-            # Prepare ABACUS calculation if ABACUS is selected
-            if params.dft == "abacus":
-                abacus_path = prep_abacus_workfunc_calc(job, params.vacuum, params.dipole_corr, os.path.join(job, "workfunc_job"))
-                abacus_paths.append(abacus_path)
-
-            # Prepare VASP calculation if VASP is selected
-            if params.dft == "vasp":
-                vasp_path = prep_vasp_workfunc_calc(job, params.vacuum, params.dipole_corr, params.potcar_path)
-                vasp_paths.append(vasp_path)
-
-        # Create setting files for ABACUS
-        if abacus_paths:
-            abacus_setting = {"save_path": "results_abacus", "run_dft": []}
-            abacus_setting["run_dft"].append(
+        # Create setting file
+        if paths:
+            setting = {"save_path": "results", "run_dft": []}
+            setting["run_dft"].append(
                 {
                     "ifrun": True,
-                    "example": abacus_paths,
-                    "command": params.dft_command,
-                    "image": params.image,
+                    "example": paths,
+                    "command": dft_command,
+                    "image": image,
                     "bohrium": {
-                        "scass_type": params.machine,
+                        "scass_type": machine,
                         "job_type": "container",
                         "platform": "ali",
                     },
                 }
             )
 
-            abacus_setting_file = "setting_abacus.json"
-            json.dump(abacus_setting, open(abacus_setting_file, "w"), indent=4)
-            print(f"\nABACUS inputs are generated in: {', '.join([str(p) for p in abacus_paths])}")
-            print(f"You can modify '{abacus_setting_file}', and execute below command to run the abacustest to submit all ABACUS jobs to bohrium:\n\tabacustest submit -p {abacus_setting_file}\n")
-
-        # Create setting files for VASP
-        if vasp_paths:
-            vasp_setting = {"save_path": "results_vasp", "run_dft": []}
-            vasp_setting["run_dft"].append(
-                {
-                    "ifrun": True,
-                    "example": vasp_paths,
-                    "command": RECOMMAND_VASP_COMMAND,
-                    "image": RECOMMAND_VASP_IMAGE,
-                    "bohrium": {
-                        "scass_type": RECOMMAND_VASP_MACHINE,
-                        "job_type": "container",
-                        "platform": "ali",
-                    },
-                }
-            )
-
-            vasp_setting_file = "setting_vasp.json"
-            json.dump(vasp_setting, open(vasp_setting_file, "w"), indent=4)
-            print(
-                f"\nVASP inputs are generated in: {', '.join([str(p) for p in vasp_paths])}"
-            )
-            print(
-                f"You can modify '{vasp_setting_file}', and execute below command to run the abacustest to submit all VASP jobs to bohrium:\n\tabacustest submit -p {vasp_setting_file}\n"
-            )
+        setting_file = "setting.json"
+        json.dump(setting, open(setting_file, "w"), indent=4)
+        print(f"\nInputs are generated in: {', '.join([str(p) for p in paths])}")
+        print(f"You can modify '{setting_file}', and execute below command to run the abacustest to submit all jobs to bohrium:\n\tabacustest submit -p {setting_file}\n")
 
         # Print postprocess instructions
         print(f"\nAfter finishing the calculations, you can postprocess the work function results:")
-        if abacus_paths:
+        if params.dft == "abacus":
             print(f"  For ABACUS results: abacustest model workfunc post -j {' '.join(params.job)} --dft abacus")
-        if vasp_paths:
+        elif params.dft == "vasp":
             print(f"  For VASP results: abacustest model workfunc post -j {' '.join(params.job)} --dft vasp")
 
     @staticmethod
@@ -238,6 +194,29 @@ class WorkFuncModel(Model):
         json.dump(results_all, open("metrics.json", "w"), indent=4)
         print("\nThe postprocess is done. The metrics are saved in 'metrics.json'.")
 
+
+def prep_all_workfunc_jobs(jobs: List[str], 
+                           mode: Literal['abacus', 'vasp'], 
+                           vacuum_dir: Literal['a', 'b', 'c', 'auto'] = 'auto', 
+                           dipole_corr: bool = False, 
+                           potcar_path: Optional[str] = None):
+    paths = []
+    for job in jobs:
+        if not os.path.isdir(job):
+            raise ValueError("The job path is not a directory: %s" % job)
+
+        # Prepare ABACUS calculation if ABACUS is selected
+        if mode == "abacus":
+            abacus_path = prep_abacus_workfunc_calc(job, vacuum_dir, dipole_corr, os.path.join(job, "workfunc_job"))
+            paths.append(abacus_path)
+
+        # Prepare VASP calculation if VASP is selected
+        elif mode == "vasp":
+            vasp_path = prep_vasp_workfunc_calc(job, vacuum_dir, dipole_corr, potcar_path)
+            paths.append(vasp_path)
+    
+    return paths
+        
 
 def prep_abacus_workfunc_calc(
     job: Path,
