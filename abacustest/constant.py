@@ -1,4 +1,3 @@
-
 from abacustest.lib_collectdata.comm import EV2RY
 
 
@@ -268,6 +267,11 @@ PERIOD_DICT_NUMBER = {'H': 1, 'He': 2, 'Li': 3, 'Be': 4, 'B': 5, 'C': 6, 'N': 7,
 RECOMMAND_IMAGE = "registry.dp.tech/dptech/abacus:LTSv3.10.1"
 RECOMMAND_COMMAND = "OMP_NUM_THREADS=1 mpirun -np 16 abacus | tee out.log"
 RECOMMAND_MACHINE = "c32_m64_cpu"
+
+# VASP constants
+RECOMMAND_VASP_IMAGE = "registry.dp.tech/dptech/vasp:5.4.4"
+RECOMMAND_VASP_COMMAND = "source /opt/intel/oneapi/setvars.sh && ulimit -s unlimited  && OMP_NUM_THREADS=1 mpirun -n 16 vasp_std | tee out.log"
+RECOMMAND_VASP_MACHINE = "c32_m64_cpu"
 
 # From Introduction to Solid State Physics, 8th edition, by Charles Kittel
 ELEMENT_CRYSTAL_STRUCTURES = {
