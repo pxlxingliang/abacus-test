@@ -270,7 +270,7 @@ RECOMMAND_MACHINE = "c32_m64_cpu"
 
 # VASP constants
 RECOMMAND_VASP_IMAGE = "registry.dp.tech/dptech/vasp:5.4.4"
-RECOMMAND_VASP_COMMAND = "source /opt/intel/oneapi/setvars.sh && ulimit -s unlimited  && OMP_NUM_THREADS=1 mpirun -n 16 vasp_std | tee out.log"
+RECOMMAND_VASP_COMMAND = "source /opt/intel/oneapi/setvars.sh ; ulimit -s unlimited ; OMP_NUM_THREADS=1 mpirun -n 16 vasp_std | tee out.log"
 RECOMMAND_VASP_MACHINE = "c32_m64_cpu"
 
 # From Introduction to Solid State Physics, 8th edition, by Charles Kittel
