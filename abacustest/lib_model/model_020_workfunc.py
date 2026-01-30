@@ -106,10 +106,16 @@ class WorkFuncModel(Model):
         
         if params.image is None:
             image = RECOMMAND_IMAGE if params.dft == "abacus" else RECOMMAND_VASP_IMAGE if params.dft == "vasp" else None
+        else:
+            image = params.image
         if params.machine is None:
             machine = RECOMMAND_MACHINE if params.dft == "abacus" else RECOMMAND_VASP_MACHINE if params.dft == "vasp" else None
+        else:
+            machine = params.machine
         if params.dft_command is None:
             dft_command = RECOMMAND_COMMAND if params.dft == "abacus" else RECOMMAND_VASP_COMMAND if params.dft == "vasp" else None
+        else:
+            dft_command = params.dft_command
 
         # Create setting file
         if paths:
