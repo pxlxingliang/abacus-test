@@ -424,7 +424,11 @@ def post_workfunc_calc(
         for i in range(len(coord_direct)):
             f.write(f"{coord_direct[i]:16.8f}{ave_elec_stat[i]:16.8f}\n")
 
-    work_function_results = calculate_work_functions(ave_elec_stat, fermi_energy=efermi)
+    # Get cell length along vacuum direction for proper slope calculation
+    axis_idx = 0 if vacuum_dir == "a" else 1 if vacuum_dir == "b" else 2
+    cell_length = np.linalg.norm(pot.cell[axis_idx])
+
+    work_function_results = calculate_work_functions(ave_elec_stat, fermi_energy=efermi, cell_length=cell_length)
 
     plot_path = plot_averaged_elecstat_pot(
         coord_direct,
@@ -439,13 +443,20 @@ def post_workfunc_calc(
     return work_function_results, plot_path, pot_file, profile_data_file
 
 
-def identify_potential_plateaus(averaged_potential: List, threshold: float = 0.01):
+
+def identify_potential_plateaus(averaged_potential: List, cell_length: float, threshold: float = 0.01):
     """
     Identify plateaus in the electrostatic potential using derivative of the averaged electrostatic potential.
+
+    Args:
+        averaged_potential: The averaged electrostatic potential values in eV
+        cell_length: The length of the cell along the vacuum direction in Angstrom
+        threshold: Threshold for the slope (in eV/Angstrom) to be considered as plateau, default is 0.01
     """
     pot_derivatives = []
     n_points = len(averaged_potential)
-    stepsize = 1 / (n_points - 1)
+    # Use cartesian step size (in Angstrom) instead of fractional coordinate
+    stepsize = cell_length / (n_points - 1)
     for i in range(n_points):
         backward_idx = i - 1
         forward_idx = 0 if i == n_points - 1 else i + 1
@@ -485,13 +496,13 @@ def identify_potential_plateaus(averaged_potential: List, threshold: float = 0.0
     return plateau_ranges
 
 
-def calculate_work_functions(averaged_potential: List, fermi_energy):
+def calculate_work_functions(averaged_potential: List, fermi_energy: float, cell_length: float):
     """
     Calculate the work function from the averaged electrostatic potential.
     Dipole correction is suppoted and multiple plateau of electrostatic potential can be identified.
     """
     work_function_results = []
-    plateau_ranges = identify_potential_plateaus(averaged_potential, threshold=0.01)
+    plateau_ranges = identify_potential_plateaus(averaged_potential, cell_length, threshold=0.01)
     for plateau_range in plateau_ranges:
         plateau_start, plateau_end = plateau_range
         plateau_averaged_potential = np.average(
