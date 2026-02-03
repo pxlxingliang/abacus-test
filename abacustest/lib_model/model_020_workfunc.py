@@ -314,17 +314,9 @@ def prep_vasp_workfunc_calc(
     # First create ABACUS workfunc job to get proper INPUT parameters
     abacus_workfunc_dir = prep_abacus_workfunc_calc(job, vacuum_dir, dipole_corr, abacus_dir_name)
 
-    # Read prep_info to get vacuum direction
-    with open(os.path.join(abacus_workfunc_dir, "prep_info.json"), "r") as f:
-        prep_info = json.load(f)
-
     # Create VASP directory
     vasp_workfunc_dir = Path(os.path.join(job, vasp_dir_name)).absolute()
     os.makedirs(vasp_workfunc_dir, exist_ok=True)
-
-    # Copy prep_info to VASP directory
-    with open(os.path.join(vasp_workfunc_dir, "prep_info.json"), "w") as f:
-        json.dump(prep_info, f, indent=2)
 
     # Convert ABACUS input to VASP input
     try:
@@ -376,32 +368,14 @@ def post_workfunc_calc(
         stru = AbacusSTRU.read(stru_file)
         vacuum_dir_find = get_largest_vacuum_dir(coords=stru.coords, cell=stru.cell)[0]
 
-        # Compare vacuum direction from INPUT file, structure and the one given from postprocess args
-        if vacuum_dir_specified == "auto":
-            if vacuum_dir_input != vacuum_dir_find:
-                print(f"WARNING: The given vacuum direction is {vacuum_dir_input}, not the same with the vacuum direction {vacuum_dir_find} identified from the structure.")
-                if vacuum_dir_input is None:
-                    print(f"Using the direction {vacuum_dir_find} identified from structure.")
-                    vacuum_dir = vacuum_dir_find
-                else:
-                    print(f"Using the direction {vacuum_dir_input} from input file.")
-                    vacuum_dir = vacuum_dir_input
-            else:
-                print(f"Using the direction {vacuum_dir_input} from input file.")
-                vacuum_dir = vacuum_dir_input
-        elif vacuum_dir_specified in ['a', 'b', 'c']:
-            if not vacuum_dir_input == vacuum_dir_find == vacuum_dir_specified:
-                print(f"WARNING: The given vacuum direction {vacuum_dir_specified}, direction from input file {vacuum_dir_input},  and identified vacuum from structure {vacuum_dir_find} are not all the same.")
-                print(f"Using the direction {vacuum_dir_specified} from user input.")
-                vacuum_dir = vacuum_dir_specified
-            else:
-                vacuum_dir = vacuum_dir_input
-        else:
-            raise ValueError("Invalid specified vacuum direction: %s" % vacuum_dir_specified)
+        vacuum_dir = select_vacuum_dir(vacuum_dir_input, vacuum_dir_find, vacuum_dir_specified)
         
         ave_elec_stat, coord_direct = pot.profile1d(axis=vacuum_dir, average=True)
         ave_elec_stat = -ave_elec_stat  # consider negative charge of electron
     elif jobtype == "vasp":
+        from ase.io import read
+        from pymatgen.io.vasp import Incar
+
         workfunc_job = os.path.join(job, "workfunc_vasp_job")
 
         # Use lib_collectdata to get VASP calculation results
@@ -414,17 +388,11 @@ def post_workfunc_calc(
                 # Check if OUTCAR exists
                 outcar_file = os.path.join(workfunc_job, "OUTCAR")
                 if not os.path.exists(outcar_file):
-                    raise RuntimeError(
-                        f"VASP OUTCAR file not found in {workfunc_job}. Please run the VASP calculation first."
-                    )
+                    raise RuntimeError(f"VASP OUTCAR file not found in {workfunc_job}. Please run the VASP calculation first.")
                 else:
-                    raise RuntimeError(
-                        "Could not find Fermi energy in VASP results. Calculation may have failed."
-                    )
-
+                    raise RuntimeError("Could not find Fermi energy in VASP results. Calculation may have failed.")
         except Exception as e:
             raise RuntimeError(f"Failed to collect VASP results: {str(e)}")
-
         # Read LOCPOT file using Potential.from_locpot
         locpot_file = os.path.join(workfunc_job, "LOCPOT")
         if not os.path.exists(locpot_file):
@@ -432,9 +400,13 @@ def post_workfunc_calc(
 
         pot = Potential.from_locpot(locpot_file)
 
-        # Read prep_info to get vacuum direction
-        prep_info = json.load(open(os.path.join(workfunc_job, "prep_info.json")))
-        vacuum_dir = prep_info["vacuum_dir"]
+        pos = read(os.path.join(workfunc_job, "POSCAR"))
+        vacuum_dir_find = get_largest_vacuum_dir(coords=pos.get_positions(), cell=pos.get_cell())[0]
+        incar_params = Incar.from_file(os.path.join(workfunc_job, "INCAR"))
+        vacuum_dir_input = EFIELD_DIRECTION_MAP[incar_params.get("IDIPOL", None) - 1]
+
+        print(vacuum_dir_input, vacuum_dir_find, vacuum_dir_specified)
+        vacuum_dir = select_vacuum_dir(vacuum_dir_input, vacuum_dir_find, vacuum_dir_specified)
 
         # Get averaged electrostatic potential profile
         ave_elec_stat, coord_direct = pot.profile1d(axis=vacuum_dir, average=True)
@@ -608,3 +580,31 @@ def plot_averaged_elecstat_pot(
     plt.close()
 
     return Path(plot_filename).absolute()
+
+def select_vacuum_dir(vacuum_dir_input, vacuum_dir_find, vacuum_dir_specified):
+    """
+    select used vacuum direction from different sources.
+    """
+    if vacuum_dir_specified == "auto":
+        if vacuum_dir_input != vacuum_dir_find:
+            print(f"WARNING: The given vacuum direction is {vacuum_dir_input}, not the same with the vacuum direction {vacuum_dir_find} identified from the structure.")
+            if vacuum_dir_input is None:
+                print(f"Using the direction {vacuum_dir_find} identified from structure.")
+                vacuum_dir = vacuum_dir_find
+            else:
+                print(f"Using the direction {vacuum_dir_input} from input file.")
+                vacuum_dir = vacuum_dir_input
+        else:
+            print(f"Using the direction {vacuum_dir_input} from input file.")
+            vacuum_dir = vacuum_dir_input
+    elif vacuum_dir_specified in ['a', 'b', 'c']:
+        if not vacuum_dir_input == vacuum_dir_find == vacuum_dir_specified:
+            print(f"WARNING: The given vacuum direction {vacuum_dir_specified}, direction from input file {vacuum_dir_input},  and identified vacuum from structure {vacuum_dir_find} are not all the same.")
+            print(f"Using the direction {vacuum_dir_specified} from user input.")
+            vacuum_dir = vacuum_dir_specified
+        else:
+            vacuum_dir = vacuum_dir_input
+    else:
+        raise ValueError("Invalid specified vacuum direction: %s" % vacuum_dir_specified)
+    
+    return vacuum_dir
