@@ -345,6 +345,8 @@ def post_workfunc_calc(
     # Postprocess calculation to obtain work function data
     if jobtype == "abacus":
         workfunc_job = os.path.join(job, "workfunc_job")
+        if not os.path.exists(workfunc_job):
+            workfunc_job = Path(job).absolute()
         results = RESULT(fmt="abacus", path=workfunc_job)
         efermi = results["efermi"]
 
