@@ -503,18 +503,27 @@ def calculate_work_functions(averaged_potential: List, fermi_energy: float, cell
     """
     work_function_results = []
     plateau_ranges = identify_potential_plateaus(averaged_potential, cell_length, threshold=0.01)
+    npoints = len(averaged_potential)
     for plateau_range in plateau_ranges:
         plateau_start, plateau_end = plateau_range
-        plateau_averaged_potential = np.average(
-            averaged_potential[plateau_start:plateau_end]
-        )
-        work_function_results.append(
-            {
-                "work_function": plateau_averaged_potential - fermi_energy,
-                "plateau_start_fractional": plateau_start / len(averaged_potential),
-                "plateau_end_fractional": plateau_end / len(averaged_potential),
-            }
-        )
+        result = {
+            "plateau_start_fractional": plateau_start / npoints,
+            "plateau_end_fractional": plateau_end / npoints
+        }
+        if plateau_start < 0:
+            plateau_start = plateau_start % npoints
+        if plateau_end >= npoints:
+            plateau_end  = plateau_end % npoints
+        
+        if plateau_start > plateau_end:
+            #If plateau crosses the end of the cell, concatenate the plateau
+            plateau = np.concatenate((averaged_potential[plateau_start:], averaged_potential[:plateau_end]))
+        else:
+            plateau = averaged_potential[plateau_start:plateau_end]
+        
+        plateau_averaged_potential = np.average(plateau)
+        result['work_function'] = plateau_averaged_potential - fermi_energy
+        work_function_results.append(result)
 
     return work_function_results
 
