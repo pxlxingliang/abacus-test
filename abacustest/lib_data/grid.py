@@ -317,7 +317,7 @@ class Charge(Grid):
         """Load charge density from a cube file"""
         
         if format == "abacus":
-            data_factor = 1 / BOHR2A**3  # ABACUS charge density is in e/Bohr^3, convert to e/Ang^3
+            data_factor = BOHR2A**3  # ABACUS charge density is in e/Bohr^3, convert to e/Ang^3
             box_factor = BOHR2A  # ABACUS cell is in Bohr, convert to Angstrom
         else:
             raise ValueError(f"Unsupported format {format}. Supported formats are 'abacus'.")
