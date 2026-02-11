@@ -966,6 +966,23 @@ class AbacusSTRU:
             self.rotate(trans_mat)
 
         return trans_mat
+    
+    def create_subset(self, indices: List[int]):
+        """
+        Using a subset of indices to create a new structure.
+        
+        Args:
+            indices (List[int]): List of indices of atoms to include in the subset. Starts from 0.
+        
+        Returns:
+            Subset of the structure.
+        """
+        subset_atoms = []
+        for idx in indices:
+            assert idx >= 0 and idx < self.natoms
+            subset_atoms.append(self._atoms[idx])
+        
+        return AbacusSTRU(self.cell, subset_atoms, self.dpks, self.metadata)
 
 def parse_stru_position(pos_line):
     '''
