@@ -76,6 +76,8 @@ MAG_ELEMENT = ELEMENT_DFTU_D + ELEMENT_DFTU_F
 
 
 class InputsModel(Model):
+    HAS_PREPARE_POST_COMMAND = False # set false if the model does not have prepare and postprocess
+
     @staticmethod
     def model_name(): # type: ignore
         '''
