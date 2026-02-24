@@ -4,6 +4,8 @@ from abacustest.lib_model.comm_dos import DOSData, PDOSData
 
 
 class DOSPDOSModel(Model):
+    HAS_PREPARE_POST_COMMAND = False
+    
     @staticmethod
     def model_name(): # type: ignore
         '''
@@ -25,9 +27,9 @@ class DOSPDOSModel(Model):
         '''
         parser.description = "Postprocess the DOS and PDOS calculation. Will analyze and plot DOS and PDOS data."
         parser.add_argument('-j', '--job', default=None, nargs="+", help='the path of abacus inputs (required)')
-        parser.add_argument("--range", default=[-10,10], type=float, help="The energy range for plots, default is -10,10 eV", nargs=2)
-        parser.add_argument("--atom-index", default=None, type=int, help="Atom index to analyze (1-based). If not specified, all atoms will be analyzed.")
-        parser.add_argument("--plot-type", default="species", type=str, choices=["species", "shell", "orbital", "atom"], help="Plot type: species, shell, orbital, or atom")
+        parser.add_argument("--range", default=[-10,10], type=float, help="The energy (respect to fermi energy) range in plots, default is -10,10 eV. Energy range in .dat file are not affected by this setting.", nargs=2)
+        parser.add_argument("--plot-type", default="species", type=str, choices=["species", "shell", "orbital", "atom"], help="Plot type: species (e.g.: C), shell (e.g.: p orbital of C), orbital (e.g.: p_x orbital of C), or atom (e.g.: 1st atom of the system)")
+        parser.add_argument("--atom-index", default=None, type=int, help="Atom index to analyze (1-based). Only valid if plot type is set to atom. If not specified, all atoms will be analyzed.")
         parser.add_argument("--suffix", default=None, type=str, help="Suffix for output files. If set, files will be named DOS_{suffix}.dat/png and PDOS_{suffix}.dat/png")
         parser.add_argument("--no-save-data", action="store_true", help="Do not save data files (default is to save)")
         parser.add_argument("--no-save-plot", action="store_true", help="Do not save plot files (default is to save)")
@@ -60,6 +62,18 @@ class DOSPDOSModel(Model):
 class PostDOSPDOS:
     def __init__(self, jobs, energy_range=None, 
                  atom_index=None, plot_type="species", suffix=None, save_data=False, save_plot=False):
+        """
+        PostDOSPDOS class for processing DOS and PDOS data
+
+        Parameters:
+            jobs (list): List of job directories for calculating DOS or PDOS.
+            energy_range (tuple): Energy (respect to fermi energy) range for plotting DOS and PDOS. Should be a tuple of two numbers, e.g., (-10, 10).
+            plot_type (str): Plot type: species, shell, orbital, or atom.
+            atom_index (int): Atom index to analyze (1-based). Only valid if plot type is set to atom. If not specified, all atoms will be analyzed.
+            suffix (str): Suffix for output files. If set, files will be named DOS_{suffix}.dat/png and PDOS_{suffix}.dat/png. If not specified, no suffix will be added, and filenames will be DOS.dat/png and PDOS.dat/png.
+            save_data (bool): If save data files
+            save_plot (bool): If save plot files
+        """
         self.jobs = jobs
         self.energy_range = [-10, 10] if energy_range is None else energy_range
         self.atom_index = atom_index
