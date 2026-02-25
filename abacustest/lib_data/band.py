@@ -252,7 +252,9 @@ class BandData:
         plt.ylim(emin, emax)
         plt.ylabel(r"$E-E_\text{F}$/eV")
         plt.xticks(high_symm_poses, high_symm_labels)
-        plt.grid()
+        for i in range(len(high_symm_labels)):
+            plt.axvline(high_symm_poses[i], color="black", linestyle="-", lw=0.5, alpha=0.5)
+        plt.axhline(0, color="black", linestyle="--", lw=0.5)
         plt.title(f"Band structure")
         plt.tight_layout()
         plt.savefig(fig_name, dpi=300)
