@@ -199,90 +199,56 @@ class BandData:
         high_symm_poses, high_symm_labels = [], []
 
         if plot_kpaths is None:
-            for ikpath, kpath in enumerate(self.kpaths):
-                # Append high-symmetry point labels and positions to list
-                start_label, end_label = self.kpaths[ikpath]["start"], self.kpaths[ikpath]["end"]
-                start_nkpt, end_nkpt = self.kpaths[ikpath]["start_nkpt"], self.kpaths[ikpath]["end_nkpt"]
-                if len(high_symm_labels) > 0 and high_symm_labels[-1] != start_label:
-                    high_symm_labels[-1] += f"|{start_label}"
-                    high_symm_labels.append(end_label)
-                    high_symm_poses.append(self.kpath_lengths[end_nkpt])
-                else:
-                    high_symm_labels.extend([start_label, end_label])
-                    high_symm_poses.extend([self.kpath_lengths[start_nkpt], self.kpath_lengths[end_nkpt]])
-                
-                if ikpath < len(self.kpaths) - 1 and self.kpaths[ikpath]["end"] == self.kpaths[ikpath+1]["start"]:
-                    # Include first k-point of the next kpath for continous point in the plot to avoid discontinuties in the plot
-                    start_nkpt, end_nkpt = kpath["start_nkpt"], kpath["end_nkpt"] + 1
-                else:
-                    start_nkpt, end_nkpt = kpath["start_nkpt"], kpath["end_nkpt"]
-                
-                for iband in range(self.band_data.shape[2]):
-                    # nspin = 1, 4 and spin up channel of nspin = 2
-                    plt.plot(
-                        self.kpath_lengths[start_nkpt:end_nkpt],
-                        self.band_data[0, start_nkpt:end_nkpt, iband],
-                        "r-",
-                        linewidth=1.0,
-                    )
-                    if self.band_data.shape[0] == 2:
-                        plt.plot(
-                            self.kpath_lengths[start_nkpt:end_nkpt],
-                            self.band_data[1, start_nkpt:end_nkpt, iband],
-                            "b--",
-                            linewidth=1.0,
-                        )
+            plot_kpaths = []
+            for kpath in self.kpaths:
+                plot_kpaths.append([kpath["start"], kpath["end"]])
+
+        start_x_pos = 0
+        for plot_kpath in plot_kpaths:
+            start_label, end_label = plot_kpath[0], plot_kpath[1]
             
-            plt.xlim(self.kpath_lengths[0], self.kpath_lengths[-1])
+            plot_band_data = None
 
-        else:
-            start_x_pos = 0
-            for plot_kpath in plot_kpaths:
-                start_label, end_label = plot_kpath[0], plot_kpath[1]
+            for kpath in self.kpaths:
+                if start_label == kpath["start"] and end_label == kpath["end"]:
+                    plot_band_data = self.band_data[:, kpath["start_nkpt"]:kpath["end_nkpt"], :]
+                    break
+                elif start_label == kpath["end"] and end_label == kpath["start"]:
+                    plot_band_data = self.band_data[:, kpath["end_nkpt"]:kpath["start_nkpt"]:-1, :]
+                    break
+            
+            if plot_band_data is None:
+                raise ValueError("Provided kpath not found in the band structure")
                 
-                plot_band_data = None
-
-                for kpath in self.kpaths:
-                    if start_label == kpath["start"] and end_label == kpath["end"]:
-                        plot_band_data = self.band_data[:, kpath["start_nkpt"]:kpath["end_nkpt"], :]
-                        break
-                    elif start_label == kpath["end"] and end_label == kpath["start"]:
-                        plot_band_data = self.band_data[:, kpath["end_nkpt"]:kpath["start_nkpt"]:-1, :]
-                        break
-                
-                if plot_band_data is None:
-                    raise ValueError("Provided kpath not found in the band structure")
-                    
-                band_x_min = min(self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]])
-                band_x_max = max(self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]])
-                for iband in range(plot_band_data.shape[2]):
+            band_x_min = min(self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]])
+            band_x_max = max(self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]])
+            for iband in range(plot_band_data.shape[2]):
+                plt.plot(
+                    self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]] - band_x_min + start_x_pos,
+                    plot_band_data[0, :, iband],
+                    "r-",
+                    linewidth=1.0,
+                )
+                if plot_band_data.shape[0] == 2:
                     plt.plot(
                         self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]] - band_x_min + start_x_pos,
-                        plot_band_data[0, :, iband],
-                        "r-",
+                        plot_band_data[1, :, iband],
+                        "b--",
                         linewidth=1.0,
                     )
-                    if plot_band_data.shape[0] == 2:
-                        plt.plot(
-                            self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]] - band_x_min + start_x_pos,
-                            plot_band_data[1, :, iband],
-                            "b--",
-                            linewidth=1.0,
-                        )
-                
-                # Append high-symmetry point labels and positions to list
-                if len(high_symm_labels) > 0 and high_symm_labels[-1] != start_label:
-                    high_symm_labels[-1] += f"|{start_label}"
-                    high_symm_labels.append(end_label)
-                    high_symm_poses.append(start_x_pos + band_x_max - band_x_min)
-                else:
-                    high_symm_labels.extend([start_label, end_label])
-                    high_symm_poses.extend([start_x_pos, start_x_pos + band_x_max - band_x_min])
-
-                start_x_pos += band_x_max - band_x_min
             
-            plt.xlim(0, start_x_pos)
-                    
+            # Append high-symmetry point labels and positions to list
+            if len(high_symm_labels) > 0 and high_symm_labels[-1] != start_label:
+                high_symm_labels[-1] += f"|{start_label}"
+                high_symm_labels.append(end_label)
+                high_symm_poses.append(start_x_pos + band_x_max - band_x_min)
+            else:
+                high_symm_labels.extend([start_label, end_label])
+                high_symm_poses.extend([start_x_pos, start_x_pos + band_x_max - band_x_min])
+
+            start_x_pos += band_x_max - band_x_min
+        
+        plt.xlim(0, start_x_pos)
         plt.ylim(emin, emax)
         plt.ylabel(r"$E-E_\text{F}$/eV")
         plt.xticks(high_symm_poses, high_symm_labels)
