@@ -198,6 +198,29 @@ class BandData:
 
         return BandData(high_symm_kpts, kpaths, kpath_cum_dist, efermi, band_data)
 
+    def is_metal(self, efermi: Optional[float] = None) -> bool:
+        """
+        Check if the band structure is metallic.
+        Returns:
+            bool: True if the band structure is metallic, False otherwise.
+        """
+        if efermi is not None:
+            band_data = self.band_data - efermi
+        elif self.efermi is not None:
+            band_data = self.band_data # Already shifted
+        else:
+            raise RuntimeError("Fermi energy is not given or not present in the band data")
+            
+        nspin_channel, nkpt, nband = band_data.shape
+        for ispin_channel in range(nspin_channel):
+            for ikpt in range(nkpt - 1):
+                for iband in range(nband):
+                    # Check whether the band crosses fermi energy. Also work if band is discontinous
+                    if band_data[ispin_channel, ikpt, iband] * band_data[ispin_channel, ikpt+1, iband] < 0:
+                        return True
+
+        return False
+
     def get_band_branch_data(self, branch: List[str], extra_end_point: bool = False):
         """
         Get band data of the selected branch.
