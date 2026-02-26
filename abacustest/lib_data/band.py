@@ -14,7 +14,7 @@ class BandData:
     def __init__(
         self,
         high_symm_labels: Dict[str, List[float]],
-        kpaths: List[Dict[str, Union[int, str]]],
+        kpaths: List[Dict[str, Any]],
         kpath_cum_dist: Union[np.ndarray, List[float]],
         efermi: Optional[float] = None,
         band_data: Optional[Union[np.ndarray, List[np.ndarray]]] = None,
@@ -24,7 +24,7 @@ class BandData:
         Args:
             high_symm_labels (Dict[str, List[float]]): High symmetry labels and coordinates. For example: {"GAMMA": [0.0, 0.0, 0.0], "X": [0.5, 0.0, 0.0], "L": [0.5, 0.5, 0.0]}.
             kpaths (List[Dict[str, Union[float, str]]]): K-path information. For example: [{"start": "GAMMA", "end": "X", "start_nkpt": 0, "end_nkpt": 30}, {"start": "X", "end": "U", "start_nkpt": 30, "end_nkpt": 60}].
-                For each kpath, band data are stored in the range [start_nkpt, end_nkpt) of `band_data` for each spin channel.
+                For each kpath, band data are stored in the range [start_nkpt, end_nkpt] of `band_data` for each spin channel.
             kpath_cum_dist (Union[np.ndarray, List[float]]): K-path cumulative distance. For example: [0.0, 0.1, 0.2, 0.3, 0.8, 0.85, 0.9]. Discontinuity in k-path distance will be automatically removed.
             efermi (float): Fermi energy used during the initialization of the BandData object. Will subtract this value from the band data. If None, the band data will not be modified.
             band_data (np.ndarray): Energy level data for each k-point. For nspin=1 or 4, it is an np.ndarray shaped (1, nkpts, nbands). For nspin=2, it is shaped (2, nkpts, nbands).
@@ -35,19 +35,25 @@ class BandData:
 
         self.efermi = efermi
 
-        if isinstance(band_data, np.ndarray) and len(band_data.shape) == 3 and band_data.shape[0] in (1, 2):
+        if (
+            isinstance(band_data, np.ndarray)
+            and len(band_data.shape) == 3
+            and band_data.shape[0] in (1, 2)
+        ):
             if efermi is not None:
                 self.band_data = band_data - efermi
             else:
                 print("efermi is None, band data will not be shifted")
                 self.band_data = band_data
         else:
-            raise ValueError("band_data must be an np.ndarray with shape (1, nkpts, nbands) or (2, nkpts, nbands)")
+            raise ValueError(
+                "band_data must be an np.ndarray with shape (1, nkpts, nbands) or (2, nkpts, nbands)"
+            )
 
     @staticmethod
     def _remove_jump_dist(
-        kpath_cum_dist: np.ndarray,
-        kpaths: List[Dict[str, Union[int, str]]],
+        kpath_cum_dist: Union[np.ndarray, List[float]],
+        kpaths: List[Dict[str, Any]],
     ) -> np.ndarray:
         """
         Remove the jump in the k-path distance.
@@ -57,13 +63,18 @@ class BandData:
         Returns:
             np.ndarray: K-path cumulative distance without jump
         """
+        # Convert to numpy array if needed
+        if not isinstance(kpath_cum_dist, np.ndarray):
+            kpath_cum_dist = np.array(kpath_cum_dist)
+
         for ipath in range(len(kpaths) - 1):
             # Check if there's a jump in cumulative distance between segments
             if kpaths[ipath]["end"] != kpaths[ipath + 1]["start"]:
-                jump_dist = kpath_cum_dist[kpaths[ipath+1]["start_nkpt"]] - kpath_cum_dist[kpaths[ipath]["end_nkpt"] - 1]
-                print(jump_dist, kpaths[ipath]["end_nkpt"]-1, kpaths[ipath+1]["start_nkpt"])
-                kpath_cum_dist[kpaths[ipath+1]["start_nkpt"]:] -= jump_dist
-        
+                start_nkpt_next = kpaths[ipath + 1]["start_nkpt"]
+                end_nkpt_curr = kpaths[ipath]["end_nkpt"]
+                jump_dist = (kpath_cum_dist[start_nkpt_next] - kpath_cum_dist[end_nkpt_curr - 1])
+                kpath_cum_dist[start_nkpt_next:] -= jump_dist
+
         return kpath_cum_dist
 
     @staticmethod
@@ -139,22 +150,22 @@ class BandData:
         for i in range(len(high_symm_labels_list)):
             # Loop over all labels and jump over the discontinuous points in the k-path
             if insert_kpt_nums[i] > 1:
-                end_nkpt = start_nkpt + insert_kpt_nums[i]
+                end_nkpt = start_nkpt + insert_kpt_nums[i] - 1
 
                 # If the next segment has only 1 k-point, include it in this segment.
                 # Used to treat discountinuous k-paths and end points
-                if i < len(high_symm_labels_list) - 2 and insert_kpt_nums[i+1] == 1:
+                if i < len(high_symm_labels_list) - 2 and insert_kpt_nums[i + 1] == 1:
                     end_nkpt += 1
 
                 kpaths.append(
                     {
                         "start": high_symm_labels_list[i],
-                        "end": high_symm_labels_list[i+1],
+                        "end": high_symm_labels_list[i + 1],
                         "start_nkpt": start_nkpt,
                         "end_nkpt": end_nkpt,
                     }
                 )
-                start_nkpt = end_nkpt
+                start_nkpt = end_nkpt + 1
 
         abacusresult = RESULT(fmt="abacus", path=abacusjob_dir)
         if abacusresult is None:
@@ -181,9 +192,52 @@ class BandData:
 
         return BandData(high_symm_kpts, kpaths, kpath_cum_dist, efermi, band_data)
 
+    def get_band_branch_data(self, branch: List[str], extra_end_point: bool=False):
+        """
+        Get band data of the selected branch.
+        Args:
+            branch: A list containing 2 high-symmetry labels to define the band. e.g.: ['G', 'H']
+            extra_end_point: Whether to include extra band data of the first kpoint of the next branch.
+                Used in getting band data for plotting bands to avoid discountinuites at continous high-symmetry points.
+        Returns:
+            branch_band_data: band data of the assigned band branch. If the band is reversed, the band data will be reversed.
+            shifted_kpath_coord (np.ndarray): A 1D np.ndarray containing distance of each kpoint to starting point of the branch.
+        raises:
+            ValueError: If the requested band branch is not avaliable.
+        """
+        if isinstance(branch, List):
+            assert len(branch) == 2
+            for i in branch:
+                assert isinstance(i, str)
+        
+        start, end = branch
+        for ikpath, kpath in enumerate(self.kpaths):
+            if kpath['start'] == start and kpath['end'] == end: # Find the matched branch
+                start_nkpt, end_nkpt = kpath['start_nkpt'], kpath['end_nkpt']
+                if extra_end_point:
+                    if ikpath < len(self.kpaths) - 1: # Not the last band branch
+                        if kpath['end'] == self.kpaths[ikpath+1]['start']: # Continus with the next branch
+                            end_nkpt += 1
+                        else:
+                            start_nkpt, end_nkpt = kpath['start_nkpt'], kpath['end_nkpt']
+
+                branch_band_data = self.band_data[:, start_nkpt:end_nkpt+1, :]
+                kpath_coord = self.kpath_lengths[start_nkpt:end_nkpt+1]
+                shifted_kpath_coord = kpath_coord - min(kpath_coord)
+                return branch_band_data, shifted_kpath_coord
+            elif kpath['start'] == end and kpath['end'] == start:
+                # Revert the reqested branch to get data, and reverse the band data
+                reverse_branch_band_data, shifted_kpath_coord = self.get_band_branch_data([end, start], extra_end_point)
+                return reverse_branch_band_data[:, ::-1, :], shifted_kpath_coord
+        
+        return None, None
+
     def plot_band(
-        self, emin: float = -10, emax: float = 10, fig_name: str = "band.png",
-        plot_kpaths: Optional[List[str]] = None,
+        self,
+        emin: float = -10,
+        emax: float = 10,
+        fig_name: str = "band.png",
+        plot_kpaths: Optional[List[List[str]]] = None,
     ):
         """
         Plot the band structure.
@@ -191,7 +245,7 @@ class BandData:
             emin (float): Minimum energy in the band plot.
             emax (float): Maximum energy in the band plot.
             fig_name (str): Name of the figure to save.
-            plot_kpath: List of k-point labels to plot. If provided, should be in the form like [["G", "H"], ["H", "K"]]. 
+            plot_kpath: List of k-point labels to plot. If provided, should be in the form like [["G", "H"], ["H", "K"]].
                 If not provided, will use kpath stored in the object.
         """
         import matplotlib.pyplot as plt
@@ -206,48 +260,40 @@ class BandData:
         start_x_pos = 0
         for plot_kpath in plot_kpaths:
             start_label, end_label = plot_kpath[0], plot_kpath[1]
-            
-            plot_band_data = None
 
-            for kpath in self.kpaths:
-                if start_label == kpath["start"] and end_label == kpath["end"]:
-                    plot_band_data = self.band_data[:, kpath["start_nkpt"]:kpath["end_nkpt"], :]
-                    break
-                elif start_label == kpath["end"] and end_label == kpath["start"]:
-                    plot_band_data = self.band_data[:, kpath["end_nkpt"]:kpath["start_nkpt"]:-1, :]
-                    break
-            
-            if plot_band_data is None:
+            branch_band_data, shifted_kpath_coord = self.get_band_branch_data(plot_kpath, extra_end_point=True)
+            if branch_band_data is None:
                 raise ValueError("Provided kpath not found in the band structure")
-                
-            band_x_min = min(self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]])
-            band_x_max = max(self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]])
-            for iband in range(plot_band_data.shape[2]):
+
+            branch_length = max(shifted_kpath_coord)
+            for iband in range(branch_band_data.shape[2]):
                 plt.plot(
-                    self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]] - band_x_min + start_x_pos,
-                    plot_band_data[0, :, iband],
+                    shifted_kpath_coord + start_x_pos,
+                    branch_band_data[0, :, iband],
                     "r-",
                     linewidth=1.0,
                 )
-                if plot_band_data.shape[0] == 2:
+                if branch_band_data.shape[0] == 2:
                     plt.plot(
-                        self.kpath_lengths[kpath["start_nkpt"]:kpath["end_nkpt"]] - band_x_min + start_x_pos,
-                        plot_band_data[1, :, iband],
+                        shifted_kpath_coord + start_x_pos,
+                        branch_band_data[1, :, iband],
                         "b--",
                         linewidth=1.0,
                     )
-            
+
             # Append high-symmetry point labels and positions to list
             if len(high_symm_labels) > 0 and high_symm_labels[-1] != start_label:
                 high_symm_labels[-1] += f"|{start_label}"
                 high_symm_labels.append(end_label)
-                high_symm_poses.append(start_x_pos + band_x_max - band_x_min)
+                high_symm_poses.append(start_x_pos + branch_length)
             else:
                 high_symm_labels.extend([start_label, end_label])
-                high_symm_poses.extend([start_x_pos, start_x_pos + band_x_max - band_x_min])
+                high_symm_poses.extend(
+                    [start_x_pos, start_x_pos + branch_length]
+                )
 
-            start_x_pos += band_x_max - band_x_min
-        
+            start_x_pos += branch_length
+
         plt.xlim(0, start_x_pos)
         plt.ylim(emin, emax)
         plt.ylabel(r"$E-E_\text{F}$/eV")
@@ -259,4 +305,3 @@ class BandData:
         plt.tight_layout()
         plt.savefig(fig_name, dpi=300)
         plt.close()
-
