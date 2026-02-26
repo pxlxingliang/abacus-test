@@ -72,7 +72,9 @@ class BandData:
             if kpaths[ipath]["end"] != kpaths[ipath + 1]["start"]:
                 start_nkpt_next = kpaths[ipath + 1]["start_nkpt"]
                 end_nkpt_curr = kpaths[ipath]["end_nkpt"]
-                jump_dist = (kpath_cum_dist[start_nkpt_next] - kpath_cum_dist[end_nkpt_curr - 1])
+                jump_dist = (
+                    kpath_cum_dist[start_nkpt_next] - kpath_cum_dist[end_nkpt_curr]
+                )
                 kpath_cum_dist[start_nkpt_next:] -= jump_dist
 
         return kpath_cum_dist
@@ -100,7 +102,10 @@ class BandData:
         if nspin not in (1, 2):
             raise NotImplementedError("Band plot for nspin=4 is not supported yet")
 
-        kpt_data, model = ReadKpt(abacusjob_dir)
+        kpt_result = ReadKpt(abacusjob_dir)
+        if kpt_result is None:
+            raise ValueError(f"Failed to read KPT file from {abacusjob_dir}")
+        kpt_data, model = kpt_result
         if model not in ["line", "line_cartesian"]:
             raise ValueError(f"KPT file must be in 'line' or 'line_cartesian' mode for band calculation, got '{model}'")
 
@@ -125,8 +130,9 @@ class BandData:
             if model == "line":
                 kpt_coord_direct = [float(kx), float(ky), float(kz)]
             else:
-                #TODO: transform to cartesian coordinate in recipord space
-                pass
+                # TODO: transform to cartesian coordinate in recipord space
+                # For now, treat as direct coordinates
+                kpt_coord_direct = [float(kx), float(ky), float(kz)]
 
             # Get label
             if len(kpt) >= 5:
@@ -175,7 +181,7 @@ class BandData:
                 efermi = abacusresult["efermi"]
             except (KeyError, TypeError):
                 raise ValueError("Fermi energy (efermi) not found in ABACUS results and not provided")
-        
+
         # Read band data for nspin=1 or 4
         band_file = os.path.join(abacusjob_dir, f"OUT.{suffix}/BANDS_1.dat")
         with open(band_file, "r") as f:
@@ -192,7 +198,7 @@ class BandData:
 
         return BandData(high_symm_kpts, kpaths, kpath_cum_dist, efermi, band_data)
 
-    def get_band_branch_data(self, branch: List[str], extra_end_point: bool=False):
+    def get_band_branch_data(self, branch: List[str], extra_end_point: bool = False):
         """
         Get band data of the selected branch.
         Args:
@@ -202,14 +208,12 @@ class BandData:
         Returns:
             branch_band_data: band data of the assigned band branch. If the band is reversed, the band data will be reversed.
             shifted_kpath_coord (np.ndarray): A 1D np.ndarray containing distance of each kpoint to starting point of the branch.
-        raises:
-            ValueError: If the requested band branch is not avaliable.
         """
         if isinstance(branch, List):
             assert len(branch) == 2
             for i in branch:
                 assert isinstance(i, str)
-        
+
         start, end = branch
         for ikpath, kpath in enumerate(self.kpaths):
             if kpath['start'] == start and kpath['end'] == end: # Find the matched branch
@@ -228,9 +232,11 @@ class BandData:
             elif kpath['start'] == end and kpath['end'] == start:
                 # Revert the reqested branch to get data, and reverse the band data
                 reverse_branch_band_data, shifted_kpath_coord = self.get_band_branch_data([end, start], extra_end_point)
+                if reverse_branch_band_data is None or shifted_kpath_coord is None:
+                    return None, None
                 return reverse_branch_band_data[:, ::-1, :], shifted_kpath_coord
-        
-        return None, None
+
+        return None, None  # If no matched branch found
 
     def plot_band(
         self,
@@ -245,63 +251,185 @@ class BandData:
             emin (float): Minimum energy in the band plot.
             emax (float): Maximum energy in the band plot.
             fig_name (str): Name of the figure to save.
-            plot_kpath: List of k-point labels to plot. If provided, should be in the form like [["G", "H"], ["H", "K"]].
+            plot_kpaths: List of k-point labels to plot. If provided, should be in the form like [["G", "H"], ["H", "K"]].
                 If not provided, will use kpath stored in the object.
         """
-        import matplotlib.pyplot as plt
-
-        high_symm_poses, high_symm_labels = [], []
-
         if plot_kpaths is None:
             plot_kpaths = []
             for kpath in self.kpaths:
                 plot_kpaths.append([kpath["start"], kpath["end"]])
 
-        start_x_pos = 0
-        for plot_kpath in plot_kpaths:
-            start_label, end_label = plot_kpath[0], plot_kpath[1]
+        # Prepare data for plot_multiple_bands
+        branches, shifted_kpath_coord, band_data = [], [], []
 
-            branch_band_data, shifted_kpath_coord = self.get_band_branch_data(plot_kpath, extra_end_point=True)
+        for plot_kpath in plot_kpaths:
+            branch_band_data, shifted_coord = self.get_band_branch_data(plot_kpath, extra_end_point=True)
             if branch_band_data is None:
                 raise ValueError("Provided kpath not found in the band structure")
 
-            branch_length = max(shifted_kpath_coord)
-            for iband in range(branch_band_data.shape[2]):
+            branches.append(plot_kpath)
+            shifted_kpath_coord.append(shifted_coord)
+            band_data.append(branch_band_data)
+
+        plot_band_datas = [
+            {
+                "branches": branches,
+                "shifted_kpath_coord": shifted_kpath_coord,
+                "band_data": band_data,
+            }
+        ]
+
+        # Call plot_multiple_bands
+        plot_multiple_bands(
+            plot_band_datas=plot_band_datas,
+            mat_names=None,
+            fig_name=fig_name,
+            emin=emin,
+            emax=emax,
+        )
+
+
+def plot_multiple_bands(
+    plot_band_datas: List[Dict[str, Any]],
+    mat_names: Optional[List[str]] = None,
+    fig_name: str = "band.png",
+    emin: float = -10,
+    emax: float = 10,
+):
+    """
+    Plot band using the same kpath of different materials into a single figure.
+    Args:
+        plot_band_datas: A list of dictionary, where each dictionary contains band data for a material and contains the following keys:
+            - branches: List[List[str]]: List of branches. e.g.: [['G', 'H'], ['H', 'P'], ['N', 'P']]
+            - shifted_kpath_coord: List[List[float]]: Coordinates of kpoints in each branch start from 0
+            - band_data: List[np.ndarray]: band data for each branch. Each element is an array of shape (nspin, nkpt_per_branch, nbands)
+        mat_names: name for each material, used in legends to distinguish band curves of different materials
+        fig_name: name of the plotted figure.
+        emin: minimum energy for y-axis limit.
+        emax: maximum energy for y-axis limit.
+    """
+    import matplotlib.colors as mcolors
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    def get_colors(n):
+        """Get colors used in the bandplot"""
+        base = ["#d62728", "#1f77b4", "#ff7f0e", "#2ca02c"]
+        if n <= len(base):
+            return base[:n]
+        # Add extra color from HSV if not enough
+        return base + [
+            mcolors.hsv_to_rgb((i / (n - 2) + 0.1, 0.85, 0.95)) for i in range(n - 2)
+        ]
+
+    # Check whether the path of all materials are all same
+    for i in range(len(plot_band_datas)):
+        for j in range(i + 1, len(plot_band_datas)):
+            branches_i, branches_j = (
+                plot_band_datas[i]["branches"],
+                plot_band_datas[j]["branches"],
+            )
+            assert len(branches_i) == len(branches_j)
+            for ib in range(len(branches_i)):
+                assert branches_i[ib][0] == branches_j[ib][0]
+                assert branches_i[ib][1] == branches_j[ib][1]
+
+    show_labels = mat_names is not None
+    if show_labels:
+        assert len(plot_band_datas) == len(mat_names)
+
+    # Determine if single material with spin polarization. 
+    # Use to provide different color of spin up and spin down bands in ABACUS-agent-tools
+    single_material_spin2, spin_colors = False, None
+    if len(plot_band_datas) == 1:
+        # Check nspin of first branch of first material
+        first_data = plot_band_datas[0]
+        if len(first_data["band_data"]) > 0:
+            first_branch_data = first_data["band_data"][0]  # shape (nspin, nkpt, nbands)
+            if first_branch_data.shape[0] == 2:  # nspin == 2
+                single_material_spin2 = True
+                spin_colors = get_colors(2)  # Different colors for spin up and down
+
+    # Assign colors to materials
+    colors = get_colors(len(plot_band_datas))
+
+    # Determine high symmetry points positions from the first material
+    first_data = plot_band_datas[0]
+    high_symm_labels, high_symm_poses = [], []
+    start_x_pos = 0.0
+    for ipath, branch in enumerate(first_data["branches"]):
+        branch_length = np.max(first_data["shifted_kpath_coord"][ipath])
+        start_label, end_label = branch[0], branch[1]
+        if ipath == 0:
+            high_symm_labels.append(start_label)
+            high_symm_poses.append(start_x_pos)
+        # Check continuity with previous branch
+        if len(high_symm_labels) > 0 and high_symm_labels[-1] != start_label:
+            # discontinuous: merge start label with previous label
+            high_symm_labels[-1] += f"|{start_label}"
+            high_symm_labels.append(end_label)
+            high_symm_poses.append(start_x_pos + branch_length)
+        else:
+            # continuous: add end label only (start already exists)
+            high_symm_labels.append(end_label)
+            high_symm_poses.append(start_x_pos + branch_length)
+        start_x_pos += branch_length
+
+    # Plot band for each material
+    for imat, plot_band_data in enumerate(plot_band_datas):
+        # Determine colors for this material
+        if single_material_spin2 and imat == 0 and spin_colors is not None:
+            # Set different color for spin up and down band if only 1 material, used in ABACUS-agent-tools
+            spin_up_color = spin_colors[0]
+            spin_down_color = spin_colors[1]
+        else:
+            spin_up_color = colors[imat]
+            spin_down_color = colors[imat]  # same color for spin down (if any)
+
+        start_x_pos = 0.0
+        for ipath, branch in enumerate(plot_band_data["branches"]):
+            shifted_coord = plot_band_data["shifted_kpath_coord"][ipath]
+            branch_data = plot_band_data["band_data"][
+                ipath
+            ]  # shape (nspin, nkpt, nbands)
+            nspin = branch_data.shape[0]  # Merge treatment for nspin=1 and 4
+            nbands = branch_data.shape[2]
+            for iband in range(nbands):
+                # spin up (or nspin=1)
                 plt.plot(
-                    shifted_kpath_coord + start_x_pos,
-                    branch_band_data[0, :, iband],
-                    "r-",
+                    shifted_coord + start_x_pos,
+                    branch_data[0, :, iband],
+                    "-",
+                    color=spin_up_color,
                     linewidth=1.0,
+                    label=mat_names[imat] if (show_labels and ipath == 0 and iband == 0) else None,
                 )
-                if branch_band_data.shape[0] == 2:
+                if nspin == 2: # spin down
+                    spin_down_label = None
+                    if show_labels and single_material_spin2 and imat == 0 and ipath == 0 and iband == 0:
+                        spin_down_label = f"{mat_names[imat]} (down)"
                     plt.plot(
-                        shifted_kpath_coord + start_x_pos,
-                        branch_band_data[1, :, iband],
-                        "b--",
+                        shifted_coord + start_x_pos,
+                        branch_data[1, :, iband],
+                        "--",
+                        color=spin_down_color,
                         linewidth=1.0,
+                        label=spin_down_label,
                     )
+            start_x_pos += np.max(shifted_coord)
 
-            # Append high-symmetry point labels and positions to list
-            if len(high_symm_labels) > 0 and high_symm_labels[-1] != start_label:
-                high_symm_labels[-1] += f"|{start_label}"
-                high_symm_labels.append(end_label)
-                high_symm_poses.append(start_x_pos + branch_length)
-            else:
-                high_symm_labels.extend([start_label, end_label])
-                high_symm_poses.extend(
-                    [start_x_pos, start_x_pos + branch_length]
-                )
-
-            start_x_pos += branch_length
-
-        plt.xlim(0, start_x_pos)
-        plt.ylim(emin, emax)
-        plt.ylabel(r"$E-E_\text{F}$/eV")
-        plt.xticks(high_symm_poses, high_symm_labels)
-        for i in range(len(high_symm_labels)):
-            plt.axvline(high_symm_poses[i], color="black", linestyle="-", lw=0.5, alpha=0.5)
-        plt.axhline(0, color="black", linestyle="--", lw=0.5)
-        plt.title(f"Band structure")
-        plt.tight_layout()
-        plt.savefig(fig_name, dpi=300)
-        plt.close()
+    # Set plot limits and labels
+    plt.xlim(0, high_symm_poses[-1])
+    plt.ylim(emin, emax)
+    plt.ylabel(r"$E-E_\text{F}$/eV")
+    plt.xticks(high_symm_poses, high_symm_labels)
+    for pos in high_symm_poses:
+        plt.axvline(pos, color="black", linestyle="-", lw=0.5, alpha=0.5)
+    plt.axhline(0, color="black", linestyle="--", lw=0.5)
+    # Add legend if multiple materials or single material with spin polarization, and labels are requested
+    if show_labels and (len(plot_band_datas) > 1 or single_material_spin2):
+        plt.legend()
+    plt.title("Band structure")
+    plt.tight_layout()
+    plt.savefig(fig_name, dpi=300)
+    plt.close()
