@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 
 from typing import Dict, List, Tuple, Optional, Union, Any
 from pathlib import Path
@@ -50,6 +51,74 @@ class BandData:
                 "band_data must be an np.ndarray with shape (1, nkpts, nbands) or (2, nkpts, nbands)"
             )
 
+        self.nspin, self.nkpts, self.nbands = self.band_data.shape
+        self._build_label_mapping()
+        self._build_kpath_segments()
+
+    def _build_kpath_segments(self):
+        """
+        Build mapping from kpoint index to segment for coordinate interpolation.
+        """
+        self.kpoint_to_segment = {}
+        for kpath in self.kpaths:
+            start_idx = kpath["start_nkpt"]
+            end_idx = kpath["end_nkpt"]
+            for i in range(start_idx, end_idx + 1):
+                self.kpoint_to_segment[i] = kpath
+
+    def _get_kpoint_coord(self, idx):
+        """
+        Get direct coordinate of kpoint at index idx.
+
+        Args:
+            idx: kpoint index
+
+        Returns:
+            List[float]: [kx, ky, kz] in direct coordinates
+        """
+        if idx not in self.kpoint_to_segment:
+            # If index not in any segment (shouldn't happen), return None
+            return None
+
+        segment = self.kpoint_to_segment[idx]
+        start_label = segment["start"]
+        end_label = segment["end"]
+        start_coord = self.high_symm_labels.get(start_label)
+        end_coord = self.high_symm_labels.get(end_label)
+
+        if start_coord is None or end_coord is None:
+            return None
+
+        start_idx = segment["start_nkpt"]
+        end_idx = segment["end_nkpt"]
+
+        if start_idx == end_idx:
+            # Single point segment
+            return start_coord
+
+        # Linear interpolation
+        t = (idx - start_idx) / (end_idx - start_idx)
+        coord = []
+        for i in range(3):
+            coord.append(start_coord[i] + t * (end_coord[i] - start_coord[i]))
+        return coord
+
+    def _build_label_mapping(self):
+        """
+        Build mapping from label to kpoint indices and list of labels per kpoint.
+        """
+        self.label_to_indices = defaultdict(list)
+        self.kpoint_labels = [None] * self.nkpts
+        for kpath in self.kpaths:
+            start_label = kpath["start"]
+            start_idx = kpath["start_nkpt"]
+            self.label_to_indices[start_label].append(start_idx)
+            self.kpoint_labels[start_idx] = start_label
+            end_label = kpath["end"]
+            end_idx = kpath["end_nkpt"]
+            self.label_to_indices[end_label].append(end_idx)
+            self.kpoint_labels[end_idx] = end_label
+
     @staticmethod
     def _remove_jump_dist(
         kpath_cum_dist: Union[np.ndarray, List[float]],
@@ -99,9 +168,6 @@ class BandData:
         input_params = ReadInput(os.path.join(abacusjob_dir, "INPUT"))
         suffix = input_params.get("suffix", "ABACUS")
         nspin = input_params.get("nspin", 1)
-        if nspin not in (1, 2):
-            raise NotImplementedError("Band plot for nspin=4 is not supported yet")
-
         kpt_result = ReadKpt(abacusjob_dir)
         if kpt_result is None:
             raise ValueError(f"Failed to read KPT file from {abacusjob_dir}")
@@ -207,7 +273,7 @@ class BandData:
         if efermi is not None:
             band_data = self.band_data - efermi
         elif self.efermi is not None:
-            band_data = self.band_data # Already shifted
+            band_data = self.band_data  # Already shifted
         else:
             raise RuntimeError("Fermi energy is not given or not present in the band data")
             
@@ -252,7 +318,7 @@ class BandData:
                 kpath_coord = self.kpath_lengths[start_nkpt:end_nkpt+1]
                 shifted_kpath_coord = kpath_coord - min(kpath_coord)
                 return branch_band_data, shifted_kpath_coord
-            elif kpath['start'] == end and kpath['end'] == start:
+            elif kpath["start"] == end and kpath["end"] == start:
                 # Revert the reqested branch to get data, and reverse the band data
                 reverse_branch_band_data, shifted_kpath_coord = self.get_band_branch_data([end, start], extra_end_point)
                 if reverse_branch_band_data is None or shifted_kpath_coord is None:
@@ -260,6 +326,202 @@ class BandData:
                 return reverse_branch_band_data[:, ::-1, :], shifted_kpath_coord
 
         return None, None  # If no matched branch found
+
+    def _process_indices(self, spin_indices, energy=None):
+        """Convert list of (spin, k, b) tuples to result dict.
+        If energy is provided, use it; otherwise compute from first index."""
+        if not spin_indices:
+            return {
+                "band_index": {},
+                "kpoint_index": [],
+                "kpoint_labels": [],
+                "kpoint_coord": [],
+                "energy": None,
+            }
+
+        # Group by spin and band index
+        band_index = defaultdict(set)
+        kpoint_indices = set()
+        for spin, k, b in spin_indices:
+            band_index[spin].add(b)
+            kpoint_indices.add(k)
+
+        # Convert sets to sorted lists
+        band_index_dict = {spin: sorted(bands) for spin, bands in band_index.items()}
+
+        kpoint_indices = sorted(kpoint_indices)
+        # Get labels for each kpoint
+        kpoint_labels = [self.kpoint_labels[idx] for idx in kpoint_indices]
+
+        kpoint_coord = [self._get_kpoint_coord(idx) for idx in kpoint_indices]
+
+        # Use provided energy if available, otherwise compute from first index
+        if energy is None:
+            if spin_indices:
+                # Use first index to get energy
+                spin_idx, k_idx, b_idx = spin_indices[0]
+                energy = self.band_data[spin_idx, k_idx, b_idx]
+            else:
+                energy = None
+
+        return {
+            "band_index": band_index_dict,
+            "kpoint_index": kpoint_indices,
+            "kpoint_labels": kpoint_labels,
+            "kpoint_coord": kpoint_coord,
+            "energy": energy,
+        }
+
+    def _find_band_edge(self, below_fermi=True, tol=1e-4):
+        """
+        Find band edge (VBM if below_fermi=True, CBM if below_fermi=False).
+        Returns:
+            edge_energy_global (float): global edge energy (-inf/+inf if not found)
+            edge_indices_global (list): list of (spin, k, b) tuples for global edge
+            edge_energy_per_spin (list): per-spin edge energies
+            edge_indices_per_spin (list): per-spin lists of (spin, k, b) tuples
+        """
+        if below_fermi:
+            # VBM: look for bands below Fermi level, maximize energy
+            energy_init = -float("inf")
+            compare = lambda val, best: val > best
+            condition = lambda val: val < -tol
+        else:
+            # CBM: look for bands above Fermi level, minimize energy
+            energy_init = float("inf")
+            compare = lambda val, best: val < best
+            condition = lambda val: val >= -tol
+
+        edge_energy_global = energy_init
+        edge_indices_global = []
+        edge_energy_per_spin = [energy_init] * self.nspin
+        edge_indices_per_spin = [[] for _ in range(self.nspin)]
+
+        for spin in range(self.nspin):
+            for k in range(self.nkpts):
+                for b in range(self.nbands):
+                    val = self.band_data[spin, k, b]
+                    if condition(val):
+                        # Update global edge
+                        if abs(val - edge_energy_global) < tol:
+                            edge_indices_global.append((spin, k, b))
+                        elif compare(val, edge_energy_global):
+                            edge_energy_global = val
+                            edge_indices_global = [(spin, k, b)]
+
+                        # Update per-spin edge
+                        if abs(val - edge_energy_per_spin[spin]) < tol:
+                            edge_indices_per_spin[spin].append((spin, k, b))
+                        elif compare(val, edge_energy_per_spin[spin]):
+                            edge_energy_per_spin[spin] = val
+                            edge_indices_per_spin[spin] = [(spin, k, b)]
+
+        return (
+            edge_energy_global,
+            edge_indices_global,
+            edge_energy_per_spin,
+            edge_indices_per_spin,
+        )
+
+    def _get_edge(self, below_fermi, tol=1e-4, spin_resolved=False):
+        """
+        Internal helper to get VBM or CBM.
+        """
+        null_result = {
+            "band_index": {},
+            "kpoint_index": [],
+            "kpoint_labels": [],
+            "kpoint_coord": [],
+            "energy": None,
+        }
+        if self.is_metal():
+            if spin_resolved:
+                return {spin: null_result for spin in range(self.nspin)}
+            else:
+                return null_result
+
+        (
+            edge_energy_global,
+            edge_indices_global,
+            edge_energy_per_spin,
+            edge_indices_per_spin,
+        ) = self._find_band_edge(below_fermi=below_fermi, tol=tol)
+
+        # Check if no edge found
+        if below_fermi:
+            no_edge = edge_energy_global == -float("inf")
+        else:
+            no_edge = edge_energy_global == float("inf")
+        if no_edge:
+            if spin_resolved:
+                return {spin: null_result for spin in range(self.nspin)}
+            else:
+                return null_result
+
+        # Process results
+        if spin_resolved:
+            result = {}
+            for spin in range(self.nspin):
+                result[spin] = self._process_indices(
+                    edge_indices_per_spin[spin],
+                    energy=edge_energy_per_spin[spin],
+                )
+            result["global"] = self._process_indices(
+                edge_indices_global, energy=edge_energy_global
+            )
+            return result
+        else:
+            return self._process_indices(edge_indices_global, energy=edge_energy_global)
+
+    def get_vbm(self, tol=1e-4, spin_resolved=False):
+        """
+        Get data about the valence band maximum (VBM).
+
+        Args:
+            tol (float): Tolerance for energy comparison (eV).
+            spin_resolved (bool): If True, return results for each spin channel separately.
+
+        Returns:
+            If spin_resolved=False:
+                dict with keys "band_index", "kpoint_index", "kpoint_labels", "kpoint_coord", "energy":
+                    - "band_index": dict mapping spin index (int) to list of band indices.
+                    - "kpoint_index": list of indices of kpoints where VBM occurs.
+                    - "kpoint_labels": list of labels (str or None) for each kpoint in kpoint_index.
+                    - "kpoint_coord": list of coordinates [kx, ky, kz] for each kpoint in kpoint_index.
+                    - "energy": energy of VBM relative to Fermi level (eV).
+                      If Fermi level is not set (efermi=None), returns absolute energy.
+
+            If spin_resolved=True:
+                dict with keys for each spin index (0, 1, ...) and "global":
+                    - spin_index (int): dict with same keys as above for that spin channel.
+                    - "global": dict with same keys as above for the global VBM (across all spins).
+        """
+        return self._get_edge(below_fermi=True, tol=tol, spin_resolved=spin_resolved)
+
+    def get_cbm(self, tol=1e-4, spin_resolved=False):
+        """
+        Get data about the conduction band minimum (CBM).
+
+        Args:
+            tol (float): Tolerance for energy comparison (eV).
+            spin_resolved (bool): If True, return results for each spin channel separately.
+
+        Returns:
+            If spin_resolved=False:
+                dict with keys "band_index", "kpoint_index", "kpoint_labels", "kpoint_coord", "energy":
+                    - "band_index": dict mapping spin index (int) to list of band indices.
+                    - "kpoint_index": list of indices of kpoints where CBM occurs.
+                    - "kpoint_labels": list of labels (str or None) for each kpoint in kpoint_index.
+                    - "kpoint_coord": list of coordinates [kx, ky, kz] for each kpoint in kpoint_index.
+                    - "energy": energy of CBM relative to Fermi level (eV).
+                      If Fermi level is not set (efermi=None), returns absolute energy.
+
+            If spin_resolved=True:
+                dict with keys for each spin index (0, 1, ...) and "global":
+                    - spin_index (int): dict with same keys as above for that spin channel.
+                    - "global": dict with same keys as above for the global CBM (across all spins).
+        """
+        return self._get_edge(below_fermi=False, tol=tol, spin_resolved=spin_resolved)
 
     def plot_band(
         self,
@@ -361,7 +623,7 @@ def plot_multiple_bands(
     if show_labels:
         assert len(plot_band_datas) == len(mat_names)
 
-    # Determine if single material with spin polarization. 
+    # Determine if single material with spin polarization.
     # Use to provide different color of spin up and spin down bands in ABACUS-agent-tools
     single_material_spin2, spin_colors = False, None
     if len(plot_band_datas) == 1:
@@ -427,7 +689,7 @@ def plot_multiple_bands(
                     linewidth=1.0,
                     label=mat_names[imat] if (show_labels and ipath == 0 and iband == 0) else None,
                 )
-                if nspin == 2: # spin down
+                if nspin == 2:  # spin down
                     spin_down_label = None
                     if show_labels and single_material_spin2 and imat == 0 and ipath == 0 and iband == 0:
                         spin_down_label = f"{mat_names[imat]} (down)"
