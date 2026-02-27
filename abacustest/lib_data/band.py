@@ -550,6 +550,25 @@ class BandData:
         """
         return self._get_edge(below_fermi=False, tol=tol, spin_resolved=spin_resolved)
 
+    def _calculate_gap_from_results(self, vbm_dict, cbm_dict):
+        """Calculate band gap from VBM and CBM result dictionaries.
+
+        Args:
+            vbm_dict: Dictionary from get_vbm()
+            cbm_dict: Dictionary from get_cbm()
+
+        Returns:
+            float or None: Band gap energy (CBM - VBM) or None if not available.
+        """
+        if not (isinstance(vbm_dict, dict) and isinstance(cbm_dict, dict)):
+            return None
+
+        vbm_energy = vbm_dict.get("energy")
+        cbm_energy = cbm_dict.get("energy")
+        if vbm_energy is not None and cbm_energy is not None:
+            return cbm_energy - vbm_energy
+        return None
+
     def get_band_gap(self, tol=1e-4, spin_resolved=False):
         """
         Get the band gap energy.
@@ -575,46 +594,25 @@ class BandData:
 
         if not spin_resolved:
             # Non-spin-resolved case: both results are dictionaries with "energy" key
-            if isinstance(vbm_result, dict) and isinstance(cbm_result, dict):
-                vbm_energy = vbm_result.get("energy")
-                cbm_energy = cbm_result.get("energy")
-                if vbm_energy is not None and cbm_energy is not None:
-                    return cbm_energy - vbm_energy
-            return None
+            return self._calculate_gap_from_results(vbm_result, cbm_result)
 
         # Spin-resolved case: results are dictionaries with spin indices and "global" key
         result = {}
 
         # Handle global band gap
         if "global" in vbm_result and "global" in cbm_result:
-            vbm_global = vbm_result["global"]
-            cbm_global = cbm_result["global"]
-            if (
-                isinstance(vbm_global, dict)
-                and isinstance(cbm_global, dict)
-                and vbm_global.get("energy") is not None
-                and cbm_global.get("energy") is not None
-            ):
-                result["global"] = cbm_global["energy"] - vbm_global["energy"]
-            else:
-                result["global"] = None
+            result["global"] = self._calculate_gap_from_results(
+                vbm_result["global"], cbm_result["global"]
+            )
         else:
             result["global"] = None
 
         # Handle per-spin band gaps
         for spin in range(self.nspin):
             if spin in vbm_result and spin in cbm_result:
-                vbm_spin = vbm_result[spin]
-                cbm_spin = cbm_result[spin]
-                if (
-                    isinstance(vbm_spin, dict)
-                    and isinstance(cbm_spin, dict)
-                    and vbm_spin.get("energy") is not None
-                    and cbm_spin.get("energy") is not None
-                ):
-                    result[spin] = cbm_spin["energy"] - vbm_spin["energy"]
-                else:
-                    result[spin] = None
+                result[spin] = self._calculate_gap_from_results(
+                    vbm_result[spin], cbm_result[spin]
+                )
             else:
                 result[spin] = None
 
