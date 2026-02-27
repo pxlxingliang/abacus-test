@@ -1,6 +1,6 @@
 from ..model import Model
 import os, traceback
-from abacustest.lib_model.comm_dos import DOSData, PDOSData
+from abacustest.lib_data.dos import DOSData, PDOSData
 
 
 class DOSPDOSModel(Model):
