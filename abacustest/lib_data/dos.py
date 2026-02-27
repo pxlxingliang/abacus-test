@@ -2,7 +2,6 @@
 
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Union
-from pathlib import Path
 
 from abacustest.lib_collectdata.collectdata import RESULT
 
