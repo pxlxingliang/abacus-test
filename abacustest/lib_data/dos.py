@@ -612,6 +612,10 @@ def plot_dos_pdos(pdosdatas: List[List[np.ndarray]],
     else:
         axes = axes.flatten()
     
+    # Hide unused subplots to avoid displaying empty axes
+    for idx in range(len(pdosdatas), len(axes)):
+        axes[idx].set_visible(False)
+    
     for idx, pdosdata in enumerate(pdosdatas):
         assert len(pdosdata) == len(labels[idx]) # Check if number of PDOS data matches number of labels
         ax = axes[idx]
