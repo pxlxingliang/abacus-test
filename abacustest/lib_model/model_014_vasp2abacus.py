@@ -14,7 +14,7 @@ import warnings
 
 
 class Vasp2AbacusModel(Model):
-    HAS_PREPARE_POST_COMMAND =  # set false if the model does not have prepare and postprocess
+    HAS_PREPARE_POST_COMMAND =  False # set false if the model does not have prepare and postprocess
 
     @staticmethod
     def model_name(): # type: ignore
