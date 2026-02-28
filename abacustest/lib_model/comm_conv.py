@@ -3,24 +3,23 @@ import numpy as np
 from abacustest.lib_collectdata.collectdata import RESULT
 from . import comm_plot,comm
 
-def _shift_data(data_list, base_index=0):
+def _shift_data(data_list, sort_idx, shift_idx=0):
     # shift the data to the base_index
     # data_list should a list of float or list of list of float
     if not isinstance(data_list,list):
-        return None
-    if base_index < 0 or base_index >= len(data_list):
         return None
     
     data_list_not_none = [i for i in data_list if i is not None]
     if len(data_list_not_none) < 2:
         return data_list
     
-    ref_idx = base_index
+    ref_idx = sort_idx[shift_idx]
     while data_list[ref_idx] is None:
-        if base_index == 0:
-            ref_idx += 1
+        if shift_idx < 0:
+            shift_idx -= 1
         else:
-            ref_idx -= 1
+            shift_idx += 1
+        ref_idx = sort_idx[shift_idx]
     
     ref_data = data_list[ref_idx]
 
@@ -314,7 +313,7 @@ class PostConv:
                 if self.shift_idx is None or ikey in ["band_gap"]:
                     new_plotdata[ik][ikey] = [iv[ikey][i] for i in sort_idx]
                 else:
-                    iv_shifted = _shift_data(iv[ikey],base_index=sort_idx[self.shift_idx])
+                    iv_shifted = _shift_data(iv[ikey],sort_idx,self.shift_idx)
                     new_plotdata[ik][ikey] = [iv_shifted[i] for i in sort_idx] if iv_shifted is not None else None
         return new_plotdata
     
