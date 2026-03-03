@@ -829,6 +829,131 @@ class BandData:
 
         return results
 
+class ProjBandData(BandData):
+    """
+    Projected band data class.
+    """
+
+    def __init__(
+        self,
+        high_symm_labels: Dict[str, List[float]],
+        kpaths: List[Dict[str, Any]],
+        kpath_cum_dist: Union[np.ndarray, List[float]],
+        efermi: Optional[float] = None,
+        band_data: Optional[Union[np.ndarray, List[np.ndarray]]] = None,
+        proj_band_data: Optional[List[Dict[str, Any]]] = None,
+    ):
+        """
+        Initialize BandData object.
+        Args:
+            high_symm_labels (Dict[str, List[float]]): High symmetry labels and coordinates. For example: {"GAMMA": [0.0, 0.0, 0.0], "X": [0.5, 0.0, 0.0], "L": [0.5, 0.5, 0.0]}.
+            kpaths (List[Dict[str, Union[float, str]]]): K-path information. For example: [{"start": "GAMMA", "end": "X", "start_nkpt": 0, "end_nkpt": 30}, {"start": "X", "end": "U", "start_nkpt": 30, "end_nkpt": 60}].
+                For each kpath, band data are stored in the range [start_nkpt, end_nkpt] of `band_data` for each spin channel.
+            kpath_cum_dist (Union[np.ndarray, List[float]]): K-path cumulative distance. For example: [0.0, 0.1, 0.2, 0.3, 0.8, 0.85, 0.9]. Discontinuity in k-path distance will be automatically removed.
+            efermi (float): Fermi energy used during the initialization of the BandData object. Will subtract this value from the band data. If None, the band data will not be modified.
+            band_data (np.ndarray): Energy level data for each k-point. For nspin=1 or 4, it is an np.ndarray shaped (1, nkpts, nbands). For nspin=2, it is shaped (2, nkpts, nbands).
+        """
+        self.high_symm_labels = high_symm_labels
+        self.kpaths = kpaths
+        self.kpath_lengths = self._remove_jump_dist(kpath_cum_dist, kpaths)
+
+        self.efermi = efermi
+
+        if (
+            isinstance(band_data, np.ndarray)
+            and len(band_data.shape) == 3
+            and band_data.shape[0] in (1, 2)
+        ):
+            if efermi is not None:
+                self.band_data = band_data - efermi
+            else:
+                print("efermi is None, band data will not be shifted")
+                self.band_data = band_data
+        else:
+            raise ValueError("band_data must be an np.ndarray with shape (1, nkpts, nbands) or (2, nkpts, nbands)")
+
+        self.nspin, self.nkpts, self.nbands = self.band_data.shape
+        
+        for i, pbd in enumerate(proj_band_data):
+            print(pbd["data"].shape)
+            nspin, nkpts, nbands = pbd["data"].shape
+            print(nspin, nkpts, nbands)
+            print(self.nspin)
+            assert nspin == self.nspin
+            assert nkpts == self.nkpts
+            assert nbands == self.nbands
+        
+        self.proj_band_data = proj_band_data
+        self._build_label_mapping()
+        self._build_kpath_segments()
+
+
+    @staticmethod
+    def ReadFromAbacusJob(
+        abacusjob_dir: str,
+        efermi: Optional[float] = None,
+        high_symm_labels: Optional[List[str]] = None,
+    ):
+        """
+        Read band data from output directory of a finished ABACUS band calculation.
+
+        Args:
+            abacusjob_dir (str): Path to the output directory of a finished ABACUS band calculation.
+            efermi (float): Fermi energy used during the initialization of the BandData object. Will subtract this value from the band data.
+            high_symm_labels (List[str]): List of high symmetry labels. If None, the labels will be read from the KPT file, using comments after "#" at each line.
+
+        Returns:
+            BandData: A BandData object containing the band data and high symmetry labels.
+        """
+        import xml.etree.ElementTree as ET
+        from io import StringIO
+
+        band_data = BandData.ReadFromAbacusJob(abacusjob_dir, efermi, high_symm_labels)
+
+        input_params = ReadInput(os.path.join(abacusjob_dir, "INPUT"))
+        abacusjob_outdir = os.path.join(abacusjob_dir, f"OUT.{input_params.get('suffix', 'ABACUS')}")
+        proj_band_file_up = os.path.join(abacusjob_outdir, "PBANDS_1")
+        tree_up = ET.parse(proj_band_file_up)
+        if input_params.get("nspin", 1) == 2:
+            proj_band_file_dn = os.path.join(abacusjob_outdir, "PBANDS_2")
+            tree_dn = ET.parse(proj_band_file_dn)
+        
+        all_orbital_projband_data = []
+
+        # Read projected band data for nspin=1 case
+        root_up = tree_up.getroot()
+        root_up_orbs = root_up.findall("orbital")
+        if input_params.get("nspin", 1) == 2:
+            root_dn = tree_dn.getroot()
+            root_dn_orbs = root_dn.findall("orbital")
+
+        for iorb, orb in enumerate(root_up_orbs):
+            raw_pband_data_up = np.loadtxt(StringIO(orb.find("data").text))
+            if input_params.get("nspin", 1) in [1, 4]:
+                raw_pband_data = raw_pband_data_up[np.newaxis, :, :]
+            if input_params.get("nspin", 1) == 2:
+                raw_pband_data_dn = np.loadtxt(StringIO(root_dn_orbs[iorb].find("data").text))
+                raw_pband_data = np.array([raw_pband_data_up, raw_pband_data_dn])
+            
+            # Ignore Band Data in PBANDS_* for simplicity
+            orbital_info = {
+                "index": int(orb.get("index")),
+                "atom_index": int(orb.get("atom_index")),
+                "species": orb.get("species"),
+                "l": int(orb.get("l")),
+                "m": int(orb.get("m")),
+                "z": int(orb.get("z")),
+                "data": raw_pband_data,
+            }
+
+            all_orbital_projband_data.append(orbital_info)
+
+        return ProjBandData(high_symm_labels,
+                            band_data.kpaths,
+                            band_data.kpath_lengths,
+                            efermi,
+                            band_data.band_data,
+                            all_orbital_projband_data)
 
 def plot_multiple_bands(
     plot_band_datas: List[Dict[str, Any]],
