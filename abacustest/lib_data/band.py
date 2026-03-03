@@ -6,7 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
-from abacustest import ReadInput, ReadKpt, RESULT
+from abacustest import ReadInput, ReadKpt, RESULT, AbacusSTRU
+from abacustest.lib_prepare.comm import Cartesian2Direct, real2rec
 
 
 class BandData:
@@ -36,14 +37,20 @@ class BandData:
 
         self.efermi = efermi
 
-        if isinstance(band_data, np.ndarray) and len(band_data.shape) == 3 and band_data.shape[0] in (1, 2):
+        if (
+            isinstance(band_data, np.ndarray)
+            and len(band_data.shape) == 3
+            and band_data.shape[0] in (1, 2)
+        ):
             if efermi is not None:
                 self.band_data = band_data - efermi
             else:
                 print("efermi is None, band data will not be shifted")
                 self.band_data = band_data
         else:
-            raise ValueError("band_data must be an np.ndarray with shape (1, nkpts, nbands) or (2, nkpts, nbands)")
+            raise ValueError(
+                "band_data must be an np.ndarray with shape (1, nkpts, nbands) or (2, nkpts, nbands)"
+            )
 
         self.nspin, self.nkpts, self.nbands = self.band_data.shape
         self._build_label_mapping()
@@ -143,7 +150,9 @@ class BandData:
             if kpaths[ipath]["end"] != kpaths[ipath + 1]["start"]:
                 start_nkpt_next = kpaths[ipath + 1]["start_nkpt"]
                 end_nkpt_curr = kpaths[ipath]["end_nkpt"]
-                jump_dist = kpath_cum_dist[start_nkpt_next] - kpath_cum_dist[end_nkpt_curr]
+                jump_dist = (
+                    kpath_cum_dist[start_nkpt_next] - kpath_cum_dist[end_nkpt_curr]
+                )
                 kpath_cum_dist[start_nkpt_next:] -= jump_dist
 
         return kpath_cum_dist
@@ -168,12 +177,18 @@ class BandData:
         input_params = ReadInput(os.path.join(abacusjob_dir, "INPUT"))
         suffix = input_params.get("suffix", "ABACUS")
         nspin = input_params.get("nspin", 1)
+        stru_file = os.path.join(abacusjob_dir, input_params.get("stru_file", "STRU"))
+        stru = AbacusSTRU.read(stru_file)
+        rec_cell = real2rec(stru.cell)
+
         kpt_result = ReadKpt(abacusjob_dir)
         if kpt_result is None:
             raise ValueError(f"Failed to read KPT file from {abacusjob_dir}")
         kpt_data, model = kpt_result
         if model not in ["line", "line_cartesian"]:
-            raise ValueError(f"KPT file must be in 'line' or 'line_cartesian' mode for band calculation, got '{model}'")
+            raise ValueError(
+                f"KPT file must be in 'line' or 'line_cartesian' mode for band calculation, got '{model}'"
+            )
 
         # Process kpt_data to extract kpaths and high symmetry points
         high_symm_kpts = {}
@@ -187,18 +202,21 @@ class BandData:
         for i, kpt in enumerate(kpt_data):
             # kpt format: [kx, ky, kz, npoints, label] or [kx, ky, kz, npoints]
             if not isinstance(kpt, (list, tuple)):
-                raise TypeError(f"Expected kpt to be a list or tuple, got {type(kpt)} at index {i}")
+                raise TypeError(
+                    f"Expected kpt to be a list or tuple, got {type(kpt)} at index {i}"
+                )
 
             if len(kpt) < 4:
-                raise ValueError(f"Must have at least 4 elements in line-mode KPT file, got {len(kpt)} in line {i}")
+                raise ValueError(
+                    f"Must have at least 4 elements in line-mode KPT file, got {len(kpt)} in line {i}"
+                )
 
             kx, ky, kz, npoints = kpt[:4]
             if model == "line":
                 kpt_coord_direct = [float(kx), float(ky), float(kz)]
             else:
-                # TODO: transform to cartesian coordinate in recipord space
-                # For now, treat as direct coordinates
-                kpt_coord_direct = [float(kx), float(ky), float(kz)]
+                kpt_coord_cart = [float(kx), float(ky), float(kz)]
+                kpt_coord_direct = Cartesian2Direct([kpt_coord_cart], rec_cell)[0]
 
             # Get label
             if len(kpt) >= 5:
@@ -244,21 +262,27 @@ class BandData:
             try:
                 efermi = abacusresult["efermi"]
             except (KeyError, TypeError):
-                raise ValueError("Fermi energy (efermi) not found in ABACUS results and not provided")
+                raise ValueError(
+                    "Fermi energy (efermi) not found in ABACUS results and not provided"
+                )
 
         # Read band data for nspin=1 or 4
         band_file = os.path.join(abacusjob_dir, f"OUT.{suffix}/BANDS_1.dat")
         with open(band_file, "r") as f:
             original_band_data = np.loadtxt(f)
             kpath_cum_dist, band = original_band_data[:, 1], original_band_data[:, 2:]
-            band_data = np.expand_dims(band, axis=0)  # Transform to ndarray shaped (1, nkpt, nband)
+            band_data = np.expand_dims(
+                band, axis=0
+            )  # Transform to ndarray shaped (1, nkpt, nband)
         # Read band data for nspin=2
         if nspin == 2:
             band_file_dw = os.path.join(abacusjob_dir, f"OUT.{suffix}/BANDS_2.dat")
             with open(band_file_dw, "r") as f:
                 original_band_data = np.loadtxt(f)
                 band_dw = original_band_data[:, 2:]
-                band_data = np.stack((band, band_dw), axis=0)  # Transform to ndarray shaped (2, nkpt, nband)
+                band_data = np.stack(
+                    (band, band_dw), axis=0
+                )  # Transform to ndarray shaped (2, nkpt, nband)
 
         return BandData(high_symm_kpts, kpaths, kpath_cum_dist, efermi, band_data)
 
@@ -273,14 +297,20 @@ class BandData:
         elif self.efermi is not None:
             band_data = self.band_data  # Already shifted
         else:
-            raise RuntimeError("Fermi energy is not given or not present in the band data")
+            raise RuntimeError(
+                "Fermi energy is not given or not present in the band data"
+            )
 
         nspin_channel, nkpt, nband = band_data.shape
         for ispin_channel in range(nspin_channel):
             for ikpt in range(nkpt - 1):
                 for iband in range(nband):
                     # Check whether the band crosses fermi energy. Also work if band is discontinous
-                    if band_data[ispin_channel, ikpt, iband] * band_data[ispin_channel, ikpt + 1, iband] < 0:
+                    if (
+                        band_data[ispin_channel, ikpt, iband]
+                        * band_data[ispin_channel, ikpt + 1, iband]
+                        < 0
+                    ):
                         return True
 
         return False
@@ -303,14 +333,21 @@ class BandData:
 
         start, end = branch
         for ikpath, kpath in enumerate(self.kpaths):
-            if kpath["start"] == start and kpath["end"] == end:  # Find the matched branch
+            if (
+                kpath["start"] == start and kpath["end"] == end
+            ):  # Find the matched branch
                 start_nkpt, end_nkpt = kpath["start_nkpt"], kpath["end_nkpt"]
                 if extra_end_point:
                     if ikpath < len(self.kpaths) - 1:  # Not the last band branch
-                        if kpath["end"] == self.kpaths[ikpath + 1]["start"]:  # Continus with the next branch
+                        if (
+                            kpath["end"] == self.kpaths[ikpath + 1]["start"]
+                        ):  # Continus with the next branch
                             end_nkpt += 1
                         else:
-                            start_nkpt, end_nkpt = kpath["start_nkpt"], kpath["end_nkpt"]
+                            start_nkpt, end_nkpt = (
+                                kpath["start_nkpt"],
+                                kpath["end_nkpt"],
+                            )
 
                 branch_band_data = self.band_data[:, start_nkpt : end_nkpt + 1, :]
                 kpath_coord = self.kpath_lengths[start_nkpt : end_nkpt + 1]
@@ -437,7 +474,10 @@ class BandData:
         }
         if self.is_metal():
             if spin_resolved:
-                return {self._get_spin_label(spin): null_result for spin in range(self.nspin)}
+                return {
+                    self._get_spin_label(spin): null_result
+                    for spin in range(self.nspin)
+                }
             else:
                 return null_result
 
@@ -455,7 +495,10 @@ class BandData:
             no_edge = edge_energy_global == float("inf")
         if no_edge:
             if spin_resolved:
-                return {self._get_spin_label(spin): null_result for spin in range(self.nspin)}
+                return {
+                    self._get_spin_label(spin): null_result
+                    for spin in range(self.nspin)
+                }
             else:
                 return null_result
 
@@ -464,8 +507,12 @@ class BandData:
             result = {}
             for spin in range(self.nspin):
                 label = self._get_spin_label(spin)
-                result[label] = self._process_indices(edge_indices_per_spin[spin], energy=edge_energy_per_spin[spin])
-            result["global"] = self._process_indices(edge_indices_global, energy=edge_energy_global)
+                result[label] = self._process_indices(
+                    edge_indices_per_spin[spin], energy=edge_energy_per_spin[spin]
+                )
+            result["global"] = self._process_indices(
+                edge_indices_global, energy=edge_energy_global
+            )
             return result
         else:
             return self._process_indices(edge_indices_global, energy=edge_energy_global)
@@ -571,7 +618,9 @@ class BandData:
 
         # Handle global band gap
         if "global" in vbm_result and "global" in cbm_result:
-            result["global"] = self._calculate_gap_from_results(vbm_result["global"], cbm_result["global"])
+            result["global"] = self._calculate_gap_from_results(
+                vbm_result["global"], cbm_result["global"]
+            )
         else:
             result["global"] = None
 
@@ -579,7 +628,9 @@ class BandData:
         for spin in range(self.nspin):
             label = self._get_spin_label(spin)
             if label in vbm_result and label in cbm_result:
-                result[label] = self._calculate_gap_from_results(vbm_result[label], cbm_result[label])
+                result[label] = self._calculate_gap_from_results(
+                    vbm_result[label], cbm_result[label]
+                )
             else:
                 result[label] = None
 
@@ -610,7 +661,9 @@ class BandData:
         branches, shifted_kpath_coord, band_data = [], [], []
 
         for plot_kpath in plot_kpaths:
-            branch_band_data, shifted_coord = self.get_band_branch_data(plot_kpath, extra_end_point=True)
+            branch_band_data, shifted_coord = self.get_band_branch_data(
+                plot_kpath, extra_end_point=True
+            )
             if branch_band_data is None:
                 raise ValueError("Provided kpath not found in the band structure")
 
@@ -634,6 +687,269 @@ class BandData:
             emin=emin,
             emax=emax,
         )
+
+    def get_effective_mass(
+        self,
+        edge_type="CBM",
+        direction_labels=None,
+        num_fit_points=5,
+        bilateral_fit=False,
+        plot_fit=False,
+    ):
+        """
+        Calculate effective mass for CBM or VBM along a specified direction.
+
+        Args:
+            edge_type (str): "CBM" or "VBM".
+            direction_labels (list): List of two high-symmetry labels, e.g., ['G', 'X'].
+                The first label should be the high-symmetry point where the CBM/VBM is located.
+            num_fit_points (int): Number of k-points to use for quadratic fitting.
+            bilateral_fit (bool): If True, use data from both sides of the extremum.
+                Requires the reverse direction branch to exist.
+            plot_fit (bool): If True, plot the fitting curve and data points.
+
+        Note:
+            This method does not support nspin=2 (spin-polarized calculations).
+
+        Returns:
+            list: List of effective mass results for each degenerate band at the edge.
+                  Each element is a dict containing:
+                - effective_mass (float): effective mass in units of electron mass.
+                  For CBM (electron), effective mass is positive.
+                  For VBM (hole), effective mass is negative (positive if taking absolute value).
+                - curvature (float): second derivative d²E/dk² in eV/Å².
+                  Positive for CBM (upward curvature), negative for VBM (downward curvature).
+                - fit_coeffs (list): quadratic fit coefficients [a, b, c] for E = a*(k - k0)^2 + b.
+                - band_index (int): band index used.
+        """
+        import numpy as np
+        import matplotlib.pyplot as plt
+
+        if direction_labels is None or len(direction_labels) != 2:
+            raise ValueError(
+                "direction_labels must be a list of two high-symmetry labels"
+            )
+
+        start_label, end_label = direction_labels
+
+        if self.nspin == 2:
+            raise ValueError("Effective mass calculation not supported for nspin=2")
+
+        # Get CBM/VBM data
+        if edge_type.upper() == "CBM":
+            edge_result = self.get_cbm(spin_resolved=False)
+        elif edge_type.upper() == "VBM":
+            edge_result = self.get_vbm(spin_resolved=False)
+        else:
+            raise ValueError("edge_type must be 'CBM' or 'VBM'")
+
+        if edge_result is None or edge_result["energy"] is None:
+            raise ValueError(f"No {edge_type} found in band data")
+
+        if not edge_result["kpoint_index"]:
+            raise ValueError(f"No k-point indices for {edge_type}")
+
+        # Get band indices (for nspin=1, band_index dict maps spin 0 to list of bands)
+        # There may be multiple degenerate bands at CBM/VBM
+        band_indices = list(edge_result["band_index"].values())[0]
+        if not band_indices:
+            raise ValueError(f"No band indices found for {edge_type}")
+
+        # Get branch data for forward direction
+        forward_branch = [start_label, end_label]
+        forward_data, forward_coord = self.get_band_branch_data(
+            forward_branch, extra_end_point=False
+        )
+        if forward_data is None:
+            raise ValueError(f"Branch {forward_branch} not found in band structure")
+        assert forward_coord is not None
+        assert self.nspin == 1
+
+        # Find which kpath segment corresponds to the forward branch
+        forward_segment = None
+        for kpath in self.kpaths:
+            if kpath["start"] == start_label and kpath["end"] == end_label:
+                forward_segment = kpath
+                break
+        if forward_segment is None:
+            # Check reverse direction
+            for kpath in self.kpaths:
+                if kpath["start"] == end_label and kpath["end"] == start_label:
+                    forward_segment = kpath
+                    break
+        if forward_segment is None:
+            raise ValueError(f"No segment found for branch {forward_branch}")
+
+        # Select a k-point index that lies on this segment
+        global_k_idx = None
+        for k_idx in edge_result["kpoint_index"]:
+            if forward_segment["start_nkpt"] <= k_idx <= forward_segment["end_nkpt"]:
+                global_k_idx = k_idx
+                break
+        if global_k_idx is None:
+            # None of the extremum k-points are on the requested branch
+            raise ValueError(f"No {edge_type} k-point found on branch {forward_branch}")
+
+        # Determine local index within branch
+        # forward_coord is shifted_kpath_coord for the branch, starting at 0 at start_label
+        # If extremum is at start_label, local index is 0.
+        # If extremum is at end_label (reverse direction), local index is last.
+        if forward_segment["start"] == start_label:
+            local_idx = global_k_idx - forward_segment["start_nkpt"]
+        else:
+            # segment is reversed relative to forward_branch
+            local_idx = forward_segment["end_nkpt"] - global_k_idx
+
+        # Ensure local_idx is within forward_data shape
+        nkpt_branch = forward_data.shape[1]
+        if local_idx < 0 or local_idx >= nkpt_branch:
+            raise ValueError("Extremum k-point index mismatch with branch data")
+
+        # Collect data for bilateral fitting
+        reverse_data = None
+        reverse_coord = None
+        rev_local_idx = None
+        if bilateral_fit:
+            # Try to get reverse branch data
+            reverse_branch = [end_label, start_label]
+            reverse_data, reverse_coord = self.get_band_branch_data(
+                reverse_branch, extra_end_point=False
+            )
+            if reverse_data is None:
+                # Reverse branch not found, fallback to unilateral
+                bilateral_fit = False
+                print("Warning: Reverse branch not found, using unilateral fitting")
+            else:
+                # Determine local index in reverse branch (extremum should be at start_label of reverse branch)
+                # Find segment for reverse branch
+                rev_segment = None
+                for kpath in self.kpaths:
+                    if kpath["start"] == end_label and kpath["end"] == start_label:
+                        rev_segment = kpath
+                        break
+                if rev_segment is None:
+                    bilateral_fit = False
+                    print(
+                        "Warning: Cannot locate reverse segment, using unilateral fitting"
+                    )
+                else:
+                    # Extremum should be at start of reverse branch (which is end_label)
+                    rev_local_idx = global_k_idx - rev_segment["start_nkpt"]
+                    # Ensure rev_local_idx is within reverse_data shape
+                    nkpt_rev = reverse_data.shape[1]
+                    if rev_local_idx < 0 or rev_local_idx >= nkpt_rev:
+                        bilateral_fit = False
+                        print(
+                            "Warning: Extremum index mismatch in reverse branch, using unilateral fitting"
+                        )
+
+        # Calculate effective mass for each degenerate band
+        # Forward k distances relative to extremum (in reduced coordinates, i.e., k/(2π))
+        # This is the same for all bands at the same k-point
+        forward_k_reduced = forward_coord - forward_coord[local_idx]
+
+        results = []
+        for band_idx in band_indices:
+            # Forward branch energies for the band (nspin=1, use spin index 0)
+            forward_energy = forward_data[0, :, band_idx]
+
+            if bilateral_fit and reverse_data is not None:
+                assert (
+                    reverse_data is not None
+                    and reverse_coord is not None
+                    and rev_local_idx is not None
+                )
+                reverse_energy = reverse_data[0, :, band_idx]
+                # Reverse k distances: negative relative to extremum (reduced coordinates)
+                reverse_k_reduced = -(reverse_coord - reverse_coord[rev_local_idx])
+                # Combine forward and reverse points
+                combined_k_reduced = np.concatenate(
+                    [reverse_k_reduced, forward_k_reduced]
+                )
+                combined_energy = np.concatenate([reverse_energy, forward_energy])
+                # Select num_fit_points closest to extremum
+                sorted_indices = np.argsort(np.abs(combined_k_reduced))
+                selected_indices = sorted_indices[:num_fit_points]
+                k_fit_reduced = combined_k_reduced[selected_indices]
+                energy_fit = combined_energy[selected_indices]
+            else:
+                # Unilateral: select points only in the direction from start_label to end_label
+                # Determine which side of the extremum corresponds to the forward direction
+                # Positive forward_k_reduced means moving from start_label toward end_label
+                # Negative forward_k_reduced means moving toward start_label
+                # For unilateral fitting, we want points in the forward direction only.
+                if local_idx == 0:
+                    # extremum at start, all points are forward direction
+                    valid_mask = forward_k_reduced >= 0
+                elif local_idx == nkpt_branch - 1:
+                    # extremum at end, forward direction is actually backward along the branch
+                    # but the direction from start to end is forward, so points toward start_label are negative forward_k_reduced
+                    # we need points moving from end toward start? Actually unilateral fitting along the specified direction
+                    # from start_label to end_label, but extremum at end, so there are no points beyond end.
+                    # All points are in the forward direction (from start to end), i.e., forward_k_reduced <= 0.
+                    valid_mask = forward_k_reduced <= 0
+                else:
+                    # extremum in middle, take points toward end_label (forward_k_reduced >= 0)
+                    valid_mask = forward_k_reduced >= 0
+
+                k_valid = forward_k_reduced[valid_mask]
+                energy_valid = forward_energy[valid_mask]
+                if len(k_valid) == 0:
+                    # fallback to closest points regardless of direction
+                    distances = np.abs(forward_k_reduced)
+                    sorted_indices = np.argsort(distances)
+                    selected_indices = sorted_indices[:num_fit_points]
+                    k_fit_reduced = forward_k_reduced[selected_indices]
+                    energy_fit = forward_energy[selected_indices]
+                else:
+                    # select num_fit_points closest to extremum among valid points
+                    distances = np.abs(k_valid)
+                    sorted_indices = np.argsort(distances)
+                    selected_indices = sorted_indices[
+                        : min(num_fit_points, len(k_valid))
+                    ]
+                    k_fit_reduced = k_valid[selected_indices]
+                    energy_fit = energy_valid[selected_indices]
+
+            # Convert reduced k coordinates to physical units (Å⁻¹): k_phys = k_reduced * 2π
+            k_fit_phys = k_fit_reduced * 2 * np.pi
+
+            # Quadratic fitting in physical units: E = a * k_phys^2 + b * k_phys + c
+            coeffs = np.polyfit(k_fit_phys, energy_fit, 2)
+            a, b, c = coeffs[0], coeffs[1], coeffs[2]
+            # Second derivative d²E/dk² = 2*a (in eV/Å²)
+            curvature = a  # eV/Å²
+
+            from scipy.constants import hbar, e, m_e
+            convfactor = hbar**2 / e * 1e20
+            effective_mass = convfactor / curvature / m_e if curvature != 0 else np.inf
+
+            # If plot_fit, generate plot
+            if plot_fit:
+                plt.figure()
+                # Plot fitted curve
+                k_fine = np.linspace(np.min(k_fit_phys), np.max(k_fit_phys), 100)
+                energy_fine = np.polyval(coeffs, k_fine)
+                plt.plot(k_fine, energy_fine, "r-", label="Quadratic fit")
+                plt.scatter(k_fit_phys, energy_fit, label="Data points")
+                plt.xlabel("k (Å⁻¹)")
+                plt.ylabel("E (eV)")
+                plt.title(f"{edge_type} effective mass fit (band {band_idx})")
+                plt.tight_layout()
+                plt.legend()
+                plt.savefig(f"effective_mass_fit_{edge_type}_band{band_idx}.png", dpi=300)
+                plt.close()
+
+            results.append(
+                {
+                    "effective_mass": effective_mass,
+                    "curvature": curvature,
+                    "fit_coeffs": coeffs.tolist(),
+                    "band_index": band_idx,
+                }
+            )
+
+        return results
 
 
 def plot_multiple_bands(
@@ -665,12 +981,17 @@ def plot_multiple_bands(
         if n <= len(base):
             return base[:n]
         # Add extra color from HSV if not enough
-        return base + [mcolors.hsv_to_rgb((i / (n - 2) + 0.1, 0.85, 0.95)) for i in range(n - 2)]
+        return base + [
+            mcolors.hsv_to_rgb((i / (n - 2) + 0.1, 0.85, 0.95)) for i in range(n - 2)
+        ]
 
     # Check whether the path of all materials are all same
     for i in range(len(plot_band_datas)):
         for j in range(i + 1, len(plot_band_datas)):
-            branches_i, branches_j = plot_band_datas[i]["branches"], plot_band_datas[j]["branches"]
+            branches_i, branches_j = (
+                plot_band_datas[i]["branches"],
+                plot_band_datas[j]["branches"],
+            )
             assert len(branches_i) == len(branches_j)
             for ib in range(len(branches_i)):
                 assert branches_i[ib][0] == branches_j[ib][0]
@@ -687,7 +1008,9 @@ def plot_multiple_bands(
         # Check nspin of first branch of first material
         first_data = plot_band_datas[0]
         if len(first_data["band_data"]) > 0:
-            first_branch_data = first_data["band_data"][0]  # shape (nspin, nkpt, nbands)
+            first_branch_data = first_data["band_data"][
+                0
+            ]  # shape (nspin, nkpt, nbands)
             if first_branch_data.shape[0] == 2:  # nspin == 2
                 single_material_spin2 = True
                 spin_colors = get_colors(2)  # Different colors for spin up and down
@@ -731,7 +1054,9 @@ def plot_multiple_bands(
         start_x_pos = 0.0
         for ipath, branch in enumerate(plot_band_data["branches"]):
             shifted_coord = plot_band_data["shifted_kpath_coord"][ipath]
-            branch_data = plot_band_data["band_data"][ipath]  # shape (nspin, nkpt, nbands)
+            branch_data = plot_band_data["band_data"][
+                ipath
+            ]  # shape (nspin, nkpt, nbands)
             nspin = branch_data.shape[0]  # Merge treatment for nspin=1 and 4
             nbands = branch_data.shape[2]
             for iband in range(nbands):
@@ -748,7 +1073,13 @@ def plot_multiple_bands(
                 )
                 if nspin == 2:  # spin down
                     spin_down_label = None
-                    if show_labels and single_material_spin2 and imat == 0 and ipath == 0 and iband == 0:
+                    if (
+                        show_labels
+                        and single_material_spin2
+                        and imat == 0
+                        and ipath == 0
+                        and iband == 0
+                    ):
                         spin_down_label = f"{mat_names[imat]} (down)"  # Provide labe for only the first segment of band if nspin=2
                     plt.plot(
                         shifted_coord + start_x_pos,
