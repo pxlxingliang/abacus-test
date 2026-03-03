@@ -223,7 +223,7 @@ class BandData:
                 # Use label is provided in KPT file
                 label = str(kpt[4]).strip()
                 if label.startswith("#"):
-                    label = label[1:]
+                    label = label[1:].strip()
             elif high_symm_labels is not None and i < len(high_symm_labels):
                 label = high_symm_labels[i]
             else:
@@ -690,23 +690,105 @@ class BandData:
 
     def get_effective_mass(
         self,
-        edge_type="CBM",
-        direction_labels=None,
+        direction_labels,
+        band_index,
         num_fit_points=5,
-        bilateral_fit=False,
         plot_fit=False,
     ):
         """
-        Calculate effective mass for CBM or VBM along a specified direction.
+        Calculate effective mass for a specific band along a specified direction.
 
         Args:
-            edge_type (str): "CBM" or "VBM".
             direction_labels (list): List of two high-symmetry labels, e.g., ['G', 'X'].
-                The first label should be the high-symmetry point where the CBM/VBM is located.
+                The first label should be the high-symmetry point where the band extremum is located.
+            band_index (int): Band index to calculate effective mass for (must be at CBM or VBM).
             num_fit_points (int): Number of k-points to use for quadratic fitting.
-            bilateral_fit (bool): If True, use data from both sides of the extremum.
-                Requires the reverse direction branch to exist.
             plot_fit (bool): If True, plot the fitting curve and data points.
+
+        Note:
+            This method does not support nspin=2 (spin-polarized calculations).
+
+        Returns:
+            dict: Effective mass result for the specified band containing:
+                - effective_mass (float): effective mass in units of electron mass.
+                  Positive for electron-like bands (upward curvature), negative for hole-like bands (downward curvature).
+                - fit_coeffs (list): quadratic fit coefficients [a, b, c] for E = a*x**2 + b*x + c.
+                - a_std: Standard deviation of a.
+        """
+        import numpy as np
+        import matplotlib.pyplot as plt
+        from scipy.constants import hbar, e, m_e
+        from scipy.optimize import curve_fit
+
+        def parabola_fit(x, a, b, c):
+            return a * x**2 + b * x + c
+
+        if direction_labels is None or len(direction_labels) != 2:
+            raise ValueError("direction_labels must be a list of two high-symmetry labels")
+
+        if self.nspin == 2:
+            raise ValueError("Effective mass calculation not supported for nspin=2")
+
+        # Get branch data
+        band_data, band_seg_coord = self.get_band_branch_data(direction_labels, extra_end_point=False)
+        band_seg_data = band_data[0, :, band_index]  # For nspin=1 currently
+        if band_seg_data is None:
+            raise ValueError(f"Branch {direction_labels} not found in band structure")
+        assert band_seg_coord is not None
+
+        if len(band_seg_data) < num_fit_points:
+            raise ValueError(f"Not enough valid points for band {band_index}")
+
+        energy_fit, k_coord_fit = band_seg_data[:num_fit_points], band_seg_coord[:num_fit_points]
+        k_coord_fit *= 2 * np.pi
+
+        popt, pcov = curve_fit(parabola_fit, k_coord_fit, energy_fit)  # Quadratic fitting
+        a, b, c = popt
+        p_err = np.sqrt(np.diag(pcov))  # The std deviation of the fit coefficients is the sqrt of the diagonal of the covariance matrix
+        a_std = p_err[0]
+        curvature = a * 2  # Second derivative d^2E/dk^2 = 2*a (in eV * Angstrom^2)
+
+        convfactor = hbar**2 / e * 1e20  # 1e20 is the conversion factor from Angstrom^-2 to m^-2
+        effective_mass = convfactor / curvature / m_e if curvature != 0 else np.inf
+
+        # If plot_fit, generate plot
+        if plot_fit:
+            plt.figure()
+            k_fine = np.linspace(np.min(k_coord_fit), np.max(k_coord_fit), 100)
+            energy_fine = np.polyval(popt, k_fine)
+            formula_text = f'$E - E_F = {a:.2f}k^2 {b:+.2f}k {c:+.2f}$\n$\\sigma_a = {a_std:.2f}, m^* = {effective_mass:.4f} m_e$'
+            plt.plot(k_fine, energy_fine, "r-", label=formula_text)
+            plt.plot(k_coord_fit, energy_fit, 'kD')
+            plt.xlabel(r"k ($\AA^{-1}$)")
+            plt.ylabel(r"E - E$_{F}$ (eV)")
+            plt.title(f"Effective mass fit: {direction_labels[0]} to {direction_labels[1]} (band {band_index+1})")  # band index starts from 1
+            plt.tight_layout()
+            plt.legend()
+            plt.savefig(f"effective_mass_fit_band_{direction_labels[0]}_to_{direction_labels[1]}_{band_index+1}.png", dpi=300)
+            plt.close()
+
+        return {
+            "effective_mass": effective_mass,
+            "fit_coeffs": [a, b, c],
+            "a_std": a_std,
+        }
+
+    def get_effective_mass_at_edge(
+        self,
+        direction_labels,
+        edge_type="CBM",
+        num_fit_points=5,
+        plot_fit=False,
+    ):
+        """
+        Calculate effective mass for all degenerate bands at CBM or VBM along a specified direction.
+
+        Args:
+            direction_labels (list): List of two high-symmetry labels, e.g., ['G', 'X'].
+                The first label should be the high-symmetry point where the band extremum is located.
+            edge_type (str): "CBM" or "VBM".
+            num_fit_points (int): Number of k-points to use for quadratic fitting.
+            plot_fit (bool): If True, plot the fitting curve and data points for each band.
 
         Note:
             This method does not support nspin=2 (spin-polarized calculations).
@@ -715,239 +797,35 @@ class BandData:
             list: List of effective mass results for each degenerate band at the edge.
                   Each element is a dict containing:
                 - effective_mass (float): effective mass in units of electron mass.
-                  For CBM (electron), effective mass is positive.
-                  For VBM (hole), effective mass is negative (positive if taking absolute value).
+                  Positive for electron-like bands (upward curvature), negative for hole-like bands (downward curvature).
                 - curvature (float): second derivative d²E/dk² in eV/Å².
-                  Positive for CBM (upward curvature), negative for VBM (downward curvature).
+                  Positive for upward curvature, negative for downward curvature.
                 - fit_coeffs (list): quadratic fit coefficients [a, b, c] for E = a*(k - k0)^2 + b.
                 - band_index (int): band index used.
         """
-        import numpy as np
-        import matplotlib.pyplot as plt
-
-        if direction_labels is None or len(direction_labels) != 2:
-            raise ValueError(
-                "direction_labels must be a list of two high-symmetry labels"
-            )
-
-        start_label, end_label = direction_labels
-
-        if self.nspin == 2:
-            raise ValueError("Effective mass calculation not supported for nspin=2")
-
         # Get CBM/VBM data
-        if edge_type.upper() == "CBM":
+        edge_type_upper = edge_type.upper()
+        if edge_type_upper == "CBM":
             edge_result = self.get_cbm(spin_resolved=False)
-        elif edge_type.upper() == "VBM":
+        elif edge_type_upper == "VBM":
             edge_result = self.get_vbm(spin_resolved=False)
         else:
             raise ValueError("edge_type must be 'CBM' or 'VBM'")
 
-        if edge_result is None or edge_result["energy"] is None:
-            raise ValueError(f"No {edge_type} found in band data")
-
-        if not edge_result["kpoint_index"]:
-            raise ValueError(f"No k-point indices for {edge_type}")
-
         # Get band indices (for nspin=1, band_index dict maps spin 0 to list of bands)
         # There may be multiple degenerate bands at CBM/VBM
         band_indices = list(edge_result["band_index"].values())[0]
-        if not band_indices:
-            raise ValueError(f"No band indices found for {edge_type}")
 
-        # Get branch data for forward direction
-        forward_branch = [start_label, end_label]
-        forward_data, forward_coord = self.get_band_branch_data(
-            forward_branch, extra_end_point=False
-        )
-        if forward_data is None:
-            raise ValueError(f"Branch {forward_branch} not found in band structure")
-        assert forward_coord is not None
-        assert self.nspin == 1
-
-        # Find which kpath segment corresponds to the forward branch
-        forward_segment = None
-        for kpath in self.kpaths:
-            if kpath["start"] == start_label and kpath["end"] == end_label:
-                forward_segment = kpath
-                break
-        if forward_segment is None:
-            # Check reverse direction
-            for kpath in self.kpaths:
-                if kpath["start"] == end_label and kpath["end"] == start_label:
-                    forward_segment = kpath
-                    break
-        if forward_segment is None:
-            raise ValueError(f"No segment found for branch {forward_branch}")
-
-        # Select a k-point index that lies on this segment
-        global_k_idx = None
-        for k_idx in edge_result["kpoint_index"]:
-            if forward_segment["start_nkpt"] <= k_idx <= forward_segment["end_nkpt"]:
-                global_k_idx = k_idx
-                break
-        if global_k_idx is None:
-            # None of the extremum k-points are on the requested branch
-            raise ValueError(f"No {edge_type} k-point found on branch {forward_branch}")
-
-        # Determine local index within branch
-        # forward_coord is shifted_kpath_coord for the branch, starting at 0 at start_label
-        # If extremum is at start_label, local index is 0.
-        # If extremum is at end_label (reverse direction), local index is last.
-        if forward_segment["start"] == start_label:
-            local_idx = global_k_idx - forward_segment["start_nkpt"]
-        else:
-            # segment is reversed relative to forward_branch
-            local_idx = forward_segment["end_nkpt"] - global_k_idx
-
-        # Ensure local_idx is within forward_data shape
-        nkpt_branch = forward_data.shape[1]
-        if local_idx < 0 or local_idx >= nkpt_branch:
-            raise ValueError("Extremum k-point index mismatch with branch data")
-
-        # Collect data for bilateral fitting
-        reverse_data = None
-        reverse_coord = None
-        rev_local_idx = None
-        if bilateral_fit:
-            # Try to get reverse branch data
-            reverse_branch = [end_label, start_label]
-            reverse_data, reverse_coord = self.get_band_branch_data(
-                reverse_branch, extra_end_point=False
-            )
-            if reverse_data is None:
-                # Reverse branch not found, fallback to unilateral
-                bilateral_fit = False
-                print("Warning: Reverse branch not found, using unilateral fitting")
-            else:
-                # Determine local index in reverse branch (extremum should be at start_label of reverse branch)
-                # Find segment for reverse branch
-                rev_segment = None
-                for kpath in self.kpaths:
-                    if kpath["start"] == end_label and kpath["end"] == start_label:
-                        rev_segment = kpath
-                        break
-                if rev_segment is None:
-                    bilateral_fit = False
-                    print(
-                        "Warning: Cannot locate reverse segment, using unilateral fitting"
-                    )
-                else:
-                    # Extremum should be at start of reverse branch (which is end_label)
-                    rev_local_idx = global_k_idx - rev_segment["start_nkpt"]
-                    # Ensure rev_local_idx is within reverse_data shape
-                    nkpt_rev = reverse_data.shape[1]
-                    if rev_local_idx < 0 or rev_local_idx >= nkpt_rev:
-                        bilateral_fit = False
-                        print(
-                            "Warning: Extremum index mismatch in reverse branch, using unilateral fitting"
-                        )
-
-        # Calculate effective mass for each degenerate band
-        # Forward k distances relative to extremum (in reduced coordinates, i.e., k/(2π))
-        # This is the same for all bands at the same k-point
-        forward_k_reduced = forward_coord - forward_coord[local_idx]
-
+        # Calculate effective mass for each band at the edge
         results = []
         for band_idx in band_indices:
-            # Forward branch energies for the band (nspin=1, use spin index 0)
-            forward_energy = forward_data[0, :, band_idx]
-
-            if bilateral_fit and reverse_data is not None:
-                assert (
-                    reverse_data is not None
-                    and reverse_coord is not None
-                    and rev_local_idx is not None
-                )
-                reverse_energy = reverse_data[0, :, band_idx]
-                # Reverse k distances: negative relative to extremum (reduced coordinates)
-                reverse_k_reduced = -(reverse_coord - reverse_coord[rev_local_idx])
-                # Combine forward and reverse points
-                combined_k_reduced = np.concatenate(
-                    [reverse_k_reduced, forward_k_reduced]
-                )
-                combined_energy = np.concatenate([reverse_energy, forward_energy])
-                # Select num_fit_points closest to extremum
-                sorted_indices = np.argsort(np.abs(combined_k_reduced))
-                selected_indices = sorted_indices[:num_fit_points]
-                k_fit_reduced = combined_k_reduced[selected_indices]
-                energy_fit = combined_energy[selected_indices]
-            else:
-                # Unilateral: select points only in the direction from start_label to end_label
-                # Determine which side of the extremum corresponds to the forward direction
-                # Positive forward_k_reduced means moving from start_label toward end_label
-                # Negative forward_k_reduced means moving toward start_label
-                # For unilateral fitting, we want points in the forward direction only.
-                if local_idx == 0:
-                    # extremum at start, all points are forward direction
-                    valid_mask = forward_k_reduced >= 0
-                elif local_idx == nkpt_branch - 1:
-                    # extremum at end, forward direction is actually backward along the branch
-                    # but the direction from start to end is forward, so points toward start_label are negative forward_k_reduced
-                    # we need points moving from end toward start? Actually unilateral fitting along the specified direction
-                    # from start_label to end_label, but extremum at end, so there are no points beyond end.
-                    # All points are in the forward direction (from start to end), i.e., forward_k_reduced <= 0.
-                    valid_mask = forward_k_reduced <= 0
-                else:
-                    # extremum in middle, take points toward end_label (forward_k_reduced >= 0)
-                    valid_mask = forward_k_reduced >= 0
-
-                k_valid = forward_k_reduced[valid_mask]
-                energy_valid = forward_energy[valid_mask]
-                if len(k_valid) == 0:
-                    # fallback to closest points regardless of direction
-                    distances = np.abs(forward_k_reduced)
-                    sorted_indices = np.argsort(distances)
-                    selected_indices = sorted_indices[:num_fit_points]
-                    k_fit_reduced = forward_k_reduced[selected_indices]
-                    energy_fit = forward_energy[selected_indices]
-                else:
-                    # select num_fit_points closest to extremum among valid points
-                    distances = np.abs(k_valid)
-                    sorted_indices = np.argsort(distances)
-                    selected_indices = sorted_indices[
-                        : min(num_fit_points, len(k_valid))
-                    ]
-                    k_fit_reduced = k_valid[selected_indices]
-                    energy_fit = energy_valid[selected_indices]
-
-            # Convert reduced k coordinates to physical units (Å⁻¹): k_phys = k_reduced * 2π
-            k_fit_phys = k_fit_reduced * 2 * np.pi
-
-            # Quadratic fitting in physical units: E = a * k_phys^2 + b * k_phys + c
-            coeffs = np.polyfit(k_fit_phys, energy_fit, 2)
-            a, b, c = coeffs[0], coeffs[1], coeffs[2]
-            # Second derivative d²E/dk² = 2*a (in eV/Å²)
-            curvature = a  # eV/Å²
-
-            from scipy.constants import hbar, e, m_e
-            convfactor = hbar**2 / e * 1e20
-            effective_mass = convfactor / curvature / m_e if curvature != 0 else np.inf
-
-            # If plot_fit, generate plot
-            if plot_fit:
-                plt.figure()
-                # Plot fitted curve
-                k_fine = np.linspace(np.min(k_fit_phys), np.max(k_fit_phys), 100)
-                energy_fine = np.polyval(coeffs, k_fine)
-                plt.plot(k_fine, energy_fine, "r-", label="Quadratic fit")
-                plt.scatter(k_fit_phys, energy_fit, label="Data points")
-                plt.xlabel("k (Å⁻¹)")
-                plt.ylabel("E (eV)")
-                plt.title(f"{edge_type} effective mass fit (band {band_idx})")
-                plt.tight_layout()
-                plt.legend()
-                plt.savefig(f"effective_mass_fit_{edge_type}_band{band_idx}.png", dpi=300)
-                plt.close()
-
-            results.append(
-                {
-                    "effective_mass": effective_mass,
-                    "curvature": curvature,
-                    "fit_coeffs": coeffs.tolist(),
-                    "band_index": band_idx,
-                }
+            result = self.get_effective_mass(
+                direction_labels=direction_labels,
+                band_index=band_idx,
+                num_fit_points=num_fit_points,
+                plot_fit=plot_fit,
             )
+            results.append(result)
 
         return results
 
