@@ -983,6 +983,37 @@ class AbacusSTRU:
             subset_atoms.append(self._atoms[idx])
         
         return AbacusSTRU(self.cell, subset_atoms, self.dpks, self.metadata)
+    
+    def get_kline(self,
+                  with_time_reversal: bool=True,
+                  recipe: Literal["hpkot"] = "hpkot",
+                  threshold: float=1e-7,
+                  symprec: float=1e-5,
+                  angle_tolerance: float=-1.0):
+        """
+        Find high symmetry kpoints, recommended k-point path and other information related to the symmetry of the structure.
+        """
+        from ase.atom import atomic_numbers
+        import seekpath
+
+        atom_numbers = [atomic_numbers[atom.element] for atom in self._atoms]
+        kpath = seekpath.get_path((self.cell, self.coords, atom_numbers),
+                                  with_time_reversal=with_time_reversal,
+                                  recipe=recipe,
+                                  threshold=threshold,
+                                  symprec=symprec,
+                                  angle_tolerance=angle_tolerance)
+        
+        # Replace GAMMA with G in point_coords and path
+        point_coords = {}
+        for label, coord in kpath["point_coords"].items():
+            point_coords[label.replace('GAMMA', 'G')] = coord
+        
+        path = [(start.replace('GAMMA', 'G'), end.replace('GAMMA', 'G')) 
+                for start, end in kpath["path"]]
+        
+        return point_coords, path
+
 
 def parse_stru_position(pos_line):
     '''
@@ -1108,7 +1139,7 @@ def read_stru_file(stru:str = "STRU"):
     NOTE:
         1. Do not support bravais lattice now.
         2. the value for cell/coords/lattice_constant are the exact values in STRU file
-        3. Only direct/cartessian coordinate type is supported.
+        3. Only direct/cartesian coordinate type is supported.
     
     '''
     def get_block(keyname):
