@@ -756,9 +756,9 @@ class BandData:
             plt.figure()
             k_fine = np.linspace(np.min(k_coord_fit), np.max(k_coord_fit), 100)
             energy_fine = np.polyval(popt, k_fine)
-            formula_text = f'$E - E_F = {a:.2f}k^2 {b:+.2f}k {c:+.2f}$\n$\\sigma_a = {a_std:.2f}, m^* = {effective_mass:.4f} m_e$'
+            formula_text = f"$E - E_F = {a:.2f}k^2 {b:+.2f}k {c:+.2f}$\n$\\sigma_a = {a_std:.2f}, m^* = {effective_mass:.4f} m_e$"
             plt.plot(k_fine, energy_fine, "r-", label=formula_text)
-            plt.plot(k_coord_fit, energy_fit, 'kD')
+            plt.plot(k_coord_fit, energy_fit, "kD")
             plt.xlabel(r"k ($\AA^{-1}$)")
             plt.ylabel(r"E - E$_{F}$ (eV)")
             plt.title(f"Effective mass fit: {direction_labels[0]} to {direction_labels[1]} (band {band_index+1})")  # band index starts from 1
@@ -829,6 +829,7 @@ class BandData:
 
         return results
 
+
 class ProjBandData(BandData):
     """
     Projected band data class.
@@ -852,6 +853,12 @@ class ProjBandData(BandData):
             kpath_cum_dist (Union[np.ndarray, List[float]]): K-path cumulative distance. For example: [0.0, 0.1, 0.2, 0.3, 0.8, 0.85, 0.9]. Discontinuity in k-path distance will be automatically removed.
             efermi (float): Fermi energy used during the initialization of the BandData object. Will subtract this value from the band data. If None, the band data will not be modified.
             band_data (np.ndarray): Energy level data for each k-point. For nspin=1 or 4, it is an np.ndarray shaped (1, nkpts, nbands). For nspin=2, it is shaped (2, nkpts, nbands).
+            proj_band_data (List[Dict[str, Any]]): Projected band data for each k-path. Should be a list of norb dictionaries. Each dict contains:
+                - "data": np.ndarray shaped (nspin, nkpts, nbands) for each spin channel.
+                - "atom_index: index of the atom starts from 1.
+                - "l": orbital quantum number.
+                - "m": magnetic quantum number.
+                - "z": zeta of the orbital for the same l and m.
         """
         self.high_symm_labels = high_symm_labels
         self.kpaths = kpaths
@@ -873,20 +880,16 @@ class ProjBandData(BandData):
             raise ValueError("band_data must be an np.ndarray with shape (1, nkpts, nbands) or (2, nkpts, nbands)")
 
         self.nspin, self.nkpts, self.nbands = self.band_data.shape
-        
-        for i, pbd in enumerate(proj_band_data):
-            print(pbd["data"].shape)
+
+        for pbd in proj_band_data:
             nspin, nkpts, nbands = pbd["data"].shape
-            print(nspin, nkpts, nbands)
-            print(self.nspin)
             assert nspin == self.nspin
             assert nkpts == self.nkpts
             assert nbands == self.nbands
-        
+
         self.proj_band_data = proj_band_data
         self._build_label_mapping()
         self._build_kpath_segments()
-
 
     @staticmethod
     def ReadFromAbacusJob(
@@ -917,7 +920,7 @@ class ProjBandData(BandData):
         if input_params.get("nspin", 1) == 2:
             proj_band_file_dn = os.path.join(abacusjob_outdir, "PBANDS_2")
             tree_dn = ET.parse(proj_band_file_dn)
-        
+
         all_orbital_projband_data = []
 
         # Read projected band data for nspin=1 case
@@ -934,7 +937,7 @@ class ProjBandData(BandData):
             if input_params.get("nspin", 1) == 2:
                 raw_pband_data_dn = np.loadtxt(StringIO(root_dn_orbs[iorb].find("data").text))
                 raw_pband_data = np.array([raw_pband_data_up, raw_pband_data_dn])
-            
+
             # Ignore Band Data in PBANDS_* for simplicity
             orbital_info = {
                 "index": int(orb.get("index")),
@@ -948,12 +951,755 @@ class ProjBandData(BandData):
 
             all_orbital_projband_data.append(orbital_info)
 
-        return ProjBandData(high_symm_labels,
-                            band_data.kpaths,
-                            band_data.kpath_lengths,
-                            efermi,
-                            band_data.band_data,
-                            all_orbital_projband_data)
+        return ProjBandData(
+            high_symm_labels,
+            band_data.kpaths,
+            band_data.kpath_lengths,
+            efermi,
+            band_data.band_data,
+            all_orbital_projband_data,
+        )
+
+    # Constants for orbital mapping (same as in comm_dos.py)
+    l_map = ["s", "p", "d", "f", "g"]
+    orbital_names = {
+        (0, 0): "s",
+        (1, 0): r"$p_z$",
+        (1, 1): r"$p_x$",
+        (1, 2): r"$p_y$",
+        (2, 0): r"$d_{z^2}$",
+        (2, 1): r"$d_{xz}$",
+        (2, 2): r"$d_{yz}$",
+        (2, 3): r"$d_{x^2-y^2}$",
+        (2, 4): r"$d_{xy}$",
+        (3, 0): r"$f_{z^3}$",
+        (3, 1): r"$f_{xz^2}$",
+        (3, 2): r"$f_{yz^2}$",
+        (3, 3): r"$f_{zx^2-zy^2}$",
+        (3, 4): r"$f_{xyz}$",
+        (3, 5): r"$f_{x^3-3xy^2}$",
+        (3, 6): r"$f_{3yx^2-y^3}$",
+        (4, 0): r"$g_1$",
+        (4, 1): r"$g_2$",
+        (4, 2): r"$g_3$",
+        (4, 3): r"$g_4$",
+        (4, 4): r"$g_5$",
+        (4, 5): r"$g_6$",
+        (4, 6): r"$g_7$",
+        (4, 7): r"$g_8$",
+        (4, 8): r"$g_9$",
+    }
+
+    @staticmethod
+    def sum_proj_data(proj_datas: List[Dict]) -> np.ndarray:
+        """
+        Sum the projected band data from a list of extracted projected band data.
+
+        Parameters:
+        -----------
+        proj_datas : list of dict
+            List of projected band data dictionaries
+
+        Returns:
+        --------
+        np.ndarray
+            Summed projected band data with shape (nspin, nkpts, nbands)
+        """
+        if len(proj_datas) == 0:
+            raise ValueError("No projected band data provided")
+
+        proj_sum = np.zeros_like(proj_datas[0]["data"])
+        for proj_data in proj_datas:
+            proj_sum += np.array(proj_data["data"])
+        return proj_sum
+
+    @classmethod
+    def _get_orbital_name(cls, l: int, m: int) -> str:
+        """Get orbital name from l and m quantum numbers."""
+        return cls.orbital_names.get((l, m), f"l{l}_m{m}")
+
+    @classmethod
+    def _parse_orbital_name(cls, name: str) -> Tuple[int, int]:
+        """Parse orbital name to (l, m) tuple.
+
+        Args:
+            name: Orbital name (e.g., 's', 'px', 'py', 'pz', 'dz2', etc.)
+
+        Returns:
+            (l, m) tuple
+
+        Raises:
+            ValueError: If name cannot be parsed
+        """
+        # Simple mapping for common orbital names
+        name_to_lm = {
+            "s": (0, 0),
+            "px": (1, 1),
+            "py": (1, 2),
+            "pz": (1, 0),
+            "dz2": (2, 0),
+            "dxz": (2, 1),
+            "dyz": (2, 2),
+            "dx2-y2": (2, 3),
+            "dxy": (2, 4),
+            # Add more mappings as needed
+        }
+
+        # Try exact match
+        if name in name_to_lm:
+            return name_to_lm[name]
+
+        # Try case-insensitive match
+        name_lower = name.lower()
+        for key, value in name_to_lm.items():
+            if key.lower() == name_lower:
+                return value
+
+        # Try to match against orbital_names values (LaTeX format)
+        for (l, m), orbital_name in cls.orbital_names.items():
+            # Remove LaTeX formatting for comparison
+            clean_name = (
+                orbital_name.replace("$", "")
+                .replace("{", "")
+                .replace("}", "")
+                .replace("^", "")
+                .replace("_", "")
+            )
+            if clean_name == name or clean_name.replace(" ", "") == name.replace(
+                " ", ""
+            ):
+                return (l, m)
+
+        raise ValueError(f"Cannot parse orbital name: {name}")
+
+    def get_proj_by_orbital(
+        self,
+        species: str,
+        atom_index: int,
+        l: int,
+        m: Optional[int] = None,
+        z: Optional[int] = None,
+    ) -> Dict:
+        """
+        Get projected band data for a specific orbital.
+
+        Parameters:
+        -----------
+        species : str
+            Species name (e.g. 'Fe', 'O')
+        atom_index : int
+            Index of the atom (1-based as in ABACUS)
+        l : int
+            Angular momentum quantum number (0=s, 1=p, 2=d, 3=f, ...)
+        m : int, optional
+            Magnetic quantum number
+        z : int, optional
+            Orbital split index
+
+        Returns:
+        --------
+        dict or None
+            Dictionary containing orbital information and projected band data
+        """
+        for orbital in self.proj_band_data:
+            if (
+                orbital["species"] == species
+                and orbital["atom_index"] == atom_index
+                and orbital["l"] == l
+            ):
+                # If m and z are specified, match those as well
+                if m is not None and orbital["m"] != m:
+                    continue
+                if z is not None and orbital["z"] != z:
+                    continue
+
+                return orbital
+
+        return None
+
+    def get_proj_by_atom(
+        self, atom_index: int, sum_only: bool = True
+    ) -> Union[np.ndarray, List[Dict]]:
+        """
+        Get all projected band data for a specific atom.
+
+        Parameters:
+        -----------
+        atom_index : int
+            Index of the atom (1-based as in ABACUS)
+        sum_only : bool, optional
+            If True, sum the projected band data for each orbital, otherwise return the original data. Default is True.
+
+        Returns:
+        --------
+        np.ndarray or list of dict
+            If sum_only is True, returns summed projected band data array with shape (nspin, nkpts, nbands).
+            Otherwise, returns list of orbitals belonging to the specified atom.
+        """
+        proj_datas = [
+            orb for orb in self.proj_band_data if orb["atom_index"] == atom_index
+        ]
+        if sum_only:
+            return self.sum_proj_data(proj_datas)
+        else:
+            return proj_datas
+
+    def get_proj_by_atom_shell(
+        self, atom_index: int, l: Union[int, str], sum_only: bool = True
+    ) -> Union[np.ndarray, List[Dict]]:
+        """
+        Get projected band data for a specific atom shell.
+
+        Parameters:
+        -----------
+        atom_index : int
+            Index of the atom (1-based as in ABACUS)
+        l : int or str
+            Angular momentum quantum number (0 or 's', 1 or 'p', 2 or 'd', 3 or 'f', ...)
+        sum_only : bool, optional
+            If True, sum the projected band data for each orbital, otherwise return the original data. Default is True.
+
+        Returns:
+        --------
+        np.ndarray or list of dict
+            If sum_only is True, returns summed projected band data array with shape (nspin, nkpts, nbands).
+            Otherwise, returns list of orbitals belonging to the specified atom and shell.
+        """
+        if l in self.l_map:
+            l = self.l_map.index(l)
+        proj_datas = [
+            orb
+            for orb in self.proj_band_data
+            if (orb["atom_index"] == atom_index and orb["l"] == l)
+        ]
+        if sum_only:
+            return self.sum_proj_data(proj_datas)
+        else:
+            return proj_datas
+
+    def get_proj_by_atom_orbital(
+        self,
+        atom_index: int,
+        l: Optional[Union[int, str]],
+        m: Union[int, str],
+        sum_only: bool = True,
+    ) -> Union[np.ndarray, List[Dict]]:
+        """
+        Get projected band data for a specific atom orbital.
+
+        Parameters:
+        -----------
+        atom_index : int
+            Index of the atom (1-based as in ABACUS)
+        l : int or str, optional
+            Angular momentum quantum number (0 or 's', 1 or 'p', 2 or 'd', 3 or 'f', ...).
+            If m is explicitly specified by atomic orbital name, l is ignored.
+        m : int or str
+            Magnetic quantum number used by PBANDS file in ABACUS.
+            If m is an integer, it should be between 0 and 2l.
+            If m is a string, it should be the name of the atomic orbital.
+        sum_only : bool, optional
+            If True, sum all the projected band data for the specified atom orbital, otherwise return all the individual projected band data.
+
+        Returns:
+        --------
+        np.ndarray or list of dict
+            If sum_only is True, returns summed projected band data array with shape (nspin, nkpts, nbands).
+            Otherwise, returns list of orbitals belonging to the specified atom and orbital.
+        """
+        if isinstance(m, str):
+            # Parse orbital name to get l and m
+            try:
+                l_parsed, m_parsed = self._parse_orbital_name(m)
+                proj_datas = [
+                    orb
+                    for orb in self.proj_band_data
+                    if (
+                        orb["atom_index"] == atom_index
+                        and orb["l"] == l_parsed
+                        and orb["m"] == m_parsed
+                    )
+                ]
+            except ValueError:
+                # If cannot parse, try to match against orbital names in data (if available)
+                # Note: proj_band_data doesn't have 'atomic_orbital_name' key, so we fall back to empty result
+                proj_datas = []
+        elif isinstance(m, int):
+            if l in self.l_map:
+                l = self.l_map.index(l)
+            proj_datas = [
+                orb
+                for orb in self.proj_band_data
+                if (orb["atom_index"] == atom_index and orb["l"] == l and orb["m"] == m)
+            ]
+        else:
+            raise ValueError("Invalid m value")
+
+        if sum_only:
+            return self.sum_proj_data(proj_datas)
+        else:
+            return proj_datas
+
+    def get_proj_by_species(
+        self, species: str, sum_only: bool = True
+    ) -> Union[np.ndarray, List[Dict]]:
+        """
+        Get projected band data for a specific species.
+
+        Parameters:
+        -----------
+        species : str
+            Species name (e.g. 'Fe', 'O')
+        sum_only : bool, optional
+            If True, sum the projected band data for each orbital, otherwise return the original data. Default is True.
+
+        Returns:
+        --------
+        np.ndarray or list of dict
+            If sum_only is True, returns summed projected band data array with shape (nspin, nkpts, nbands).
+            Otherwise, returns list of orbitals belonging to the specified species.
+        """
+        proj_datas = [orb for orb in self.proj_band_data if orb["species"] == species]
+        if sum_only:
+            return self.sum_proj_data(proj_datas)
+        else:
+            return proj_datas
+
+    def get_proj_by_species_shell(
+        self, species: str, l: Union[int, str], sum_only: bool = True
+    ) -> Union[np.ndarray, List[Dict]]:
+        """
+        Get projected band data for shell of a specific species.
+
+        Parameters:
+        -----------
+        species : str
+            Species name (e.g. 'Fe', 'O')
+        l : int or str
+            Angular momentum quantum number (0 or 's', 1 or 'p', 2 or 'd', 3 or 'f', ...)
+        sum_only : bool, optional
+            If True, sum the projected band data for each orbital, otherwise return the original data. Default is True.
+
+        Returns:
+        --------
+        np.ndarray or list of dict
+            If sum_only is True, returns summed projected band data array with shape (nspin, nkpts, nbands).
+            Otherwise, returns list of orbitals belonging to the specified species and shell.
+        """
+        if l in self.l_map:
+            l = self.l_map.index(l)
+        proj_datas = [
+            orb
+            for orb in self.proj_band_data
+            if (orb["species"] == species and orb["l"] == l)
+        ]
+
+        if sum_only:
+            return self.sum_proj_data(proj_datas)
+        else:
+            return proj_datas
+
+    def get_proj_by_species_orbital(
+        self,
+        species: str,
+        l: Optional[Union[int, str]],
+        m: Union[int, str],
+        sum_only: bool = True,
+    ) -> Union[np.ndarray, List[Dict]]:
+        """
+        Get projected band data for a specific species orbital.
+
+        Parameters:
+        -----------
+        species : str
+            Species name (e.g. 'Fe', 'O')
+        l : int or str, optional
+            Angular momentum quantum number (0 or 's', 1 or 'p', 2 or 'd', 3 or 'f', ...).
+            If m is explicitly specified by atomic orbital name, l is ignored.
+        m : int or str
+            Magnetic quantum number used by PBANDS file in ABACUS.
+            If m is an integer, it should be between 0 and 2l.
+            If m is a string, it should be the name of the atomic orbital (e.g. 's', 'px', 'py', 'pz', 'dz2').
+        sum_only : bool, optional
+            If True, sum all the projected band data for the specified species orbital, otherwise return all the individual projected band data.
+
+        Returns:
+        --------
+        np.ndarray or list of dict
+            If sum_only is True, returns summed projected band data array with shape (nspin, nkpts, nbands).
+            Otherwise, returns list of orbitals belonging to the specified species and orbital.
+        """
+        if isinstance(m, str):
+            # Parse orbital name to get l and m
+            try:
+                l_parsed, m_parsed = self._parse_orbital_name(m)
+                proj_datas = [
+                    orb
+                    for orb in self.proj_band_data
+                    if (
+                        orb["species"] == species
+                        and orb["l"] == l_parsed
+                        and orb["m"] == m_parsed
+                    )
+                ]
+            except ValueError:
+                # If cannot parse, try to match against orbital names in data (if available)
+                # Note: proj_band_data doesn't have 'atomic_orbital_name' key, so we fall back to empty result
+                proj_datas = []
+        elif isinstance(m, int):
+            if l in self.l_map:
+                l = self.l_map.index(l)
+            proj_datas = [
+                orb
+                for orb in self.proj_band_data
+                if (orb["species"] == species and orb["l"] == l and orb["m"] == m)
+            ]
+        else:
+            raise ValueError("Invalid m value")
+
+        if sum_only:
+            return self.sum_proj_data(proj_datas)
+        else:
+            return proj_datas
+
+    def get_species(self) -> List[str]:
+        """Get all species in the projected band data."""
+        return list(set([orb["species"] for orb in self.proj_band_data]))
+
+    def get_species_shell(self, species: str) -> List[int]:
+        """Get all shells for a specific species in the projected band data."""
+        return list(
+            set([orb["l"] for orb in self.proj_band_data if orb["species"] == species])
+        )
+
+    def get_species_shell_orbital(self, species: str, l: int) -> List[int]:
+        """Get all orbitals for a specific species and shell in the projected band data."""
+        return list(
+            set(
+                [
+                    orb["m"]
+                    for orb in self.proj_band_data
+                    if (orb["species"] == species and orb["l"] == l)
+                ]
+            )
+        )
+
+    def get_atom_species(self, atom_index: int) -> str:
+        """Get the species for a specific atom in the projected band data."""
+        species = list(
+            set(
+                [
+                    orb["species"]
+                    for orb in self.proj_band_data
+                    if orb["atom_index"] == atom_index
+                ]
+            )
+        )
+        assert len(species) == 1
+        return species[0]
+
+    def get_atom_shell(self, atom_index: int) -> List[int]:
+        """Get all shells for a specific atom in the projected band data."""
+        return list(
+            set(
+                [
+                    orb["l"]
+                    for orb in self.proj_band_data
+                    if orb["atom_index"] == atom_index
+                ]
+            )
+        )
+
+    def get_atom_shell_orbital(self, atom_index: int, l: int) -> List[int]:
+        """Get all orbitals for a specific atom and shell in the projected band data."""
+        return list(
+            set(
+                [
+                    orb["m"]
+                    for orb in self.proj_band_data
+                    if (orb["atom_index"] == atom_index and orb["l"] == l)
+                ]
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # Plotting helpers
+    # ------------------------------------------------------------------
+
+    def _get_plot_kpaths(
+        self, plot_kpaths: Optional[List[List[str]]]
+    ) -> List[List[str]]:
+        """Return plot_kpaths, defaulting to all stored kpaths."""
+        if plot_kpaths is None:
+            return [[kp["start"], kp["end"]] for kp in self.kpaths]
+        return plot_kpaths
+
+    def _prepare_proj_plot_data(
+        self,
+        proj_arrays: List[np.ndarray],
+        plot_kpaths: List[List[str]],
+    ):
+        """
+        Slice full-length projection arrays (nspin, nkpts, nbands) into
+        per-segment arrays aligned with the k-path segments used for plotting.
+
+        Args:
+            proj_arrays: List of arrays shaped (nspin, nkpts, nbands).
+            plot_kpaths: List of [start_label, end_label] for each segment.
+
+        Returns:
+            branches: same as plot_kpaths (pass-through).
+            shifted_kpath_coords: List[np.ndarray] k-distances per segment.
+            band_data_segs: List[np.ndarray] energy data per segment.
+            proj_weights_list: List[List[np.ndarray]] weights per projection per segment.
+        """
+        branches = []
+        shifted_kpath_coords = []
+        band_data_segs = []
+        # n_proj lists, each will be filled with one entry per segment
+        proj_weights_list: List[List[np.ndarray]] = [[] for _ in proj_arrays]
+
+        for kpath_labels in plot_kpaths:
+            branch_band, k_coord = self.get_band_branch_data(
+                kpath_labels, extra_end_point=True
+            )
+            if branch_band is None:
+                raise ValueError(
+                    f"k-path segment {kpath_labels} not found in the band structure."
+                )
+            # Determine kpt slice indices for this segment
+            start_label, end_label = kpath_labels[0], kpath_labels[1]
+            seg_info = None
+            for kp in self.kpaths:
+                if kp["start"] == start_label and kp["end"] == end_label:
+                    seg_info = kp
+                    break
+                if kp["start"] == end_label and kp["end"] == start_label:
+                    # reversed branch – mirror handled by get_band_branch_data
+                    seg_info = {
+                        "start_nkpt": kp["start_nkpt"],
+                        "end_nkpt": kp["end_nkpt"],
+                        "_reversed": True,
+                    }
+                    break
+
+            if seg_info is None:
+                raise ValueError(
+                    f"k-path segment {kpath_labels} not found when slicing projections."
+                )
+
+            s_nkpt = seg_info["start_nkpt"]
+            # extra_end_point may add +1 k-point – match branch_band shape
+            nkpt_seg = branch_band.shape[1]
+            e_nkpt = s_nkpt + nkpt_seg  # exclusive
+
+            branches.append(kpath_labels)
+            shifted_kpath_coords.append(k_coord)
+            band_data_segs.append(branch_band)
+
+            for iproj, proj_arr in enumerate(proj_arrays):
+                seg_proj = proj_arr[:, s_nkpt:e_nkpt, :]  # (nspin, nkpt_seg, nbands)
+                if seg_info.get("_reversed"):
+                    seg_proj = seg_proj[:, ::-1, :]
+                proj_weights_list[iproj].append(seg_proj)
+
+        return branches, shifted_kpath_coords, band_data_segs, proj_weights_list
+
+    @staticmethod
+    def _get_proj_colors(n: int) -> List:
+        """Return n distinct colors (reuses BandData color palette logic)."""
+        import matplotlib.colors as mcolors
+
+        base = [
+            "#1f77b4",
+            "#d62728",
+            "#ff7f0e",
+            "#2ca02c",
+            "#9467bd",
+            "#8c564b",
+            "#e377c2",
+            "#7f7f7f",
+            "#bcbd22",
+            "#17becf",
+        ]
+        if n <= len(base):
+            return base[:n]
+        extra = [
+            mcolors.hsv_to_rgb(((i / (n - len(base))) * 0.7 + 0.05, 0.85, 0.90))
+            for i in range(n - len(base))
+        ]
+        return base + extra
+
+    def _call_plot(
+        self,
+        proj_arrays: List[np.ndarray],
+        proj_labels: List[str],
+        plot_kpaths: Optional[List[List[str]]],
+        emin: float,
+        emax: float,
+        fig_name: str,
+        spin_mode: str,
+        bg_alpha: float,
+    ) -> None:
+        """Common driver: prepare data and call plot_proj_bands_subplots."""
+        kpaths = self._get_plot_kpaths(plot_kpaths)
+        branches, k_coords, band_segs, proj_weights_list = self._prepare_proj_plot_data(
+            proj_arrays, kpaths
+        )
+        colors = self._get_proj_colors(len(proj_arrays))
+        plot_proj_bands_subplots(
+            branches=branches,
+            shifted_kpath_coord=k_coords,
+            band_data=band_segs,
+            proj_weights_list=proj_weights_list,
+            proj_labels=proj_labels,
+            proj_colors=colors,
+            emin=emin,
+            emax=emax,
+            fig_name=fig_name,
+            spin_mode=spin_mode,
+            bg_alpha=bg_alpha,
+        )
+
+    # ------------------------------------------------------------------
+    # Public plotting methods
+    # ------------------------------------------------------------------
+
+    def plot_proj_band_species(
+        self,
+        emin: float = -10,
+        emax: float = 10,
+        fig_name: str = "proj_band_species.png",
+        plot_kpaths: Optional[List[List[str]]] = None,
+        spin_mode: str = "combined",
+        bg_alpha: float = 0.15,
+    ) -> None:
+        """
+        Plot projected band structure with one subplot per species.
+
+        Each subplot shows all orbitals of that species summed together,
+        coloured with alpha proportional to the projection weight.
+
+        Args:
+            emin: Lower energy bound (eV, relative to Fermi level).
+            emax: Upper energy bound (eV, relative to Fermi level).
+            fig_name: Output figure filename.
+            plot_kpaths: k-path segments to plot (default: all stored segments).
+            spin_mode: Spin handling mode – "combined", "two_panel", "up_only", "down_only".
+            bg_alpha: Alpha of the grey background band lines.
+        """
+        species_list = sorted(self.get_species())
+        arrays = [self.get_proj_by_species(s, sum_only=True) for s in species_list]
+        self._call_plot(
+            arrays, species_list, plot_kpaths, emin, emax, fig_name, spin_mode, bg_alpha
+        )
+
+    def plot_proj_band_species_shell(
+        self,
+        emin: float = -10,
+        emax: float = 10,
+        fig_name: str = "proj_band_species_shell.png",
+        plot_kpaths: Optional[List[List[str]]] = None,
+        spin_mode: str = "combined",
+        bg_alpha: float = 0.15,
+    ) -> None:
+        """
+        Plot projected band structure with one subplot per (species, shell) pair.
+
+        Args:
+            emin: Lower energy bound (eV).
+            emax: Upper energy bound (eV).
+            fig_name: Output figure filename.
+            plot_kpaths: k-path segments to plot (default: all stored segments).
+            spin_mode: "combined", "two_panel", "up_only", or "down_only".
+            bg_alpha: Alpha of the grey background band lines.
+        """
+        arrays, labels = [], []
+        for s in sorted(self.get_species()):
+            for l in sorted(self.get_species_shell(s)):
+                shell_name = self.l_map[l] if l < len(self.l_map) else f"l{l}"
+                arrays.append(self.get_proj_by_species_shell(s, l, sum_only=True))
+                labels.append(f"{s}-{shell_name}")
+        self._call_plot(
+            arrays, labels, plot_kpaths, emin, emax, fig_name, spin_mode, bg_alpha
+        )
+
+    def plot_proj_band_species_orbital(
+        self,
+        emin: float = -10,
+        emax: float = 10,
+        fig_name: str = "proj_band_species_orbital.png",
+        plot_kpaths: Optional[List[List[str]]] = None,
+        spin_mode: str = "combined",
+        bg_alpha: float = 0.15,
+    ) -> None:
+        """
+        Plot projected band structure with one subplot per (species, l, m) triplet.
+
+        Each magnetic quantum-number channel is shown separately.
+
+        Args:
+            emin: Lower energy bound (eV).
+            emax: Upper energy bound (eV).
+            fig_name: Output figure filename.
+            plot_kpaths: k-path segments to plot (default: all stored segments).
+            spin_mode: "combined", "two_panel", "up_only", or "down_only".
+            bg_alpha: Alpha of the grey background band lines.
+        """
+        arrays, labels = [], []
+        for s in sorted(self.get_species()):
+            for l in sorted(self.get_species_shell(s)):
+                for m in sorted(self.get_species_shell_orbital(s, l)):
+                    orb_name = self.orbital_names.get((l, m), f"l{l}m{m}")
+                    # Strip LaTeX for the title
+                    orb_name_clean = (
+                        orb_name.replace("$", "")
+                        .replace("{", "")
+                        .replace("}", "")
+                        .replace("^", "")
+                        .replace("_", "")
+                    )
+                    arrays.append(
+                        self.get_proj_by_species_orbital(s, l, m, sum_only=True)
+                    )
+                    labels.append(f"{s}-{orb_name_clean}")
+        self._call_plot(
+            arrays, labels, plot_kpaths, emin, emax, fig_name, spin_mode, bg_alpha
+        )
+
+    def plot_proj_band_atoms(
+        self,
+        atom_indices: List[int],
+        emin: float = -10,
+        emax: float = 10,
+        fig_name: str = "proj_band_atoms.png",
+        plot_kpaths: Optional[List[List[str]]] = None,
+        spin_mode: str = "combined",
+        bg_alpha: float = 0.15,
+    ) -> None:
+        """
+        Plot projected band structure with one subplot per specified atom.
+
+        Each subplot shows all orbitals of that atom summed together.
+
+        Args:
+            atom_indices: List of atom indices (1-based) to plot.
+            emin: Lower energy bound (eV).
+            emax: Upper energy bound (eV).
+            fig_name: Output figure filename.
+            plot_kpaths: k-path segments to plot (default: all stored segments).
+            spin_mode: "combined", "two_panel", "up_only", or "down_only".
+            bg_alpha: Alpha of the grey background band lines.
+        """
+        arrays, labels = [], []
+        for idx in atom_indices:
+            species = self.get_atom_species(idx)
+            arrays.append(self.get_proj_by_atom(idx, sum_only=True))
+            labels.append(f"{species}{idx}")
+        self._call_plot(
+            arrays, labels, plot_kpaths, emin, emax, fig_name, spin_mode, bg_alpha
+        )
+
 
 def plot_multiple_bands(
     plot_band_datas: List[Dict[str, Any]],
