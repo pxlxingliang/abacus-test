@@ -1855,3 +1855,264 @@ def plot_multiple_bands(
     plt.tight_layout()
     plt.savefig(fig_name, dpi=300)
     plt.close()
+
+
+def plot_proj_bands_subplots(
+    branches: List[List[str]],
+    shifted_kpath_coord: List[np.ndarray],
+    band_data: List[np.ndarray],
+    proj_weights_list: List[List[np.ndarray]],
+    proj_labels: List[str],
+    proj_colors: List,
+    emin: float = -10,
+    emax: float = 10,
+    fig_name: str = "proj_band.png",
+    spin_mode: str = "combined",
+    bg_alpha: float = 0.15,
+):
+    """
+    Plot projected band structure with alpha-weighted color overlays, one subplot per projection.
+
+    Args:
+        branches: List of [start_label, end_label] for each k-path segment.
+        shifted_kpath_coord: List of 1-D arrays with cumulative k-distances for each segment (starting from 0).
+        band_data: List of arrays shaped (nspin, nkpt_per_seg, nbands) for each segment.
+        proj_weights_list: Outer list over projections; inner list over k-path segments.
+            Each element is an array shaped (nspin, nkpt_per_seg, nbands) with values in [0, 1].
+        proj_labels: Label for each projection (used as subplot title).
+        proj_colors: Color for each projection.
+        emin: Lower energy bound for the plot.
+        emax: Upper energy bound for the plot.
+        fig_name: Output file name.
+        spin_mode: How to handle spin channels.
+            - "combined": spin-up solid line + spin-down dashed line in the same panel.
+            - "two_panel": separate left/right panels sharing y-axis.
+            - "up_only": only spin-up.
+            - "down_only": only spin-down.
+        bg_alpha: Alpha value for the background grey band lines.
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as mcolors
+    from matplotlib.collections import LineCollection
+
+    nspin = band_data[0].shape[0]  # actual number of spin channels in data
+
+    # Determine which spin channels to draw and how many panels per projection
+    if nspin == 1 or spin_mode in ("up_only",):
+        spin_indices = [0]
+        two_panel = False
+    elif spin_mode == "down_only":
+        spin_indices = [1]
+        two_panel = False
+    elif spin_mode == "two_panel":
+        spin_indices = [0, 1]
+        two_panel = True
+    else:  # "combined"
+        spin_indices = list(range(nspin))
+        two_panel = False
+
+    # --- Build x-axis info from branches (same logic as plot_multiple_bands) ---
+    high_symm_labels_plot, high_symm_poses = [], []
+    start_x_pos = 0.0
+    for ipath, branch in enumerate(branches):
+        branch_length = float(np.max(shifted_kpath_coord[ipath]))
+        start_label, end_label = branch[0], branch[1]
+        if ipath == 0:
+            high_symm_labels_plot.append(start_label)
+            high_symm_poses.append(start_x_pos)
+        if high_symm_labels_plot[-1] != start_label:
+            high_symm_labels_plot[-1] += f"|{start_label}"
+            high_symm_labels_plot.append(end_label)
+            high_symm_poses.append(start_x_pos + branch_length)
+        else:
+            high_symm_labels_plot.append(end_label)
+            high_symm_poses.append(start_x_pos + branch_length)
+        start_x_pos += branch_length
+    total_k_length = high_symm_poses[-1]
+
+    n_proj = len(proj_weights_list)
+
+    # Determine subplot grid: panels_per_proj = 2 if two_panel else 1
+    panels_per_proj = 2 if two_panel else 1
+    n_total_cols_needed = n_proj * panels_per_proj  # used only for two_panel layout
+
+    # For two_panel: ncols = 2*n_proj; rows = 1 (each projection fills one pair)
+    # For non-two_panel: use PDOS-style nrow/ncol logic
+    START_MULTI_COL = 4
+    TWO_COL_MAX = 6
+
+    if two_panel:
+        # Each projection occupies a pair of side-by-side axes sharing y
+        nrow, ncol = 1, n_total_cols_needed
+        if n_proj > 3:  # stack rows if many projections
+            nrow = n_proj
+            ncol = 2
+    else:
+        if n_proj >= START_MULTI_COL:
+            if n_proj > TWO_COL_MAX:
+                ncol = max(3, int(np.sqrt(n_proj)))
+            else:
+                ncol = 2
+            nrow = int(np.ceil(n_proj / ncol))
+        else:
+            nrow, ncol = n_proj, 1
+
+    # --- Helper: draw background and projection bands into an Axes ---
+    def _draw_single_panel(ax, spin_idx, proj_weight_segs, proj_color, linestyle="-"):
+        """Draw background grey bands + colored projection bands for one spin into ax."""
+        x_offset = 0.0
+        for iseg, seg_coord in enumerate(shifted_kpath_coord):
+            seg_energy = band_data[iseg][spin_idx]  # (nkpt, nbands)
+            seg_weight = np.clip(
+                proj_weight_segs[iseg][spin_idx], 0.0, 1.0
+            )  # (nkpt, nbands)
+            x = seg_coord + x_offset
+            nbands = seg_energy.shape[1]
+
+            for iband in range(nbands):
+                y = seg_energy[:, iband]
+                w = seg_weight[:, iband]
+
+                # Background grey line
+                ax.plot(
+                    x,
+                    y,
+                    color="grey",
+                    alpha=bg_alpha,
+                    linewidth=0.8,
+                    linestyle=linestyle,
+                    zorder=1,
+                )
+
+                # Colored projection line via LineCollection (alpha per segment)
+                # Build segments: each segment connects two adjacent k-points
+                points = np.array([x, y]).T.reshape(-1, 1, 2)
+                segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                # alpha of each segment = mean weight of its two endpoints, clipped
+                seg_alphas = np.clip(0.5 * (w[:-1] + w[1:]), 0.0, 1.0)
+
+                # Build RGBA array for the collection
+                r, g, b, _ = mcolors.to_rgba(proj_color)
+                rgba = np.zeros((len(segments), 4))
+                rgba[:, 0] = r
+                rgba[:, 1] = g
+                rgba[:, 2] = b
+                rgba[:, 3] = seg_alphas
+
+                lc = LineCollection(
+                    segments, colors=rgba, linewidth=1.2, linestyle=linestyle, zorder=2
+                )
+                ax.add_collection(lc)
+
+            x_offset += float(np.max(seg_coord))
+
+    # --- Create figure and axes ---
+    fig_width = 6 * ncol
+    fig_height = 4 * nrow
+
+    if two_panel:
+        # Each row: a pair of axes sharing y (spin_up | spin_down)
+        fig, axes_grid = plt.subplots(
+            nrow,
+            ncol,
+            figsize=(fig_width, fig_height),
+            sharey="row",
+        )
+        if nrow == 1:
+            # axes_grid shape: (ncol,) – reshape to (1, ncol)
+            axes_grid = axes_grid[np.newaxis, :]
+        # axes_grid[iproj_row, 0] = spin_up panel; [iproj_row, 1] = spin_down panel
+        # when n_proj > 3, nrow=n_proj, ncol=2
+        flat_axes_up = [axes_grid[i, 0] for i in range(nrow)]
+        flat_axes_down = [axes_grid[i, 1] for i in range(nrow)]
+    else:
+        fig, axes_flat = plt.subplots(
+            nrow,
+            ncol,
+            figsize=(fig_width, fig_height),
+            squeeze=False,
+        )
+        axes_list = axes_flat.flatten().tolist()
+
+    spin_labels = {0: "↑", 1: "↓"}
+
+    for iproj, (proj_weight_segs, label, color) in enumerate(
+        zip(proj_weights_list, proj_labels, proj_colors)
+    ):
+        if two_panel:
+            ax_up = flat_axes_up[iproj]
+            ax_down = flat_axes_down[iproj]
+
+            _draw_single_panel(ax_up, 0, proj_weight_segs, color, linestyle="-")
+            _draw_single_panel(ax_down, 1, proj_weight_segs, color, linestyle="-")
+
+            for ax, sidx in [(ax_up, 0), (ax_down, 1)]:
+                _configure_ax(
+                    ax,
+                    high_symm_poses,
+                    high_symm_labels_plot,
+                    total_k_length,
+                    emin,
+                    emax,
+                    title=f"{label} ({spin_labels[sidx]})",
+                    show_ylabel=(sidx == 0),
+                )
+        else:
+            ax = axes_list[iproj]
+            if spin_mode == "combined" and nspin == 2:
+                _draw_single_panel(ax, 0, proj_weight_segs, color, linestyle="-")
+                _draw_single_panel(ax, 1, proj_weight_segs, color, linestyle="--")
+                # Legend handles for spin up/down
+                from matplotlib.lines import Line2D
+
+                handles = [
+                    Line2D([0], [0], color=color, lw=1.2, linestyle="-", label="↑"),
+                    Line2D([0], [0], color=color, lw=1.2, linestyle=".", label="↓"),
+                ]
+                ax.legend(handles=handles, fontsize=8, loc="upper right")
+            else:
+                sidx = spin_indices[0]
+                _draw_single_panel(ax, sidx, proj_weight_segs, color, linestyle="-")
+
+            _configure_ax(
+                ax,
+                high_symm_poses,
+                high_symm_labels_plot,
+                total_k_length,
+                emin,
+                emax,
+                title=label,
+                show_ylabel=True,
+            )
+
+    # Hide unused axes
+    if not two_panel:
+        for idx in range(n_proj, len(axes_list)):
+            axes_list[idx].set_visible(False)
+
+    plt.tight_layout()
+    plt.savefig(fig_name, dpi=300)
+    plt.close()
+
+
+def _configure_ax(
+    ax,
+    high_symm_poses,
+    high_symm_labels,
+    total_k_length,
+    emin,
+    emax,
+    title,
+    show_ylabel,
+):
+    """Apply common axis formatting for a projected band subplot."""
+    ax.set_xlim(0, total_k_length)
+    ax.set_ylim(emin, emax)
+    ax.set_xticks(high_symm_poses)
+    ax.set_xticklabels(high_symm_labels)
+    for pos in high_symm_poses:
+        ax.axvline(pos, color="black", linestyle="-", lw=0.5, alpha=0.5)
+    ax.axhline(0, color="black", linestyle="--", lw=0.5)
+    if show_ylabel:
+        ax.set_ylabel(r"$E-E_\text{F}$/eV")
+    ax.set_title(title)
