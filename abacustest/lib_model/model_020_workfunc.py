@@ -173,6 +173,12 @@ class WorkFuncModel(Model):
             choices=["abacus", "vasp"],
             help="DFT software used for work function calculation (ABACUS or VASP)",
         )
+        parser.add_argument(
+            "--thr",
+            default=0.01,
+            type=float,
+            help="Threshold for derivative of averaged potential for identifying potential plateaus in work function calculation.",
+        )
         return parser
 
     def run_postprocess(self, params):
@@ -340,7 +346,9 @@ def prep_vasp_workfunc_calc(
 
 
 def post_workfunc_calc(
-    job: Path, jobtype: Literal["abacus", "vasp"] = "abacus", vacuum_dir_specified: Literal["a", "b", "c", "auto"] = "auto"
+    job: Path, jobtype: Literal["abacus", "vasp"] = "abacus",
+    vacuum_dir_specified: Literal["a", "b", "c", "auto"] = "auto",
+    thr: float = 0.01,
 ) -> Tuple[List[Dict[str, Any]], Path, str, str]:
     # Postprocess calculation to obtain work function data
     if jobtype == "abacus":
@@ -428,7 +436,8 @@ def post_workfunc_calc(
     axis_idx = 0 if vacuum_dir == "a" else 1 if vacuum_dir == "b" else 2
     cell_length = np.linalg.norm(pot.cell[axis_idx])
 
-    work_function_results = calculate_work_functions(ave_elec_stat, fermi_energy=efermi, cell_length=cell_length)
+    work_function_results = calculate_work_functions(ave_elec_stat, fermi_energy=efermi,
+                                                     cell_length=cell_length, thr=thr)
 
     plot_path = plot_averaged_elecstat_pot(
         coord_direct,
@@ -496,34 +505,55 @@ def identify_potential_plateaus(averaged_potential: List, cell_length: float, th
     return plateau_ranges
 
 
-def calculate_work_functions(averaged_potential: List, fermi_energy: float, cell_length: float):
+def calculate_work_functions(averaged_potential: List, fermi_energy: float, cell_length: float, thr: float = 0.01):
     """
     Calculate the work function from the averaged electrostatic potential.
     Dipole correction is suppoted and multiple plateau of electrostatic potential can be identified.
     """
     work_function_results = []
-    plateau_ranges = identify_potential_plateaus(averaged_potential, cell_length, threshold=0.01)
-    npoints = len(averaged_potential)
-    for plateau_range in plateau_ranges:
-        plateau_start, plateau_end = plateau_range
+    plateau_ranges = identify_potential_plateaus(averaged_potential, cell_length, threshold=thr)
+    if len(plateau_ranges) == 0:
+        # If no plateau is found, use the largest value of the averaged potential as the vacuum level to calculate work function, and give a warning message.
+        print("Warning: No plateaus found in the averaged electrostatic potential. \nUse the maximum value of the averaged potential as the vacuum level to calculate work function, which may be less accurate.")
+
+        # Find the maximum value and its index in the averaged potential
+        averaged_potential_np = np.array(averaged_potential)
+        max_potential_idx = np.argmax(averaged_potential_np)
+        max_potential_value = averaged_potential_np[max_potential_idx]
+        
+        # Create a result using the maximum value
+        npoints = len(averaged_potential)
         result = {
-            "plateau_start_fractional": plateau_start / npoints,
-            "plateau_end_fractional": plateau_end / npoints
+            "plateau_start_fractional": max_potential_idx / npoints,
+            "plateau_end_fractional": (max_potential_idx + 1) / npoints,
+            "vacuum_level": max_potential_value,
+            "work_function": max_potential_value - fermi_energy,
         }
-        if plateau_start < 0:
-            plateau_start = plateau_start % npoints
-        if plateau_end >= npoints:
-            plateau_end  = plateau_end % npoints
-        
-        if plateau_start > plateau_end:
-            #If plateau crosses the end of the cell, concatenate the plateau
-            plateau = np.concatenate((averaged_potential[plateau_start:], averaged_potential[:plateau_end]))
-        else:
-            plateau = averaged_potential[plateau_start:plateau_end]
-        
-        plateau_averaged_potential = np.average(plateau)
-        result['work_function'] = plateau_averaged_potential - fermi_energy
         work_function_results.append(result)
+        
+    else:
+        npoints = len(averaged_potential)
+        for plateau_range in plateau_ranges:
+            plateau_start, plateau_end = plateau_range
+            result = {
+                "plateau_start_fractional": plateau_start / npoints,
+                "plateau_end_fractional": plateau_end / npoints
+            }
+            if plateau_start < 0:
+                plateau_start = plateau_start % npoints
+            if plateau_end >= npoints:
+                plateau_end  = plateau_end % npoints
+
+            if plateau_start > plateau_end:
+                #If plateau crosses the end of the cell, concatenate the plateau
+                plateau = np.concatenate((averaged_potential[plateau_start:], averaged_potential[:plateau_end]))
+            else:
+                plateau = averaged_potential[plateau_start:plateau_end]
+
+            plateau_averaged_potential = np.average(plateau)
+            result['vacuum_level'] = plateau_averaged_potential
+            result['work_function'] = plateau_averaged_potential - fermi_energy
+            work_function_results.append(result)
 
     return work_function_results
 
