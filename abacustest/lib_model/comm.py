@@ -889,10 +889,10 @@ def get_largest_vacuum_dir(coords: List[List[float]], cell: List[List[float]], c
         if diff > vacuum:
             vacuum = diff
             # vacuum_top < vacuum_bottom, which means the vacuum region across the boundary of the cell
-            vacuum_top, vacuum_bottom = sorted_coords[idx][-1], sorted_coords[idx-1][0]
+            vacuum_top, vacuum_bottom = sorted_coords[0][i], sorted_coords[-1][i]
         
         vacuums_direct[i] = vacuum
-        vacuum_boundary[i] = (vacuum_bottom, vacuum_top)
+        vacuum_boundary[i] = (vacuum_top, vacuum_bottom)
     
     a, b, c, alpha, beta, gamma = cal_cellparam(cell)
     vacuums_cart = [vacuums_direct[0]*a, vacuums_direct[1]*b, vacuums_direct[2]*c]
