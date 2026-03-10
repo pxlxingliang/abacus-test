@@ -190,29 +190,42 @@ class Vasp(ResultVasp):
                 break
     
     @ResultVasp.register(energy = 'eV,the total energy, if is relax or md job, will return the energy of last ION step',
+                         energies = 'list, eV, the total energy of each ION steps',
                          energy_per_atom = 'eV, the energy divided by natom, if is relax or md job, will return the energy of last ION step')
     def GetEnergy(self):
+        energies = []
         for i in range(len(self.OUTCAR)):
-            line = self.OUTCAR[-i-1]
-            if "energy  without entropy=" in line:
-                self['energy'] = float(line.split()[-4])
-                if self['natom'] != None:
-                    self['energy_per_atom'] = self['energy'] / self['natom']
-                else:
-                    self['energy_per_atom'] = None
-                return
+            if "energy  without entropy=" in self.OUTCAR[i]:
+                energies.append(float(self.OUTCAR[i].split()[-4]))
+        
+        if len(energies) > 0:
+            self['energies'] = energies
+            self['energy'] = energies[-1]
+            if self['natom'] != None:
+                self['energy_per_atom'] = energies[-1] / self['natom']
+            else:
+                self['energy_per_atom'] = None
+        else:
+            self['energies'] = None
+            self['energy'] = None
+            self['energy_per_atom'] = None
     
     @ResultVasp.register(force = 'list, eV/angstrom, the force of all atoms, [atom1x,atom1y,atom1z,atom2x,atom2y,atom2z...]',
+                         forces = "list of the force of each ION steps",
                          stress = 'list, kBar, the stress, [xx,xy,xz,yx,yy,yz,zx,zy,zz]',
                          virial='list, eV, the virial, [xx,xy,xz,yx,yy,yz,zx,zy,zz]',
+                         stresses = "list of the stress of each ION steps",
+                         virials = "list of the virial of each ION steps",
                          pressure="kBar, the pressure, 1/3*trace(stress)",
+                        pressures="list of the pressure of each ION steps",
                          cell = 'list[list], Angstrom, the vector of cell. If is RELAX or MD job, will output the last cell.',
+                         cells = 'list of the cell of each ION steps, list[list[list]]'
                          )
     def GetForceStress(self):
-        force = None
-        stress = None
-        virial = None
-        cell = None
+        forces = []
+        stresses = []
+        virials = []
+        cells = []
         for i,line in enumerate(self.OUTCAR):
             if 'TOTAL-FORCE (eV/Angst)' in line:
                 j = i+2
@@ -220,23 +233,47 @@ class Vasp(ResultVasp):
                 while self.OUTCAR[j][:3] != " --":
                     force += [float(k) for k in self.OUTCAR[j].split()[3:6]]
                     j += 1
+                forces.append(force)
             elif '  in kB' in line:
                 s = [float(i) for i in line.split()[2:8]]
                 stress = [s[0],s[3],s[5],s[3],s[1],s[4],s[5],s[4],s[2]]
                 v = [float(i) for i in self.OUTCAR[i-1].split()[1:7]]
                 virial = [v[0],v[3],v[5],v[3],v[1],v[4],v[5],v[4],v[2]]
+                stresses.append(stress)
+                virials.append(virial)
             elif "VOLUME and BASIS-vectors are now :" in line:
                 cell = []
                 for j in range(3):
                     cell.append([float(k) for k in self.OUTCAR[i+j+5].split()[0:3]])
-        self['force'] = force
-        self['stress']  = stress
-        self['virial'] = virial
-        self["cell"] = cell
-        if stress:
-            self['pressure'] = 1.0/3.0*(stress[0]+stress[4]+stress[8])
+                cells.append(cell)
+        if len(forces) > 0:
+            self['forces'] = forces
+            self['force'] = forces[-1]
         else:
+            self['forces'] = None
+            self['force'] = None
+        
+        if len(stresses) > 0:
+            self['stresses'] = stresses
+            self['virials'] = virials
+            self['stress'] = stresses[-1]
+            self['virial'] = virials[-1]
+            self['pressures'] = [1.0/3.0*(s[0]+s[4]+s[8]) for s in stresses]
+            self['pressure'] = self['pressures'][-1]
+        else:
+            self['stresses'] = None
+            self['virials'] = None
+            self['stress'] = None
+            self['virial'] = None
+            self['pressures'] = None
             self['pressure'] = None
+        
+        if len(cells) > 0:
+            self['cells'] = cells
+            self['cell'] = cells[-1]
+        else:
+            self['cells'] = None
+            self['cell'] = None
         
     @ResultVasp.register(total_time = 'Total CPU time (s)',
                          scf_time = 'the total SCF times, s',
@@ -311,7 +348,7 @@ class Vasp(ResultVasp):
             self["absolute_mag"] = sum([abs(i) for i in atommagsx[0]])
         else:
             self["atom_mag"] = None
-            self["absolute_mag"]
+            self["absolute_mag"] = None
                 
     
     @ResultVasp.register(atom_name = 'list, the element name of each atom' ,
