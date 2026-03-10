@@ -204,6 +204,12 @@ class AbacusATOM(BaseModel):
             else:
                 return self.mag
     
+    @atommag.setter
+    def atommag(self, value:Optional[Union[float, Tuple[float, float, float]]]):
+        """Set the atomic magnetic moment
+        """
+        self.set_atommag(value)
+    
     def mag_angle(self):
         # Calculate angle of noncollinear magnetic moment
         if self.noncolinear:
@@ -219,7 +225,7 @@ class AbacusATOM(BaseModel):
         else:
             return (None, None)
 
-    def set_atommag(self, mag: Union[float,Tuple[float,float,float]],
+    def set_atommag(self, mag: Optional[Union[float,Tuple[float,float,float]]],
                     angle1: float = None,
                     angle2: float = None):
         """Set magnetic moment for the atom.
@@ -235,7 +241,7 @@ class AbacusATOM(BaseModel):
             assert len(mag) == 3, f"Magnetic moment tuple must have three components, got {mag}."
         elif isinstance(mag, np.ndarray):
             mag = mag.tolist()
-        elif isinstance(mag, (int, float)):
+        elif isinstance(mag, (int, float, type(None))):
             pass
         else:
             raise TypeError("Magnetic moment must be float or tuple of three floats")
@@ -378,6 +384,52 @@ class AbacusSTRU:
     def __len__(self):
         return len(self._atoms)
 
+    def __getitem__(self, key):
+        """Get one or list of atoms"""
+        if isinstance(key, (int, slice)):
+            return self._atoms[key]
+        else:
+            raise TypeError(f"{type(key)}")
+    
+    def __setitem__(self, key:int, value: AbacusATOM):
+        """set a new atom"""
+        if isinstance(key, int):
+            if isinstance(value, AbacusATOM):
+                self._atoms[key] = value
+            else:
+                raise TypeError(f"{type(value)}")
+        else:
+            raise TypeError(f"{type(key)}")
+
+    def __delitem__(self, key):
+        """delete an atom"""
+        if isinstance(key, int):
+            del self._atoms[key]
+        else:
+            raise TypeError(f"{type(key)}")
+
+    def append(self, atom: AbacusATOM):
+        """add one atom at the last"""
+        if isinstance(atom, AbacusATOM):
+            self._atoms.append(atom)
+        else:
+            raise TypeError(f"{type(atom)}")
+    
+    def extend(self, atoms: List[AbacusATOM]):
+        """extend a list of atoms to current structure"""
+        if all(isinstance(i, AbacusATOM) for i in atoms):
+            self._atoms.extend(atoms)
+        else:
+            raise TypeError(f"{[type(a) for a in atoms]}")
+    
+    def insert(self, idx:int, atom: AbacusATOM):
+        """insert a new atom to current structure"""
+        if isinstance(atom, AbacusATOM):
+            self._atoms.insert(idx, atom)
+        else:
+            raise TypeError(f"{type(atom)}")
+
+
     def sort(self,
              keep_first_order=True) -> List[int]:
         """Classify atoms according to their atom types.
@@ -477,6 +529,13 @@ class AbacusSTRU:
                 mags.append(atom.atommag)
         return mags
 
+    @atom_mags.setter
+    def atom_mags(self, mags:List[Optional[Union[float,Tuple[float,float,float]]]]):
+        assert len(mags) == len(self._atoms), f"Length of mags is {len(mags)}, which is not equal to the atom number ({len(self._atoms)})"
+        for i, imag in enumerate(mags):
+            self._atoms[i].atommag = imag
+
+
     @cell.setter
     def cell(self, value: Union[List[Tuple[float,float,float]], np.ndarray]):
         if isinstance(value, np.ndarray):
@@ -498,6 +557,20 @@ class AbacusSTRU:
         cart_coords = Direct2Cartesian(value, self.cell)
         for i in range(self.natoms):
             self._atoms[i].coord = cart_coords[i]
+    
+    @pps.setter
+    def pps(self, value: List[str]):
+        """set the pseudopotential for each atom"""
+        assert len(value) == len(self._atoms), f"length is not equal: {len(value)} / {len(self._atoms)}"
+        for i, iv in enumerate(value):
+            self._atoms[i].pp = iv
+    
+    @orbs.setter
+    def orbs(self, value: List[str]):
+        """set the orbital for each atom"""
+        assert len(value) == len(self._atoms), f"length is not equal: {len(value)} / {len(self._atoms)}"
+        for i, iv in enumerate(value):
+            self._atoms[i].orb = iv
 
     def set_pp(self, pp_dict: Dict[str, str], key_type:Literal["element","label"]="element"):
         """Set pseudopotential file names for atoms based on a provided dictionary.
