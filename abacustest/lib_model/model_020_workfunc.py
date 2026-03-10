@@ -397,6 +397,7 @@ def add_empty_atom_layer(
 
     if elem is None:
         elem = stru.atomtypes[0].element
+        pp, orb = stru.atomtypes[0].pp, stru.atomtypes[0].orb
     elif elem in stru.elements:
         # Get pp, orb from structure
         for atomtype in stru.atomtypes:
@@ -407,7 +408,6 @@ def add_empty_atom_layer(
         raise ValueError("Empty atom not in the original structure not supported yet")
     
     vac_dir, max_vacuum_cart, vacuum_top, vacuum_bottom = get_largest_vacuum_dir(coords=stru.coords, cell=stru.cell)
-    print(vac_dir, max_vacuum_cart, vacuum_top, vacuum_bottom)
     # Assume the vacuum direction is perpendicular to surface
     a1, a2, a3 = np.array(stru.cell[0]), np.array(stru.cell[1]), np.array(stru.cell[2])
     # sa1, sa2 are lattice vectors parallel to surface
@@ -431,7 +431,6 @@ def add_empty_atom_layer(
     # Calculate number of atoms along 2 direction parallel to surface
     # Distance between atoms in different cell are assured to be larger than dist
     n1, n2 = int(l1/dist), int(l2/dist)
-    print(n1, n2)
     
     # Displacement vector relative to middle point of the lattice vector parallel to surface
     d1s = [((-n1+1)/2 + i) * sa1/l1*dist for i in range(n1)]
