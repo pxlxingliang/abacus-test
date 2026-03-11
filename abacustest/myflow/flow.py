@@ -420,6 +420,25 @@ def CheckStatus(param):
         #traceback.print_exc()
         return "The flow is not running now!!!"
         
+def ReadUIDFromLog(logfile):
+    with open(logfile) as f1: lines = f1.readlines()
+    
+    uid = None
+    job_id = None
+    for line in lines[::-1]:
+        if line.startswith("job ID:"):
+            "job ID: abacustest-r7gw6, UID: 10930511-04c2-4cb1-ba00-d55f72b3270f"
+            print("Find job ID line:", line)
+            try:
+                job_id = line.split(",")[0].split(":")[1].strip()
+                uid = line.split(",")[1].split(":")[1].strip()
+            except:
+                return None, None
+            break
+            
+    return job_id, uid
+
+
 
 def DownloadFlow(param):
     if os.path.isfile(param.param):
@@ -437,9 +456,27 @@ def DownloadFlow(param):
     else:
         save_path = param.save
     
-    jobid = param.job_id
-    wf = Workflow(id = jobid)
-    allkeys = wf.query_keys_of_steps()
+    jobid = uid =  param.job_id
+    if jobid is None and os.path.isfile("abacustest.log"):
+        print("Try to find job ID from log file!!!")
+        jobid, uid = ReadUIDFromLog("abacustest.log")
+        if jobid is None:
+            comm.printinfo("Can not find job ID from log file!!!")
+            return
+        
+    try:
+        wf = Workflow(id = jobid)
+        allkeys = wf.query_keys_of_steps()
+    except:
+        comm.printinfo(f"Query keys with ID: {jobid} failed!!!")
+        if uid != jobid:
+            comm.printinfo(f"Try UID: {uid}")
+            wf = Workflow(id = uid)
+            allkeys = wf.query_keys_of_steps()
+        else:
+            traceback.print_exc()
+            return
+    
     if len(allkeys) == 0:
         comm.printinfo("No step is produced, exit!!!")
         return

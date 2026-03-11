@@ -28,7 +28,7 @@ def AbacusTestCheckStatusArgs(parser):
 
 def AbacusTestDownloadArgs(parser):
     parser.description = "Download the results of the dflow job"
-    parser.add_argument("job_id", help="the job id of your workflow")
+    parser.add_argument("job_id", default=None, nargs="?",help="the job id of your workflow")
     parser.add_argument('-p', '--param', type=str, default="job.json",help='the file for bohrium account information, default is "job.json"')
     parser.add_argument('-s', '--save', type=str, default=None,help='the folder where the results will be put in, default: result')
     return parser
