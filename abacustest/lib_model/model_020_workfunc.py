@@ -514,7 +514,11 @@ def post_workfunc_calc(
         pos = read(os.path.join(workfunc_job, "POSCAR"))
         vacuum_dir_find = get_largest_vacuum_dir(coords=pos.get_positions(), cell=pos.get_cell())[0]
         incar_params = Incar.from_file(os.path.join(workfunc_job, "INCAR"))
-        vacuum_dir_input = EFIELD_DIRECTION_MAP[incar_params.get("IDIPOL", None) - 1]
+        idipol = incar_params.get("IDIPOL", None)
+        if idipol is None:
+            vacuum_dir_input = None
+        else:
+            vacuum_dir_input = EFIELD_DIRECTION_MAP[incar_params.get("IDIPOL", None) - 1]
 
         print(vacuum_dir_input, vacuum_dir_find, vacuum_dir_specified)
         vacuum_dir = select_vacuum_dir(vacuum_dir_input, vacuum_dir_find, vacuum_dir_specified)
