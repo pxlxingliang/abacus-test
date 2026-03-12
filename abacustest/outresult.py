@@ -679,18 +679,6 @@ def pandas_out(allresult,savefile = None, report_sample_max = 2,print_result=Tru
         print("%s\n\n%s" % (normal_result,list_result))      
     return normal_result,list_result,savefile_names
 
-def OutResultArgs(parser):  
-    parser.description = "This script is used to output the summary of results"
-    parser.add_argument('-r', '--result', type=str, help='the result file from collectdata, should be .json type',action="extend",nargs="*")
-    parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type')
-    parser.add_argument('-m', '--metrics', default=["ALL"], help='The metrics that needed to be shown. Use ALL to show all metrics, default is ALL.', action="extend",nargs="*")
-    parser.add_argument('-o', '--output', type=str, help='output the selected metrics to a json file')
-    parser.add_argument('--csv', type=str, help='if output the selected metrics to csv file')
-    parser.add_argument('--prec', type=int, default=None, help='the precision of float number in pandas output, default is None')
-    parser.add_argument("--list_sep", default=0, const=1, nargs='?', type=int, help="if print the list separately, default is 0")
-    
-    return parser
-
 def outresult(param):
     if param.result != None:
         allresult_files = param.result #if len(param.result) == 1 else param.result[1:]
@@ -749,6 +737,7 @@ def outresult(param):
         print(cc_outparam)
 
 def main():
+    from abacustest.arguments import OutResultArgs
     parser = argparse.ArgumentParser()
     param = OutResultArgs(parser).parse_args()
     outresult(param)
