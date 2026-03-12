@@ -46,7 +46,6 @@ def OutResultArgs(parser):
     return parser
 
 def PrepareArgs(parser):
-    from abacustest.arguments import PrepareArgs
     parser.description = "This script is used to prepare the INPUTS OF ABACUS JOB"
     parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type',required=True)
     parser.add_argument('-s', '--save', type=str,  default="abacustest",help='where to store the inputs, default is abacustest ')
