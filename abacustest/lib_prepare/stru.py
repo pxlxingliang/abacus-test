@@ -993,25 +993,71 @@ class AbacusSTRU:
         """
         Find high symmetry kpoints, recommended k-point path and other information related to the symmetry of the structure.
         """
-        from ase.atom import atomic_numbers
+        from ase.atom import atomic_numbers, chemical_symbols
         import seekpath
 
-        atom_numbers = [atomic_numbers[atom.element] for atom in self._atoms]
-        kpath = seekpath.get_path((self.cell, self.coords, atom_numbers),
-                                  with_time_reversal=with_time_reversal,
-                                  recipe=recipe,
-                                  threshold=threshold,
-                                  symprec=symprec,
-                                  angle_tolerance=angle_tolerance)
-        
+        # Ensure atom.element is not None
+        atom_nums = []
+        for atom in self._atoms:
+            if atom.element is None:
+                # Try to infer element from label
+                element = atom._infer_element_from_label()
+                if element is None:
+                    raise ValueError(f"Cannot determine element for atom with label '{atom.label}'")
+                atom.element = element
+            atom_nums.append(atomic_numbers[atom.element])
+
+        direct_coords = Cartesian2Direct(self.coords, self.cell)
+
+        kpath = seekpath.get_path(
+            (self.cell, direct_coords, atom_nums),
+            with_time_reversal=with_time_reversal,
+            recipe=recipe,
+            threshold=threshold,
+            symprec=symprec,
+            angle_tolerance=angle_tolerance,
+        )
+
         # Replace GAMMA with G in point_coords and path
         point_coords = {}
         for label, coord in kpath["point_coords"].items():
-            point_coords[label.replace('GAMMA', 'G')] = coord
-        
-        path = [(start.replace('GAMMA', 'G'), end.replace('GAMMA', 'G')) 
+            point_coords[label.replace("GAMMA", "G")] = coord
+
+        path = [(start.replace("GAMMA", "G"), end.replace("GAMMA", "G"))
                 for start, end in kpath["path"]]
-        
+
+        if write_prim_stru:
+            atoms = []
+            primitive_lattice = kpath["primitive_lattice"]
+            for atom_num, coord in zip(kpath["primitive_types"], kpath["primitive_positions"]):
+                element_symbol = chemical_symbols[atom_num]
+                # Find matching atomtype by element
+                matching_atomtype = None
+                for atomtype in self.atomtypes:
+                    if atomtype.element == element_symbol:
+                        matching_atomtype = atomtype
+                        break
+                
+                if matching_atomtype is None:
+                    raise ValueError(f"No atomtype found for element {element_symbol} in the original structure")
+
+                # Convert fractional coordinates (relative to primitive lattice) to Cartesian
+                coord_cart = Direct2Cartesian([coord], primitive_lattice)[0]
+                atom = AbacusATOM(
+                    label=matching_atomtype.label,
+                    coord=coord_cart,
+                    element=matching_atomtype.element,
+                    pp=matching_atomtype.pp,
+                    orb=matching_atomtype.orb,
+                    paw=matching_atomtype.paw,
+                    type_mag=matching_atomtype.type_mag,
+                )
+                atoms.append(atom)
+            prim_stru = AbacusSTRU(
+                primitive_lattice, atoms=atoms, metadata=self.metadata
+            )
+            prim_stru.write(prim_stru_file)
+
         return point_coords, path
 
 
