@@ -3,28 +3,36 @@ import numpy as np
 from abacustest.lib_collectdata.collectdata import RESULT
 from . import comm_plot,comm
 
-def shift_data(data_list, base_index=0):
+def _shift_data(data_list, sort_idx, shift_idx=0):
     # shift the data to the base_index
     # data_list should a list of float or list of list of float
     if not isinstance(data_list,list):
         return None
-    if base_index < 0 or base_index >= len(data_list):
-        return None
     
-    if isinstance(data_list[base_index],list):
+    data_list_not_none = [i for i in data_list if i is not None]
+    if len(data_list_not_none) < 2:
+        return data_list
+    
+    ref_idx = sort_idx[shift_idx]
+    while data_list[ref_idx] is None:
+        if shift_idx < 0:
+            shift_idx -= 1
+        else:
+            shift_idx += 1
+        ref_idx = sort_idx[shift_idx]
+    
+    ref_data = data_list[ref_idx]
+
+    if isinstance(ref_data,list):
         # it is a list of list of float
         new_list = []
-        if None in data_list[base_index]:
-            return None
         for i in range(len(data_list)):
-            if len(data_list[i]) != len(data_list[base_index]):
+            if data_list[i] is None or len(data_list[i]) != len(ref_data) :
                 new_list.append(None)
             else:
-                new_list.append([data_list[i][j] - data_list[base_index][j] for j in range(len(data_list[i]))])
+                new_list.append([data_list[i][j] - ref_data[j] for j in range(len(data_list[i]))])
     else:
-        if data_list[base_index] is None:
-            return None
-        new_list = [data_list[i] - data_list[base_index] for i in range(len(data_list))]
+        new_list = [data_list[i] - ref_data if data_list[i] is not None else None for i in range(len(data_list)) ]
     return new_list
 
 class PostConv:
@@ -305,7 +313,7 @@ class PostConv:
                 if self.shift_idx is None or ikey in ["band_gap"]:
                     new_plotdata[ik][ikey] = [iv[ikey][i] for i in sort_idx]
                 else:
-                    iv_shifted = shift_data(iv[ikey],base_index=sort_idx[self.shift_idx])
+                    iv_shifted = _shift_data(iv[ikey],sort_idx,self.shift_idx)
                     new_plotdata[ik][ikey] = [iv_shifted[i] for i in sort_idx] if iv_shifted is not None else None
         return new_plotdata
     

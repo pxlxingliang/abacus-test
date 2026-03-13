@@ -183,31 +183,6 @@ def push_to_remote(remote_path,setting,config_setting):
         print("Error: the remote setting is not supported!")
         return 1
 
-def ReportArgs(parser):  
-    parser.description = '''push the local files to remote, like github
-    Need to specify the parameter file, which should be .json type, and the content should be like:
-    "config":{
-        "github_username": "",
-        "github_email": "",
-        "github_token": ""
-    },
-    "add_date": "bda/dates",
-    "remote":{
-        "files":{
-            "file1_local": "file1_remote",
-            "file2_local": "file2_remote",
-        },
-        "github":{
-            "repo": "",
-            "branch": "",
-            "commit_msg": ""
-        }
-    }
-    the key of "files" is the local file/folder, and the value is the remote file/folder.
-    '''
-    parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type',required=True)
-    return parser
-
 def Remote(param):
     param_file = param.param
     if not os.path.exists(param_file):
@@ -223,8 +198,9 @@ def Remote(param):
             push_to_remote(remote_path,remote_setting,config_setting) 
 
 def main():
+    from abacustest.arguments import RemoteArgs
     parser = argparse.ArgumentParser()
-    param = ReportArgs(parser).parse_args()
+    param = RemoteArgs(parser).parse_args()
     Remote(param)
     
 if __name__ == "__main__":

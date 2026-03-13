@@ -1,7 +1,7 @@
 from ..model import Model
 import os, json, sys, inspect
 from . import comm, comm_plot
-
+from abacustest.constant import RECOMMAND_IMAGE
 
 class AseRelax(Model):
     '''
@@ -60,7 +60,7 @@ class AseRelax(Model):
         The arguments can not be command, model, modelcommand '''
         parser.add_argument("-j","--jobs",type=str,help="the path of jobs to be tested",action="extend",nargs="*",)
         parser.add_argument("-c", "--rundftcommand", type=str, default="abacustest model aserelax -o BFGS --mpi 32 --omp 1",help="the command to execute aserelax, default is 'abacustest model aserelax -o BFGS' ")
-        parser.add_argument("-i","--image",default="registry.dp.tech/dptech/prod-471/abacus-ase:20240522",type=str,help="the used image. Should has ABACUS/ASE-ABACUS/abacustest in image", )
+        parser.add_argument("-i","--image",default=RECOMMAND_IMAGE,type=str,help="the used image. Should has ABACUS/ASE-ABACUS/abacustest in image", )
         parser.add_argument("--machine", default="c32_m128_cpu", help="the machine to run the abacus. Default is c32_m128_cpu")
         parser.add_argument("-r", "--run", default=0, help="if run the test. Default is 0.", type=int)
         
@@ -106,7 +106,7 @@ class AseRelax(Model):
         parser.add_argument("-j","--jobs",type=str,default=["."],help="The path of aserelax job. Should has metrics.json file generated after aserelax.",action="extend",nargs="*",)
         parser.add_argument("-o","--output",default="aserelax.png",help="the output picture name, default is aserelax.png",)
         parser.add_argument("-r","--result",default="result.json",help="Save the data of the plot to a json file. Default is result.json.",)
-        parser.add_argument('--abacus', nargs='?',type=int, const=1, default=None,help='postprocess the job as an abacus relax job' )
+        parser.add_argument("-t", "--type", default="ase", choices=["ase","abacus","vasp"], help="the type of the job, which will determine how to read the data. Can be ase/abacus/vasp, default is ase" )
         parser.add_argument('--metric', nargs='?',type=str, const="metrics.json", default=None,help='postprocess a metrics.json file. If set metric, then will only plot data in this file' )
         parser.add_argument('--noplot', nargs='?',type=int, const=1, default=None,help='If not plot the image' )
 
@@ -121,10 +121,13 @@ class AseRelax(Model):
                 print("No jobs are specified.")
                 return {}
 
-            if params.abacus:
+            job_type = params.type
+
+            if job_type in ["abacus", "vasp"]:
                 from abacustest.lib_collectdata.collectdata import RESULT
                 for ijob in jobs:
-                    result = RESULT(path=ijob,fmt="abacus")
+                    print(f"Processing job: {ijob}")
+                    result = RESULT(path=ijob,fmt=job_type)
                     forces = result["forces"]
                     stresses = result["stresses"]
                     fmax = []
@@ -147,6 +150,7 @@ class AseRelax(Model):
                     }
             else:
                 for ijob in jobs:
+                    print(f"Processing job: {ijob}")
                     if os.path.isfile(os.path.join(ijob,"metrics.json")):
                         metrics = json.load(open(os.path.join(ijob,"metrics.json")))
                         allmetrics[ijob.rstrip("/")] = metrics
@@ -282,7 +286,7 @@ class ExeAseRelax:
         pp = stru.get_pp()
         orb = stru.get_orb()
         input_param["pp"] = {labels[i]:os.path.abspath(os.path.join(init_path,input_param.get("pseudo_dir",""),pp[i])) for i in range(len(labels))}
-        if input_param.get("basis_type") in ["lcao"] and orb:
+        if orb:
             input_param["basis"]  = {labels[i]:os.path.abspath(os.path.join(init_path,input_param.get("orbital_dir",""),orb[i])) for i in range(len(labels))}
 
         kpt = ReadKpt(init_path)

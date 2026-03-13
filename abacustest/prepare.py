@@ -910,14 +910,8 @@ def PrepareInput(param):
             for k,v in path_setting.items():
                 print("%s:%s" % (k,str(v)))
 
-def PrepareArgs(parser):  
-    parser.description = "This script is used to prepare the INPUTS OF ABACUS JOB"
-    parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type',required=True)
-    parser.add_argument('-s', '--save', type=str,  default="abacustest",help='where to store the inputs, default is abacustest ')
-    parser.add_argument('--nolink',  nargs='?',type=int, const=1, default=0,help='if link the files in the example folder, default is 0')
-    return parser
-
 def main():
+    from abacustest.arguments import PrepareArgs
     parser = argparse.ArgumentParser()
     param = PrepareArgs(parser).parse_args()
     PrepareInput(param)

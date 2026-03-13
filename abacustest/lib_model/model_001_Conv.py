@@ -98,7 +98,7 @@ class ConvEcutwfc(Model):
         parser.add_argument(
             "-k",
             "--key",
-            help="the key name to be tested, should be a INPUT para. Such as ecutwfc, kspacing, etc.",
+            help="the key name to be tested, should be a INPUT para. Such as ecutwfc, kspacing, etc. If testing K points, set it to 'kpt'",
         )
         parser.add_argument(
             "-j",
