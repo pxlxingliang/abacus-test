@@ -95,7 +95,7 @@ class BandData:
             return None
 
         segment = self.kpoint_to_segment[idx]
-        start_label, end_label = segment["start"], segment["start"]
+        start_label, end_label = segment["start"], segment["end"]
         start_coord = self.high_symm_labels.get(start_label)
         end_coord = self.high_symm_labels.get(end_label)
 
@@ -242,7 +242,7 @@ class BandData:
 
                 # If the next segment has only 1 k-point, include it in this segment.
                 # Used to treat discountinuous k-paths and end points
-                if i < len(high_symm_labels_list) - 2 and insert_kpt_nums[i + 1] == 1:
+                if i < len(high_symm_labels_list) - 1 and insert_kpt_nums[i + 1] == 1:
                     end_nkpt += 1
 
                 kpaths.append(
@@ -410,7 +410,7 @@ class BandData:
             "energy": energy,
         }
 
-    def _find_band_edge(self, below_fermi=True, tol=1e-4):
+    def _find_band_edge(self, below_fermi=True, tol=1e-6):
         """
         Find band edge (VBM if below_fermi=True, CBM if below_fermi=False).
         Returns:
@@ -461,7 +461,7 @@ class BandData:
             edge_indices_per_spin,
         )
 
-    def _get_edge(self, below_fermi, tol=1e-4, spin_resolved=False):
+    def _get_edge(self, below_fermi, tol=1e-6, spin_resolved=False):
         """
         Internal helper to get VBM or CBM.
         """
@@ -517,7 +517,7 @@ class BandData:
         else:
             return self._process_indices(edge_indices_global, energy=edge_energy_global)
 
-    def get_vbm(self, tol=1e-4, spin_resolved=False):
+    def get_vbm(self, tol=1e-6, spin_resolved=False):
         """
         Get data about the valence band maximum (VBM).
 
@@ -542,7 +542,7 @@ class BandData:
         """
         return self._get_edge(below_fermi=True, tol=tol, spin_resolved=spin_resolved)
 
-    def get_cbm(self, tol=1e-4, spin_resolved=False):
+    def get_cbm(self, tol=1e-6, spin_resolved=False):
         """
         Get data about the conduction band minimum (CBM).
 
@@ -586,7 +586,7 @@ class BandData:
             return cbm_energy - vbm_energy
         return None
 
-    def get_band_gap(self, tol=1e-4, spin_resolved=False):
+    def get_band_gap(self, tol=1e-6, spin_resolved=False):
         """
         Get the band gap energy.
 
