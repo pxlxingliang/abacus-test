@@ -2,7 +2,6 @@
 
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Union
-from pathlib import Path
 
 from abacustest.lib_collectdata.collectdata import RESULT
 
@@ -612,6 +611,10 @@ def plot_dos_pdos(pdosdatas: List[List[np.ndarray]],
         axes = [axes]
     else:
         axes = axes.flatten()
+    
+    # Hide unused subplots to avoid displaying empty axes
+    for idx in range(len(pdosdatas), len(axes)):
+        axes[idx].set_visible(False)
     
     for idx, pdosdata in enumerate(pdosdatas):
         assert len(pdosdata) == len(labels[idx]) # Check if number of PDOS data matches number of labels
