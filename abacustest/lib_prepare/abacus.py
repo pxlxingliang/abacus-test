@@ -6,7 +6,7 @@ from .. import constant
 from . import comm
 from abacustest.lib_prepare.stru import read_stru_file
 
-def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=False, folder_syntax=None):
+def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=False, folder_syntax=None, overwrite=False):
     """
     Generate the structure files for ABACUS.
     
@@ -24,6 +24,7 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=
                    The default is None, indicating the generation of 00001, 00002
                    If the folder already exists, the function will add a number to the folder name. 
                    Like Fe.1, Fe.2, ...
+        overwrite: bool, Whether to overwrite existing folder (default: False, create new folder with numbered suffix if exists)
     
     Returns:
         jobs (dict): Dictionary, key is the job path, value is:
@@ -35,7 +36,7 @@ def gen_stru(stru_files, stru_type, pp_path, orb_path, tpath = ".", copy_pp_orb=
             }
     """
     # Translate structure files to ABACUS STRU format
-    stru_paths = comm.translate_strus(stru_files, stru_type, output_path = tpath, folder_syntax=folder_syntax)
+    stru_paths = comm.translate_strus(stru_files, stru_type, output_path = tpath, folder_syntax=folder_syntax, overwrite=overwrite)
     if stru_paths is None:
         print("Error: tanslate structure files failed.")
         return None

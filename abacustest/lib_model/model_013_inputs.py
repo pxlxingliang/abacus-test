@@ -115,6 +115,7 @@ class InputsModel(Model):
         parser.add_argument("--afm", action="store_true", help="whether to use antiferromagnetic calculation, default is False. Only valid when init_mag is set.")
         parser.add_argument("--copy_pp_orb", action="store_true", help="whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.")
         parser.add_argument("--folder-syntax", default=None, type=str, help="A python syntax to create the directory name. Using string variable 'x' to represent the path of input structure file, and put the processing of x in {}, following the format of f-string. Such as: '{x[:-4]}' to remove the file extension like Fe.cif to Fe, and 'aa-{x[:-4]}-bb' will transfer Fe.cif to aa-Fe-bb. Default is None, which means using number like 000000/000001...")
+        parser.add_argument("--overwrite", action="store_true", help="Whether to overwrite existing folder (default: False, create new folder with numbered suffix if exists)")
         parser.add_argument("--download-pporb", nargs="?", type=str,default=None,const="apns-v1",choices=["apns-v1"], help="Download the recommended pseudopotential and orbital files from AISquare.")
         return parser
     
@@ -189,7 +190,8 @@ class InputsModel(Model):
             machine=RECOMMAND_MACHINE,  # default Bohrium machine type for CPU jobs
             image=RECOMMAND_IMAGE,  # default recommended image for ABACUS jobs 
             copy_pp_orb=params.copy_pp_orb, 
-            folder_syntax=params.folder_syntax
+            folder_syntax=params.folder_syntax,
+            overwrite=params.overwrite
         )
         pinput.run()
         return 0
@@ -270,6 +272,7 @@ class PrepInput:
                    The default is None, indicating the generation of 00001, 00002
                    If the folder already exists, the function will add a number to the folder name. 
                    Like Fe.1, Fe.2, ...
+    overwrite: bool, Whether to overwrite existing folder (default: False, create new folder with numbered suffix if exists)
     """
     
     def __init__(self, files: Union[str, List[str], Path, List[Path]],
@@ -290,7 +293,8 @@ class PrepInput:
                  init_mag: Optional[Dict[str, float]] =None,
                  afm: bool = False, 
                  copy_pp_orb: bool = False,
-                 folder_syntax: Optional[str] = None
+                 folder_syntax: Optional[str] = None,
+                 overwrite: bool = False
                  ):
         if jobtype not in JOB_TYPES:
             raise ValueError(f"Unsupported job type: {jobtype}.\nSupported job types are {list(JOB_TYPES.keys())}.")
@@ -323,6 +327,7 @@ class PrepInput:
         self.afm = afm
         self.copy_pp_orb = copy_pp_orb
         self.folder_syntax = folder_syntax
+        self.overwrite = overwrite
         
         self.pp_path = pp_path
         self.orb_path = orb_path
@@ -353,7 +358,8 @@ class PrepInput:
     def run(self):
         jobs = gen_stru(self.files, self.filetype, self.pp_path, self.orb_path, tpath=".", 
                         copy_pp_orb=self.copy_pp_orb,
-                        folder_syntax=self.folder_syntax)
+                        folder_syntax=self.folder_syntax,
+                        overwrite=self.overwrite)
 
         if self.input_file is not None:
             if not os.path.isfile(self.input_file):

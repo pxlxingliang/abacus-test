@@ -10,7 +10,7 @@ def Direct2Cartesian(coord:List[List[float]],cell:List[List[float]]):
 def Cartesian2Direct(coord:List[List[float]],cell:List[List[float]]):
     return np.array(coord).dot(np.linalg.inv(np.array(cell))).tolist()
 
-def translate_strus(input_strus, input_stru_type, output_path = ".", folder_syntax=None):
+def translate_strus(input_strus, input_stru_type, output_path = ".", folder_syntax=None, overwrite=False):
     """
     Translate the structure from one format to ABACUS stru.
     
@@ -25,6 +25,7 @@ def translate_strus(input_strus, input_stru_type, output_path = ".", folder_synt
                    The default is None, indicating the generation of 00001, 00002
                    If the folder already exists, the function will add a number to the folder name. 
                    Like Fe.1, Fe.2, ...
+    overwrite: bool, Whether to overwrite existing folder (default: False, create new folder with numbered suffix if exists)
     
     Return:
     output_strus: list, the output structure.
@@ -32,9 +33,9 @@ def translate_strus(input_strus, input_stru_type, output_path = ".", folder_synt
     import dpdata
 
     def gen_path_name(base_path, create=False):
-        if not os.path.exists(base_path):
+        if overwrite or not os.path.exists(base_path):
             if create:
-                os.makedirs(base_path)
+                os.makedirs(base_path, exist_ok=True)
             return base_path
         else:
             idx = 1
