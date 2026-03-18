@@ -83,6 +83,7 @@ class BandModel(Model):
         parser.add_argument('-j', '--job',default=[], action="extend",nargs="*" ,help='the path of abacus inputs, default is the current path. There should be some eos folders in each example path.')
         parser.add_argument("--input", default="INPUT.nscf", type=str, help="the input file name, default is INPUT.nscf")
         parser.add_argument("--kpt", default="KPT.nscf", type=str, help="the kpoint file name, default is KPT.nscf")
+        parser.add_argument("--new_plot", action="store_true", help="whether to use the new plot function in BandData class. Default is False.")
         parser.add_argument("--range", default=[-5,5], type=float, help="The range of the band structure, default is efermi-5, efermi+5 eV", nargs=2)
         return parser
         
@@ -91,7 +92,7 @@ class BandModel(Model):
         '''
         Parse the parameters and run the postprocess process'''
         jobs = comm.get_job_list(params.job)
-        PostBand(jobs, input_file=params.input, kpt_file=params.kpt, band_range=params.range).run()
+        PostBand(jobs, input_file=params.input, kpt_file=params.kpt, new_plot=params.new_plot, band_range=params.range).run()
         print("The band structure is plotted in the band.png file")
                 
 class PrepBand:
@@ -186,10 +187,11 @@ class PrepBand:
         
 
 class PostBand:
-    def __init__ (self, jobs, input_file=None, kpt_file=None, band_range=None):
+    def __init__ (self, jobs, input_file=None, kpt_file=None, new_plot=False, band_range=None):
         self.jobs = jobs
         self.input_file = input_file 
         self.kpt_file = kpt_file  
+        self.new_plot = new_plot
         self.band_range = [-5, 5 ] if band_range is None else band_range
                     
     def run(self):
@@ -206,9 +208,24 @@ class PostBand:
                 print(f"Warning: can not find the band file {band_file}")
                 continue
             bands = self.get_band(band_file)
-            self.plot_band(bands[1:], kpt, os.path.join(job,"band.png"), 
-                           x=bands[0],
-                           efermi=self.get_efermi(os.path.join(job,"OUT."+suffix,"running_nscf.log")))
+            if self.new_plot:
+                from abacustest.lib_data.band import BandData
+                band_data = BandData.ReadFromAbacusJob(job)
+                kpath_list = []
+                for kpath in band_data.kpaths:
+                    if kpath_list:
+                        if kpath['start'] != kpath_list[-1]:
+                            kpath_list[-1] +=  f"|{kpath['start']}"
+                        kpath_list.append(kpath['end'])
+                    else:
+                        kpath_list.extend([kpath['start'], kpath['end']])
+                print(kpath_list)
+                print(f"E_fermi={band_data.efermi:.2f}eV, BandGap={band_data.get_band_gap():.2f}eV")
+                band_data.plot_band(self.band_range[0], self.band_range[1], os.path.join(job,"band.png"))
+            else:
+                self.plot_band(bands[1:], kpt, os.path.join(job,"band.png"), 
+                               x=bands[0],
+                               efermi=self.get_efermi(os.path.join(job,"OUT."+suffix,"running_nscf.log")))
     
     def get_efermi(self, logfile):
         with open(logfile) as f:
