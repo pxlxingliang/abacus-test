@@ -874,6 +874,7 @@ def get_largest_vacuum_dir(coords: List[List[float]], cell: List[List[float]], c
         raise ValueError(f"Invalid coord type: {coord_type}")
 
     vacuums_direct = [0, 0, 0]
+    vacuum_boundary = [[], [], []]
     for i in range(3): # Loop over the three directions
         # Algorithm from void Efield::autoset in source/module_elecstate/potentials/efield.cpp in ABACUS source code
         sorted_coords = direct_coords[np.argsort(direct_coords[:, i])]
@@ -882,13 +883,17 @@ def get_largest_vacuum_dir(coords: List[List[float]], cell: List[List[float]], c
             diff = sorted_coords[idx][i] - sorted_coords[idx-1][i]
             if diff > vacuum:
                 vacuum = diff
+                vacuum_top, vacuum_bottom = sorted_coords[idx][i], sorted_coords[idx-1][i]
         
         diff = sorted_coords[0][i] + 1 - sorted_coords[-1][i]
         if diff > vacuum:
             vacuum = diff
+            # vacuum_top < vacuum_bottom, which means the vacuum region across the boundary of the cell
+            vacuum_top, vacuum_bottom = sorted_coords[0][i], sorted_coords[-1][i]
         
         vacuums_direct[i] = vacuum
-
+        vacuum_boundary[i] = (vacuum_top, vacuum_bottom)
+    
     a, b, c, alpha, beta, gamma = cal_cellparam(cell)
     vacuums_cart = [vacuums_direct[0]*a, vacuums_direct[1]*b, vacuums_direct[2]*c]
     
@@ -899,11 +904,15 @@ def get_largest_vacuum_dir(coords: List[List[float]], cell: List[List[float]], c
         print(f"WARNING: The largest vacuum ({max_vacuum_cart} Angstrom) is less than 4.0 Angstrom")
 
     if max_vacuum_idx == 0:
-        return 'a', max_vacuum_cart
+        vacuum_top, vacuum_bottom = vacuum_boundary[0][0] * a, vacuum_boundary[0][1] * a
+        return 'a', max_vacuum_cart, vacuum_top, vacuum_bottom
     elif max_vacuum_idx == 1:
-        return 'b', max_vacuum_cart
+        vacuum_top, vacuum_bottom = vacuum_boundary[1][0] * b, vacuum_boundary[1][1] * b
+        return 'b', max_vacuum_cart, vacuum_top, vacuum_bottom
     else:
-        return 'c', max_vacuum_cart
+        vacuum_top, vacuum_bottom = vacuum_boundary[2][0] * c, vacuum_boundary[2][1] * c
+        return 'c', max_vacuum_cart, vacuum_top, vacuum_bottom
+
 
 def download_file(url: str, save_file: str):
     import requests
