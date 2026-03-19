@@ -93,6 +93,29 @@ class WorkFuncModel(Model):
             default=None,
             help="Path to VASP POTCAR files directory (required for VASP input generation)",
         )
+        parser.add_argument(
+            "--use-empty-atom",
+            action="store_true",
+            help="Use empty atom in vacuum region near surface at both sides of the surface. Default is False. Only works for ABACUS.",
+        )
+        parser.add_argument(
+            "--empty-atom-elem",
+            type=str,
+            default=None,
+            help="The element of the empty atom. Default is None, which means use first kind of element in the structure. Only works for ABACUS and when --use-empty-atom is set to True.",
+        )
+        parser.add_argument(
+            "--empty-atom-height",
+            type=float,
+            default=2.0,
+            help="The height of the empty atom layer in Angstrom. Default is 2.0 Angstrom. Only works for ABACUS and when --use-empty-atom is set to True.",
+        )
+        parser.add_argument(
+            "--empty-atom-dist",
+            type=float,
+            default=2.0,
+            help="The distance of empty atom along directions along lattice vectors parallel to the surface. Default is 2.0 Angstrom. Only works for ABACUS and when --use-empty-atom is set to True.",
+        )
         return parser
 
     def run_prepare(self, params):
@@ -102,7 +125,8 @@ class WorkFuncModel(Model):
         if not params.job:
             raise ValueError("No job specified, please use -j or --job to specify the job paths.")
         
-        paths = prep_all_workfunc_jobs(params.job, params.dft, params.vacuum, params.dipole_corr, params.potcar_path)
+        paths = prep_all_workfunc_jobs(params.job, params.dft, params.vacuum, params.dipole_corr, params.potcar_path,
+                                       params.use_empty_atom, params.empty_atom_elem, params.empty_atom_height, params.empty_atom_dist)
         
         if params.image is None:
             image = RECOMMAND_IMAGE if params.dft == "abacus" else RECOMMAND_VASP_IMAGE if params.dft == "vasp" else None
@@ -173,6 +197,12 @@ class WorkFuncModel(Model):
             choices=["abacus", "vasp"],
             help="DFT software used for work function calculation (ABACUS or VASP)",
         )
+        parser.add_argument(
+            "--thr",
+            default=0.01,
+            type=float,
+            help="Threshold for derivative of averaged potential for identifying potential plateaus in work function calculation.",
+        )
         return parser
 
     def run_postprocess(self, params):
@@ -203,7 +233,7 @@ class WorkFuncModel(Model):
 
             results_all[job] = results
 
-        json.dump(results_all, open("metrics.json", "w"), indent=4)
+        json.dump(results_all, open("metrics_workfunc.json", "w"), indent=4)
         print("\nThe postprocess is done. The metrics are saved in 'metrics.json'.")
 
 
@@ -211,7 +241,11 @@ def prep_all_workfunc_jobs(jobs: List[str],
                            mode: Literal['abacus', 'vasp'], 
                            vacuum_dir: Literal['a', 'b', 'c', 'auto'] = 'auto', 
                            dipole_corr: bool = False, 
-                           potcar_path: Optional[str] = None):
+                           potcar_path: Optional[str] = None,
+                           use_empty_atom: bool = False,
+                           empty_atom_elem: Optional[str] = None,
+                           empty_atom_height: float = 2.0,
+                           empty_atom_dist: float = 2.0) -> List[str]:
     paths = []
     for job in jobs:
         if not os.path.isdir(job):
@@ -219,7 +253,8 @@ def prep_all_workfunc_jobs(jobs: List[str],
 
         # Prepare ABACUS calculation if ABACUS is selected
         if mode == "abacus":
-            abacus_path = prep_abacus_workfunc_calc(job, vacuum_dir, dipole_corr, os.path.join(job, "workfunc_job"))
+            abacus_path = prep_abacus_workfunc_calc(job, vacuum_dir, dipole_corr, os.path.join(job, "workfunc_job"),
+                                                    use_empty_atom, empty_atom_elem, empty_atom_height, empty_atom_dist)
             paths.append(abacus_path)
 
         # Prepare VASP calculation if VASP is selected
@@ -234,7 +269,11 @@ def prep_abacus_workfunc_calc(
     job: Path,
     vacuum_dir: Literal["a", "b", "c", "auto"] = "auto",
     dipole_corr: bool = False,
-    workfunc_dir: Optional[str] = "workfunc_job"
+    workfunc_dir: Optional[str] = "workfunc_job",
+    use_empty_atom: bool = False,
+    empty_atom_elem: Optional[str] = None,
+    empty_atom_height: float = 2.0,
+    empty_atom_dist: float = 2.0,
 ) -> Path:
     workfunc_dir = Path(workfunc_dir).absolute()
     if workfunc_dir.exists():
@@ -242,6 +281,9 @@ def prep_abacus_workfunc_calc(
         shutil.rmtree(Path(job) / "workfunc_job")
 
     copy_abacusjob(job, workfunc_dir, out_dir=False)
+
+    if use_empty_atom:
+        add_empty_atom_layer(workfunc_dir, elem=empty_atom_elem, height=empty_atom_height, dist=empty_atom_dist)
 
     input_params = ReadInput(os.path.join(workfunc_dir, "INPUT"))
     if input_params.get("nspin", 1) not in [1, 2]:
@@ -260,7 +302,7 @@ def prep_abacus_workfunc_calc(
         # Identify vacuum direction
         stru_file = os.path.join(workfunc_dir, input_params.get("stru_file", "STRU"))
         stru = AbacusSTRU.read(stru_file)
-        direction, max_vacuum_cart = get_largest_vacuum_dir(coords=stru.coords, cell=stru.cell)
+        direction, max_vacuum_cart, vacuum_top, vacuum_bottom = get_largest_vacuum_dir(coords=stru.coords, cell=stru.cell)
 
         # Identify vacuum direction to apply electric field
         if vacuum_dir == "auto":
@@ -338,9 +380,76 @@ def prep_vasp_workfunc_calc(
 
     return str(vasp_workfunc_dir)
 
+def add_empty_atom_layer(
+    job: Path,
+    elem: Optional[str] = None,
+    height: float = 2.0,
+    dist: float = 2.0,
+) -> None:
+    """
+    Add empty atom in vacuum region near surface at both sides of the surface, and write the modified structure to the job directory.
+    """
+    from abacustest.lib_prepare.stru import AbacusATOM
+
+    input_params = ReadInput(os.path.join(job, "INPUT"))
+    stru_file = os.path.join(job, input_params.get("stru_file", "STRU"))
+    stru = AbacusSTRU.read(stru_file)
+
+    if elem is None:
+        elem = stru.atomtypes[0].element
+        pp, orb = stru.atomtypes[0].pp, stru.atomtypes[0].orb
+    elif elem in stru.elements:
+        # Get pp, orb from structure
+        for atomtype in stru.atomtypes:
+            if atomtype.element == elem:
+                pp, orb = atomtype.pp, atomtype.orb
+                break
+    else:
+        raise ValueError("Empty atom not in the original structure not supported yet")
+    
+    vac_dir, max_vacuum_cart, vacuum_top, vacuum_bottom = get_largest_vacuum_dir(coords=stru.coords, cell=stru.cell)
+    # Assume the vacuum direction is perpendicular to surface
+    a1, a2, a3 = np.array(stru.cell[0]), np.array(stru.cell[1]), np.array(stru.cell[2])
+    # sa1, sa2 are lattice vectors parallel to surface
+    # va is the lattice vector perpendicular to surface
+    if vac_dir == "a":
+        sa1, sa2, va = a2, a3, a1
+    elif vac_dir == "b":
+        sa1, sa2, va = a1, a3, a2
+    elif vac_dir == "c":
+        sa1, sa2, va = a1, a2, a3
+    else:
+        raise ValueError("Invalid vacuum direction: %s" % vac_dir)
+    
+    l1, l2 = np.linalg.norm(sa1), np.linalg.norm(sa2)
+    # center of the surface containing empty atoms
+    top_empty_layer_vec = va / np.linalg.norm(va) * (vacuum_top - height)
+    bottom_empty_layer_vec = va / np.linalg.norm(va) * (vacuum_bottom + height)
+    top_center_pos = top_empty_layer_vec + sa1/2 + sa2/2
+    bottom_center_pos = bottom_empty_layer_vec + sa1/2 + sa2/2
+
+    # Calculate number of atoms along 2 direction parallel to surface
+    # Distance between atoms in different cell are assured to be larger than dist
+    n1, n2 = int(l1/dist), int(l2/dist)
+    
+    # Displacement vector relative to middle point of the lattice vector parallel to surface
+    d1s = [((-n1+1)/2 + i) * sa1/l1*dist for i in range(n1)]
+    d2s = [((-n2+1)/2 + i) * sa2/l2*dist for i in range(n2)]
+
+    empty_atom_coords_top = [top_center_pos + d1 + d2 for d1 in d1s for d2 in d2s]
+    empty_atom_coords_bottom = [bottom_center_pos + d1 + d2 for d1 in d1s for d2 in d2s]
+
+    for coord in empty_atom_coords_top:
+        stru._atoms.append(AbacusATOM(label=elem+"_empty", coord=coord, pp=pp, orb=orb))
+    for coord in empty_atom_coords_bottom:
+        stru._atoms.append(AbacusATOM(label=elem+"_empty", coord=coord, pp=pp, orb=orb))
+    
+    stru.write(stru_file)
 
 def post_workfunc_calc(
-    job: Path, jobtype: Literal["abacus", "vasp"] = "abacus", vacuum_dir_specified: Literal["a", "b", "c", "auto"] = "auto"
+    job: Path, jobtype: Literal["abacus", "vasp"] = "abacus",
+    vacuum_dir_specified: Literal["a", "b", "c", "auto"] = "auto",
+    thr: float = 0.01,
 ) -> Tuple[List[Dict[str, Any]], Path, str, str]:
     # Postprocess calculation to obtain work function data
     if jobtype == "abacus":
@@ -405,7 +514,11 @@ def post_workfunc_calc(
         pos = read(os.path.join(workfunc_job, "POSCAR"))
         vacuum_dir_find = get_largest_vacuum_dir(coords=pos.get_positions(), cell=pos.get_cell())[0]
         incar_params = Incar.from_file(os.path.join(workfunc_job, "INCAR"))
-        vacuum_dir_input = EFIELD_DIRECTION_MAP[incar_params.get("IDIPOL", None) - 1]
+        idipol = incar_params.get("IDIPOL", None)
+        if idipol is None:
+            vacuum_dir_input = None
+        else:
+            vacuum_dir_input = EFIELD_DIRECTION_MAP[incar_params.get("IDIPOL", None) - 1]
 
         print(vacuum_dir_input, vacuum_dir_find, vacuum_dir_specified)
         vacuum_dir = select_vacuum_dir(vacuum_dir_input, vacuum_dir_find, vacuum_dir_specified)
@@ -428,7 +541,8 @@ def post_workfunc_calc(
     axis_idx = 0 if vacuum_dir == "a" else 1 if vacuum_dir == "b" else 2
     cell_length = np.linalg.norm(pot.cell[axis_idx])
 
-    work_function_results = calculate_work_functions(ave_elec_stat, fermi_energy=efermi, cell_length=cell_length)
+    work_function_results = calculate_work_functions(ave_elec_stat, fermi_energy=efermi,
+                                                     cell_length=cell_length, thr=thr)
 
     plot_path = plot_averaged_elecstat_pot(
         coord_direct,
@@ -496,34 +610,55 @@ def identify_potential_plateaus(averaged_potential: List, cell_length: float, th
     return plateau_ranges
 
 
-def calculate_work_functions(averaged_potential: List, fermi_energy: float, cell_length: float):
+def calculate_work_functions(averaged_potential: List, fermi_energy: float, cell_length: float, thr: float = 0.01):
     """
     Calculate the work function from the averaged electrostatic potential.
     Dipole correction is suppoted and multiple plateau of electrostatic potential can be identified.
     """
     work_function_results = []
-    plateau_ranges = identify_potential_plateaus(averaged_potential, cell_length, threshold=0.01)
-    npoints = len(averaged_potential)
-    for plateau_range in plateau_ranges:
-        plateau_start, plateau_end = plateau_range
+    plateau_ranges = identify_potential_plateaus(averaged_potential, cell_length, threshold=thr)
+    if len(plateau_ranges) == 0:
+        # If no plateau is found, use the largest value of the averaged potential as the vacuum level to calculate work function, and give a warning message.
+        print("Warning: No plateaus found in the averaged electrostatic potential. \nUse the maximum value of the averaged potential as the vacuum level to calculate work function, which may be less accurate.")
+
+        # Find the maximum value and its index in the averaged potential
+        averaged_potential_np = np.array(averaged_potential)
+        max_potential_idx = np.argmax(averaged_potential_np)
+        max_potential_value = averaged_potential_np[max_potential_idx]
+        
+        # Create a result using the maximum value
+        npoints = len(averaged_potential)
         result = {
-            "plateau_start_fractional": plateau_start / npoints,
-            "plateau_end_fractional": plateau_end / npoints
+            "plateau_start_fractional": max_potential_idx / npoints,
+            "plateau_end_fractional": (max_potential_idx + 1) / npoints,
+            "vacuum_level": max_potential_value,
+            "work_function": max_potential_value - fermi_energy,
         }
-        if plateau_start < 0:
-            plateau_start = plateau_start % npoints
-        if plateau_end >= npoints:
-            plateau_end  = plateau_end % npoints
-        
-        if plateau_start > plateau_end:
-            #If plateau crosses the end of the cell, concatenate the plateau
-            plateau = np.concatenate((averaged_potential[plateau_start:], averaged_potential[:plateau_end]))
-        else:
-            plateau = averaged_potential[plateau_start:plateau_end]
-        
-        plateau_averaged_potential = np.average(plateau)
-        result['work_function'] = plateau_averaged_potential - fermi_energy
         work_function_results.append(result)
+        
+    else:
+        npoints = len(averaged_potential)
+        for plateau_range in plateau_ranges:
+            plateau_start, plateau_end = plateau_range
+            result = {
+                "plateau_start_fractional": plateau_start / npoints,
+                "plateau_end_fractional": plateau_end / npoints
+            }
+            if plateau_start < 0:
+                plateau_start = plateau_start % npoints
+            if plateau_end >= npoints:
+                plateau_end  = plateau_end % npoints
+
+            if plateau_start > plateau_end:
+                #If plateau crosses the end of the cell, concatenate the plateau
+                plateau = np.concatenate((averaged_potential[plateau_start:], averaged_potential[:plateau_end]))
+            else:
+                plateau = averaged_potential[plateau_start:plateau_end]
+
+            plateau_averaged_potential = np.average(plateau)
+            result['vacuum_level'] = plateau_averaged_potential
+            result['work_function'] = plateau_averaged_potential - fermi_energy
+            work_function_results.append(result)
 
     return work_function_results
 
