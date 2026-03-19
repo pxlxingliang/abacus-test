@@ -596,33 +596,37 @@ class BandData:
 
         Returns:
             If spin_resolved=False:
-                float or None: Band gap energy (CBM energy - VBM energy) in eV.
-                Returns None if the system is metallic (no band gap) or if VBM/CBM not found.
+                float: Band gap energy (CBM energy - VBM energy) in eV.
+                Returns 0.0 if the system is metallic (no band gap) or if VBM/CBM not found.
 
             If spin_resolved=True:
                 dict with keys for each spin label (e.g., "spin_up", "spin_down" for nspin=2, otherwise str(spin_index)) and "global":
                     - spin_label (str): Band gap for that spin channel (CBM_energy[spin] - VBM_energy[spin]).
                     - "global": Global band gap (global CBM energy - global VBM energy).
-                Returns None values for metallic systems or when VBM/CBM not found.
+                Returns 0.0 for metallic systems or when VBM/CBM not found.
         """
         # Get VBM and CBM data
         vbm_result = self.get_vbm(tol=tol, spin_resolved=spin_resolved)
         cbm_result = self.get_cbm(tol=tol, spin_resolved=spin_resolved)
 
+        def safe_calculate_gap(vbm, cbm):
+            gap = self._calculate_gap_from_results(vbm, cbm)
+            return gap if gap is not None else 0.0
+
         if not spin_resolved:
             # Non-spin-resolved case: both results are dictionaries with "energy" key
-            return self._calculate_gap_from_results(vbm_result, cbm_result)
+            return safe_calculate_gap(vbm_result, cbm_result)
 
         # Spin-resolved case: results are dictionaries with spin labels and "global" key
         result = {}
 
         # Handle global band gap
         if "global" in vbm_result and "global" in cbm_result:
-            result["global"] = self._calculate_gap_from_results(
+            result["global"] = safe_calculate_gap(
                 vbm_result["global"], cbm_result["global"]
             )
         else:
-            result["global"] = None
+            result["global"] = 0.0
 
         # Handle per-spin band gaps
         for spin in range(self.nspin):
@@ -632,7 +636,7 @@ class BandData:
                     vbm_result[label], cbm_result[label]
                 )
             else:
-                result[label] = None
+                result[label] = 0.0
 
         return result
 
