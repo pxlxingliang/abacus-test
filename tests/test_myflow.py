@@ -14,8 +14,8 @@ class TestPredft(unittest.TestCase):
         globV.set_value("PARAM_FNAME","param.json")
         globV.set_value("HOST","test.test")
         self.cwd = os.getcwd()
-        self.work_path = Path("testflow")
-        os.makedirs("testflow",exist_ok=True)
+        self.work_path = Path(__file__).parent / "testflow"
+        os.makedirs(self.work_path, exist_ok=True)
         os.chdir(self.work_path)
         self.examples = ["a","b","c"]
         self.exatrafiles = ["a.txt","b.txt","c.txt"]
@@ -29,9 +29,9 @@ class TestPredft(unittest.TestCase):
         for i in self.exatrafiles2: Path(i).touch()
 
     def tearDown(self):
+        if self.work_path.exists():
+            shutil.rmtree(self.work_path)
         os.chdir(self.cwd)
-        if os.path.isdir("testflow"):
-            shutil.rmtree("testflow")
 
     
     def test_predft(self):
