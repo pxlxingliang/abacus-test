@@ -56,4 +56,4 @@ package-dir = { "abacustest" = "abacustest" }
 version = { attr = "abacustest.version.__version__" }
 
 [tool.setuptools.package-data]
-abacustest = ["*.py", "*/*.py", "*/*/*.py"]
+abacustest = ["*.py", "*/*.py", "*/*/*.py", "lib_prepare/input-params.json"]
