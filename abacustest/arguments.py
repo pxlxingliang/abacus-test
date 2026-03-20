@@ -1,5 +1,15 @@
 import argparse
 
+def _job_type(string):
+    string = string.lower()
+    type_map = {'0': 'abacus', '1': 'qe', '2': 'vasp'}
+    if string in type_map:
+        return type_map[string]
+    valid_choices = list(type_map.values())
+    if string not in valid_choices:
+        raise argparse.ArgumentTypeError(f"Invalid job type: {string}. Valid options are: {valid_choices} or 0/1/2")
+    return string
+
 def SubmitArgs(parser):
     parser.description = "This script is used to run a testing"
     parser.add_argument('-p', '--param', type=str, default="job.json",help='the job setting file, default is job.json')
@@ -25,7 +35,7 @@ def DownloadArgs(parser):
 def CollectDataArgs(parser):
     parser.description = "This script is used to collect some key values from the output of ABACUS/QE/VASP jobs"
     parser.add_argument('-j', '--jobs', default=["."], help='the path of jobs', action="extend",nargs="*")
-    parser.add_argument('-t', '--type', type=int, default=0, help='0:abacus, 1:qe, 2:vasp. Default: 0',choices=[0,1,2])
+    parser.add_argument('-t', '--type', type=_job_type, default='abacus', help='abacus/qe/vasp or 0/1/2. Default: abacus', choices=['abacus', 'qe', 'vasp'])
     parser.add_argument('-p', '--param', type=str, default=None,nargs="*", help='the parameter file, or parameter name.')
     parser.add_argument('-o', '--output', type=str, default="metrics.json",help='the file name to store the output results, default is "metrics.json"')
     parser.add_argument('-m', '--modules',help='add extra modules. Default only module \'job-type\' will be loaded, such as: \'abacus\' for abacus type. You can check all modules by --outparam', action="extend",nargs="*")

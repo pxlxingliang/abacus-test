@@ -98,8 +98,7 @@ def collectdata(param):
     paramf = param.param
     alljobs = param.jobs if len(param.jobs) == 1 else param.jobs[1:]
 
-    alltype = {0:"abacus",1:"qe",2:"vasp"}
-    jobtype = alltype.get(param.type)
+    jobtype = param.type # abacus/vasp/qe
     
     if param.outparam:
         RESULT(fmt=jobtype,outparam=True,newmethods=param.newmethods,modules=param.modules)
