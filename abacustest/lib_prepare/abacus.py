@@ -1700,25 +1700,79 @@ def ReadInput(INPUTf: str = None, input_lines: str = None) -> Dict[str,any]:
                 input_context[k] = v
     return input_context
 
-def WriteInput(input_context:Dict[str,any],
-               INPUTf: str = "INPUT"):
+def WriteInput(input_context: Dict[str, any],
+               INPUTf: str = "INPUT",
+               categorized: bool = True):
     """Write the input parameters to the INPUT file.
+    
     Args:
         input_context (Dict[str, any]): a dictionary of input parameters.
         INPUTf (str): the file name of the INPUT file to write.
+        categorized (bool): whether to organize parameters into categorized groups.
+            When True (default), parameters are grouped by category with comments
+            for better readability. When False, parameters are written in
+            dictionary order without category grouping.
+            
     Returns:
         None: the function will write the input parameters to the INPUT file.
         
     If the value of a parameter is None, it will be written as a comment line.
     If the value is a list or tuple, it will be joined with spaces.
-
     """
+
+    INPUT_CATEGORIES = {}
+    
+    if categorized:
+        import json
+        import warnings
+        
+        try:
+            from importlib.resources import files
+            json_path = files('abacustest.lib_prepare') / 'input-params.json'
+            if json_path.is_file():
+                data = json.loads(json_path.read_text())
+                for item in data:
+                    name = item.get('name', '')
+                    category = item.get('category', 'Other')
+                    if name and category:
+                        names = [n.strip() for n in name.split(',')]
+                        if category not in INPUT_CATEGORIES:
+                            INPUT_CATEGORIES[category] = []
+                        INPUT_CATEGORIES[category].extend(names)
+        except Exception as e:
+            warnings.warn(f"Failed to load input categories from package data: {e}. "
+                           f"Parameters will not be categorized.")
+        
+        if not INPUT_CATEGORIES:
+            categorized = False
+
+    def _format_param(key: str, value: any, key_width: int) -> str:
+        padding = max(key_width - len(key), 1)
+        if value is not None:
+            if isinstance(value, (list, tuple)):
+                value = ' '.join([str(i) for i in value])
+            return f"{key}{' ' * padding}{value}\n"
+        return f"#{key}\n"
+    
     out = "INPUT_PARAMETERS\n"
-    for k,v in input_context.items():
-        if v != None:
-            if isinstance(v, (list,tuple)):
-                v = ' '.join([str(i) for i in v])
-            out += f"{k}     {v}\n"    
-        else:
-            out += f"#{k}  \n"
-    with open(INPUTf,'w') as f1: f1.write(out)        
+
+    if categorized:
+        used_keys = set()
+        
+        for category, keys in INPUT_CATEGORIES.items():
+            category_params = [k for k in keys if k in input_context]
+            used_keys.update(category_params)
+            
+            if category_params:
+                out += f"\n# {category}\n"
+                out += ''.join(_format_param(k, input_context[k], 20) for k in category_params)
+
+        remaining_params = [k for k in input_context.keys() if k not in used_keys]
+        if remaining_params:
+            out += "\n# Other Parameters\n"
+            out += ''.join(_format_param(k, input_context[k], 20) for k in remaining_params)
+    else:
+        out += ''.join(_format_param(k, v, 20) for k, v in input_context.items())
+    
+    with open(INPUTf, 'w') as f1:
+        f1.write(out)
