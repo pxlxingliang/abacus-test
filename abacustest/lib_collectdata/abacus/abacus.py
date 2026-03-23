@@ -665,7 +665,8 @@ class Abacus(ResultAbacus):
                 for j in range(i+1,len(self.OUTPUT)):
                     if self.OUTPUT[j][1:3] in KS_SOLVER_LIST or (self.OUTPUT[j].startswith("1") and self.OUTPUT[j][2:4] in KS_SOLVER_LIST): 
                         scftime.append(float(self.OUTPUT[j].split()[-1]))
-                break
+                    elif self.OUTPUT[j].startswith(" -----------------------------------"):
+                        break
         if len(scftime) > 0:
             self['scf_time'] = np.array(scftime).sum()
             self['step1_time'] = scftime[0]
