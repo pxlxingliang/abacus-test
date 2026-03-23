@@ -4,7 +4,7 @@ from pathlib import Path
 from abacustest import prepare
 import defaultset
 
-class TestPredft(unittest.TestCase):
+class TestPrepare(unittest.TestCase):
     def setUp(self):
         self.cwd = os.getcwd()
         self.work_path = Path("testprepare")

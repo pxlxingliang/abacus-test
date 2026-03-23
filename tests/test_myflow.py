@@ -6,6 +6,12 @@ from dflow import (
     Workflow)
 import defaultset
 from abacustest.myflow import PredftOP,RundftOP,PostdftOP
+from dflow import config
+config["mode"] = "debug"
+import glob
+
+def find_jobname():
+    return glob.glob("abacustest-*/rundft-1-*/outputs/artifacts/outputs")[0]
 
 class TestPredft(unittest.TestCase):
     def setUp(self):
@@ -29,8 +35,8 @@ class TestPredft(unittest.TestCase):
         for i in self.exatrafiles2: Path(i).touch()
 
     def tearDown(self):
-        if self.work_path.exists():
-            shutil.rmtree(self.work_path)
+        #if self.work_path.exists():
+        #    shutil.rmtree(self.work_path)
         os.chdir(self.cwd)
 
     
@@ -48,12 +54,15 @@ class TestPredft(unittest.TestCase):
         wf = Workflow(name="abacustest")
         wf.add(allstep)
         wf.submit()
-        flow.waitrun(wf,stepname,allsave_path)
+        #flow.waitrun(wf,stepname,allsave_path)
+        output_dir = find_jobname()
+        os.system(f"mv {output_dir} result")
         
         expect_dir = ["result", "result/a", "result/b", "result/c"]
         expect_file = ["result/a/log", "result/b/log", "result/c/log",
                        "result/a/a.inp", "result/b/b.inp", "result/c/c.inp"
                        ]
+        print(os.listdir())
         
         for i in expect_dir:
             self.assertTrue(os.path.isdir(i),f"{i} is not exist!")
@@ -75,7 +84,9 @@ class TestPredft(unittest.TestCase):
         wf = Workflow(name="abacustest")
         wf.add(allstep)
         wf.submit()
-        flow.waitrun(wf,stepname,allsave_path)
+        #flow.waitrun(wf,stepname,allsave_path)
+        output_dir = find_jobname()
+        os.system(f"mv {output_dir} result")
         
         expect_dir = ["result", "result/a", "result/b", "result/c"]
         expect_file = [
@@ -106,7 +117,9 @@ class TestPredft(unittest.TestCase):
         wf = Workflow(name="abacustest")
         wf.add(allstep)
         wf.submit()
-        flow.waitrun(wf,stepname,allsave_path)
+        #flow.waitrun(wf,stepname,allsave_path)
+        output_dir = find_jobname()
+        os.system(f"mv {output_dir} result")
         
         expect_dir = ["result", "result/a", "result/b", "result/c"]
         expect_file = [
@@ -147,7 +160,9 @@ class TestPredft(unittest.TestCase):
         wf = Workflow(name="abacustest")
         wf.add(allstep)
         wf.submit()
-        flow.waitrun(wf,stepname,allsave_path)
+        #flow.waitrun(wf,stepname,allsave_path)
+        output_dir = find_jobname()
+        os.system(f"mv {output_dir} result")
         
         expect_dir = ["result", "result/a", "result/b", "result/c",
                       "result/a/d1", "result/b/d1", "result/c/d1",
@@ -205,7 +220,9 @@ class TestPredft(unittest.TestCase):
         wf = Workflow(name="abacustest")
         wf.add(allstep)
         wf.submit()
-        flow.waitrun(wf,stepname,allsave_path)
+        #flow.waitrun(wf,stepname,allsave_path)
+        output_dir = find_jobname()
+        os.system(f"mv {output_dir} result")
         
         examples = ["a","b","c"]
         sub_dir = ["00000", "00001", "00002", "00003", "00004", "00005"]
