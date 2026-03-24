@@ -4,6 +4,7 @@ from .. import comm
 import numpy as np
 
 KS_SOLVER_LIST = ['DA','DS','GE','GV','BP','CG','CU','PE','LA']
+LTS_VERSIONS = ['v3.10.0', 'v3.10.1']
 
 class Abacus(ResultAbacus):
     
@@ -148,8 +149,7 @@ class Abacus(ResultAbacus):
                            point_group_in_space_group="point group in space group")
     def GetLogParam(self): 
         version = self["version"]
-        lts_version = ['v3.10.0', 'v3.10.1']
-        if any(v in version for v in lts_version) and self.JSON:
+        if any(v in version for v in LTS_VERSIONS) and self.JSON:
             self["nbands"],_ = comm.get_abacus_json(self.JSON,["init","nband"])
             self["nkstot"],_ = comm.get_abacus_json(self.JSON,["init","nkstot"])
             self["ibzk"],_ = comm.get_abacus_json(self.JSON,["init","nkstot_ibz"])
@@ -208,8 +208,7 @@ class Abacus(ResultAbacus):
                            )
     def GetMagResult(self):
         version = self["version"]
-        lts_version = ['v3.10.0', 'v3.10.1']
-        if any(v in version for v in lts_version) and self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
+        if any(v in version for v in LTS_VERSIONS) and self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
             output_list = self.JSON.get("output")
             self['total_mags'] = [out.get("total_mag", None) for out in output_list]
             self['absolute_mags'] = [out.get("absolute_mag", None) for out in output_list]
@@ -881,12 +880,21 @@ Fe2
                            drho_last="drho of the last scf step")
     def GetDrho(self):
         drho = []
-        for line in self.LOG:
-            if "Density error is" in line:
-                drho.append(float(line.split()[-1]))
-            elif "Electron density deviation" in line:
-                drho.append(float(line.split()[-1]))
-        
+        version = self['version']
+        if any(v in version for v in LTS_VERSIONS):
+            for line in self.LOG:
+                if "Density error is" in line:
+                    drho.append(float(line.split()[-1]))
+        else:
+            for i,line in enumerate(self.OUTPUT):
+                if line[1:5] == 'ITER':
+                    drho_idx = line.split().index("DRHO")
+                    for j in range(i+1,len(self.OUTPUT)):
+                        if self.OUTPUT[j][1:3] in KS_SOLVER_LIST or (self.OUTPUT[j].startswith("1") and self.OUTPUT[j][2:4] in KS_SOLVER_LIST): 
+                            drho.append(float(self.OUTPUT[j].split()[drho_idx]))
+                        elif self.OUTPUT[j].startswith(" -----------------------------------"):
+                            break
+
         if len(drho) == 0:
             self['drho'] = None
         else:
