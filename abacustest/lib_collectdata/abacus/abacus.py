@@ -265,55 +265,43 @@ class Abacus(ResultAbacus):
             "convergence has NOT been achieved!",
             "convergence has not been achieved"
         ]
-        
-        def check_converge_from_log(log_lines):
-            converge_status = None
-            for line in log_lines:
-                if any(s in line for s in converge_strings):
-                    converge_status = True
-                elif any(s in line for s in not_converge_strings):
-                    converge_status = False
-            return converge_status
-        
+
         if self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
             output_final = self.JSON.get("output")[-1]
-            if output_final.get("scf_converge",None) is not None:
-                self["converge"] = output_final.get("scf_converge",None)
-            else:
-                self["converge"] = check_converge_from_log(self.LOG)
-            self["energy"] = output_final.get("energy",None)
-            self["energies"] = [i.get("energy",None) for i in self.JSON.get("output")]
-            self["efermi"] = output_final.get("e_fermi",None)
-            cell  = output_final.get("cell",None)
+            converge = output_final.get("scf_converge",None)
+            energy = output_final.get("energy",None)
+            energies = [i.get("energy",None) for i in self.JSON.get("output")]
+            efermi = output_final.get("e_fermi",None)
+            cell = output_final.get("cell",None)
             if cell:
-                self["volume"] = abs(np.linalg.det(cell))
+                volume = abs(np.linalg.det(cell))
             else:
-                self["volume"] = None
-            if self["natom"] != None and self['energy'] != None:
-                self["energy_per_atom"] = self['energy']/self["natom"]
+                volume = None
+            if self['natom'] != None and energy != None:
+                energy_per_atom = energy / self['natom']
             else:
-                self["energy_per_atom"] = None
-        else: 
-            efermi = None
-            converge = None
-            energy = None
-            energies = []
-            energies_ks = []
-            volume = None
-            for i,line in enumerate(self.LOG):
+                energy_per_atom = None
+
+        energies_ks = []
+        for i,line in enumerate(self.LOG):
+            if converge is None:
                 if any(s in line for s in converge_strings):
                     converge = True
                 elif any(s in line for s in not_converge_strings):
                     converge = False
-                elif "!FINAL_ETOT_IS" in line:
+            elif energy is None:
+                if "!FINAL_ETOT_IS" in line:
                     energy = float(line.split()[1])
-                elif "final etot is" in line:
+            elif energies is None:
+                if "final etot is" in line:
                     energies.append(float(line.split()[-2]))
-                elif "E_KohnSham" in line:
-                    energies_ks.append(float(line.split()[-1]))
-                elif "Volume (A^3) =" in line:
+            elif "E_KohnSham" in line:
+                energies_ks.append(float(line.split()[-1]))
+            elif volume is None:
+                if "Volume (A^3) =" in line:
                     volume = float(line.split()[-1])
-                elif 'E_Fermi' in line:
+            elif efermi is None:
+                if 'E_Fermi' in line:
                     if 'E_Fermi_up' in line:
                         if efermi == None:
                             efermi = [None,None]
@@ -325,27 +313,23 @@ class Abacus(ResultAbacus):
                     else:
                         efermi = float(line.split()[-1])
 
-            self["energy"] = energy
-            self["converge"] = converge
-            self["volume"] = volume
-            if energies:
-                self["energies"] = energies
-            else:
-                self["energies"] = None
+        self["energy"] = energy
+        self["converge"] = converge
+        self["volume"] = volume
+        self["energies"] = energies
+        if energies_ks:
+            self["energy_ks"] = energies_ks[-1]
+        else:
+            self["energy_ks"] = None
 
-            if energies_ks:
-                self["energy_ks"] = energies_ks[-1]
-            else:
-                self["energy_ks"] = None
+        if efermi != None and isinstance(efermi,list):
+            if abs(efermi[0] - efermi[1]) < 1e-6:
+                efermi = efermi[0]
+        self["efermi"] = efermi
 
-            if efermi != None and isinstance(efermi,list):
-                if abs(efermi[0] - efermi[1]) < 1e-6:
-                    efermi = efermi[0]
-            self["efermi"] = efermi
+        if self["natom"] != None and energy != None:
+            self["energy_per_atom"] = energy/self["natom"]
 
-            if self["natom"] != None and self['energy'] != None:
-                self["energy_per_atom"] = self['energy']/self["natom"]
-    
     @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one",
                            forces = "list of force, the force of each ION step. Dimension is [nstep,3*natom]")
     def GetForceFromLog(self):
