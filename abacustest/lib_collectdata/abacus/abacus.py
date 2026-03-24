@@ -326,9 +326,7 @@ class Abacus(ResultAbacus):
             if abs(efermi[0] - efermi[1]) < 1e-6:
                 efermi = efermi[0]
         self["efermi"] = efermi
-
-        if self["natom"] != None and energy != None:
-            self["energy_per_atom"] = energy/self["natom"]
+        self["energy_per_atom"] = energy_per_atom
 
     @ResultAbacus.register(force="list[3*natoms], force of the system, if is MD or RELAX calculation, this is the last one",
                            forces = "list of force, the force of each ION step. Dimension is [nstep,3*natom]")
