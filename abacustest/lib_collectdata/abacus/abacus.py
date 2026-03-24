@@ -34,28 +34,7 @@ class Abacus(ResultAbacus):
                                 break
         self['version'] = version + "(" + commit + ")"
         return
-    
-    def _use_json_for_params(self):
-        """判断是否应该从 JSON 文件获取参数（版本 3.10.0 或 3.10.1）"""
-        version_str = ''
-        try:
-            version_str = self._PARAM_VALUE.get('version', '')
-        except:
-            pass
-        
-        if not version_str:
-            self.GetVersion()
-            try:
-                version_str = self._PARAM_VALUE.get('version', '')
-            except:
-                pass
-        
-        target_versions = ['3.10.0', '3.10.1']
-        for target in target_versions:
-            if target in version_str:
-                return True
-        return False
-                                              
+
     @ResultAbacus.register(ncore="the mpi cores",
                            omp_num="the omp cores",)
     def GetNcore(self):
@@ -168,7 +147,9 @@ class Abacus(ResultAbacus):
                            point_group="point group",
                            point_group_in_space_group="point group in space group")
     def GetLogParam(self): 
-        if self._use_json_for_params() and self.JSON:
+        version = self["version"]
+        lts_version = ['v3.10.0', 'v3.10.1']
+        if any(v in version for v in lts_version) and self.JSON:
             self["nbands"],_ = comm.get_abacus_json(self.JSON,["init","nband"])
             self["nkstot"],_ = comm.get_abacus_json(self.JSON,["init","nkstot"])
             self["ibzk"],_ = comm.get_abacus_json(self.JSON,["init","nkstot_ibz"])
@@ -185,21 +166,21 @@ class Abacus(ResultAbacus):
             point_group = None
             point_group_in_space_group = None
             for i,line in enumerate(self.LOG):
-                if "NBANDS =" in line:
-                    self['nbands'] = int(line.split()[2])
+                if "Number of electronic states (NBANDS) =" in line:
+                    self['nbands'] = int(line.split()[-1])
                 elif 'nkstot =' in line:
                     self['nkstot'] = int(line.split()[-1])
                 elif 'Number of irreducible k-points' in line:
                     self['ibzk'] = int(line.split()[-1])
                 elif 'nkstot now =' in line:
                     self['ibzk'] = int(line.split()[-1])
-                elif 'nkstot(nspin=' in line:
+                elif '     nkstot = ' in line:
                     self['nkstot'] = int(line.split()[-1])
                 elif "            electron number of element" in line:
                     elec_dict[line.split()[4]] = float(line.split()[-1])
-                elif 'number of atom for this type =' in line:
+                elif 'Number of atoms for this type =' in line:
                     natom += int(line.split()[-1])
-                elif 'total electron number of element' in line:
+                elif 'Autoset the number of electrons' in line:
                     nelec += float(line.split()[-1])
                 elif "POINT GROUP =" in line:
                     point_group = line.split("=")[1].strip()
@@ -225,8 +206,10 @@ class Abacus(ResultAbacus):
                            total_mags="total magnetism (Bohr mag/cell) of each ION step",
                            absolute_mags="absolute magnetism (Bohr mag/cell) of each ION step",
                            )
-    def GetMagResult(self): 
-        if self._use_json_for_params() and self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
+    def GetMagResult(self):
+        version = self["version"]
+        lts_version = ['v3.10.0', 'v3.10.1']
+        if any(v in version for v in lts_version) and self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
             output_list = self.JSON.get("output")
             self['total_mags'] = [out.get("total_mag", None) for out in output_list]
             self['absolute_mags'] = [out.get("absolute_mag", None) for out in output_list]
