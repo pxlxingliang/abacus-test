@@ -81,8 +81,12 @@ class Abacus(ResultAbacus):
                 return ii
 
         INPUTf = os.path.join(self.PATH,"OUT.%s/INPUT" % self.SUFFIX)
+        INPUTf_dev = os.path.join(self.PATH, "OUT.%s/INPUT.info" % self.SUFFIX) # dev-20260202 image
         if os.path.isfile(INPUTf):
             with open(INPUTf) as f1:
+                input_context = f1.readlines()
+        elif os.path.isfile(INPUTf_dev):
+            with open(INPUTf_dev) as f1:
                 input_context = f1.readlines()
         else:
             input_context = self.INPUT
@@ -143,30 +147,48 @@ class Abacus(ResultAbacus):
                            point_group="point group",
                            point_group_in_space_group="point group in space group")
     def GetLogParam(self): 
+        temp_nkstot = None
+        temp_ibzk = None
+        temp_nbands = None
+        temp_natom = None
+        temp_nelec = None
+        temp_nelec_dict = None
+        temp_fft_grid = None
+        temp_point_group = None
+        temp_point_group_in_space_group = None
+        
         if self.JSON:
-            self["nbands"],_ = comm.get_abacus_json(self.JSON,["init","nband"])
-            self["nkstot"],_ = comm.get_abacus_json(self.JSON,["init","nkstot"])
-            self["ibzk"],_ = comm.get_abacus_json(self.JSON,["init","nkstot_ibz"])
-            self["natom"],_ = comm.get_abacus_json(self.JSON,["init","natom"])
-            self["nelec"],_ = comm.get_abacus_json(self.JSON,["init","nelectron"])
-            self["nelec_dict"],_ = comm.get_abacus_json(self.JSON,["init","nelectron_each_type"])
-            self["fft_grid"],_ = comm.get_abacus_json(self.JSON,["init","fft_grid"])
-            self["point_group"],_ = comm.get_abacus_json(self.JSON,["init","point_group"])
-            self["point_group_in_space_group"],_ = comm.get_abacus_json(self.JSON,["init","point_group_in_space"])
-        else:      
+            temp_nbands,_ = comm.get_abacus_json(self.JSON,["init","nband"])
+            temp_nkstot,_ = comm.get_abacus_json(self.JSON,["init","nkstot"])
+            temp_ibzk,_ = comm.get_abacus_json(self.JSON,["init","nkstot_ibz"])
+            temp_natom,_ = comm.get_abacus_json(self.JSON,["init","natom"])
+            temp_nelec,_ = comm.get_abacus_json(self.JSON,["init","nelectron"])
+            temp_nelec_dict,_ = comm.get_abacus_json(self.JSON,["init","nelectron_each_type"])
+            temp_fft_grid,_ = comm.get_abacus_json(self.JSON,["init","fft_grid"])
+            temp_point_group,_ = comm.get_abacus_json(self.JSON,["init","point_group"])
+            temp_point_group_in_space_group,_ = comm.get_abacus_json(self.JSON,["init","point_group_in_space"])
+        
+        if temp_nkstot is None or temp_ibzk is None or temp_nbands is None:
+            for i,line in enumerate(self.LOG):
+                if "NBANDS =" in line and temp_nbands is None:
+                    temp_nbands = int(line.split()[2])
+                elif 'nkstot =' in line and temp_nkstot is None:
+                    temp_nkstot = int(line.split()[-1])
+                elif 'Number of irreducible k-points' in line and temp_ibzk is None:
+                    temp_ibzk = int(line.split()[-1])
+                elif 'nkstot now =' in line and temp_ibzk is None:
+                    temp_ibzk = int(line.split()[-1])
+                elif 'nkstot(nspin=' in line and temp_nkstot is None:
+                    temp_nkstot = int(line.split()[-1])
+        
+        if not self.JSON or temp_natom is None:
             natom = 0
             nelec = 0
             elec_dict = {}
             point_group = None
             point_group_in_space_group = None
             for i,line in enumerate(self.LOG):
-                if "NBANDS =" in line:
-                    self['nbands'] = int(line.split()[2])
-                elif 'nkstot =' in line:
-                    self['nkstot'] = int(line.split()[-1])
-                elif 'nkstot_ibz =' in line:
-                    self['ibzk'] = int(line.split()[-1])
-                elif "            electron number of element" in line:
+                if "            electron number of element" in line:
                     elec_dict[line.split()[4]] = float(line.split()[-1])
                 elif 'number of atom for this type =' in line:
                     natom += int(line.split()[-1])
@@ -176,20 +198,42 @@ class Abacus(ResultAbacus):
                     point_group = line.split("=")[1].strip()
                 elif "POINT GROUP IN SPACE GROUP =" in line:
                     point_group_in_space_group = line.split("=")[1].strip()
-
-            self["point_group"] = point_group
-            self["point_group_in_space_group"] = point_group_in_space_group
-            if natom > 0:
-                self["natom"] = natom 
-            if nelec > 0:
-                self["nelec"] = nelec 
-            else:
-                self["nelec"] = None
-
-            if elec_dict:
-                self["nelec_dict"] = elec_dict
-            else:
-                self["nelec_dict"] = None
+            
+            if temp_natom is None and natom > 0:
+                temp_natom = natom 
+            if temp_nelec is None:
+                if nelec > 0:
+                    temp_nelec = nelec 
+                else:
+                    temp_nelec = None
+            if temp_nelec_dict is None:
+                if elec_dict:
+                    temp_nelec_dict = elec_dict
+                else:
+                    temp_nelec_dict = None
+            if temp_point_group is None:
+                temp_point_group = point_group
+            if temp_point_group_in_space_group is None:
+                temp_point_group_in_space_group = point_group_in_space_group
+        
+        if temp_nbands is not None:
+            self["nbands"] = temp_nbands
+        if temp_nkstot is not None:
+            self["nkstot"] = temp_nkstot
+        if temp_ibzk is not None:
+            self["ibzk"] = temp_ibzk
+        if temp_natom is not None:
+            self["natom"] = temp_natom
+        if temp_nelec is not None:
+            self["nelec"] = temp_nelec
+        if temp_nelec_dict is not None:
+            self["nelec_dict"] = temp_nelec_dict
+        if temp_fft_grid is not None:
+            self["fft_grid"] = temp_fft_grid
+        if temp_point_group is not None:
+            self["point_group"] = temp_point_group
+        if temp_point_group_in_space_group is not None:
+            self["point_group_in_space_group"] = temp_point_group_in_space_group
 
     @ResultAbacus.register(total_mag="total magnetism (Bohr mag/cell)",
                            absolute_mag="absolute magnetism (Bohr mag/cell)",
@@ -197,34 +241,55 @@ class Abacus(ResultAbacus):
                            absolute_mags="absolute magnetism (Bohr mag/cell) of each ION step",
                            )
     def GetMagResult(self): 
-        total_mags = []
-        absolute_mags = []
-        tot_mag = None
-        abs_mag = None
-        ion_step = 1
-        for i,line in enumerate(self.LOG):
-            if "ION=" in line:
-                current_step = int(line.split()[4])
-                if current_step > ion_step:
-                    if tot_mag is not None:
-                        total_mags.append(tot_mag)
-                        absolute_mags.append(abs_mag)
-                ion_step = current_step 
-            elif 'total magnetism (Bohr mag/cell)' in line:
-                sline = line.split()
-                # if the last three are float, then it is the noncollinear case, else it is collinear case
-                try:
-                    tot_mag = [float(imag) for imag in sline[-3:]]
-                except:
-                    tot_mag = float(sline[-1])
-            elif 'absolute magnetism' in line:
-                abs_mag = float(line.split()[-1])
+        temp_total_mag = None
+        temp_absolute_mag = None
+        temp_total_mags = []
+        temp_absolute_mags = []
         
-        if tot_mag is not None:    
-            self['total_mag'] = tot_mag
-            self['absolute_mag'] = abs_mag
-            self['total_mags'] = total_mags + [tot_mag]
-            self['absolute_mags'] = absolute_mags + [abs_mag]
+        if self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
+            output_list = self.JSON.get("output")
+            temp_total_mags = [out.get("total_mag", None) for out in output_list]
+            temp_absolute_mags = [out.get("absolute_mag", None) for out in output_list]
+            temp_total_mag = output_list[-1].get("total_mag", None)
+            temp_absolute_mag = output_list[-1].get("absolute_mag", None)
+        
+        if temp_total_mag is None or temp_absolute_mag is None or not temp_total_mags or not temp_absolute_mags:
+            total_mags = []
+            absolute_mags = []
+            tot_mag = None
+            abs_mag = None
+            ion_step = 1
+            for i,line in enumerate(self.LOG):
+                if "ION=" in line:
+                    current_step = int(line.split()[4])
+                    if current_step > ion_step:
+                        if tot_mag is not None:
+                            total_mags.append(tot_mag)
+                            absolute_mags.append(abs_mag)
+                    ion_step = current_step 
+                elif 'total magnetism (Bohr mag/cell)' in line or 'Total magnetism (Bohr mag/cell)' in line:
+                    sline = line.split()
+                    try:
+                        tot_mag = [float(imag) for imag in sline[-3:]]
+                    except:
+                        tot_mag = float(sline[-1])
+                elif 'absolute magnetism' in line or 'Absolute magnetism' in line:
+                    abs_mag = float(line.split()[-1])
+            
+            if temp_total_mag is None and tot_mag is not None:
+                temp_total_mag = tot_mag
+            if temp_absolute_mag is None and abs_mag is not None:
+                temp_absolute_mag = abs_mag
+            if not temp_total_mags and tot_mag is not None:
+                temp_total_mags = total_mags + [tot_mag]
+            if not temp_absolute_mags and abs_mag is not None:
+                temp_absolute_mags = absolute_mags + [abs_mag]
+        
+        if temp_total_mag is not None:    
+            self['total_mag'] = temp_total_mag
+            self['absolute_mag'] = temp_absolute_mag
+            self['total_mags'] = temp_total_mags if temp_total_mags else None
+            self['absolute_mags'] = temp_absolute_mags if temp_absolute_mags else None
         else:
             self['total_mag'] = None
             self['absolute_mag'] = None
@@ -240,9 +305,30 @@ class Abacus(ResultAbacus):
                            efermi = "the fermi energy (eV). If has set nupdown, this will be a list of two values. The first is up, the second is down.",
                            energy_per_atom="the total energy divided by natom, (eV)")
     def GetLogResult(self):     
+        converge_strings = [
+            "SCF IS CONVERGED",
+            "charge density convergence is achieved"
+        ]
+        not_converge_strings = [
+            "convergence has NOT been achieved!",
+            "convergence has not been achieved"
+        ]
+        
+        def check_converge_from_log(log_lines):
+            converge_status = None
+            for line in log_lines:
+                if any(s in line for s in converge_strings):
+                    converge_status = True
+                elif any(s in line for s in not_converge_strings):
+                    converge_status = False
+            return converge_status
+        
         if self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
             output_final = self.JSON.get("output")[-1]
-            self["converge"] = output_final.get("scf_converge",None)
+            if output_final.get("scf_converge",None) is not None:
+                self["converge"] = output_final.get("scf_converge",None)
+            else:
+                self["converge"] = check_converge_from_log(self.LOG)
             self["energy"] = output_final.get("energy",None)
             self["energies"] = [i.get("energy",None) for i in self.JSON.get("output")]
             self["efermi"] = output_final.get("e_fermi",None)
@@ -263,10 +349,9 @@ class Abacus(ResultAbacus):
             energies_ks = []
             volume = None
             for i,line in enumerate(self.LOG):
-                if 'charge density convergence is achieved' in line:
+                if any(s in line for s in converge_strings):
                     converge = True
-                elif 'convergence has NOT been achieved!' in line or\
-                    'convergence has not been achieved' in line:
+                elif any(s in line for s in not_converge_strings):
                     converge = False
                 elif "!FINAL_ETOT_IS" in line:
                     energy = float(line.split()[1])
@@ -353,7 +438,7 @@ class Abacus(ResultAbacus):
         for i in range(len(self.LOG)):
             #i = -1*i - 1
             line = self.LOG[i]
-            if 'TOTAL-STRESS (KBAR)' in line:
+            if 'TOTAL-STRESS (KBAR)' in line or 'TOTAL-STRESS (kbar)' in line:
                 value_pattern = re.compile(r'^\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$')
                 j = i 
                 nostress = False
@@ -845,6 +930,8 @@ Fe2
         for line in self.LOG:
             if "Density error is" in line:
                 drho.append(float(line.split()[-1]))
+            elif "Electron density deviation" in line:
+                drho.append(float(line.split()[-1]))
         
         if len(drho) == 0:
             self['drho'] = None
@@ -1126,6 +1213,9 @@ class AbacusRelax(ResultAbacus):
                     return
                 elif " STEP OF ION RELAXATION : " in line:
                     self["relax_steps"] = int(line.split()[-1])
+                    return
+                elif "RELAX STEP:" in line:
+                    self["relax_steps"] = int(line.split()[2])  # dev-20260202 version
                     return
         self["relax_steps"] = None
 
