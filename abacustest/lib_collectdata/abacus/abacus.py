@@ -34,6 +34,27 @@ class Abacus(ResultAbacus):
                                 break
         self['version'] = version + "(" + commit + ")"
         return
+    
+    def _use_json_for_params(self):
+        """判断是否应该从 JSON 文件获取参数（版本 3.10.0 或 3.10.1）"""
+        version_str = ''
+        try:
+            version_str = self._PARAM_VALUE.get('version', '')
+        except:
+            pass
+        
+        if not version_str:
+            self.GetVersion()
+            try:
+                version_str = self._PARAM_VALUE.get('version', '')
+            except:
+                pass
+        
+        target_versions = ['3.10.0', '3.10.1']
+        for target in target_versions:
+            if target in version_str:
+                return True
+        return False
                                               
     @ResultAbacus.register(ncore="the mpi cores",
                            omp_num="the omp cores",)
@@ -147,48 +168,34 @@ class Abacus(ResultAbacus):
                            point_group="point group",
                            point_group_in_space_group="point group in space group")
     def GetLogParam(self): 
-        temp_nkstot = None
-        temp_ibzk = None
-        temp_nbands = None
-        temp_natom = None
-        temp_nelec = None
-        temp_nelec_dict = None
-        temp_fft_grid = None
-        temp_point_group = None
-        temp_point_group_in_space_group = None
-        
-        if self.JSON:
-            temp_nbands,_ = comm.get_abacus_json(self.JSON,["init","nband"])
-            temp_nkstot,_ = comm.get_abacus_json(self.JSON,["init","nkstot"])
-            temp_ibzk,_ = comm.get_abacus_json(self.JSON,["init","nkstot_ibz"])
-            temp_natom,_ = comm.get_abacus_json(self.JSON,["init","natom"])
-            temp_nelec,_ = comm.get_abacus_json(self.JSON,["init","nelectron"])
-            temp_nelec_dict,_ = comm.get_abacus_json(self.JSON,["init","nelectron_each_type"])
-            temp_fft_grid,_ = comm.get_abacus_json(self.JSON,["init","fft_grid"])
-            temp_point_group,_ = comm.get_abacus_json(self.JSON,["init","point_group"])
-            temp_point_group_in_space_group,_ = comm.get_abacus_json(self.JSON,["init","point_group_in_space"])
-        
-        if temp_nkstot is None or temp_ibzk is None or temp_nbands is None:
-            for i,line in enumerate(self.LOG):
-                if "NBANDS =" in line and temp_nbands is None:
-                    temp_nbands = int(line.split()[2])
-                elif 'nkstot =' in line and temp_nkstot is None:
-                    temp_nkstot = int(line.split()[-1])
-                elif 'Number of irreducible k-points' in line and temp_ibzk is None:
-                    temp_ibzk = int(line.split()[-1])
-                elif 'nkstot now =' in line and temp_ibzk is None:
-                    temp_ibzk = int(line.split()[-1])
-                elif 'nkstot(nspin=' in line and temp_nkstot is None:
-                    temp_nkstot = int(line.split()[-1])
-        
-        if not self.JSON or temp_natom is None:
+        if self._use_json_for_params() and self.JSON:
+            self["nbands"],_ = comm.get_abacus_json(self.JSON,["init","nband"])
+            self["nkstot"],_ = comm.get_abacus_json(self.JSON,["init","nkstot"])
+            self["ibzk"],_ = comm.get_abacus_json(self.JSON,["init","nkstot_ibz"])
+            self["natom"],_ = comm.get_abacus_json(self.JSON,["init","natom"])
+            self["nelec"],_ = comm.get_abacus_json(self.JSON,["init","nelectron"])
+            self["nelec_dict"],_ = comm.get_abacus_json(self.JSON,["init","nelectron_each_type"])
+            self["fft_grid"],_ = comm.get_abacus_json(self.JSON,["init","fft_grid"])
+            self["point_group"],_ = comm.get_abacus_json(self.JSON,["init","point_group"])
+            self["point_group_in_space_group"],_ = comm.get_abacus_json(self.JSON,["init","point_group_in_space"])
+        else:
             natom = 0
             nelec = 0
             elec_dict = {}
             point_group = None
             point_group_in_space_group = None
             for i,line in enumerate(self.LOG):
-                if "            electron number of element" in line:
+                if "NBANDS =" in line:
+                    self['nbands'] = int(line.split()[2])
+                elif 'nkstot =' in line:
+                    self['nkstot'] = int(line.split()[-1])
+                elif 'Number of irreducible k-points' in line:
+                    self['ibzk'] = int(line.split()[-1])
+                elif 'nkstot now =' in line:
+                    self['ibzk'] = int(line.split()[-1])
+                elif 'nkstot(nspin=' in line:
+                    self['nkstot'] = int(line.split()[-1])
+                elif "            electron number of element" in line:
                     elec_dict[line.split()[4]] = float(line.split()[-1])
                 elif 'number of atom for this type =' in line:
                     natom += int(line.split()[-1])
@@ -198,42 +205,20 @@ class Abacus(ResultAbacus):
                     point_group = line.split("=")[1].strip()
                 elif "POINT GROUP IN SPACE GROUP =" in line:
                     point_group_in_space_group = line.split("=")[1].strip()
-            
-            if temp_natom is None and natom > 0:
-                temp_natom = natom 
-            if temp_nelec is None:
-                if nelec > 0:
-                    temp_nelec = nelec 
-                else:
-                    temp_nelec = None
-            if temp_nelec_dict is None:
-                if elec_dict:
-                    temp_nelec_dict = elec_dict
-                else:
-                    temp_nelec_dict = None
-            if temp_point_group is None:
-                temp_point_group = point_group
-            if temp_point_group_in_space_group is None:
-                temp_point_group_in_space_group = point_group_in_space_group
-        
-        if temp_nbands is not None:
-            self["nbands"] = temp_nbands
-        if temp_nkstot is not None:
-            self["nkstot"] = temp_nkstot
-        if temp_ibzk is not None:
-            self["ibzk"] = temp_ibzk
-        if temp_natom is not None:
-            self["natom"] = temp_natom
-        if temp_nelec is not None:
-            self["nelec"] = temp_nelec
-        if temp_nelec_dict is not None:
-            self["nelec_dict"] = temp_nelec_dict
-        if temp_fft_grid is not None:
-            self["fft_grid"] = temp_fft_grid
-        if temp_point_group is not None:
-            self["point_group"] = temp_point_group
-        if temp_point_group_in_space_group is not None:
-            self["point_group_in_space_group"] = temp_point_group_in_space_group
+
+            self["point_group"] = point_group
+            self["point_group_in_space_group"] = point_group_in_space_group
+            if natom > 0:
+                self["natom"] = natom 
+            if nelec > 0:
+                self["nelec"] = nelec 
+            else:
+                self["nelec"] = None
+
+            if elec_dict:
+                self["nelec_dict"] = elec_dict
+            else:
+                self["nelec_dict"] = None
 
     @ResultAbacus.register(total_mag="total magnetism (Bohr mag/cell)",
                            absolute_mag="absolute magnetism (Bohr mag/cell)",
@@ -241,19 +226,13 @@ class Abacus(ResultAbacus):
                            absolute_mags="absolute magnetism (Bohr mag/cell) of each ION step",
                            )
     def GetMagResult(self): 
-        temp_total_mag = None
-        temp_absolute_mag = None
-        temp_total_mags = []
-        temp_absolute_mags = []
-        
-        if self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
+        if self._use_json_for_params() and self.JSON and self.JSON.get("output") and len(self.JSON.get("output")) > 0:
             output_list = self.JSON.get("output")
-            temp_total_mags = [out.get("total_mag", None) for out in output_list]
-            temp_absolute_mags = [out.get("absolute_mag", None) for out in output_list]
-            temp_total_mag = output_list[-1].get("total_mag", None)
-            temp_absolute_mag = output_list[-1].get("absolute_mag", None)
-        
-        if temp_total_mag is None or temp_absolute_mag is None or not temp_total_mags or not temp_absolute_mags:
+            self['total_mags'] = [out.get("total_mag", None) for out in output_list]
+            self['absolute_mags'] = [out.get("absolute_mag", None) for out in output_list]
+            self['total_mag'] = output_list[-1].get("total_mag", None)
+            self['absolute_mag'] = output_list[-1].get("absolute_mag", None)
+        else:
             total_mags = []
             absolute_mags = []
             tot_mag = None
@@ -275,26 +254,17 @@ class Abacus(ResultAbacus):
                         tot_mag = float(sline[-1])
                 elif 'absolute magnetism' in line or 'Absolute magnetism' in line:
                     abs_mag = float(line.split()[-1])
-            
-            if temp_total_mag is None and tot_mag is not None:
-                temp_total_mag = tot_mag
-            if temp_absolute_mag is None and abs_mag is not None:
-                temp_absolute_mag = abs_mag
-            if not temp_total_mags and tot_mag is not None:
-                temp_total_mags = total_mags + [tot_mag]
-            if not temp_absolute_mags and abs_mag is not None:
-                temp_absolute_mags = absolute_mags + [abs_mag]
         
-        if temp_total_mag is not None:    
-            self['total_mag'] = temp_total_mag
-            self['absolute_mag'] = temp_absolute_mag
-            self['total_mags'] = temp_total_mags if temp_total_mags else None
-            self['absolute_mags'] = temp_absolute_mags if temp_absolute_mags else None
-        else:
-            self['total_mag'] = None
-            self['absolute_mag'] = None
-            self['total_mags'] = None
-            self['absolute_mags'] = None
+            if tot_mag is not None:    
+                self['total_mag'] = tot_mag
+                self['absolute_mag'] = abs_mag
+                self['total_mags'] = total_mags + [tot_mag]
+                self['absolute_mags'] = absolute_mags + [abs_mag]
+            else:
+                self['total_mag'] = None
+                self['absolute_mag'] = None
+                self['total_mags'] = None
+                self['absolute_mags'] = None
         
     
     @ResultAbacus.register(converge="if the SCF is converged",
