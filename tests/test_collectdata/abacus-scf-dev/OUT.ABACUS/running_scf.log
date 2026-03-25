@@ -1,0 +1,1545 @@
+                                                                                     
+                              ABACUS v3.9.0.24
+
+               Atomic-orbital Based Ab-initio Computation at UStc                    
+
+                     Website: http://abacus.ustc.edu.cn/                             
+               Documentation: https://abacus.deepmodeling.com/                       
+                  Repository: https://github.com/abacusmodeling/abacus-develop       
+                              https://github.com/deepmodeling/abacus-develop         
+                      Commit: 14746d392 (Mon Feb 2 14:11:41 2026 +0800)
+
+    Start Time is Wed Mar 25 15:30:14 2026
+                                                                                     
+ ------------------------------------------------------------------------------------
+
+ READING GENERAL INFORMATION
+                           global_out_dir = OUT.ABACUS/
+                           global_in_card = INPUT
+                               pseudo_dir = 
+                              orbital_dir = 
+                                    DRANK = 1
+                                    DSIZE = 16
+                                   DCOLOR = 1
+                                    GRANK = 1
+                                    GSIZE = 1
+
+
+ >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ |                                                                    |
+ |                        #Setup Unitcell#                            |
+ | From the input file and the structure file we know the number of   |
+ | different elments in this unitcell, then we list the detail        |
+ | information for each element, especially the zeta and polar atomic |
+ | orbital number for each element. The total atom number is counted. |
+ | We calculate the nearest atom distance for each atom and show the  |
+ | Cartesian and Direct coordinates for each atom. We list the file   |
+ | address for atomic orbitals. The volume and the lattice vectors    |
+ | in real and reciprocal space is also shown.                        |
+ |                                                                    |
+ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+ READING UNITCELL INFORMATION
+                       Number of elements = 6
+                  Lattice constant (Bohr) = 1.88973
+              Lattice constant (Angstrom) = 1
+
+ READING ATOM TYPE 1
+                               Atom label = C
+                      L=0, number of zeta = 2
+                      L=1, number of zeta = 2
+                      L=2, number of zeta = 1
+            Number of atoms for this type = 2
+               magnetization of element 1 = 0
+
+ READING ATOM TYPE 2
+                               Atom label = Fe
+                      L=0, number of zeta = 4
+                      L=1, number of zeta = 2
+                      L=2, number of zeta = 2
+                      L=3, number of zeta = 1
+            Number of atoms for this type = 2
+               magnetization of element 2 = 0
+
+ READING ATOM TYPE 3
+                               Atom label = H
+                      L=0, number of zeta = 2
+                      L=1, number of zeta = 1
+            Number of atoms for this type = 6
+               magnetization of element 3 = 0
+
+ READING ATOM TYPE 4
+                               Atom label = O
+                      L=0, number of zeta = 2
+                      L=1, number of zeta = 2
+                      L=2, number of zeta = 1
+            Number of atoms for this type = 1
+               magnetization of element 4 = 0
+
+ READING ATOM TYPE 5
+                               Atom label = Sb
+                      L=0, number of zeta = 2
+                      L=1, number of zeta = 2
+                      L=2, number of zeta = 2
+                      L=3, number of zeta = 1
+            Number of atoms for this type = 4
+               magnetization of element 5 = 0
+
+ READING ATOM TYPE 6
+                               Atom label = Y
+                      L=0, number of zeta = 4
+                      L=1, number of zeta = 2
+                      L=2, number of zeta = 2
+                      L=3, number of zeta = 1
+            Number of atoms for this type = 12
+               magnetization of element 6 = 0
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+          Autoset magnetism for this atom = 1
+
+                        TOTAL ATOM NUMBER = 27
+
+ CARTESIAN COORDINATES ( UNIT =      1.88972600 Bohr )
+ atom                  x                  y                  z     mag
+    C     3.953641216622     5.110848085965    21.359544765786  1.0000
+    C     4.389361632992     3.744018872997    21.863006641936  1.0000
+   Fe     4.567274064945     6.384081689001    17.201608754948  1.0000
+   Fe     4.635293960565     6.348156929023    13.598405837985  1.0000
+    H     4.815284609005     5.803545353552    21.289234068732  1.0000
+    H    11.509157001873     5.568362804346    22.036308052705  1.0000
+    H     3.646897901866     5.844777756852    19.464803198022  1.0000
+    H     5.174308126673     3.317977322215    21.214763956285  1.0000
+    H     3.541012731956     3.040181584639    21.898897605657  1.0000
+    H     4.798920435163     3.835503245239    22.884419638233  1.0000
+    O     3.350765485134     5.016995195315    20.037481017768  1.0000
+   Sb     8.811154015181     3.974067455918    16.058886743923  1.0000
+   Sb     4.633243494434     1.598991807844    16.097298778256  1.0000
+   Sb     8.785495758056     3.952036857609    11.506342887876  1.0000
+   Sb     4.635293960562     1.555916547775    11.506342887876  1.0000
+    Y    10.862250495783     6.379142578448    15.573003712647  1.0000
+    Y     3.236585589331     3.933150332835    17.956031128158  1.0000
+    Y     7.633887114973     1.487701201114    17.931131270157  1.0000
+    Y     5.686498407377     4.604130979144    15.576731015090  1.0000
+    Y     1.511266400098     0.933526042471    15.457499229333  1.0000
+    Y     7.011762231474     6.556142111011    18.040075270505  1.0000
+    Y    10.995330810545     6.348156929023    11.506342887876  1.0000
+    Y     2.982653379450     3.485699892046    13.598405837985  1.0000
+    Y     7.132855415344     2.022253513337    13.598405837985  1.0000
+    Y     5.605477333074     4.667749881743    11.506342887876  1.0000
+    Y     1.455275416370     0.840203702448    11.506342887876  1.0000
+    Y     7.940574646002     6.348156929023    13.598405837985  1.0000
+
+ ATOMIC VELOCITIES
+ atom                 vx                 vy                 vz
+    C                  0                  0                  0
+    C                  0                  0                  0
+   Fe                  0                  0                  0
+   Fe                  0                  0                  0
+    H                  0                  0                  0
+    H                  0                  0                  0
+    H                  0                  0                  0
+    H                  0                  0                  0
+    H                  0                  0                  0
+    H                  0                  0                  0
+    O                  0                  0                  0
+   Sb                  0                  0                  0
+   Sb                  0                  0                  0
+   Sb                  0                  0                  0
+   Sb                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+    Y                  0                  0                  0
+
+                     Cell volume (Bohr^3) = 11793.1
+                        Cell volume (A^3) = 1747.56
+
+ Lattice vectors: (Cartesian coordinate: in unit of a_0)
+              +8.3004                  +0                  +0
+              +4.1502            +7.18836                  +0
+                   -0                  +0            +29.2889
+ Reciprocal vectors: (Cartesian coordinate: in unit of 2 pi/a_0)
+            +0.120476          -0.0695569                  +0
+                   -0           +0.139114                  -0
+                   +0                  -0          +0.0341427
+
+ #ENERGY SOLVER# ksdft_lcao
+ RUNNING WITH DEVICE  : CPU / Intel(R) Xeon(R) Platinum 8457C (x2)
+
+
+ >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ |                                                                    |
+ |                 #Read Pseudopotentials Files#                      |
+ | ABACUS supports norm-conserving (NC) pseudopotentials for both     |
+ | plane wave basis and numerical atomic orbital basis sets.          |
+ | In addition, ABACUS supports ultrasoft pseudopotentials (USPP)     |
+ | for plane wave basis set.                                          |
+ |                                                                    |
+ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+                PAO radial cut off (Bohr) = 15
+                     Pseudopotential file = C.upf
+                     Pseudopotential type = NC
+          Exchange-correlation functional = PBE
+                 Nonlocal core correction = 1
+                        Valence electrons = 4
+                                     Lmax = 1
+                           Number of zeta = 2
+                     Number of projectors = 4
+                           L of projector = 0
+                           L of projector = 0
+                           L of projector = 1
+                           L of projector = 1
+                PAO radial cut off (Bohr) = 15
+                     Pseudopotential file = Fe_ONCV_PBE-1.2.upf
+                     Pseudopotential type = NC
+          Exchange-correlation functional = PBE
+                 Nonlocal core correction = 0
+                        Valence electrons = 16
+                                     Lmax = 2
+                           Number of zeta = 0
+                     Number of projectors = 6
+                           L of projector = 0
+                           L of projector = 0
+                           L of projector = 1
+                           L of projector = 1
+                           L of projector = 2
+                           L of projector = 2
+                PAO radial cut off (Bohr) = 15
+                     Pseudopotential file = H.upf
+                     Pseudopotential type = NC
+          Exchange-correlation functional = PBE
+                 Nonlocal core correction = 0
+                        Valence electrons = 1
+                                     Lmax = 1
+                           Number of zeta = 1
+                     Number of projectors = 3
+                           L of projector = 0
+                           L of projector = 0
+                           L of projector = 1
+                PAO radial cut off (Bohr) = 15
+                     Pseudopotential file = O.upf
+                     Pseudopotential type = NC
+          Exchange-correlation functional = PBE
+                 Nonlocal core correction = 1
+                        Valence electrons = 6
+                                     Lmax = 2
+                           Number of zeta = 2
+                     Number of projectors = 5
+                           L of projector = 0
+                           L of projector = 0
+                           L of projector = 1
+                           L of projector = 1
+                           L of projector = 2
+                PAO radial cut off (Bohr) = 15
+                     Pseudopotential file = Sb_ONCV_PBE-1.1.upf
+                     Pseudopotential type = NC
+          Exchange-correlation functional = PBE
+                 Nonlocal core correction = 0
+                        Valence electrons = 15
+                                     Lmax = 2
+                           Number of zeta = 0
+                     Number of projectors = 6
+                           L of projector = 0
+                           L of projector = 0
+                           L of projector = 1
+                           L of projector = 1
+                           L of projector = 2
+                           L of projector = 2
+                PAO radial cut off (Bohr) = 15
+                     Pseudopotential file = Y.upf
+                     Pseudopotential type = NC
+          Exchange-correlation functional = PBE
+                 Nonlocal core correction = 1
+                        Valence electrons = 11
+                                     Lmax = 2
+                           Number of zeta = 4
+                     Number of projectors = 6
+                           L of projector = 0
+                           L of projector = 0
+                           L of projector = 1
+                           L of projector = 1
+                           L of projector = 2
+                           L of projector = 2
+         Number of pseudo atomic orbitals = 138
+ The readin total magnetization is 27
+             Electron number of element C = 4
+       Total electron number of element C = 8
+            Electron number of element Fe = 16
+      Total electron number of element Fe = 32
+             Electron number of element H = 1
+       Total electron number of element H = 6
+             Electron number of element O = 6
+       Total electron number of element O = 6
+            Electron number of element Sb = 15
+      Total electron number of element Sb = 60
+             Electron number of element Y = 11
+       Total electron number of element Y = 132
+          Autoset the number of electrons = 244
+               Occupied electronic states = 122
+                 Number of basis (NLOCAL) = 547
+     Number of electronic states (NBANDS) = 163
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ Warning: the number of valence electrons in pseudopotential > 8 for Fe: [Ar] 3d6 4s2
+ Warning: the number of valence electrons in pseudopotential > 5 for Sb: [Kr] 4d10 5s2 5p3
+ Warning: the number of valence electrons in pseudopotential > 3 for Y: [Kr] 4d1 5s2
+ Pseudopotentials with additional electrons can yield (more) accurate outcomes, but may be less efficient.
+ If you're confident that your chosen pseudopotential is appropriate, you can safely ignore this warning.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                  
+
+
+ >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ |                                                                    |
+ |           #Setup Plane Waves of Charge/Potential#                  |
+ | Use the kinetic energy cutoff and the lattice vectors to generate  |
+ | the dimensions of FFT grid, which is used to represent the charge  |
+ | density or potential. If USPP is used, a double grid technique     |
+ | is applied.                                                        |
+ |                                                                    |
+ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+ SETUP PLANE WAVES FOR CHARGE/POTENTIAL
+  Energy cutoff for charge/potential (Ry) = 400
+            FFT grid for charge/potential = [ 100, 100, 360 ]
+           Number of FFT grids this proc. = 240000
+                Division for big FFT grid = [ 5, 5, 4 ]
+      FFT (big) grid for charge/potential = [ 20, 20, 90 ]
+     Number of FFT (big) grids this proc. = 2400
+                    Number of plane waves = 1592903
+        Number of sticks on FFT x-y plane = 6763
+
+ PARALLEL PW FOR CHARGE/POTENTIAL
+     PROC   COLUMNS(POT)             PW
+        1            423          99559
+        2            423          99559
+        3            423          99559
+        4            423          99559
+        5            423          99559
+        6            423          99559
+        7            423          99563
+        8            423          99563
+        9            422          99550
+       10            422          99550
+       11            423          99553
+       12            422          99550
+       13            423          99559
+       14            423          99561
+       15            422          99550
+       16            422          99550
+ --------------- SUM -------------------
+       16           6763        1592903
+
+                            Number of |g| = 47271
+                                  Max |g| = 36.181
+                                  Min |g| = 0.0580579
+ DONE : SETUP UNITCELL Time : 0.393385 (SEC)
+
+
+ >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ |                                                                    |
+ |                       #Setup K-points#                             |
+ | We setup the k-points according to input parameters.               |
+ | The reduced k-points are set according to symmetry operations.     |
+ | We treat the spin as another set of k-points.                      |
+ |                                                                    |
+ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+ SETUP K-POINTS
+                                    nspin = 2
+                   Input type of k points = Monkhorst-Pack(Gamma)
+                                   nkstot = 16
+           Number of irreducible k-points = 10
+
+ K-POINTS REDUCTION ACCORDING TO SYMMETRY
+     IBZ    DIRECT_X    DIRECT_Y    DIRECT_Z  WEIGHT  ibz2bz
+       1  0.00000000  0.00000000  0.00000000  0.0625       0
+       2  0.25000000  0.00000000  0.00000000  0.1250       1
+       3  0.50000000  0.00000000  0.00000000  0.0625       2
+       4  0.00000000  0.25000000  0.00000000  0.1250       4
+       5  0.25000000  0.25000000  0.00000000  0.1250       5
+       6  0.50000000  0.25000000  0.00000000  0.1250       6
+       7 -0.25000000  0.25000000  0.00000000  0.1250       7
+       8  0.00000000  0.50000000  0.00000000  0.0625       8
+       9  0.25000000  0.50000000  0.00000000  0.1250       9
+      10  0.50000000  0.50000000  0.00000000  0.0625      10
+
+                               nkstot now = 10
+ K-POINTS DIRECT COORDINATES
+ KPOINTS    DIRECT_X    DIRECT_Y    DIRECT_Z  WEIGHT
+       1  0.00000000  0.00000000  0.00000000  0.0625
+       2  0.25000000  0.00000000  0.00000000  0.1250
+       3  0.50000000  0.00000000  0.00000000  0.0625
+       4  0.00000000  0.25000000  0.00000000  0.1250
+       5  0.25000000  0.25000000  0.00000000  0.1250
+       6  0.50000000  0.25000000  0.00000000  0.1250
+       7 -0.25000000  0.25000000  0.00000000  0.1250
+       8  0.00000000  0.50000000  0.00000000  0.0625
+       9  0.25000000  0.50000000  0.00000000  0.1250
+      10  0.50000000  0.50000000  0.00000000  0.0625
+
+
+       Number of k-points in this process = 10
+       Minimum distributed k-point number = 10
+                             nks(nspin=2) = 20
+                          nkstot(nspin=2) = 20
+
+ K-POINTS CARTESIAN COORDINATES
+ KPOINTS CARTESIAN_X CARTESIAN_Y CARTESIAN_Z  WEIGHT
+       1  0.00000000  0.00000000  0.00000000  0.0625
+       2  0.03011902 -0.01738922  0.00000000  0.1250
+       3  0.06023803 -0.03477844  0.00000000  0.0625
+       4  0.00000000  0.03477844  0.00000000  0.1250
+       5  0.03011902  0.01738922  0.00000000  0.1250
+       6  0.06023803  0.00000000  0.00000000  0.1250
+       7 -0.03011902  0.05216767  0.00000000  0.1250
+       8  0.00000000  0.06955689  0.00000000  0.0625
+       9  0.03011902  0.05216767  0.00000000  0.1250
+      10  0.06023803  0.03477844  0.00000000  0.0625
+      11  0.00000000  0.00000000  0.00000000  0.0625
+      12  0.03011902 -0.01738922  0.00000000  0.1250
+      13  0.06023803 -0.03477844  0.00000000  0.0625
+      14  0.00000000  0.03477844  0.00000000  0.1250
+      15  0.03011902  0.01738922  0.00000000  0.1250
+      16  0.06023803  0.00000000  0.00000000  0.1250
+      17 -0.03011902  0.05216767  0.00000000  0.1250
+      18  0.00000000  0.06955689  0.00000000  0.0625
+      19  0.03011902  0.05216767  0.00000000  0.1250
+      20  0.06023803  0.03477844  0.00000000  0.0625
+
+
+ K-POINTS DIRECT COORDINATES
+ KPOINTS    DIRECT_X    DIRECT_Y    DIRECT_Z  WEIGHT
+       1  0.00000000  0.00000000  0.00000000  0.0625
+       2  0.25000000  0.00000000  0.00000000  0.1250
+       3  0.50000000  0.00000000  0.00000000  0.0625
+       4  0.00000000  0.25000000  0.00000000  0.1250
+       5  0.25000000  0.25000000  0.00000000  0.1250
+       6  0.50000000  0.25000000  0.00000000  0.1250
+       7 -0.25000000  0.25000000  0.00000000  0.1250
+       8  0.00000000  0.50000000  0.00000000  0.0625
+       9  0.25000000  0.50000000  0.00000000  0.1250
+      10  0.50000000  0.50000000  0.00000000  0.0625
+      11  0.00000000  0.00000000  0.00000000  0.0625
+      12  0.25000000  0.00000000  0.00000000  0.1250
+      13  0.50000000  0.00000000  0.00000000  0.0625
+      14  0.00000000  0.25000000  0.00000000  0.1250
+      15  0.25000000  0.25000000  0.00000000  0.1250
+      16  0.50000000  0.25000000  0.00000000  0.1250
+      17 -0.25000000  0.25000000  0.00000000  0.1250
+      18  0.00000000  0.50000000  0.00000000  0.0625
+      19  0.25000000  0.50000000  0.00000000  0.1250
+      20  0.50000000  0.50000000  0.00000000  0.0625
+
+ DONE : INIT K-POINTS Time : 0.409115 (SEC)
+
+
+ Warning_Memory_Consuming allocated:  SF::strucFac 9.1149 MB
+ XC:	gga_x_pbe	gga_c_pbe	
+
+ >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ |                                                                    |
+ | Setup charge mixing parameters                                     |
+ |                                                                    |
+ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+                              mixing_type = broyden
+                              mixing_beta = 0.4
+                               mixing_gg0 = 1
+                           mixing_gg0_min = 0.1
+                          mixing_beta_mag = 1.6
+                           mixing_gg0_mag = 0
+                              mixing_ndim = 8
+
+ Warning_Memory_Consuming allocated:  PW_B_K::gcar 5.74127 MB
+
+
+ >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ |                                                                    |
+ |              #Setup Plane Waves of Wave Functions#                 |
+ | Use the kinetic energy cutoff and the lattice vectors to generate  |
+ | the dimensions of FFT grid, which is used to represent the wave    |
+ | functions of electrons.                                            |
+ |                                                                    |
+ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+ SETUP PLANE WAVES FOR WAVE FUNCTIONS
+     Energy cutoff for wavefunc (unit:Ry) = 100
+              FFT grid for wave functions = [ 100, 100, 360 ]
+              Number of total plane waves = 213481
+        Number of sticks on FFT x-y plane = 1789
+
+ PARALLEL PW FOR WAVE FUNCTIONS
+     PROC   COLUMNS(POT)             PW
+        1            111          13341
+        2            112          13348
+        3            112          13340
+        4            112          13340
+        5            112          13340
+        6            112          13344
+        7            112          13344
+        8            112          13342
+        9            112          13344
+       10            112          13344
+       11            112          13344
+       12            112          13344
+       13            112          13344
+       14            112          13344
+       15            111          13339
+       16            111          13339
+ --------------- sum -------------------
+       16           1789         213481
+ DONE : INIT PLANEWAVE Time : 0.549799 (SEC)
+
+                                 init_chg = atomic
+
+ Warning_Memory_Consuming allocated:  ORB::Jl(x) 6.1417 MB
+
+ Warning_Memory_Consuming allocated:  ORB::Jl(x) 12.2834 MB
+
+ Warning_Memory_Consuming allocated:  ORB::Jl(x) 18.4251 MB
+
+ Warning_Memory_Consuming allocated:  ORB::Jl(x) 21.4998 MB
+
+ Warning_Memory_Consuming allocated:  ORB::Jl(x) 23.0256 MB
+
+ Warning_Memory_Consuming allocated:  ORB::Jl(x) 30.7008 MB
+ SET NONLOCAL PSEUDOPOTENTIAL PROJECTORS
+ SET NONLOCAL PSEUDOPOTENTIAL PROJECTORS
+ SET NONLOCAL PSEUDOPOTENTIAL PROJECTORS
+ SET NONLOCAL PSEUDOPOTENTIAL PROJECTORS
+ SET NONLOCAL PSEUDOPOTENTIAL PROJECTORS
+ SET NONLOCAL PSEUDOPOTENTIAL PROJECTORS
+ Max number of nonlocal projectors (all elements) = 6
+
+ Warning_Memory_Consuming allocated:  TwoCenterTable: Kinetic 31.934 MB
+
+ Warning_Memory_Consuming allocated:  TwoCenterTable: Overlap 31.934 MB
+
+ Warning_Memory_Consuming allocated:  TwoCenterTable: Nonlocal 24.803 MB
+
+ Warning_Memory_Consuming allocated:  DensityMatrix::DMK 7.8125 MB
+ DONE : CHARGE Time : 5.34178 (SEC)
+
+ DONE : POTENTIALS Time : 7.89621 (SEC)
+
+ ================================================================
+ SELF-CONSISTENT
+ ================================================================
+
+
+ >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ |                                                                    |
+ |                    #Search Adjacent Atoms#                         |
+ | Set the adjacent atoms for each atom and set the periodic boundary |
+ | condition for the atoms on real space FFT grid. For k-dependent    |
+ | algorithm, we also need to set the sparse H and S matrix element   |
+ | for each atom.                                                     |
+ |                                                                    |
+ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+ SETUP SEARCHING RADIUS
+         Orbital max radius cutoff (Bohr) = 10
+  Nonlocal proj. max radius cutoff (Bohr) = 3.62
+                     Search radius (Bohr) = 27.2
+ SEARCH ADJACENT ATOMS
+                  searching radius (Bohr) = 27.2
+          Radius (unit: lattice constant) = 14.4
+                      Max number of cells = [ 4, 4, 2 ]
+                      Min number of cells = [ 3, 3, 1 ]
+                 Min coordinates of atoms = [ -35.9, -20.7, -17.8 ]
+                 Max coordinates of atoms = [ 48.9, 28.1, 52.2 ]
+                   Number of needed cells = [ 7, 7, 3 ]
+                                ParaV.nnr = 137608
+ DONE : INIT SCF Time : 10.0598 (SEC)
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#         1
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 3.96155
+       Absolute magnetism (Bohr mag/cell) = 4.72573
+              Electron number for spin up = 123.981
+            Electron number for spin down = 120.019
+ Electron density deviation 0.149413
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2076.6512167784     -28254.2893068199    
+  E_Harris       -1791.5511681893     -24375.3041459310    
+  E_Fermi        -0.0568444854        -0.7734089013        
+  E_gap(k)       0.0020673076         0.0281271636         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#         2
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.774083
+       Absolute magnetism (Bohr mag/cell) = 2.56648
+              Electron number for spin up = 121.613
+            Electron number for spin down = 122.387
+ Electron density deviation 0.165771
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2076.9107244475     -28257.8200897943    
+  E_Harris       -2446.2488131458     -33282.9225845203    
+  E_Fermi        0.0947044262         1.2885198215         
+  E_gap(k)       0.0004060444         0.0055245168         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#         3
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.00990765
+       Absolute magnetism (Bohr mag/cell) = 1.49061
+              Electron number for spin up = 121.995
+            Electron number for spin down = 122.005
+ Electron density deviation 0.0722706
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2080.3907960514     -28305.1688930544    
+  E_Harris       -1957.3808950043     -26631.5333283977    
+  E_Fermi        0.0269956626         0.3672948323         
+  E_gap(k)       0.0008268146         0.0112493894         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#         4
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 0.142162
+       Absolute magnetism (Bohr mag/cell) = 0.806502
+              Electron number for spin up = 122.071
+            Electron number for spin down = 121.929
+ Electron density deviation 0.073449
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.1043000349     -28314.8766127764    
+  E_Harris       -2145.6887004182     -29193.5924599024    
+  E_Fermi        0.0615965774         0.8380644293         
+  E_gap(k)       0.0005156662         0.0070159986         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#         5
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 0.167543
+       Absolute magnetism (Bohr mag/cell) = 0.710982
+              Electron number for spin up = 122.084
+            Electron number for spin down = 121.916
+ Electron density deviation 0.0549937
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2080.9246242904     -28312.4319988593    
+  E_Harris       -2145.3440479160     -29188.9032220425    
+  E_Fermi        0.0623420194         0.8482066883         
+  E_gap(k)       0.0002427321         0.0033025392         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#         6
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 0.157366
+       Absolute magnetism (Bohr mag/cell) = 0.545083
+              Electron number for spin up = 122.079
+            Electron number for spin down = 121.921
+ Electron density deviation 0.0262044
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2407637064     -28316.7332962783    
+  E_Harris       -2053.6897529648     -27941.8825645342    
+  E_Fermi        0.0751054809         1.0218624910         
+  E_gap(k)       0.0011075881         0.0150695092         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#         7
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 0.0249238
+       Absolute magnetism (Bohr mag/cell) = 0.422189
+              Electron number for spin up = 122.012
+            Electron number for spin down = 121.988
+ Electron density deviation 0.0225985
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.0516455496     -28314.1602117511    
+  E_Harris       -2043.6009607941     -27804.6175050739    
+  E_Fermi        0.0809864524         1.1018772137         
+  E_gap(k)       0.0034819793         0.0473747581         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#         8
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.0875787
+       Absolute magnetism (Bohr mag/cell) = 0.401474
+              Electron number for spin up = 121.956
+            Electron number for spin down = 122.044
+ Electron density deviation 0.028355
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.0451515679     -28314.0718565973    
+  E_Harris       -2081.8228577301     -28324.6530917726    
+  E_Fermi        0.0858728886         1.1683605893         
+  E_gap(k)       0.0005770182         0.0078507357         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#         9
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.0698658
+       Absolute magnetism (Bohr mag/cell) = 0.48728
+              Electron number for spin up = 121.965
+            Electron number for spin down = 122.035
+ Electron density deviation 0.0164779
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2017268255     -28316.2021722664    
+  E_Harris       -2070.7690197656     -28174.2579106863    
+  E_Fermi        0.0979129204         1.3321736249         
+  E_gap(k)       0.0033769713         0.0459460514         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        10
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.124662
+       Absolute magnetism (Bohr mag/cell) = 0.594239
+              Electron number for spin up = 121.938
+            Electron number for spin down = 122.062
+ Electron density deviation 0.00560271
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2348873265     -28316.6533440289    
+  E_Harris       -2066.7956402846     -28120.1973094288    
+  E_Fermi        0.0999935227         1.3604816725         
+  E_gap(k)       0.0006094166         0.0082915383         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        11
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.132606
+       Absolute magnetism (Bohr mag/cell) = 0.627853
+              Electron number for spin up = 121.934
+            Electron number for spin down = 122.066
+ Electron density deviation 0.00517071
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2352462314     -28316.6582271795    
+  E_Harris       -2071.0607459754     -28178.2270493956    
+  E_Fermi        0.1013135805         1.3784419799         
+  E_gap(k)       0.0004161043         0.0056613898         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        12
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.111019
+       Absolute magnetism (Bohr mag/cell) = 0.549177
+              Electron number for spin up = 121.944
+            Electron number for spin down = 122.056
+ Electron density deviation 0.00547321
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2350929005     -28316.6561410058    
+  E_Harris       -2072.8228532205     -28202.2017484170    
+  E_Fermi        0.1008158333         1.3716697821         
+  E_gap(k)       0.0003771257         0.0051310584         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        13
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.157542
+       Absolute magnetism (Bohr mag/cell) = 0.76634
+              Electron number for spin up = 121.921
+            Electron number for spin down = 122.079
+ Electron density deviation 0.00450943
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2291295639     -28316.5750056488    
+  E_Harris       -2073.1339394963     -28206.4342943364    
+  E_Fermi        0.1034768158         1.4078743059         
+  E_gap(k)       0.0003850847         0.0052393463         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        14
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.29604
+       Absolute magnetism (Bohr mag/cell) = 1.32299
+              Electron number for spin up = 121.852
+            Electron number for spin down = 122.148
+ Electron density deviation 0.00195708
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2335350585     -28316.6349454786    
+  E_Harris       -2074.9236115161     -28230.7840313568    
+  E_Fermi        0.1119984687         1.5238173410         
+  E_gap(k)       0.0006342940         0.0086300132         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        15
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.271918
+       Absolute magnetism (Bohr mag/cell) = 1.26312
+              Electron number for spin up = 121.864
+            Electron number for spin down = 122.136
+ Electron density deviation 0.00162052
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2332775280     -28316.6314415964    
+  E_Harris       -2079.3080159371     -28290.4369138195    
+  E_Fermi        0.1122839864         1.5277020098         
+  E_gap(k)       0.0003895086         0.0052995359         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        16
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.244606
+       Absolute magnetism (Bohr mag/cell) = 1.11007
+              Electron number for spin up = 121.878
+            Electron number for spin down = 122.122
+ Electron density deviation 0.00283726
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2310520886     -28316.6011629394    
+  E_Harris       -2073.9014729605     -28216.8771228557    
+  E_Fermi        0.1114593192         1.5164818366         
+  E_gap(k)       0.0001975757         0.0026881557         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        17
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.23859
+       Absolute magnetism (Bohr mag/cell) = 0.993415
+              Electron number for spin up = 121.881
+            Electron number for spin down = 122.119
+ Electron density deviation 0.00375924
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2355592821     -28316.6624864531    
+  E_Harris       -2079.9525197012     -28299.2058373939    
+  E_Fermi        0.1098545580         1.4946479399         
+  E_gap(k)       0.0008316413         0.0113150607         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        18
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.230518
+       Absolute magnetism (Bohr mag/cell) = 0.869487
+              Electron number for spin up = 121.885
+            Electron number for spin down = 122.115
+ Electron density deviation 0.00445351
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2312343092     -28316.6036421783    
+  E_Harris       -2079.8353953385     -28297.6122786868    
+  E_Fermi        0.1092960949         1.4870496593         
+  E_gap(k)       0.0001696927         0.0023087872         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        19
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.211282
+       Absolute magnetism (Bohr mag/cell) = 0.812927
+              Electron number for spin up = 121.894
+            Electron number for spin down = 122.106
+ Electron density deviation 0.00145476
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2324564463     -28316.6202702061    
+  E_Harris       -2080.1151870699     -28301.4190404868    
+  E_Fermi        0.1120201834         1.5241127856         
+  E_gap(k)       0.0005279456         0.0071830680         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        20
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.159033
+       Absolute magnetism (Bohr mag/cell) = 0.511001
+              Electron number for spin up = 121.92
+            Electron number for spin down = 122.08
+ Electron density deviation 0.00139321
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2318777075     -28316.6123960614    
+  E_Harris       -2077.2070759252     -28261.8521585015    
+  E_Fermi        0.1117977351         1.5210862203         
+  E_gap(k)       0.0005162102         0.0070233994         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        21
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.0768499
+       Absolute magnetism (Bohr mag/cell) = 0.154212
+              Electron number for spin up = 121.962
+            Electron number for spin down = 122.038
+ Electron density deviation 0.00158654
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2326614245     -28316.6230590782    
+  E_Harris       -2080.6067807228     -28308.1075152664    
+  E_Fermi        0.1137016394         1.5469901675         
+  E_gap(k)       0.0004147928         0.0056435461         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        22
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.0451704
+       Absolute magnetism (Bohr mag/cell) = 0.0965872
+              Electron number for spin up = 121.977
+            Electron number for spin down = 122.023
+ Electron density deviation 0.00078073
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2328203140     -28316.6252208809    
+  E_Harris       -2078.1064711928     -28274.0890588951    
+  E_Fermi        0.1141220871         1.5527106516         
+  E_gap(k)       0.0007175458         0.0097627118         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        23
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.0152707
+       Absolute magnetism (Bohr mag/cell) = 0.0461429
+              Electron number for spin up = 121.992
+            Electron number for spin down = 122.008
+ Electron density deviation 0.000628967
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2328464316     -28316.6255762288    
+  E_Harris       -2079.4457851833     -28292.3113605774    
+  E_Fermi        0.1150911116         1.5658949065         
+  E_gap(k)       0.0009772110         0.0132956376         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        24
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.0115167
+       Absolute magnetism (Bohr mag/cell) = 0.044283
+              Electron number for spin up = 121.994
+            Electron number for spin down = 122.006
+ Electron density deviation 0.000417241
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2329005329     -28316.6263123147    
+  E_Harris       -2080.0339958313     -28300.3143770139    
+  E_Fermi        0.1163306454         1.5827596300         
+  E_gap(k)       0.0009530352         0.0129667087         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        25
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.00388028
+       Absolute magnetism (Bohr mag/cell) = 0.00785972
+              Electron number for spin up = 121.998
+            Electron number for spin down = 122.002
+ Electron density deviation 0.000247503
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2329308890     -28316.6267253305    
+  E_Harris       -2080.2787458333     -28303.6443716261    
+  E_Fermi        0.1166929395         1.5876888942         
+  E_gap(k)       0.0010505776         0.0142938419         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        26
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.00110715
+       Absolute magnetism (Bohr mag/cell) = 0.00204455
+              Electron number for spin up = 121.999
+            Electron number for spin down = 122.001
+ Electron density deviation 0.000196887
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2329629816     -28316.6271619722    
+  E_Harris       -2080.5561264223     -28307.4183281520    
+  E_Fermi        0.1171557231         1.5939853881         
+  E_gap(k)       0.0010637293         0.0144727792         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        27
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -0.000167933
+       Absolute magnetism (Bohr mag/cell) = 0.000480539
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 0.000133047
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2329914262     -28316.6275489819    
+  E_Harris       -2080.7349083048     -28309.8507804526    
+  E_Fermi        0.1178323821         1.6031918061         
+  E_gap(k)       0.0010801051         0.0146955841         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        28
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 0.00102139
+       Absolute magnetism (Bohr mag/cell) = 0.00174686
+              Electron number for spin up = 122.001
+            Electron number for spin down = 121.999
+ Electron density deviation 9.43632e-05
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330077159     -28316.6277706146    
+  E_Harris       -2080.9385102319     -28312.6209267845    
+  E_Fermi        0.1183741585         1.6105630522         
+  E_gap(k)       0.0010761710         0.0146420580         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        29
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 0.000595605
+       Absolute magnetism (Bohr mag/cell) = 0.00123394
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 6.53281e-05
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330226911     -28316.6279743617    
+  E_Harris       -2080.9988614880     -28313.4420477500    
+  E_Fermi        0.1186697172         1.6145843335         
+  E_gap(k)       0.0010883384         0.0148076038         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        30
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 0.000614153
+       Absolute magnetism (Bohr mag/cell) = 0.0015942
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 5.30223e-05
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330290076     -28316.6280603023    
+  E_Harris       -2081.1272207463     -28315.1884650533    
+  E_Fermi        0.1189678603         1.6186407784         
+  E_gap(k)       0.0010844402         0.0147545661         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        31
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 0.000238237
+       Absolute magnetism (Bohr mag/cell) = 0.000495674
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 3.06698e-05
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330338646     -28316.6281263854    
+  E_Harris       -2081.1432162779     -28315.4060954263    
+  E_Fermi        0.1191161636         1.6206585486         
+  E_gap(k)       0.0010938633         0.0148827735         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        32
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 4.66137e-05
+       Absolute magnetism (Bohr mag/cell) = 0.000617733
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 2.01889e-05
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330384287     -28316.6281884838    
+  E_Harris       -2081.1740097606     -28315.8250622519    
+  E_Fermi        0.1191971724         1.6217607301         
+  E_gap(k)       0.0010928315         0.0148687353         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        33
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -3.47186e-05
+       Absolute magnetism (Bohr mag/cell) = 0.000594223
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 1.44678e-05
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330414038     -28316.6282289611    
+  E_Harris       -2081.1907835735     -28316.0532816838    
+  E_Fermi        0.1192644185         1.6226756609         
+  E_gap(k)       0.0010946726         0.0148937853         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        34
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -6.21895e-05
+       Absolute magnetism (Bohr mag/cell) = 0.000401648
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 1.06621e-05
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330437846     -28316.6282613540    
+  E_Harris       -2081.2075175775     -28316.2809594895    
+  E_Fermi        0.1193065788         1.6232492803         
+  E_gap(k)       0.0010941431         0.0148865801         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        35
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -7.67683e-05
+       Absolute magnetism (Bohr mag/cell) = 0.000334828
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 6.53614e-06
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330451393     -28316.6282797856    
+  E_Harris       -2081.2134982370     -28316.3623305367    
+  E_Fermi        0.1193506852         1.6238493785         
+  E_gap(k)       0.0010943372         0.0148892212         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        36
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -4.34069e-05
+       Absolute magnetism (Bohr mag/cell) = 9.602e-05
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 2.95368e-06
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330456363     -28316.6282865471    
+  E_Harris       -2081.2240462147     -28316.5058431354    
+  E_Fermi        0.1193795218         1.6242417213         
+  E_gap(k)       0.0010942884         0.0148885571         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        37
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -1.03409e-05
+       Absolute magnetism (Bohr mag/cell) = 4.55922e-05
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 2.51334e-06
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330457963     -28316.6282887242    
+  E_Harris       -2081.2282449314     -28316.5629696072    
+  E_Fermi        0.1193931604         1.6244272831         
+  E_gap(k)       0.0010945242         0.0148917651         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        38
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -3.78883e-06
+       Absolute magnetism (Bohr mag/cell) = 4.36283e-05
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 1.57617e-06
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330459392     -28316.6282906687    
+  E_Harris       -2081.2288393065     -28316.5710564949    
+  E_Fermi        0.1193977361         1.6244895399         
+  E_gap(k)       0.0010946800         0.0148938859         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        39
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 5.58042e-06
+       Absolute magnetism (Bohr mag/cell) = 4.98603e-05
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 1.33847e-06
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330460211     -28316.6282917837    
+  E_Harris       -2081.2304461251     -28316.5929183832    
+  E_Fermi        0.1194030530         1.6245618797         
+  E_gap(k)       0.0010947193         0.0148944205         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        40
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 4.08355e-06
+       Absolute magnetism (Bohr mag/cell) = 4.26345e-05
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 1.22646e-06
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330461139     -28316.6282930451    
+  E_Harris       -2081.2312334596     -28316.6036306191    
+  E_Fermi        0.1194058676         1.6246001739         
+  E_gap(k)       0.0010947192         0.0148944187         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        41
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 4.4266e-06
+       Absolute magnetism (Bohr mag/cell) = 1.99898e-05
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 8.59331e-07
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330461969     -28316.6282941753    
+  E_Harris       -2081.2316761937     -28316.6096543250    
+  E_Fermi        0.1194092999         1.6246468731         
+  E_gap(k)       0.0010947548         0.0148949037         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        42
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -6.5617e-07
+       Absolute magnetism (Bohr mag/cell) = 2.85431e-06
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 5.48364e-07
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330462201     -28316.6282944908    
+  E_Harris       -2081.2325906773     -28316.6220965133    
+  E_Fermi        0.1194129215         1.6246961470         
+  E_gap(k)       0.0010946926         0.0148940565         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        43
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 1.14535e-07
+       Absolute magnetism (Bohr mag/cell) = 1.08809e-06
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 3.82595e-07
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330462378     -28316.6282947314    
+  E_Harris       -2081.2327280853     -28316.6239660452    
+  E_Fermi        0.1194141406         1.6247127335         
+  E_gap(k)       0.0010947289         0.0148945515         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        44
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = 1.40234e-07
+       Absolute magnetism (Bohr mag/cell) = 1.65443e-06
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 2.41484e-07
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330462387     -28316.6282947434    
+  E_Harris       -2081.2330241879     -28316.6279947267    
+  E_Fermi        0.1194148730         1.6247226987         
+  E_gap(k)       0.0010947032         0.0148942014         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        45
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -9.20955e-07
+       Absolute magnetism (Bohr mag/cell) = 2.94491e-06
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 1.97502e-07
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330462464     -28316.6282948490    
+  E_Harris       -2081.2328231036     -28316.6252588356    
+  E_Fermi        0.1194146298         1.6247193900         
+  E_gap(k)       0.0010947013         0.0148941751         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        46
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -2.00866e-07
+       Absolute magnetism (Bohr mag/cell) = 8.77031e-07
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 1.14262e-07
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330462486     -28316.6282948778    
+  E_Harris       -2081.2328636254     -28316.6258101620    
+  E_Fermi        0.1194147991         1.6247216933         
+  E_gap(k)       0.0010947042         0.0148942147         
+ ----------------------------------------------------------
+
+
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ --> #ION MOVE#         1  #ELEC ITER#        47
+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          Total magnetism (Bohr mag/cell) = -5.88021e-07
+       Absolute magnetism (Bohr mag/cell) = 2.49978e-06
+              Electron number for spin up = 122
+            Electron number for spin down = 122
+ Electron density deviation 8.2814e-08
+ ----------------------------------------------------------
+      Energy           Rydberg                 eV          
+ ----------------------------------------------------------
+  E_KohnSham     -2081.2330462590     -28316.6282950203    
+  E_KS(sigma->0) -2081.2198778103     -28316.4491290833    
+  E_Harris       -2081.2328240708     -28316.6252719944    
+  E_band         -353.1498967348      -4804.8508437052     
+  E_one_elec     -15264.8207945034    -207688.5417541327   
+  E_Hartree      7625.9316719576      103756.1232972896    
+  E_xc           -325.3399980325      -4426.4777605504     
+  E_Ewald        5883.0224112168      80042.6262542471     
+  E_entropy(-TS) -0.0263368975        -0.3583318738        
+  E_descf        0.0000000000         0.0000000000         
+  E_localpp      -15872.7122962725    -215959.3299439696   
+  E_exx          0.0000000000         0.0000000000         
+  E_Fermi        0.1194147377         1.6247208577         
+  E_gap(k)       0.0010947030         0.0148941978         
+ ----------------------------------------------------------
+
+ #SCF IS CONVERGED#
+ #TOTAL ENERGY# -28316.628295 eV
+ Write eigenvalues and occupations to file: OUT.ABACUS/eig_occ.txt
+-------------------------------------------------
+ Total Magnetism (uB)                            
+-------------------------------------------------
+                         C1         0.0000000006 
+                         C2         0.0000000005 
+                        Fe1        -0.0000000504 
+                        Fe2        -0.0000014910 
+                         H1         0.0000000006 
+                         H2        -0.0000000001 
+                         H3         0.0000000044 
+                         H4         0.0000000001 
+                         H5        -0.0000000001 
+                         H6         0.0000000000 
+                         O1         0.0000000002 
+                        Sb1        -0.0000000027 
+                        Sb2        -0.0000000025 
+                        Sb3         0.0000000054 
+                        Sb4         0.0000000054 
+                         Y1         0.0000000890 
+                         Y2         0.0000000149 
+                         Y3         0.0000000354 
+                         Y4         0.0000001048 
+                         Y5         0.0000001101 
+                         Y6         0.0000000373 
+                         Y7         0.0000001190 
+                         Y8         0.0000000427 
+                         Y9         0.0000000708 
+                        Y10         0.0000001177 
+                        Y11         0.0000001156 
+                        Y12         0.0000000843 
+-------------------------------------------------
+
+
+ Warning_Memory_Consuming allocated:  DeltaSpin:pre_HR 9.6713790894 MB
+
+ --------------------------------------------
+ !FINAL_ETOT_IS -28316.62829502026 eV
+ --------------------------------------------
+
+
+
+TIME STATISTICS
+----------------------------------------------------------------------
+   CLASS_NAME             NAME          TIME/s  CALLS   AVG/s  PER/%  
+----------------------------------------------------------------------
+                 total                  645.80 13       49.68  100.00 
+ Driver          atomic_world           645.80 1        645.80 100.00 
+ ESolver_KS_LCAO before_all_runners     7.75   1        7.75   1.20   
+ Relax_Driver    relax_driver           637.86 1        637.86 98.77  
+ ESolver_KS      runner                 637.85 1        637.85 98.77  
+ Potential       cal_veff               17.02  48       0.35   2.64   
+ PW_Basis_Sup    real2recip             8.24   574      0.01   1.28   
+ PotXC           cal_veff               16.34  48       0.34   2.53   
+ XC_Functional   v_xc                   16.31  48       0.34   2.52   
+ HSolverLCAO     solve                  610.63 47       12.99  94.55  
+ HamiltLCAO      updateHk               316.03 940      0.34   48.94  
+ OperatorLCAO    init                   315.56 2820     0.11   48.86  
+ Veff            contributeHR           314.88 94       3.35   48.76  
+ Gint            cal_gint_vl            314.88 94       3.35   48.76  
+ Gint            transfer_hr_gint_to_hR 314.88 94       3.35   48.76  
+ HSolverLCAO     hamiltSolvePsiK        31.89  940      0.03   4.94   
+ DiagoElpa       elpa_solve             31.49  940      0.03   4.88   
+ LCAO_domain     dm2rho                 261.07 47       5.55   40.43  
+----------------------------------------------------------------------
+
+
+ NAME-------------------------|MEMORY(MB)------------------
+                         total           2768
+       TwoCenterTable: Kinetic          510.9
+       TwoCenterTable: Overlap          510.9
+                    ORB::Jl(x)          491.2
+      TwoCenterTable: Nonlocal          396.8
+                  SF::strucFac          145.8
+              DeltaSpin:pre_HR          115.3
+                  PW_B_K::gcar          91.61
+            DensityMatrix::DMK          91.31
+                      Chg::rho          54.93
+                 Chg::rho_save          54.93
+                     Pot::veff          54.93
+              Pot::veff_smooth          54.93
+                   PW_B_K::gk2          30.54
+                 Chg::rho_core          27.47
+                 Pot::veff_fix          27.47
+            DensityMatrix::DMR          26.99
+                     Chg::rhog          24.31
+                Chg::rhog_save          24.31
+                Chg::rhog_core          12.15
+                HamiltLCAO::sR          10.22
+                  SF::eigts123          7.384
+                HamiltLCAO::hR          1.903
+                RealGauntTable          1.889
+ -------------   < 1.0 MB has been ignored ----------------
+ ----------------------------------------------------------
+
+ Start  Time  : Wed Mar 25 15:30:14 2026
+ Finish Time  : Wed Mar 25 15:41:00 2026
+ Total  Time  : 0 h 10 mins 46 secs 

@@ -1,0 +1,22 @@
+INPUT_PARAMETERS
+# Created by Atomic Simulation Enviroment
+calculation                             scf
+dft_functional                          GGA_X_RPBE+GGA_C_PBE
+ecutwfc                                 100
+kspacing                                0.1
+basis_type                              lcao
+symmetry                                0
+scf_thr                                 1e-07
+cal_force                               1
+cal_stress                              1
+ks_solver                               genelpa
+smearing_method                         gaussian
+smearing_sigma                          0.01
+mixing_beta                             0.2
+scf_nmax                                100
+nspin                                   2
+onsite_radius                           3.0
+
+#force_thr_ev                            0.02
+#relax_nmax                              100
+vdw_method                              d3_bj
