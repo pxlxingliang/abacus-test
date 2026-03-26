@@ -149,10 +149,18 @@ class Abacus(ResultAbacus):
                            point_group_in_space_group="point group in space group")
     def GetLogParam(self): 
         version = self["version"]
+        
+        # Comm parameters read from LOG for LTS and develop versions
+        for i,line in enumerate(self.LOG):
+            if '     nkstot = ' in line:
+                self['nkstot'] = int(line.split()[-1])
+            elif 'Number of irreducible k-points' in line:   # dev-20260202 version
+                self['ibzk'] = int(line.split()[-1])
+            elif 'nkstot now =' in line:                     # LTS version
+                self['ibzk'] = int(line.split()[-1])
+
         if any(v in version for v in LTS_VERSIONS) and self.JSON:
             self["nbands"],_ = comm.get_abacus_json(self.JSON,["init","nband"])
-            self["nkstot"],_ = comm.get_abacus_json(self.JSON,["init","nkstot"])
-            self["ibzk"],_ = comm.get_abacus_json(self.JSON,["init","nkstot_ibz"])
             self["natom"],_ = comm.get_abacus_json(self.JSON,["init","natom"])
             self["nelec"],_ = comm.get_abacus_json(self.JSON,["init","nelectron"])
             self["nelec_dict"],_ = comm.get_abacus_json(self.JSON,["init","nelectron_each_type"])
@@ -162,20 +170,13 @@ class Abacus(ResultAbacus):
         else:
             natom = 0
             nelec = 0
+            nbands = 0
             elec_dict = {}
             point_group = None
             point_group_in_space_group = None
             for i,line in enumerate(self.LOG):
                 if "Number of electronic states (NBANDS) =" in line:
-                    self['nbands'] = int(line.split()[-1])
-                elif 'nkstot =' in line:
-                    self['nkstot'] = int(line.split()[-1])
-                elif 'Number of irreducible k-points' in line:
-                    self['ibzk'] = int(line.split()[-1])
-                elif 'nkstot now =' in line:
-                    self['ibzk'] = int(line.split()[-1])
-                elif '     nkstot = ' in line:
-                    self['nkstot'] = int(line.split()[-1])
+                    nbands = int(line.split()[-1])
                 elif "            electron number of element" in line:
                     elec_dict[line.split()[4]] = float(line.split()[-1])
                 elif 'Number of atoms for this type =' in line:
@@ -195,6 +196,11 @@ class Abacus(ResultAbacus):
                 self["nelec"] = nelec 
             else:
                 self["nelec"] = None
+            
+            if nbands:
+                self["nbands"] = nbands
+            else:
+                self["nbands"] = None
 
             if elec_dict:
                 self["nelec_dict"] = elec_dict
@@ -283,24 +289,29 @@ class Abacus(ResultAbacus):
                 energy_per_atom = None
 
         energies_ks = []
+        find_converge = True if converge is None else False
+        find_energy = True if energy is None else False
+        find_energies = True if energies is None else False
+        find_volume = True if volume is None else False
+        #find_efermi = True if efermi is None else False
         for i,line in enumerate(self.LOG):
-            if converge is None:
+            if find_converge:
                 if any(s in line for s in converge_strings):
                     converge = True
                 elif any(s in line for s in not_converge_strings):
                     converge = False
-            elif energy is None:
+            if find_energy:
                 if "!FINAL_ETOT_IS" in line:
                     energy = float(line.split()[1])
-            elif energies is None:
+            if find_energies:
                 if "final etot is" in line:
                     energies.append(float(line.split()[-2]))
-            elif "E_KohnSham" in line:
+            if "E_KohnSham" in line:
                 energies_ks.append(float(line.split()[-1]))
-            elif volume is None:
+            if find_volume:
                 if "Volume (A^3) =" in line:
                     volume = float(line.split()[-1])
-            elif efermi is None:
+            if True:
                 if 'E_Fermi' in line:
                     if 'E_Fermi_up' in line:
                         if efermi == None:
