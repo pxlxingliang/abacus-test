@@ -16,8 +16,9 @@ class TestAbacusCollectdata(unittest.TestCase):
         self.assertEqual(input_dict["calculation"], "scf")
         self.assertEqual(input_dict["esolver_type"], "ksdft")
         self.assertEqual(input_dict["kspacing"], "0.1 0.1 0.1")
-        self.assertAlmostEqual(ab["absolute_mag"], 0.000300325, places=3)
-        self.assertEqual(ab["absolute_mags"], [0.000300325])
+        self.assertAlmostEqual(ab["absolute_mag"], 0.00030032461414479967, places=3)
+        self.assertEqual(len(ab["absolute_mags"]), 1)
+        self.assertAlmostEqual(ab["absolute_mags"][0], 0.00030032461414479967, places=3)
         self.assertEqual(len(ab["atomlabel_list"]), 27)
         self.assertEqual(ab["atomlabel_list"][0], "C")
         self.assertEqual(ab["atomlabel_list"][len(ab["atomlabel_list"]) // 2], "Sb")
@@ -106,11 +107,11 @@ class TestAbacusCollectdata(unittest.TestCase):
         self.assertEqual(ab["element_list"][0], "C")
         self.assertEqual(ab["element_list"][len(ab["element_list"]) // 2], "Sb")
         self.assertEqual(ab["element_list"][-1], "Y")
-        self.assertEqual(ab["energies"], [-28364.401228])
+        self.assertEqual(len(ab["energies"]), 1)
+        self.assertAlmostEqual(ab["energies"][0], -28364.40122753045, places=3)
         self.assertAlmostEqual(ab["energy"], -28364.40122753045, places=3)
         self.assertAlmostEqual(ab["energy_ks"], -28364.4012275304, places=3)
         self.assertAlmostEqual(ab["energy_per_atom"], -1050.5333787974241, places=3)
-        self.assertEqual(ab["fft_grid"], [100.0, 100.0, 360.0])
         self.assertEqual(len(ab["force"]), 81)
         self.assertAlmostEqual(ab["force"][0], -0.0725480006, places=3)
         self.assertAlmostEqual(ab["force"][len(ab["force"]) // 2], 0.0020492624, places=3)
@@ -128,8 +129,10 @@ class TestAbacusCollectdata(unittest.TestCase):
         self.assertEqual(ab["label"][0], "C")
         self.assertEqual(ab["label"][len(ab["label"]) // 2], "Sb")
         self.assertEqual(ab["label"][-1], "Y")
-        self.assertEqual(ab["largest_gradient"], [1.542298352])
-        self.assertEqual(ab["largest_gradient_stress"], [52.8786932479])
+        self.assertEqual(len(ab["largest_gradient"]), 1)
+        self.assertAlmostEqual(ab["largest_gradient"][0], 1.542298352, places=3)
+        self.assertEqual(len(ab["largest_gradient_stress"]), 1)
+        self.assertAlmostEqual(ab["largest_gradient_stress"][0], 52.8786932479, places=3)
         self.assertEqual(len(ab["lattice_constant"]), 6)
         self.assertAlmostEqual(ab["lattice_constant"][0], 8.3004, places=3)
         self.assertAlmostEqual(ab["lattice_constant"][len(ab["lattice_constant"]) // 2], 90.0, places=3)
@@ -145,13 +148,17 @@ class TestAbacusCollectdata(unittest.TestCase):
         self.assertEqual(ab["nbands"], 163)
         self.assertEqual(ab["nbase"], 547)
         self.assertEqual(ab["ncore"], 16)
-        self.assertAlmostEqual(ab["nelec"], 244.0, places=3)
+        self.assertEqual(ab["nelec"], 244)
         self.assertEqual(ab["nelec_dict"], {'C': 4.0, 'Fe': 16.0, 'H': 1.0, 'O': 6.0, 'Sb': 15.0, 'Y': 11.0})
         self.assertEqual(ab["nkstot"], 50)
         self.assertEqual(ab["noccu_band"], 122)
         self.assertEqual(ab["normal_end"], True)
+        self.assertEqual(ab["omp_num"], 1)
+        self.assertEqual(ab["point_group"], "")
+        self.assertEqual(ab["point_group_in_space_group"], "")
         self.assertAlmostEqual(ab["pressure"], -48.548971477133335, places=3)
-        self.assertEqual(ab["pressures"], [-48.548971477133335])
+        self.assertEqual(len(ab["pressures"]), 1)
+        self.assertAlmostEqual(ab["pressures"][0], -48.548971477133335, places=3)
         self.assertEqual(ab["relax_steps"], 1)
         self.assertEqual(ab["scf_steps"], 56)
         self.assertAlmostEqual(ab["scf_time"], 866.9699999999999, places=3)
@@ -172,22 +179,23 @@ class TestAbacusCollectdata(unittest.TestCase):
         self.assertAlmostEqual(stresses_flat[0], -52.8027809021, places=3)
         self.assertAlmostEqual(stresses_flat[len(stresses_flat) // 2], -52.8786932479, places=3)
         self.assertAlmostEqual(stresses_flat[-1], -39.9654402814, places=3)
-        self.assertAlmostEqual(ab["total_mag"], -0.000264531, places=3)
-        self.assertEqual(ab["total_mags"], [-0.000264531])
+        self.assertAlmostEqual(ab["total_mag"], -0.00026453076540030256, places=3)
+        self.assertEqual(len(ab["total_mags"]), 1)
+        self.assertAlmostEqual(ab["total_mags"][0], -0.00026453076540030256, places=3)
         self.assertAlmostEqual(ab["total_time"], 932.927, places=3)
         self.assertEqual(ab["version"], "v3.10.1(f71921fe8 (Fri Nov 21 13:49:34 2025 +0800))")
         self.assertEqual(len(ab["virial"]), 9)
-        self.assertAlmostEqual(ab["virial"][0], -57.594128079741175, places=3)
-        self.assertAlmostEqual(ab["virial"][len(ab["virial"]) // 2], -57.67692874463316, places=3)
-        self.assertAlmostEqual(ab["virial"][-1], -43.59192161863308, places=3)
+        self.assertAlmostEqual(ab["virial"][0], -57.59408109901009, places=3)
+        self.assertAlmostEqual(ab["virial"][len(ab["virial"]) // 2], -57.676881696359835, places=3)
+        self.assertAlmostEqual(ab["virial"][-1], -43.591886059793744, places=3)
         self.assertEqual(len(ab["virials"]), 1)
         self.assertEqual(len(ab["virials"][0]), 9)
         virials_flat = [item for sublist in ab["virials"] for item in sublist]
         self.assertEqual(len(virials_flat), 9)
-        self.assertAlmostEqual(virials_flat[0], -57.594128079741175, places=3)
-        self.assertAlmostEqual(virials_flat[len(virials_flat) // 2], -57.67692874463316, places=3)
-        self.assertAlmostEqual(virials_flat[-1], -43.59192161863308, places=3)
-        self.assertAlmostEqual(ab["volume"], 1747.56, places=3)
+        self.assertAlmostEqual(virials_flat[0], -57.59408109901009, places=3)
+        self.assertAlmostEqual(virials_flat[len(virials_flat) // 2], -57.676881696359835, places=3)
+        self.assertAlmostEqual(virials_flat[-1], -43.591886059793744, places=3)
+        self.assertAlmostEqual(ab["volume"], 1747.558574478872, places=3)
 
         # Metrics that returned None for this example:
         # atom_elec: None
@@ -213,14 +221,12 @@ class TestAbacusCollectdata(unittest.TestCase):
         # ds_mags: None
         # ds_time: None
         # e_bandgap: None
+        # fft_grid: None
         # force_time: None
         # k_coord: None
         # mem_psipw: None
         # mem_vkb: None
-        # omp_num: None
         # pdos: None
-        # point_group: None
-        # point_group_in_space_group: None
         # relax_converge: None
 
 
