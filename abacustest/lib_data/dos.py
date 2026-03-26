@@ -630,8 +630,25 @@ def plot_dos_pdos(pdosdatas: List[List[np.ndarray]],
                 ax.plot(energy, -data[:,1], label=f"{label} "+r"$\downarrow$", linestyle='--', color=color_list[i], linewidth=1.0)
         
         ax.set_xlim(energy_min, energy_max)
-        ax.relim(visible_only=True)
-        ax.autoscale_view()
+        # calculate range of y axis for visible data
+        y_min, y_max = [], []
+        # find indices of energy in [energy_min, energy_max]
+        visible_mask = (energy >= energy_min) & (energy <= energy_max)
+        for data in pdosdata:
+            if data.shape[1] == 1:
+                visible_data = data[visible_mask]
+                y_min.append(visible_data.min())
+                y_max.append(visible_data.max())
+            elif data.shape[1] == 2:
+                visible_data_up = data[visible_mask, 0]
+                visible_data_down = -data[visible_mask, 1]
+                y_min.append(min(visible_data_up.min(), visible_data_down.min()))
+                y_max.append(max(visible_data_up.max(), visible_data_down.max()))
+        
+        y_min = min(y_min)
+        y_max = max(y_max)
+        y_margin = (y_max - y_min) * 0.05  # Add 5% extra margin to the y axis
+        ax.set_ylim(y_min - y_margin, y_max + y_margin)
         if shifted:
             ax.set_xlabel(r"$E-E_F$ (eV)", fontsize=12)
             ax.axvline(x=0, color="k", linestyle=":", alpha=0.5)
