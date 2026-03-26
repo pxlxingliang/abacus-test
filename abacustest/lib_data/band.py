@@ -878,7 +878,6 @@ class ProjBandData(BandData):
             if efermi is not None:
                 self.band_data = band_data - efermi
             else:
-                print("efermi is None, band data will not be shifted")
                 self.band_data = band_data
         else:
             raise ValueError("band_data must be an np.ndarray with shape (1, nkpts, nbands) or (2, nkpts, nbands)")
@@ -2071,7 +2070,7 @@ def plot_proj_bands_subplots(
 
                 handles = [
                     Line2D([0], [0], color=color, lw=1.2, linestyle="-", label="↑"),
-                    Line2D([0], [0], color=color, lw=1.2, linestyle=".", label="↓"),
+                    Line2D([0], [0], color=color, lw=1.2, linestyle="--", label="↓"),
                 ]
                 ax.legend(handles=handles, fontsize=8, loc="upper right")
             else:

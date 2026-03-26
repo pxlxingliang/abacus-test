@@ -176,6 +176,8 @@ class BandModel(Model):
             eff_mass_fit_points=params.eff_mass_fit_points,
         ).run()
         print("The band structure is plotted in the band.png file")
+        if self.plot_pband:
+            print("The projected band structure is plotted in the projband.png file")
 
 
 class PrepBand:
@@ -361,7 +363,7 @@ class PostBand:
                 self.plot_band(bands[1:], kpt, os.path.join(job,"band.png"), 
                                x=bands[0],
                                efermi=self.get_efermi(os.path.join(job,"OUT."+suffix,"running_nscf.log")))
-            
+
             if self.plot_pband:
                 from abacustest.lib_data.band import ProjBandData
                 projband_data = ProjBandData.ReadFromAbacusJob(job)
@@ -371,21 +373,18 @@ class PostBand:
                         self.band_range[1],
                         os.path.join(job, "projband.png")
                     )
-                    print("The band structure is plotted in the projband.png file")
                 elif self.pband_mode == "shell":
                     projband_data.plot_proj_band_species_shell(
                         self.band_range[0],
                         self.band_range[1],
                         os.path.join(job, "projband.png")
                     )
-                    print("The band structure is plotted in the projband.png file")
                 elif self.pband_mode == "orbital":
                     projband_data.plot_proj_band_species_orbital(
                         self.band_range[0],
                         self.band_range[1],
                         os.path.join(job, "projband.png")
                     )
-                    print("The band structure is plotted in the projband.png file")
                 else:
                     print("Warning: pband_mode is not supported")
     
