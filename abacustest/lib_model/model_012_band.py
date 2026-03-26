@@ -116,6 +116,18 @@ class BandModel(Model):
             nargs=2,
         )
         parser.add_argument(
+            "--plot-pband",
+            action="store_true",
+            help="whether to plot the polarizability band structure. Default is False.",
+        )
+        parser.add_argument(
+            "--pband-mode",
+            default="species", 
+            type=str, 
+            choices=["species", "shell", "orbital"],
+            help="The mode to plot the projected band structure. Default is species."
+        )
+        parser.add_argument(
             "--eff_mass",
             action="store_true",
             #help="whether to calculate the effective mass. Default is False.",
@@ -156,6 +168,8 @@ class BandModel(Model):
             kpt_file=params.kpt,
             new_plot=params.new_plot,
             band_range=params.range,
+            plot_pband=params.plot_pband,
+            pband_mode=params.pband_mode,
             eff_mass=params.eff_mass,
             eff_mass_direction=params.eff_mass_direction,
             eff_mass_index=params.eff_mass_index,
@@ -257,7 +271,8 @@ class PrepBand:
 
 class PostBand:
     def __init__(
-        self, jobs, input_file=None, kpt_file=None, new_plot=False, band_range=None,
+        self, jobs, input_file=None, kpt_file=None, new_plot=False,
+        band_range=None, plot_pband=False, pband_mode="species",
         eff_mass=False, eff_mass_direction=None, eff_mass_index=None, eff_mass_fit_points=10,
     ):
         self.jobs = jobs
@@ -265,6 +280,8 @@ class PostBand:
         self.kpt_file = kpt_file
         self.new_plot = new_plot
         self.band_range = [-5, 5] if band_range is None else band_range
+        self.plot_pband = plot_pband
+        self.pband_mode = pband_mode
         self.eff_mass = eff_mass
         self.eff_mass_direction = eff_mass_direction
         self.eff_mass_index = eff_mass_index
@@ -344,6 +361,33 @@ class PostBand:
                 self.plot_band(bands[1:], kpt, os.path.join(job,"band.png"), 
                                x=bands[0],
                                efermi=self.get_efermi(os.path.join(job,"OUT."+suffix,"running_nscf.log")))
+            
+            if self.plot_pband:
+                from abacustest.lib_data.band import ProjBandData
+                projband_data = ProjBandData.ReadFromAbacusJob(job)
+                if self.pband_mode == "species":
+                    projband_data.plot_proj_band_species(
+                        self.band_range[0],
+                        self.band_range[1],
+                        os.path.join(job, "projband.png")
+                    )
+                    print("The band structure is plotted in the projband.png file")
+                elif self.pband_mode == "shell":
+                    projband_data.plot_proj_band_species_shell(
+                        self.band_range[0],
+                        self.band_range[1],
+                        os.path.join(job, "projband.png")
+                    )
+                    print("The band structure is plotted in the projband.png file")
+                elif self.pband_mode == "orbital":
+                    projband_data.plot_proj_band_species_orbital(
+                        self.band_range[0],
+                        self.band_range[1],
+                        os.path.join(job, "projband.png")
+                    )
+                    print("The band structure is plotted in the projband.png file")
+                else:
+                    print("Warning: pband_mode is not supported")
     
     def get_efermi(self, logfile):
         with open(logfile) as f:
