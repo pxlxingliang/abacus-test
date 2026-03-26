@@ -1,5 +1,6 @@
 from ..model import Model
 import os, glob, json, traceback, copy
+import argparse
 from pprint import pprint
 from . import comm
 import numpy as np
@@ -117,26 +118,30 @@ class BandModel(Model):
         parser.add_argument(
             "--eff_mass",
             action="store_true",
-            help="whether to calculate the effective mass. Default is False.",
+            #help="whether to calculate the effective mass. Default is False.",
+            help=argparse.SUPPRESS
         )
         parser.add_argument(
             "--eff_mass_direction",
             type=str,
             nargs=2,
             default=None,
-            help="The direction of the effective mass calculation. Should be a list of labels of two high-symmetric labels, and the first element should be at CBM or VBM. Default is None.",
+            #help="The direction of the effective mass calculation. Should be a list of labels of two high-symmetric labels, and the first element should be at CBM or VBM. Default is None.",
+            help=argparse.SUPPRESS
         )
         parser.add_argument(
             "--eff_mass_index",
             type=int,
             default=None,
-            help="The index of the band to calculate the effective mass. Default is None.",
+            #help="The index of the band to calculate the effective mass. Default is None.",
+            help=argparse.SUPPRESS
         )
         parser.add_argument(
             "--eff_mass_fit_points",
             default=10,
             type=int,
-            help="The number of points to use for single-ended effective mass parabola fitting. Default is 10.",
+            #help="The number of points to use for single-ended effective mass parabola fitting. Default is 10.",
+            help=argparse.SUPPRESS
         )
         return parser
         
