@@ -71,6 +71,23 @@ def generate_assertion(name, val):
         if is_long_list(val):
             return generate_long_list_assertion(name, val)
         else:
+            # Check if this is a flat list of floats
+            all_float = all(isinstance(x, float) for x in val)
+            if all_float:
+                lines = []
+                lines.append(f"        self.assertEqual(len(ab[\"{name}\"]), {len(val)})")
+                for i, v in enumerate(val):
+                    lines.append(f'        self.assertAlmostEqual(ab["{name}"][{i}], {v}, places=3)')
+                return "\n".join(lines)
+            # Check if this is a 2D list of floats
+            if all(isinstance(row, list) for row in val) and all(isinstance(x, float) for row in val for x in row):
+                lines = []
+                lines.append(f"        self.assertEqual(len(ab[\"{name}\"]), {len(val)})")
+                for i, row in enumerate(val):
+                    lines.append(f"        self.assertEqual(len(ab[\"{name}\"][{i}]), {len(row)})")
+                    for j, v in enumerate(row):
+                        lines.append(f'        self.assertAlmostEqual(ab["{name}"][{i}][{j}], {v}, places=3)')
+                return "\n".join(lines)
             first = val[0]
             if isinstance(first, (int, float)):
                 return f'        self.assertEqual(ab["{name}"], {val})'
@@ -198,7 +215,7 @@ def generate_test(path, output_file=None):
     lines.append("")
     lines.append("    def test_abacus_scf(self):")
     lines.append('        """Test all extractable metrics from abacus-scf example"""')
-    lines.append(f'        ab = RESULT(path=Path(__file__).parent / "abacus-scf", fmt="abacus")')
+    lines.append(f'        ab = RESULT(path=Path(__file__).parent / "{path}", fmt="abacus")')
     lines.append("")
 
     for name, val in not_none:
