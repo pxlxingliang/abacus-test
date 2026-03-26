@@ -469,9 +469,13 @@ def post_workfunc_calc(
         if vacuum_dir_input:
             vacuum_dir_input = EFIELD_DIRECTION_MAP[vacuum_dir_input]
         
+        if 'v3.9.0.' in results['version']:
+            pot_filename = "potes.cube"
+        else:
+            pot_filename = "ElecStaticPot.cube"
         pot_file = os.path.join(
             workfunc_job,
-            f"OUT.{input_params.get('suffix', 'ABACUS')}/ElecStaticPot.cube",
+            f"OUT.{input_params.get('suffix', 'ABACUS')}/{pot_filename}",
         )
         pot = Potential.from_cube(pot_file)
 
