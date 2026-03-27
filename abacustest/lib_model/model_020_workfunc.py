@@ -1,5 +1,6 @@
 from ..model import Model
 import json, os, shutil
+from packaging import version
 from pathlib import Path
 from typing import List, Dict, Any, Literal, Optional, Tuple
 
@@ -469,7 +470,8 @@ def post_workfunc_calc(
         if vacuum_dir_input:
             vacuum_dir_input = EFIELD_DIRECTION_MAP[vacuum_dir_input]
         
-        if 'v3.9.0.' in results['version']:
+        abacus_version = version.parse(results['version'].split('(')[0].strip())
+        if abacus_version >= version.parse("v3.9.0.22") and abacus_version < version.parse("v3.10.0"):
             pot_filename = "potes.cube"
         else:
             pot_filename = "ElecStaticPot.cube"
