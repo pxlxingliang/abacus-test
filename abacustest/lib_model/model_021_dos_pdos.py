@@ -47,12 +47,19 @@ class DOSPDOSModel(Model):
         if len(jobs) == 0:
             print("No valid job found")
             return 1
-            
+        
+        if params.suffix is None:
+            suffix = params.plot_type
+            if params.plot_type == "atom":
+                suffix = f"atom_{params.atom_index}"
+        else:
+            suffix = params.suffix
+
         PostDOSPDOS(jobs, 
                    energy_range=params.range,
                    atom_index=params.atom_index,
                    plot_type=params.plot_type,
-                   suffix=params.suffix,
+                   suffix=suffix,
                    save_data=not params.no_save_data,
                    save_plot=not params.no_save_plot).run()
         print("DOS and PDOS analysis completed.")
