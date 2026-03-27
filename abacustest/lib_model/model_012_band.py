@@ -162,7 +162,7 @@ class BandModel(Model):
         '''
         Parse the parameters and run the postprocess process'''
         jobs = comm.get_job_list(params.job)
-        PostBand(
+        results = PostBand(
             jobs,
             input_file=params.input,
             kpt_file=params.kpt,
@@ -175,9 +175,14 @@ class BandModel(Model):
             eff_mass_index=params.eff_mass_index,
             eff_mass_fit_points=params.eff_mass_fit_points,
         ).run()
+        
         print("The band structure is plotted in the band.png file")
-        if self.plot_pband:
+        if params.plot_pband:
             print("The projected band structure is plotted in the projband.png file")
+
+        with open("metrics_band.json", "w") as f:
+            json.dump(results, f, indent=2)
+            print("The band gap results are saved in metrics_band.json")
 
 
 class PrepBand:
@@ -290,8 +295,10 @@ class PostBand:
         self.eff_mass_fit_points = eff_mass_fit_points
 
     def run(self):
+        results = {}
         for job in self.jobs:
             print(job)
+            results[job] = {}
             inputfile = self.find_input(job)
             kpt = self.get_kpoints(inputfile, job)
             suffix = "ABACUS"
@@ -317,8 +324,8 @@ class PostBand:
                         kpath_list.extend([kpath["start"], kpath["end"]])
                 print(kpath_list)
                 band_gap = band_data.get_band_gap()
-                band_gap_str = f"{band_gap:.2f}" if band_gap is not None else "N/A"
-                print(f"E_fermi={band_data.efermi:.2f}eV, BandGap={band_gap_str}eV")
+                print(f"E_fermi={band_data.efermi:.2f}eV, BandGap={band_gap}eV")
+                results[job]['band_gap'] = band_gap
                 band_data.plot_band(
                     self.band_range[0],
                     self.band_range[1],
@@ -328,26 +335,32 @@ class PostBand:
 
                 if band_data.is_metal():
                     print("CBM and VBM are not available for metal")
+                    results[job]['cbm'] = None
+                    results[job]['vbm'] = None
                 else:
                     cbm, vbm = band_data.get_cbm(), band_data.get_vbm()
                     print("CBM:")
                     pprint(cbm)
                     print("VBM:")
                     pprint(vbm)
+                    results[job]['cbm'], results[job]['vbm'] = cbm, vbm
                 
                 if self.eff_mass:
                     print("Effective mass:")
                     if self.eff_mass_direction is None:
                         print("Warning: eff_mass_direction is not specified")
+                        results[job]['eff_mass'] = None
                     else:
                         if len(self.eff_mass_direction) != 2:
                             print("Warning: eff_mass_direction should be a list of length 2 high-symmetry labels")
+                            results[job]['eff_mass'] = None
                         else:
                             is_legal = True
                             for label in self.eff_mass_direction:
                                 if label not in band_data.high_symm_labels:
                                     is_legal = False
                                     print(f"Warning: {label} is not a high-symmetry label. Skip effective mass calculation")
+                                    results[job]['eff_mass'] = None
                             
                             if is_legal:
                                 eff_mass = band_data.get_effective_mass(
@@ -356,8 +369,9 @@ class PostBand:
                                     num_fit_points=self.eff_mass_fit_points,
                                     plot_fit=True
                                 )
+                                pprint(eff_mass)
+                                results[job]['eff_mass'] = eff_mass
                             
-                            pprint(eff_mass)
                                 
             else:
                 self.plot_band(bands[1:], kpt, os.path.join(job,"band.png"), 
@@ -387,6 +401,8 @@ class PostBand:
                     )
                 else:
                     print("Warning: pband_mode is not supported")
+        
+        return results
     
     def get_efermi(self, logfile):
         with open(logfile) as f:
