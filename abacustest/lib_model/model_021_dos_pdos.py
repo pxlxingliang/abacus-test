@@ -29,8 +29,8 @@ class DOSPDOSModel(Model):
         parser.add_argument('-j', '--job', default=None, nargs="+", help='the path of abacus inputs (required)')
         parser.add_argument("--range", default=[-10,10], type=float, help="The energy (respect to fermi energy) range in plots, default is -10,10 eV. Energy range in .dat file are not affected by this setting.", nargs=2)
         parser.add_argument("--plot-type", default="species", type=str, choices=["species", "shell", "orbital", "atom"], help="Plot type: species (e.g.: C), shell (e.g.: p orbital of C), orbital (e.g.: p_x orbital of C), or atom (e.g.: 1st atom of the system)")
-        parser.add_argument("--atom-index", default=None, type=int, help="Atom index to analyze (1-based). Only valid if plot type is set to atom. If not specified, all atoms will be analyzed.")
-        parser.add_argument("--suffix", default=None, type=str, help="Suffix for output files. If set, files will be named DOS_{suffix}.dat/png and PDOS_{suffix}.dat/png")
+        parser.add_argument("--atom-index", default=None, type=int, help="Atom index to analyze (1-based). Only valid if plot type is set to atom.")
+        parser.add_argument("--suffix", default=None, type=str, help="Suffix for output files. If set, PDOS files will be named PDOS_{suffix}.dat/png")
         parser.add_argument("--no-save-data", action="store_true", help="Do not save data files (default is to save)")
         parser.add_argument("--no-save-plot", action="store_true", help="Do not save plot files (default is to save)")
         return parser
@@ -40,19 +40,30 @@ class DOSPDOSModel(Model):
         Run the postprocess process
         '''
         if params.job is None:
-            print("Error: Please specify job directory with -j/--job")
-            return 1
-        
-        jobs = params.job
+            jobs = ["./"]
+        else:
+            jobs = params.job
+
         if len(jobs) == 0:
             print("No valid job found")
             return 1
-            
+        
+        if params.plot_type == "atom" and params.atom_index is None:
+            print("Error: atom index is required when plot type is set to atom")
+            return 1
+        
+        if params.suffix is None:
+            suffix = params.plot_type
+            if params.plot_type == "atom":
+                suffix = f"atom_{params.atom_index}"
+        else:
+            suffix = params.suffix
+
         PostDOSPDOS(jobs, 
                    energy_range=params.range,
                    atom_index=params.atom_index,
                    plot_type=params.plot_type,
-                   suffix=params.suffix,
+                   suffix=suffix,
                    save_data=not params.no_save_data,
                    save_plot=not params.no_save_plot).run()
         print("DOS and PDOS analysis completed.")
@@ -134,7 +145,7 @@ class PostDOSPDOS:
     def plot_dos(self, dos_data, job):
         """Plot DOS"""
         try:
-            plot_filename = self._get_filename(job, "DOS", "png")
+            plot_filename = os.path.join(job, f"DOS.png")
             dos_data.plot_dos(
                 emin=self.energy_range[0],
                 emax=self.energy_range[1],
@@ -266,7 +277,7 @@ class PostDOSPDOS:
     def save_dos_data(self, dos_data, job):
         """Save DOS data to file"""
         try:
-            dos_filename = self._get_filename(job, "DOS", "dat")
+            dos_filename = os.path.join(job, f"DOS.dat")
             dos_data.write_dos(dos_filename)
             print(f"Saved DOS data to {dos_filename}")
         except Exception as e:

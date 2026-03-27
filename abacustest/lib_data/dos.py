@@ -382,7 +382,7 @@ class PDOSData:
     
     def get_species(self) -> List[str]:
         # Get all species in the PDOS data
-        return list(set([orb['species'] for orb in self.projected_dos]))
+        return sorted(list(set([orb['species'] for orb in self.projected_dos])))
     
     def get_species_shell(self, species: str) -> List[int]:
         # Get all shells for a specific species in the PDOS data
@@ -648,7 +648,10 @@ def plot_dos_pdos(pdosdatas: List[List[np.ndarray]],
         y_min = min(y_min)
         y_max = max(y_max)
         y_margin = (y_max - y_min) * 0.05  # Add 5% extra margin to the y axis
-        ax.set_ylim(y_min - y_margin, y_max + y_margin)
+        if pdosdata[0].shape[1] == 1: # nspin = 1 or 4
+            ax.set_ylim(0, y_max + y_margin)
+        else: # nspin = 2
+            ax.set_ylim(y_min - y_margin, y_max + y_margin)
         if shifted:
             ax.set_xlabel(r"$E-E_F$ (eV)", fontsize=12)
             ax.axvline(x=0, color="k", linestyle=":", alpha=0.5)
