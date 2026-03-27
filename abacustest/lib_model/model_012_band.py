@@ -103,11 +103,11 @@ class BandModel(Model):
             type=str,
             help="the kpoint file name, default is KPT.nscf",
         )
-        parser.add_argument(
-            "--new_plot",
-            action="store_true",
-            help="whether to use the new plot function in BandData class. Default is False.",
-        )
+        #parser.add_argument(
+        #    "--new_plot",
+        #    action="store_true",
+        #    help="whether to use the new plot function in BandData class. Default is False.",
+        #)
         parser.add_argument(
             "--range",
             default=[-5, 5],
@@ -166,7 +166,7 @@ class BandModel(Model):
             jobs,
             input_file=params.input,
             kpt_file=params.kpt,
-            new_plot=params.new_plot,
+            new_plot=True,
             band_range=params.range,
             plot_pband=params.plot_pband,
             pband_mode=params.pband_mode,
