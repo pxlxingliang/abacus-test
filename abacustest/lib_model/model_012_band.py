@@ -1,11 +1,14 @@
 from ..model import Model
 import os, glob, json, traceback, copy
+import argparse
+from pprint import pprint
 from . import comm
 import numpy as np
 from abacustest.lib_prepare.abacus import ReadInput, WriteInput, ReadKpt, WriteKpt, AbacusStru
 from abacustest.constant import RY2EV
 from abacustest.lib_collectdata.comm import cal_band_gap
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
+
 
 class BandModel(Model):
     @staticmethod
@@ -14,14 +17,14 @@ class BandModel(Model):
         Name of the model, which will be used as the subcommand
         '''
         return "band"
-    
+
     @staticmethod
     def description(): # type: ignore
         '''
         Description of the model
         '''
         return "Prepare and postprocess the calcualtion of band structure"
-    
+
     @staticmethod
     def prepare_args(parser):
         '''
@@ -46,7 +49,7 @@ class BandModel(Model):
         if len(real_jobs) == 0:
             print("No valid job is found")
             return
-        
+
         setting = {
             "save_path": "results",
             "bohrium_group_name": "band-strcutre",
@@ -62,7 +65,7 @@ class BandModel(Model):
                 },
             },
         }
-        
+
         comm.dump_setting(setting)
         comm.doc_after_prepare("band", real_jobs, ["setting.json"],has_prepare=False)
         print("After finish the calculation, you can run below command to do the postprocess:")
@@ -80,10 +83,78 @@ class BandModel(Model):
         PostProcess the band structure calculation. Will plot the band structure and calculate the band gap.
         '''
         parser.description = "PostProcess the band structure calculation. Will plot the band structure and calculate the band gap."
-        parser.add_argument('-j', '--job',default=[], action="extend",nargs="*" ,help='the path of abacus inputs, default is the current path. There should be some eos folders in each example path.')
-        parser.add_argument("--input", default="INPUT.nscf", type=str, help="the input file name, default is INPUT.nscf")
-        parser.add_argument("--kpt", default="KPT.nscf", type=str, help="the kpoint file name, default is KPT.nscf")
-        parser.add_argument("--range", default=[-5,5], type=float, help="The range of the band structure, default is efermi-5, efermi+5 eV", nargs=2)
+        parser.add_argument(
+            "-j",
+            "--job",
+            default=[],
+            action="extend",
+            nargs="*",
+            help="the path of abacus inputs, default is the current path. There should be some eos folders in each example path.",
+        )
+        parser.add_argument(
+            "--input",
+            default="INPUT.nscf",
+            type=str,
+            help="the input file name, default is INPUT.nscf",
+        )
+        parser.add_argument(
+            "--kpt",
+            default="KPT.nscf",
+            type=str,
+            help="the kpoint file name, default is KPT.nscf",
+        )
+        parser.add_argument(
+            "--new_plot",
+            action="store_true",
+            help="whether to use the new plot function in BandData class. Default is False.",
+        )
+        parser.add_argument(
+            "--range",
+            default=[-5, 5],
+            type=float,
+            help="The range of the band structure, default is efermi-5, efermi+5 eV",
+            nargs=2,
+        )
+        parser.add_argument(
+            "--plot-pband",
+            action="store_true",
+            help="whether to plot the polarizability band structure. Default is False.",
+        )
+        parser.add_argument(
+            "--pband-mode",
+            default="species", 
+            type=str, 
+            choices=["species", "shell", "orbital"],
+            help="The mode to plot the projected band structure. Default is species."
+        )
+        parser.add_argument(
+            "--eff_mass",
+            action="store_true",
+            #help="whether to calculate the effective mass. Default is False.",
+            help=argparse.SUPPRESS
+        )
+        parser.add_argument(
+            "--eff_mass_direction",
+            type=str,
+            nargs=2,
+            default=None,
+            #help="The direction of the effective mass calculation. Should be a list of labels of two high-symmetric labels, and the first element should be at CBM or VBM. Default is None.",
+            help=argparse.SUPPRESS
+        )
+        parser.add_argument(
+            "--eff_mass_index",
+            type=int,
+            default=None,
+            #help="The index of the band to calculate the effective mass. Default is None.",
+            help=argparse.SUPPRESS
+        )
+        parser.add_argument(
+            "--eff_mass_fit_points",
+            default=10,
+            type=int,
+            #help="The number of points to use for single-ended effective mass parabola fitting. Default is 10.",
+            help=argparse.SUPPRESS
+        )
         return parser
         
         
@@ -91,9 +162,29 @@ class BandModel(Model):
         '''
         Parse the parameters and run the postprocess process'''
         jobs = comm.get_job_list(params.job)
-        PostBand(jobs, input_file=params.input, kpt_file=params.kpt, band_range=params.range).run()
+        results = PostBand(
+            jobs,
+            input_file=params.input,
+            kpt_file=params.kpt,
+            new_plot=params.new_plot,
+            band_range=params.range,
+            plot_pband=params.plot_pband,
+            pband_mode=params.pband_mode,
+            eff_mass=params.eff_mass,
+            eff_mass_direction=params.eff_mass_direction,
+            eff_mass_index=params.eff_mass_index,
+            eff_mass_fit_points=params.eff_mass_fit_points,
+        ).run()
+        
         print("The band structure is plotted in the band.png file")
-                
+        if params.plot_pband:
+            print("The projected band structure is plotted in the projband.png file")
+
+        with open("metrics_band.json", "w") as f:
+            json.dump(results, f, indent=2)
+            print("The band gap results are saved in metrics_band.json")
+
+
 class PrepBand:
     def __init__(self, jobs,run_command=None,job_type="abacus"):
         self.jobs = jobs
@@ -104,7 +195,7 @@ class PrepBand:
         self.nscf_input = "INPUT.nscf"
         self.nscf_kpt = "KPT.nscf"
         self.run_script = "run.sh"
-    
+
     def run(self):
         if self.job_type == "abacus":
             jobs = self.run_abacus()
@@ -122,8 +213,8 @@ class PrepBand:
         if "|" in commands and "tee" in commands and commands.index("|") == commands.index("tee") - 1:
             return " ".join(commands[:commands.index("|")])  
         else:
-            return command        
-                   
+            return command
+
     def run_abacus(self):
         valid_jobs = []
         for job in self.jobs:
@@ -149,7 +240,7 @@ class PrepBand:
             input_param = ReadInput(inputfile)
             scf_input = copy.deepcopy(input_param)
             nscf_input = copy.deepcopy(input_param)
-            
+
             stru = AbacusStru.ReadStru(strufile)
             if stru is None:
                 print(f"Warning: {job} is not a valid folder, can not get the structure information from STRU file")
@@ -183,18 +274,31 @@ class PrepBand:
                 f.write(f"cp {self.nscf_input} INPUT\n")
                 f.write(f"{self.run_command} | tee nscf.log\n")
         return valid_jobs
-        
+
 
 class PostBand:
-    def __init__ (self, jobs, input_file=None, kpt_file=None, band_range=None):
+    def __init__(
+        self, jobs, input_file=None, kpt_file=None, new_plot=False,
+        band_range=None, plot_pband=False, pband_mode="species",
+        eff_mass=False, eff_mass_direction=None, eff_mass_index=None, eff_mass_fit_points=10,
+    ):
         self.jobs = jobs
-        self.input_file = input_file 
-        self.kpt_file = kpt_file  
-        self.band_range = [-5, 5 ] if band_range is None else band_range
-                    
+        self.input_file = input_file
+        self.kpt_file = kpt_file
+        self.new_plot = new_plot
+        self.band_range = [-5, 5] if band_range is None else band_range
+        self.plot_pband = plot_pband
+        self.pband_mode = pband_mode
+        self.eff_mass = eff_mass
+        self.eff_mass_direction = eff_mass_direction
+        self.eff_mass_index = eff_mass_index
+        self.eff_mass_fit_points = eff_mass_fit_points
+
     def run(self):
+        results = {}
         for job in self.jobs:
             print(job)
+            results[job] = {}
             inputfile = self.find_input(job)
             kpt = self.get_kpoints(inputfile, job)
             suffix = "ABACUS"
@@ -206,21 +310,111 @@ class PostBand:
                 print(f"Warning: can not find the band file {band_file}")
                 continue
             bands = self.get_band(band_file)
-            self.plot_band(bands[1:], kpt, os.path.join(job,"band.png"), 
-                           x=bands[0],
-                           efermi=self.get_efermi(os.path.join(job,"OUT."+suffix,"running_nscf.log")))
+            if self.new_plot:
+                from abacustest.lib_data.band import BandData
+
+                band_data = BandData.ReadFromAbacusJob(job)
+                kpath_list = []
+                for kpath in band_data.kpaths:
+                    if kpath_list:
+                        if kpath['start'] != kpath_list[-1]:
+                            kpath_list[-1] +=  f"|{kpath['start']}"
+                        kpath_list.append(kpath['end'])
+                    else:
+                        kpath_list.extend([kpath["start"], kpath["end"]])
+                print(kpath_list)
+                band_gap = band_data.get_band_gap()
+                print(f"E_fermi={band_data.efermi:.2f}eV, BandGap={band_gap}eV")
+                results[job]['band_gap'] = band_gap
+                band_data.plot_band(
+                    self.band_range[0],
+                    self.band_range[1],
+                    os.path.join(job, "band.png"),
+                )
+
+
+                if band_data.is_metal():
+                    print("CBM and VBM are not available for metal")
+                    results[job]['cbm'] = None
+                    results[job]['vbm'] = None
+                else:
+                    cbm, vbm = band_data.get_cbm(), band_data.get_vbm()
+                    print("CBM:")
+                    pprint(cbm)
+                    print("VBM:")
+                    pprint(vbm)
+                    results[job]['cbm'], results[job]['vbm'] = cbm, vbm
+                
+                if self.eff_mass:
+                    print("Effective mass:")
+                    if self.eff_mass_direction is None:
+                        print("Warning: eff_mass_direction is not specified")
+                        results[job]['eff_mass'] = None
+                    else:
+                        if len(self.eff_mass_direction) != 2:
+                            print("Warning: eff_mass_direction should be a list of length 2 high-symmetry labels")
+                            results[job]['eff_mass'] = None
+                        else:
+                            is_legal = True
+                            for label in self.eff_mass_direction:
+                                if label not in band_data.high_symm_labels:
+                                    is_legal = False
+                                    print(f"Warning: {label} is not a high-symmetry label. Skip effective mass calculation")
+                                    results[job]['eff_mass'] = None
+                            
+                            if is_legal:
+                                eff_mass = band_data.get_effective_mass(
+                                    self.eff_mass_direction,
+                                    band_index=self.eff_mass_index,
+                                    num_fit_points=self.eff_mass_fit_points,
+                                    plot_fit=True
+                                )
+                                pprint(eff_mass)
+                                results[job]['eff_mass'] = eff_mass
+                            
+                                
+            else:
+                self.plot_band(bands[1:], kpt, os.path.join(job,"band.png"), 
+                               x=bands[0],
+                               efermi=self.get_efermi(os.path.join(job,"OUT."+suffix,"running_nscf.log")))
+
+            if self.plot_pband:
+                from abacustest.lib_data.band import ProjBandData
+                projband_data = ProjBandData.ReadFromAbacusJob(job)
+                if self.pband_mode == "species":
+                    projband_data.plot_proj_band_species(
+                        self.band_range[0],
+                        self.band_range[1],
+                        os.path.join(job, "projband.png")
+                    )
+                elif self.pband_mode == "shell":
+                    projband_data.plot_proj_band_species_shell(
+                        self.band_range[0],
+                        self.band_range[1],
+                        os.path.join(job, "projband.png")
+                    )
+                elif self.pband_mode == "orbital":
+                    projband_data.plot_proj_band_species_orbital(
+                        self.band_range[0],
+                        self.band_range[1],
+                        os.path.join(job, "projband.png")
+                    )
+                else:
+                    print("Warning: pband_mode is not supported")
+        
+        return results
     
     def get_efermi(self, logfile):
         with open(logfile) as f:
             lines = f.readlines()
-            
+
         for line in lines[::-1]:
             if "E_Fermi" in line:
                 return float(line.split()[-1])
             elif "read in fermi energy" in line:
                 return float(line.split()[-1]) * RY2EV
         return None
-                
+
     @staticmethod
     def get_band(band_file):
         bands = np.loadtxt(band_file)
@@ -234,7 +428,7 @@ class PostBand:
                 if os.path.isfile(os.path.join(job,ifile)):
                     return os.path.join(job,ifile)
         return None
-    
+
     def get_kpoints(self, inputfile, job):
         if self.kpt_file is not None and os.path.isfile(os.path.join(job,self.kpt_file)):
             return ReadKpt(os.path.join(job,self.kpt_file))
@@ -262,11 +456,11 @@ class PostBand:
         symbols = []
         positions = []
         band_values = []
-        
+
         if x is not None and len(x) != nkpoints:
             print(f"Warning: the length of x is not equal to the length of band data, x={len(x)}, band={len(band[0])}")
             return None
-        
+
         if x is not None:
             x = np.array(x)
 
@@ -338,7 +532,7 @@ class PostBand:
                 print(f"Warning: the symbol {isymbol} is not in the symbols")
                 return positions, symbols, band_values
 
-        start_pos = 0    
+        start_pos = 0
         for i in range(len(new_symbols)):
             s0 = new_symbols[i][0]
             s1 = new_symbols[i][1]
@@ -356,14 +550,13 @@ class PostBand:
             start_pos = new_pos[-1][-1] 
         return new_pos, new_symbols, new_bandv
 
-    
-    def plot_band(self, band, kpt, filename, x=None, efermi = None):
+    def plot_band(self, band, kpt, filename, x=None, efermi=None):
         if x is None:
             x = np.arange(len(band[0]))
         if len(x) != len(band[0]):
             print(f"Warning: the length of x is not equal to the length of band data, x={len(x)}, band={len(band[0])}")
             return None
-        
+
         if kpt is None or kpt[1] != "line":
             positions = [np.range(len(band[0]))]
             band_values = [band]
@@ -375,13 +568,14 @@ class PostBand:
             positions, symbols, band_values = self.rearrange_label(positions, symbols, band_values, symbols)
             #print(symbols)   
         import matplotlib.pyplot as plt
+
         fontsize = 12
         fig, ax = plt.subplots(1,2,figsize=(8,4))
         for i, (pos, iband) in enumerate(zip(positions, band_values)):
             for iiband in iband:
-                ax[0].plot(pos, iiband, "-", color="red",linewidth=0.6)
-                ax[1].plot(pos, iiband, "-", color="red",linewidth=0.6)
-        
+                ax[0].plot(pos, iiband, "-", color="red", linewidth=0.6)
+                ax[1].plot(pos, iiband, "-", color="red", linewidth=0.6)
+
         if symbols is not None:
             symbol_pos = [positions[0][0]]
             symbol_val = [symbols[0][0]]
@@ -401,9 +595,9 @@ class PostBand:
             ax[0].set_xticklabels(symbol_val, fontsize=fontsize)
             ax[1].set_xticks(symbol_pos)
             ax[1].set_xticklabels(symbol_val, fontsize=fontsize)
-            
+
         ax[0].set_xlim(0, positions[-1][-1])
-        ax[1].set_xlim(0, positions[-1][-1])  
+        ax[1].set_xlim(0, positions[-1][-1])
 
         ax[0].set_xlabel("K points", fontsize=fontsize)
         ax[1].set_xlabel("K points", fontsize=fontsize)
@@ -426,16 +620,7 @@ class PostBand:
         
         # set a total title
         plt.suptitle(title, fontsize=fontsize)
-        
-        plt.tight_layout()
-        plt.savefig(filename,dpi=400)
-        plt.close()
-                
-        
-        
-                        
-        
-        
-        
 
-    
+        plt.tight_layout()
+        plt.savefig(filename, dpi=400)
+        plt.close()
