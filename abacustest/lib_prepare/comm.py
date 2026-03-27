@@ -141,6 +141,7 @@ def read_pp_valence(pp_file):
 def get_element_name_from_file(filename):
         #the filename should be started with the element name and followed by character non-alpha
         def check_element(element):
+            element = element.capitalize()
             if element in MASS_DICT:
                 return element
             else:
