@@ -1,0 +1,127 @@
+{
+    "comment": "Unless otherwise specified, the unit of energy is eV and the unit of length is Angstrom",
+    "init": {
+        "element": {
+            "Si": "Si"
+        },
+        "orb": {
+            "Si": "/mnt/e/profsoftfiles/abacusfiles/SG15/orb/Si_gga_8au_100Ry_2s2p1d.orb"
+        },
+        "pp": {
+            "Si": "Si_ONCV_PBE-1.0.upf"
+        },
+        "coordinate": [
+            [
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                2.5912378573126615,
+                2.5912378573126615,
+                2.5912378573126615
+            ]
+        ],
+        "mag": [
+            0.0,
+            0.0
+        ],
+        "label": [
+            "Si",
+            "Si"
+        ],
+        "cell": [
+            [
+                2.7424482251,
+                2.7424482251,
+                -0.0
+            ],
+            [
+                -0.0,
+                2.7424482251,
+                2.7424482251
+            ],
+            [
+                2.7424482251,
+                0.0,
+                2.7424482251
+            ]
+        ],
+        "point_group": "",
+        "point_group_in_space": "",
+        "natom": 2,
+        "nband": 14,
+        "natom_each_type": {
+            "Si": 2
+        },
+        "nelectron_each_type": {
+            "Si": 4.0
+        },
+        "nelectron": 8
+    },
+    "output": [
+        {
+            "e_fermi": null,
+            "energy": -213.57364197167542,
+            "scf_converge": null,
+            "force": null,
+            "stress": null,
+            "coordinate": [
+                [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                [
+                    2.5912378573126615,
+                    2.5912378573126615,
+                    2.5912378573126615
+                ]
+            ],
+            "mag": [
+                0.0,
+                0.0
+            ],
+            "cell": [
+                [
+                    2.7424482251,
+                    2.7424482251,
+                    -0.0
+                ],
+                [
+                    -0.0,
+                    2.7424482251,
+                    2.7424482251
+                ],
+                [
+                    2.7424482251,
+                    0.0,
+                    2.7424482251
+                ]
+            ],
+            "total_mag": 0.0,
+            "absolute_mag": 0.0,
+            "scf": [
+                {
+                    "energy": -213.57364197167542,
+                    "ediff": 0.0,
+                    "drho": 0.0,
+                    "time": 1.4379037151666126
+                }
+            ]
+        }
+    ],
+    "general_info": {
+        "version": "v3.10.0",
+        "commit": "unknown",
+        "device": "cpu",
+        "mpi_num": 6,
+        "omp_num": 1,
+        "pseudo_dir": "/mnt/e/profsoftfiles/abacusfiles/SG15/pot/",
+        "orbital_dir": "/mnt/e/profsoftfiles/abacusfiles/SG15/orb/",
+        "stru_file": "STRU",
+        "kpt_file": "KPT",
+        "start_time": "2025-06-25 09:52:12",
+        "end_time": "2025-06-25 09:52:17"
+    }
+}
