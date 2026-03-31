@@ -120,9 +120,16 @@ Core ABACUS system configuration parameters.
 - **Description**: Order of Cardinal B-spline for Structure Factor calculation. `-1` = disabled.
 
 ### kspacing
-- **Type**: Real
+- **Type**: Real or 3 Reals
 - **Default**: `0.0`
 - **Description**: Minimum k-point spacing (1/Bohr). When > 0, KPT file is unnecessary. Suggested < 0.25.
+- **Format**:
+  - Single value: `kspacing 0.14` (same spacing in all directions)
+  - Three values: `kspacing 0.1 0.1 1.0` (different spacing for a/b/c directions)
+- **Use Case**: For 2D materials with vacuum layer, set larger spacing in vacuum direction to reduce k-points:
+  ```
+  kspacing 0.1 0.1 1.0  # Dense sampling in-plane, 1 k-point in vacuum direction
+  ```
 
 ### min_dist_coef
 - **Type**: Real
