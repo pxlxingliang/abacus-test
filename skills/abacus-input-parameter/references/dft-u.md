@@ -73,6 +73,38 @@ Parameters for DFT+U calculations (Hubbard correction for correlated electrons).
 
 ---
 
+## ⚠️ Important: Orbital Files in PW Calculations
+
+**DFT+U with `basis_type pw`**: Even when using plane-wave basis (`basis_type pw`), DFT+U calculations **require orbital files** in the STRU file for projection:
+
+```
+# INPUT
+basis_type pw
+dft_plus_u 1
+orbital_corr 2  # d-orbital correction
+
+# STRU (still needs orbitals!)
+NUMERICAL_ORBITAL
+Fe_gga_8au_60Ry_2s2p1d.orb
+```
+
+**Projected magnetic moments** (`onsite_radius`): Similarly, setting `onsite_radius` in spin-polarized calculations (even without DFT+U) requires orbital files for atomic-projected magnetism analysis:
+
+```
+# INPUT
+nspin 2
+basis_type pw
+onsite_radius 3.0  # Project magnetism onto atomic orbitals
+
+# STRU (needs orbitals for projection)
+NUMERICAL_ORBITAL
+Fe_gga_8au_60Ry_2s2p1d.orb
+```
+
+**Why?**: The projection operators in both cases use numerical atomic orbitals as the basis, regardless of the Kohn-Sham basis type.
+
+---
+
 ## Quick Examples
 
 ### Simple DFT+U on Fe d-orbitals
