@@ -93,7 +93,6 @@ exx_hse_omega 0.11
 ```
 INPUT_PARAMETERS
 nspin 2
-init_mag Fe 2.5
 mixing_beta 0.4
 ```
 
