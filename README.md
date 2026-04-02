@@ -581,6 +581,8 @@ The row and column indices represent the displacement direction and the polariza
 ### 4.4 Band structure
 The band structure calculation is one of the most fundamental electronic structure calculations. It describes the energy distribution of electrons along the high symmetry directions in reciprocal space and can be used to obtain band gap and other important electronic properties.
 
+For a detailed example and usage guide, see the [band structure calculation example](example/models/012-band/README.md).
+
 `abacustest` can automatically prepare the input files for band structure calculation based on the input files of the initial structure, and postprocess the calculated results to plot the band structure and get the band gap.
 
 If you have prepared the ABACUS input directory containing the structure information, you can use the following command to prepare the input:

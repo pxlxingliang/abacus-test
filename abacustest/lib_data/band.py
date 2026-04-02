@@ -377,15 +377,28 @@ class BandData:
                 "energy": None,
             }
 
-        # Group by spin and band index
-        band_index = defaultdict(set)
+        # Group by spin, kpoint, and band index
+        # Structure: {spin: {k: [bands]}}
+        spin_k_bands = {}
         kpoint_indices = set()
+        
         for spin, k, b in spin_indices:
-            band_index[spin].add(b)
+            if spin not in spin_k_bands.keys():
+                spin_k_bands[spin] = dict({})
+            if k not in spin_k_bands[spin].keys():
+                spin_k_bands[spin][k] = []
+            
+            spin_k_bands[spin][k].append(b)
             kpoint_indices.add(k)
 
-        # Convert sets to sorted lists
-        band_index_dict = {spin: sorted(bands) for spin, bands in band_index.items()}
+        # Convert to three-level list structure
+        band_index = []
+        for spin in sorted(spin_k_bands.keys()):
+            spin_bands = []
+            for k in sorted(spin_k_bands[spin].keys()):
+                # Append the list of band indices for this (spin, k)
+                spin_bands.append(sorted(spin_k_bands[spin][k]))
+            band_index.append(spin_bands)
 
         kpoint_indices = sorted(kpoint_indices)
         # Get labels for each kpoint
@@ -403,7 +416,7 @@ class BandData:
                 energy = None
 
         return {
-            "band_index": band_index_dict,
+            "band_index": band_index,
             "kpoint_index": kpoint_indices,
             "kpoint_labels": kpoint_labels,
             "kpoint_coord": kpoint_coord,
