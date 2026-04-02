@@ -72,6 +72,11 @@ COMMANDS = {
         "module": "model",
         "handler": "model.RunModel",
     },
+    "skills": {
+        "help": "Show the path of abacustest skills",
+        "module": "skills",
+        "handler": "show_skills",
+    },
 }
 
 def main():
@@ -86,7 +91,7 @@ def main():
     else:
         from . import arguments as args_mod
         for cmd, cfg in COMMANDS.items():
-            if cmd == "model":
+            if cmd in ["model", "skills"]:
                 subparser.add_parser(cmd, help=cfg["help"])
             else:
                 args_func = getattr(args_mod, cfg["args_func"])

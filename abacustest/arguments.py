@@ -93,3 +93,7 @@ def RemoteArgs(parser):
     '''
     parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type',required=True)
     return parser
+
+def SkillsArgs(parser):
+    parser.description = "Show the path of abacustest skills"
+    return parser

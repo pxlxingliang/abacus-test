@@ -467,12 +467,12 @@ Job type: abacus, all modules:  ['abacus']
 ```
 The avial modules are listed in the first line, and you can add some of them if needed.
 
-### 3.2 import collectdata.RESULT in your python script
-You can also use this collectdata function in your python script by `from abacustest.lib_collectdata.collectdata import RESULT`.
+### 3.2 import RESULT in your python script
+You can also use this collectdata function in your python script by `from abacustest import RESULT`.
 
 For example, if you want to collect the total energy, force, and stress from an ABACUS job, you can use the following code:
 ```
-from abacustest.lib_collectdata.collectdata import RESULT
+from abacustest import RESULT
 
 abacusresult = RESULT(fmt="abacus",path="abacusjob") 
 # path is the path to the ABACUS job folder, such as "abacusjob"
