@@ -1057,6 +1057,52 @@ class AbacusSTRU:
         
         return AbacusSTRU(self.cell, subset_atoms, self.dpks, self.metadata)
     
+    def supercell(self, nrep: Union[List[int], Tuple[int, int, int]] = [1, 1, 1]):
+        """
+        Build a supercell of the structure.
+        
+        Args:
+            nrep (List[int] or Tuple[int, int, int] or np.ndarray): Replication factors along the three lattice vectors. 
+                For example, [2, 2, 2] creates a 2x2x2 supercell.
+        
+        Returns:
+            AbacusSTRU: A new AbacusSTRU object representing the supercell.
+        
+        Example:
+            >>> stru = AbacusSTRU.read("STRU")
+            >>> stru_super = stru.supercell([2, 2, 2])  # 2x2x2 supercell
+            >>> stru_super.write("STRU_2x2x2", fmt="stru")
+        """
+        nrep = np.array(nrep, dtype=int)
+        assert nrep.shape == (3,), "nrep must be a list/tuple/array of 3 integers"
+        assert all(n > 0 for n in nrep), "All replication factors must be positive integers"
+        
+        # Build new cell
+        new_cell = [
+            [self.cell[i][j] * nrep[j] for j in range(3)]
+            for i in range(3)
+        ]
+        
+        # Build new atoms
+        new_atoms = []
+        for i in range(nrep[0]):
+            for j in range(nrep[1]):
+                for k in range(nrep[2]):
+                    for atom in self._atoms:
+                        # Deep copy the atom
+                        new_atom = copy.deepcopy(atom)
+                        # Calculate shift vector
+                        shift = (
+                            i * np.array(self.cell[0]) +
+                            j * np.array(self.cell[1]) +
+                            k * np.array(self.cell[2])
+                        )
+                        # Apply shift to coordinates
+                        new_atom.coord = tuple(np.array(atom.coord) + shift)
+                        new_atoms.append(new_atom)
+        
+        return AbacusSTRU(cell=new_cell, atoms=new_atoms, dpks=self.dpks, metadata=copy.deepcopy(self.metadata))
+    
     def get_kline(self,
                   with_time_reversal: bool=True,
                   recipe: Literal["hpkot"] = "hpkot",

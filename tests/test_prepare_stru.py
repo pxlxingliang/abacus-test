@@ -318,6 +318,26 @@ class TestAbacusSTRU(unittest.TestCase):
     def test_orbs(self):
         self.assertEqual(len(self.stru.orbs), 2)
 
+    def test_supercell_2x2x2(self):
+        stru_super = self.stru.supercell([2, 2, 2])
+        self.assertEqual(stru_super.natoms, 16)
+        new_cell = stru_super.cell
+        self.assertAlmostEqual(new_cell[0][0], 5.74)
+        self.assertAlmostEqual(new_cell[1][1], 5.74)
+        self.assertAlmostEqual(new_cell[2][2], 5.74)
+
+    def test_supercell_1x2x1(self):
+        stru_super = self.stru.supercell([1, 2, 1])
+        self.assertEqual(stru_super.natoms, 4)
+
+    def test_supercell_preserves_magnetic_moment(self):
+        atom_mag = AbacusATOM(label="Fe1", coord=(0.0, 0.0, 0.0), mag=2.0)
+        stru_mag = AbacusSTRU(cell=self.cell, atoms=[atom_mag])
+        stru_super = stru_mag.supercell([2, 1, 1])
+        self.assertEqual(stru_super.natoms, 2)
+        self.assertEqual(stru_super[0].mag, 2.0)
+        self.assertEqual(stru_super[1].mag, 2.0)
+
 
 if __name__ == "__main__":
     unittest.main()
