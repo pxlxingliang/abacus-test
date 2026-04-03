@@ -217,6 +217,7 @@ class AseRelax(Model):
             else:
                 fmax_max = max(plot_data[example]["fmax"])
                 fmax_min = min(plot_data[example]["fmax"])
+            fmax_min = max(fmax_min,1e-4)
             ax0.set_ylim(ene_min,ene_max + (ene_max - ene_min)*0.2)
             ax1.set_ylim(fmax_min,fmax_max + (fmax_max - fmax_min)*0.2)
             # plot line y = 0.01
