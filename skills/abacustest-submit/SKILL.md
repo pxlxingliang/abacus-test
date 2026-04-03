@@ -116,12 +116,11 @@ project/
     "run_dft": [
         {
             "ifrun": true,
-            "sub_save_path": "batch1",
-            "image": "registry.dp.tech/dptech/my-image:latest",
+            "image": "registry.dp.tech/dptech/abacus:LTSv3.10.1",
             "example": ["00[0-2]", "00[3-5]"],
             "group_size": 1,
             "bohrium": {
-                "scass_type": "c8_m16_cpu",
+                "scass_type": "c32_m64_cpu",
                 "job_type": "container",
                 "platform": "ali"
             },
@@ -159,7 +158,7 @@ Each dictionary in `run_dft` defines a job batch:
 
 ```json
 "bohrium": {
-    "scass_type": "c8_m16_cpu",
+    "scass_type": "c32_m64_cpu",
     "job_type": "container",
     "platform": "ali"
 }
@@ -167,9 +166,11 @@ Each dictionary in `run_dft` defines a job batch:
 
 | Field | Description | Examples |
 |-------|-------------|----------|
-| `scass_type` | Machine type | `c8_m16_cpu`, `c16_m32_cpu`, `c32_m64_cpu`, `c64_m128_cpu` |
-| `job_type` | Job type | `container`, `vm` |
-| `platform` | Cloud platform | `ali`, `aws` |
+| `scass_type` | Machine type | `c32_m64_cpu`, `c32_m128_cpu` |
+| `job_type` | Job type | `container` |
+| `platform` | Cloud platform | `ali`, `paratera` |
+
+⚠️ **Important**: For the Ali platform, their machines are typically dual-threaded, so the actual number of physical cores is halved. For example, a c32_m64 instance has 16 physical cores. We usually use 16 when writing MPI commands.
 
 ### Alternative: Dispatcher (Supercomputers)
 
@@ -260,14 +261,14 @@ abacustest download -p param.json f14c5d95-655c-47b4-a709-c9a8138a40cf
     "save_path": "results",
     "run_dft": [
         {
-            "image": "python:3.9",
+            "image": "registry.dp.tech/dptech/abacus:LTSv3.10.1",
             "example": ["job1", "job2", "job3"],
             "bohrium": {
-                "scass_type": "c8_m16_cpu",
+                "scass_type": "c32_m64_cpu",
                 "job_type": "container",
                 "platform": "ali"
             },
-            "command": "python process.py > log"
+            "command": "OMP_BUN_THREADS=1 mpirun -np 16 abacus | tee out.log"
         }
     ]
 }
@@ -291,7 +292,7 @@ abacustest submit -p param.json &
             "example": ["00[0-9]", "01[0-9]"],
             "group_size": 2,
             "bohrium": {
-                "scass_type": "c16_m32_cpu",
+                "scass_type": "c32_m64_cpu",
                 "job_type": "container",
                 "platform": "ali"
             },
@@ -322,7 +323,7 @@ abacustest submit -p param.json &
                 "job_type": "container",
                 "platform": "ali"
             },
-            "command": "mpirun -np 8 abacus > log"
+            "command": "mpirun -np 4 abacus > log"
         }
     ]
 }
