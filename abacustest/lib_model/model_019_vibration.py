@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 import json, os
 import math
 import shutil, glob, copy
@@ -15,20 +15,6 @@ from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MA
 
 
 class VibrationModel(Model):
-    @staticmethod
-    def model_name(): # type: ignore
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "vibration"
-    
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Calculate the vibration frequency of selected atoms"
-    
     @staticmethod
     def prepare_args(parser):
         '''

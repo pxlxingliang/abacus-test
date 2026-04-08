@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 import json, os, shutil
 from pathlib import Path
 from typing import List, Dict, Any, Literal, Optional, Tuple
@@ -23,20 +23,6 @@ EFIELD_DIRECTION_MAP = ["a", "b", "c"]
 
 
 class WorkFuncModel(Model):
-    @staticmethod
-    def model_name():  # type: ignore
-        """
-        Name of the model, which will be used as the subcommand
-        """
-        return "workfunc"
-
-    @staticmethod
-    def description():  # type: ignore
-        """
-        Description of the model
-        """
-        return "Prepare and postprocess the work function calculation"
-
     @staticmethod
     def prepare_args(parser):
         """

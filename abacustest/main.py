@@ -87,7 +87,15 @@ def main():
     
     if len(sys.argv) > 1 and sys.argv[1] == "model":
         from . import model as model_mod
-        model_mod.ModelArgs(subparser.add_parser("model", help=COMMANDS["model"]["help"]))
+        
+        model_parser = subparser.add_parser("model", help=COMMANDS["model"]["help"])
+        
+        if len(sys.argv) == 2 or (len(sys.argv) > 2 and sys.argv[2] in ["-h", "--help"]) or \
+           (len(sys.argv) > 2 and sys.argv[2] not in model_mod.MODEL_ARGS):
+            model_mod.ModelArgs(model_parser, list_all_models=True)
+        else:
+            model_subcommand = sys.argv[2] if len(sys.argv) > 2 else None
+            model_mod.ModelArgs(model_parser, list_all_models=False, model_subcommand=model_subcommand)
     else:
         from . import arguments as args_mod
         for cmd, cfg in COMMANDS.items():
@@ -106,6 +114,9 @@ def main():
     cfg = COMMANDS[param.command]
     
     if param.command == "model":
+        if not hasattr(param, 'model') or param.model is None:
+            model_parser.print_help()
+            return
         from . import model as model_mod
         model_mod.RunModel(param)
     else:

@@ -1,6 +1,6 @@
 import os,sys,glob,json
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,WriteInput,WriteKpt
-from ..model import Model
+from .model import Model
 from . import comm
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,20 +17,6 @@ class Phonon(Model):
     
     The model should have the following methods:
     '''
-    @staticmethod
-    def model_name():
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "phonon"
-    
-    @staticmethod
-    def description():
-        '''
-        Description of the model
-        '''
-        return "Prepare and postprocess the phonon calculation"
-    
     @staticmethod
     def add_args(parser):
         '''

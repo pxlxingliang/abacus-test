@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 import os, glob, json, traceback, copy
 import argparse
 from pprint import pprint
@@ -11,20 +11,6 @@ from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MA
 
 
 class BandModel(Model):
-    @staticmethod
-    def model_name(): # type: ignore
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "band"
-
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Prepare and postprocess the calcualtion of band structure"
-
     @staticmethod
     def prepare_args(parser):
         '''
@@ -69,7 +55,7 @@ class BandModel(Model):
         comm.dump_setting(setting)
         comm.doc_after_prepare("band", real_jobs, ["setting.json"],has_prepare=False)
         print("After finish the calculation, you can run below command to do the postprocess:")
-        print(f"    abacustest model {self.model_name()} post -j {' '.join(real_jobs)} -r result.json\n")
+        print(f"    abacustest model band post -j {' '.join(real_jobs)} -r result.json\n")
         
         if params.run:
             bash_script = "cal_band_structure.sh"

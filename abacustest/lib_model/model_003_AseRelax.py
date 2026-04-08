@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 import os, json, sys, inspect
 from . import comm, comm_plot
 from abacustest.constant import RECOMMAND_IMAGE
@@ -12,20 +12,6 @@ class AseRelax(Model):
     
     The model should have the following methods:
     '''
-    @staticmethod
-    def model_name():
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "aserelax"
-
-    @staticmethod
-    def description():
-        '''
-        Description of the model
-        '''
-        return "Prepare the inputs for relax by ASE + ABACUS"
-
     @staticmethod
     def add_args(parser):
         '''
@@ -88,14 +74,14 @@ class AseRelax(Model):
         comm.dump_setting(setting)
         comm.doc_after_prepare("ASE-ABACUS relax", real_jobs, ["setting.json"],has_prepare=False)
         print("After finish the calculation, you can run below command to do the postprocess:")
-        print(f"    abacustest model {self.model_name()} post -j {' '.join(real_jobs)} -r result.json\n")
+        print(f"    abacustest model aserelax post -j {' '.join(real_jobs)} -r result.json\n")
         
         if params.run:
             bash_script = "aserelax.sh"
             with open(bash_script,"w") as f:
                 f.write("abacustest submit -p setting.json\n")
                 f.write("cd results\n")
-                f.write(f"abacustest model {self.model_name()} post -j {' '.join(real_jobs)} -r result.json\n")
+                f.write(f"abacustest model aserelax post -j {' '.join(real_jobs)} -r result.json\n")
             os.system(f"bash {bash_script} &")
 
     @staticmethod

@@ -2,7 +2,7 @@ import os,sys,glob,json,shutil,copy
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,WriteInput,WriteKpt
 from abacustest.lib_collectdata.collectdata import RESULT
 from abacustest.prepare import PrepareAbacus
-from ..model import Model
+from .model import Model
 from . import comm
 from abacustest.lib_prepare.comm import kspacing2kpt
 
@@ -19,20 +19,6 @@ class fdstress(Model):
     
     The model should have the following methods:
     '''
-    @staticmethod
-    def model_name():
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "fdstress"
-    
-    @staticmethod
-    def description():
-        '''
-        Description of the model
-        '''
-        return "finite difference of stress"
-    
     @staticmethod
     def add_args(parser):
         '''

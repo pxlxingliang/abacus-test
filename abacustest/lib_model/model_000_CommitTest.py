@@ -1,23 +1,9 @@
-from ..model import Model
+from .model import Model
 import os, glob, json
 from . import comm
 
 
 class CommitTest(Model):
-    @staticmethod
-    def model_name(): # type: ignore
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "committest"
-    
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Prepare the test on different abacus commit"
-    
     @staticmethod
     def prepare_args(parser):
         parser.add_argument("-j","--jobs",default=[],type=str,help="the path of jobs to be tested",action="extend",nargs="*",)

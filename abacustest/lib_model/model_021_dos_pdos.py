@@ -1,24 +1,10 @@
-from ..model import Model
+from .model import Model
 import os, traceback
 from abacustest.lib_data.dos import DOSData, PDOSData
 
 
 class DOSPDOSModel(Model):
     HAS_PREPARE_POST_COMMAND = False
-    
-    @staticmethod
-    def model_name(): # type: ignore
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "dos-pdos"
-    
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Postprocess the DOS and PDOS data from ABACUS calculations"
     
     @staticmethod
     def add_args(parser):

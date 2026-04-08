@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 import os, glob, json
 from . import comm,comm_conv,comm_plot
 from abacustest.lib_collectdata.collectdata import RESULT
@@ -46,14 +46,6 @@ SETTING_TMP = {
 
 
 class ConvEcutwfc(Model):
-    @staticmethod
-    def description():  # type: ignore
-        return "Do a convergence test"
-
-    @staticmethod
-    def model_name():  # type: ignore
-        return "conv"
-
     @staticmethod
     def prepare_args(parser):
         parser.add_argument(

@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 import os, glob, json
 from . import comm
 import numpy as np
@@ -9,20 +9,6 @@ from .comm_plot import auto_set_yaxis
 
 
 class CompareMetricsModel(Model):
-    @staticmethod
-    def model_name(): # type: ignore
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "comparem"
-    
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Compare two metrics.json files"
-    
     @staticmethod
     def add_args(parser):
         parser.add_argument("-f","--file",type=str,help="two metrics json files",action="extend",nargs=2,)
