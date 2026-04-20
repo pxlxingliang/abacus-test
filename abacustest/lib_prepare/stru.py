@@ -765,7 +765,7 @@ class AbacusSTRU:
             cell = np.array(self.cell) * A2BOHR / lc
             coord = np.array([atom.coord for atom in atom_list]) * A2BOHR / lc
             if direct:
-                coord = Cartesian2Direct(coord.tolist(), self.cell)
+                coord = Cartesian2Direct(coord.tolist(), cell)
             else:
                 coord = coord.tolist()
             cell = cell.tolist()
