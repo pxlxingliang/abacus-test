@@ -13,10 +13,11 @@ from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MA
 class BandModel(Model):
     @staticmethod
     def prepare_args(parser):
-        '''
+        """
         Add arguments for the prepare subcommand
-        The arguments can not be command, model, modelcommand '''
-        
+        The arguments can not be command, model, modelcommand
+        """
+
         parser.description = "Prepare the band structure calculation. Will generate the scf/nscf/kpath input files."
         parser.add_argument('-j', '--job',default=["."], action="extend",nargs="*" ,help='the path of abacus inputs, default is current folder')
         parser.add_argument("-c", "--rundftcommand", type=str, default=RECOMMAND_COMMAND,help=f"the command to execute aabcus, default is '{RECOMMAND_COMMAND}' ")
@@ -65,9 +66,9 @@ class BandModel(Model):
 
     @staticmethod
     def postprocess_args(parser):
-        '''
+        """
         PostProcess the band structure calculation. Will plot the band structure and calculate the band gap.
-        '''
+        """
         parser.description = "PostProcess the band structure calculation. Will plot the band structure and calculate the band gap."
         parser.add_argument(
             "-j",
@@ -89,11 +90,6 @@ class BandModel(Model):
             type=str,
             help="the kpoint file name, default is KPT.nscf",
         )
-        #parser.add_argument(
-        #    "--new_plot",
-        #    action="store_true",
-        #    help="whether to use the new plot function in BandData class. Default is False.",
-        #)
         parser.add_argument(
             "--range",
             default=[-5, 5],
@@ -141,12 +137,16 @@ class BandModel(Model):
             #help="The number of points to use for single-ended effective mass parabola fitting. Default is 10.",
             help=argparse.SUPPRESS
         )
+        parser.add_argument(
+            "--write-band-data",
+            action="store_true",
+            help="whether to write the band data to a file. Default is False.",
+        )
         return parser
-        
-        
-    def run_postprocess(self,params):
-        '''
-        Parse the parameters and run the postprocess process'''
+
+    def run_postprocess(self, params):
+        """
+        Parse the parameters and run the postprocess process"""
         jobs = comm.get_job_list(params.job)
         results = PostBand(
             jobs,
@@ -160,19 +160,20 @@ class BandModel(Model):
             eff_mass_direction=params.eff_mass_direction,
             eff_mass_index=params.eff_mass_index,
             eff_mass_fit_points=params.eff_mass_fit_points,
+            write_band_data=params.write_band_data,
         ).run()
-        
-        print("The band structure is plotted in the band.png file")
+
+        print("The band structure is plotted in band.png")
         if params.plot_pband:
-            print("The projected band structure is plotted in the projband.png file")
+            print("The projected band structure is plotted in projband.png")
 
         with open("metrics_band.json", "w") as f:
             json.dump(results, f, indent=2)
-            print("The band gap results are saved in metrics_band.json")
+            print("The band results are saved in metrics_band.json")
 
 
 class PrepBand:
-    def __init__(self, jobs,run_command=None,job_type="abacus"):
+    def __init__(self, jobs, run_command=None, job_type="abacus"):
         self.jobs = jobs
         self.job_type = job_type
         self.run_command = self.modify_command(run_command)
@@ -188,10 +189,10 @@ class PrepBand:
         else:
             print(f"Error: the job type {self.job_type} is not supported")
             jobs = []
-        
+
         return jobs, f"bash {self.run_script}", [self.run_script]
-                
-    def modify_command(self,command):
+
+    def modify_command(self, command):
         # if the command is end with | tee out.log, remove it
         if command is None:
             return "abacus"
@@ -207,8 +208,8 @@ class PrepBand:
             if not os.path.isdir(job):
                 print(f"Warning: {job} is not a valid folder")
                 continue
-            inputfile = os.path.join(job,"INPUT")
-            strufile = os.path.join(job,"STRU")
+            inputfile = os.path.join(job, "INPUT")
+            strufile = os.path.join(job, "STRU")
             if not os.path.isfile(inputfile):
                 print(f"Warning: {job} is not a valid folder, can not find {inputfile}")
                 continue
@@ -236,25 +237,25 @@ class PrepBand:
             scf_input["calculation"] = "scf"
             scf_input["out_chg"] = 1
             scf_input["kpoint_file"] = self.scf_kpt
-            scf_input.pop("kspacing",None)
-            WriteInput(scf_input,os.path.join(job,self.scf_input))
-            WriteKpt(kpt[0], os.path.join(job,self.scf_kpt),model=kpt[1])
-            
+            scf_input.pop("kspacing", None)
+            WriteInput(scf_input, os.path.join(job, self.scf_input))
+            WriteKpt(kpt[0], os.path.join(job, self.scf_kpt), model=kpt[1])
+
             # generate the nscf input
             nscf_input["calculation"] = "nscf"
             nscf_input["init_chg"] = "file"
             nscf_input["out_band"] = 1
             nscf_input["kpoint_file"] = self.nscf_kpt
-            nscf_input.pop("kspacing",None)
-            if nscf_input.get("symmetry",None) == 1:
+            nscf_input.pop("kspacing", None)
+            if nscf_input.get("symmetry", None) == 1:
                 nscf_input["symmetry"] = 0
-            WriteInput(nscf_input,os.path.join(job,self.nscf_input))
-            stru.get_kline(kpt_file=os.path.join(job,self.nscf_kpt),point_number=20)
-            
+            WriteInput(nscf_input, os.path.join(job, self.nscf_input))
+            stru.get_kline(kpt_file=os.path.join(job, self.nscf_kpt), point_number=20)
+
             valid_jobs.append(job)
         # gen run script
         if len(valid_jobs) > 0:
-            with open(self.run_script,"w") as f:
+            with open(self.run_script, "w") as f:
                 f.write(f"cp {self.scf_input} INPUT\n")
                 f.write(f"{self.run_command} | tee scf.log\n")
                 f.write(f"cp {self.nscf_input} INPUT\n")
@@ -267,6 +268,7 @@ class PostBand:
         self, jobs, input_file=None, kpt_file=None, new_plot=False,
         band_range=None, plot_pband=False, pband_mode="species",
         eff_mass=False, eff_mass_direction=None, eff_mass_index=None, eff_mass_fit_points=10,
+        write_band_data=False
     ):
         self.jobs = jobs
         self.input_file = input_file
@@ -279,19 +281,20 @@ class PostBand:
         self.eff_mass_direction = eff_mass_direction
         self.eff_mass_index = eff_mass_index
         self.eff_mass_fit_points = eff_mass_fit_points
+        self.write_band_data = write_band_data
 
     def run(self):
         results = {}
         for job in self.jobs:
-            print(job)
+            print(f"Directory: {job}")
             results[job] = {}
             inputfile = self.find_input(job)
             kpt = self.get_kpoints(inputfile, job)
             suffix = "ABACUS"
             if inputfile is not None:
                 input_param = ReadInput(inputfile)
-                suffix = input_param.get("suffix","ABACUS")
-            band_file = os.path.join(job, "OUT."+input_param.get("suffix","ABACUS"), "BANDS_1.dat")
+                suffix = input_param.get("suffix", "ABACUS")
+            band_file = os.path.join(job, "OUT." + input_param.get("suffix", "ABACUS"), "BANDS_1.dat")
             if not os.path.isfile(band_file):
                 print(f"Warning: can not find the band file {band_file}")
                 continue
@@ -303,43 +306,145 @@ class PostBand:
                 kpath_list = []
                 for kpath in band_data.kpaths:
                     if kpath_list:
-                        if kpath['start'] != kpath_list[-1]:
-                            kpath_list[-1] +=  f"|{kpath['start']}"
-                        kpath_list.append(kpath['end'])
+                        if kpath["start"] != kpath_list[-1]:
+                            kpath_list.append(kpath["start"])
+                        kpath_list.append(kpath["end"])
                     else:
                         kpath_list.extend([kpath["start"], kpath["end"]])
-                print(kpath_list)
+                
+                # Print high-symmetry point information
+                print("-"*60 + f"\n{'label':<10} {'Fractional coordinates in reciprocal space':<20}\n" + "-"*60)
+                for label, pos in band_data.high_symm_labels.items():
+                    print(f"{label:<10} ({pos[0]:12.9f}, {pos[1]:12.9f}, {pos[2]:12.9f})")
+                print("-"*60)
+
+                # print details of k-point path
+                high_symm_info = []
+                print("\nBand path information:")
+                print("-" * 60)
+                print(
+                    f"{'K-point No.':<12} {'Label':<15} {'Cumulative distance':<20}"
+                )
+                print("-" * 60)
+
+                # Collect high symmetry points in the order they appear in kpaths
+                seen_points = set()
+
+                # Process the first kpath start point
+                first_kpath = band_data.kpaths[0]
+                start_label = first_kpath["start"]
+                start_idx = first_kpath["start_nkpt"]
+                cum_dist = band_data.kpath_lengths[start_idx]
+                kpoint_num = start_idx + 1  # Convert to 1-based index
+                high_symm_info.append(
+                    {
+                        "kpoint_num": kpoint_num,
+                        "label": start_label,
+                        "cumulative_distance": float(cum_dist),
+                    }
+                )
+                seen_points.add((start_label, start_idx))
+                print(f"{kpoint_num:<12} {start_label:<15} {cum_dist:<20.8f}")
+
+                # Process all kpaths
+                for i, kpath in enumerate(band_data.kpaths):
+                    end_label = kpath["end"]
+                    end_idx = kpath["end_nkpt"]
+
+                    # Add end label of current kpath (if not already added)
+                    if (end_label, end_idx) not in seen_points:
+                        cum_dist = band_data.kpath_lengths[end_idx]
+                        kpoint_num = end_idx + 1  # Convert to 1-based index
+                        high_symm_info.append(
+                            {
+                                "kpoint_num": kpoint_num,
+                                "label": end_label,
+                                "cumulative_distance": float(cum_dist),
+                            }
+                        )
+                        seen_points.add((end_label, end_idx))
+                        print(
+                            f"{kpoint_num:<12} {end_label:<15} {cum_dist:<20.8f}"
+                        )
+
+                    # Check if this is a discontinuous point (different from next start)
+                    if i < len(band_data.kpaths) - 1:
+                        next_kpath = band_data.kpaths[i + 1]
+                        next_start_label = next_kpath["start"]
+                        next_start_idx = next_kpath["start_nkpt"]
+
+                        if end_label != next_start_label:
+                            # Discontinuous point: add next start label separately
+                            if (next_start_label, next_start_idx) not in seen_points:
+                                cum_dist_next = band_data.kpath_lengths[next_start_idx]
+                                kpoint_num_next = next_start_idx + 1  # Convert to 1-based index
+                                high_symm_info.append(
+                                    {
+                                        "kpoint_num": kpoint_num_next,
+                                        "label": next_start_label,
+                                        "cumulative_distance": float(cum_dist_next),
+                                    }
+                                )
+                                seen_points.add((next_start_label, next_start_idx))
+                                print(
+                                    f"{kpoint_num_next:<12} {next_start_label:<15} {cum_dist_next:<20.8f}"
+                                )
+                        # If continuous, next_start_label is same as end_label, already added
+                    # Last kpath end point already added above
+
+                print("-" * 60)
+                # Write high symmetry points information to a separate file
+                hs_filename = os.path.join(job, "KPATH.txt")
+                with open(hs_filename, "w") as f:
+                    f.write("High symmetry points information\n")
+                    f.write("-" * 60 + "\n")
+                    f.write(f"{'K-point No.':<12} {'Label':<15} {'Cumulative distance':<20}\n")
+                    f.write("-" * 60 + "\n")
+                    for info in high_symm_info:
+                        f.write(f"{info['kpoint_num']:<12} {info['label']:<15} {info['cumulative_distance']:<20.8f}\n")
+                print(f"High symmetry points information written to {hs_filename}\n")
+                
+
                 band_gap = band_data.get_band_gap()
-                print(f"E_fermi={band_data.efermi:.2f}eV, BandGap={band_gap}eV")
-                results[job]['band_gap'] = band_gap
+                print(f"E_fermi={band_data.efermi:.4f}eV, BandGap={band_gap:.4f}eV")
+                results[job]["band_gap"] = band_gap
                 band_data.plot_band(
                     self.band_range[0],
                     self.band_range[1],
                     os.path.join(job, "band.png"),
                 )
 
+                # Write band data
+                if self.write_band_data:
+                    # Write band data
+                    band_data.write_to_file(os.path.join(job, "band_data.dat"))
+                    if band_data.nspin in [1, 4]:
+                        print(f"\nProcessed band data written to {os.path.join(job, 'band_data.dat')}")
+                    else:
+                        print(f"\nProcessed band data written to {os.path.join(job, 'band_data_up.dat')} and {os.path.join(job, 'band_data_down.dat')}")
+                    
 
                 if band_data.is_metal():
                     print("CBM and VBM are not available for metal")
-                    results[job]['cbm'] = None
-                    results[job]['vbm'] = None
+                    results[job]["cbm"] = None
+                    results[job]["vbm"] = None
                 else:
                     cbm, vbm = band_data.get_cbm(), band_data.get_vbm()
                     print("CBM:")
                     pprint(cbm)
                     print("VBM:")
                     pprint(vbm)
-                    results[job]['cbm'], results[job]['vbm'] = cbm, vbm
-                
+                    results[job]["cbm"], results[job]["vbm"] = cbm, vbm
+
                 if self.eff_mass:
                     print("Effective mass:")
                     if self.eff_mass_direction is None:
                         print("Warning: eff_mass_direction is not specified")
-                        results[job]['eff_mass'] = None
+                        results[job]["eff_mass"] = None
                     else:
                         if len(self.eff_mass_direction) != 2:
                             print("Warning: eff_mass_direction should be a list of length 2 high-symmetry labels")
-                            results[job]['eff_mass'] = None
+                            results[job]["eff_mass"] = None
                         else:
                             is_legal = True
                             for label in self.eff_mass_direction:
@@ -353,12 +458,11 @@ class PostBand:
                                     self.eff_mass_direction,
                                     band_index=self.eff_mass_index,
                                     num_fit_points=self.eff_mass_fit_points,
-                                    plot_fit=True
+                                    plot_fit=True,
                                 )
                                 pprint(eff_mass)
-                                results[job]['eff_mass'] = eff_mass
-                            
-                                
+                                results[job]["eff_mass"] = eff_mass
+
             else:
                 self.plot_band(bands[1:], kpt, os.path.join(job,"band.png"), 
                                x=bands[0],
@@ -366,30 +470,31 @@ class PostBand:
 
             if self.plot_pband:
                 from abacustest.lib_data.band import ProjBandData
+
                 projband_data = ProjBandData.ReadFromAbacusJob(job)
                 if self.pband_mode == "species":
                     projband_data.plot_proj_band_species(
                         self.band_range[0],
                         self.band_range[1],
-                        os.path.join(job, "projband.png")
+                        os.path.join(job, "projband.png"),
                     )
                 elif self.pband_mode == "shell":
                     projband_data.plot_proj_band_species_shell(
                         self.band_range[0],
                         self.band_range[1],
-                        os.path.join(job, "projband.png")
+                        os.path.join(job, "projband.png"),
                     )
                 elif self.pband_mode == "orbital":
                     projband_data.plot_proj_band_species_orbital(
                         self.band_range[0],
                         self.band_range[1],
-                        os.path.join(job, "projband.png")
+                        os.path.join(job, "projband.png"),
                     )
                 else:
-                    print("Warning: pband_mode is not supported")
-        
+                    print(f"Warning: pband_mode {self.pband_mode} is not supported")
+
         return results
-    
+
     def get_efermi(self, logfile):
         with open(logfile) as f:
             lines = f.readlines()

@@ -381,13 +381,13 @@ class BandData:
         # Structure: {spin: {k: [bands]}}
         spin_k_bands = {}
         kpoint_indices = set()
-        
+
         for spin, k, b in spin_indices:
             if spin not in spin_k_bands.keys():
                 spin_k_bands[spin] = dict({})
             if k not in spin_k_bands[spin].keys():
                 spin_k_bands[spin][k] = []
-            
+
             spin_k_bands[spin][k].append(b)
             kpoint_indices.add(k)
 
@@ -652,6 +652,62 @@ class BandData:
                 result[label] = 0.0
 
         return result
+
+    def write_to_file(
+        self,
+        filename: str = "band.dat",
+        spin_up_suffix: str = "_up",
+        spin_down_suffix: str = "_down",
+    ):
+        """
+        Write band data to file(s).
+
+        Args:
+            filename (str): Base filename for output. Default is "band.dat".
+            spin_up_suffix (str): Suffix for spin-up file when nspin=2. Default is "_up".
+            spin_down_suffix (str): Suffix for spin-down file when nspin=2. Default is "_down".
+
+        Output format:
+            First column: k-path cumulative distance
+            Subsequent columns: Band energies for each band
+        """
+        import os
+        from pathlib import Path
+
+        filepath = Path(filename)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        if self.nspin == 1 or self.nspin == 4:
+            self._write_single_file(filepath, 0)
+        elif self.nspin == 2:
+            base_name = filepath.stem
+            ext = filepath.suffix
+
+            spin_up_filepath = filepath.parent / f"{base_name}{spin_up_suffix}{ext}"
+            self._write_single_file(spin_up_filepath, 0)
+
+            spin_down_filepath = filepath.parent / f"{base_name}{spin_down_suffix}{ext}"
+            self._write_single_file(spin_down_filepath, 1)
+
+    def _write_single_file(self, filepath: Path, spin_index: int):
+        """
+        Helper method to write band data for a single spin channel.
+
+        Args:
+            filepath (Path): Path to output file.
+            spin_index (int): Index of spin channel to write.
+        """
+        import numpy as np
+
+        with open(filepath, "w") as f:
+            f.write("#The first column is accumulated path length, and the rest columns are band data, and has minused Fermi energy.\n")
+
+        kpath_col = self.kpath_lengths.reshape(-1, 1)
+        bands = self.band_data[spin_index, :, :]
+        data_to_write = np.hstack([kpath_col, bands])
+
+        with open(filepath, "a") as f:
+            np.savetxt(f, data_to_write, fmt="%12.8f")
 
     def plot_band(
         self,
