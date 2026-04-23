@@ -381,13 +381,13 @@ class BandData:
         # Structure: {spin: {k: [bands]}}
         spin_k_bands = {}
         kpoint_indices = set()
-        
+
         for spin, k, b in spin_indices:
             if spin not in spin_k_bands.keys():
                 spin_k_bands[spin] = dict({})
             if k not in spin_k_bands[spin].keys():
                 spin_k_bands[spin][k] = []
-            
+
             spin_k_bands[spin][k].append(b)
             kpoint_indices.add(k)
 
@@ -653,6 +653,62 @@ class BandData:
 
         return result
 
+    def write_to_file(
+        self,
+        filename: str = "band.dat",
+        spin_up_suffix: str = "_up",
+        spin_down_suffix: str = "_down",
+    ):
+        """
+        Write band data to file(s).
+
+        Args:
+            filename (str): Base filename for output. Default is "band.dat".
+            spin_up_suffix (str): Suffix for spin-up file when nspin=2. Default is "_up".
+            spin_down_suffix (str): Suffix for spin-down file when nspin=2. Default is "_down".
+
+        Output format:
+            First column: k-path cumulative distance
+            Subsequent columns: Band energies for each band
+        """
+        import os
+        from pathlib import Path
+
+        filepath = Path(filename)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        if self.nspin == 1 or self.nspin == 4:
+            self._write_single_file(filepath, 0)
+        elif self.nspin == 2:
+            base_name = filepath.stem
+            ext = filepath.suffix
+
+            spin_up_filepath = filepath.parent / f"{base_name}{spin_up_suffix}{ext}"
+            self._write_single_file(spin_up_filepath, 0)
+
+            spin_down_filepath = filepath.parent / f"{base_name}{spin_down_suffix}{ext}"
+            self._write_single_file(spin_down_filepath, 1)
+
+    def _write_single_file(self, filepath: Path, spin_index: int):
+        """
+        Helper method to write band data for a single spin channel.
+
+        Args:
+            filepath (Path): Path to output file.
+            spin_index (int): Index of spin channel to write.
+        """
+        import numpy as np
+
+        with open(filepath, "w") as f:
+            f.write("#The first column is accumulated path length, and the rest columns are band data, and has minused Fermi energy.\n")
+
+        kpath_col = self.kpath_lengths.reshape(-1, 1)
+        bands = self.band_data[spin_index, :, :]
+        data_to_write = np.hstack([kpath_col, bands])
+
+        with open(filepath, "a") as f:
+            np.savetxt(f, data_to_write, fmt="%12.8f")
+
     def plot_band(
         self,
         emin: float = -10,
@@ -845,6 +901,120 @@ class BandData:
             results.append(result)
 
         return results
+
+    def get_high_symmetry_points_info(self):
+        """
+        Get high symmetry points information including k-point number, label and cumulative distance.
+        
+        Returns:
+            List[Dict]: List of dictionaries with keys 'kpoint_num', 'label', 'cumulative_distance'
+        """
+        high_symm_info = []
+        seen_points = set()
+
+        # Process the first kpath start point
+        first_kpath = self.kpaths[0]
+        start_label = first_kpath["start"]
+        start_idx = first_kpath["start_nkpt"]
+        cum_dist = self.kpath_lengths[start_idx]
+        kpoint_num = start_idx + 1  # Convert to 1-based index
+        high_symm_info.append(
+            {
+                "kpoint_num": kpoint_num,
+                "label": start_label,
+                "cumulative_distance": float(cum_dist),
+            }
+        )
+        seen_points.add((start_label, start_idx))
+
+        # Process all kpaths
+        for i, kpath in enumerate(self.kpaths):
+            end_label = kpath["end"]
+            end_idx = kpath["end_nkpt"]
+
+            # Add end label of current kpath (if not already added)
+            if (end_label, end_idx) not in seen_points:
+                cum_dist = self.kpath_lengths[end_idx]
+                kpoint_num = end_idx + 1  # Convert to 1-based index
+                high_symm_info.append(
+                    {
+                        "kpoint_num": kpoint_num,
+                        "label": end_label,
+                        "cumulative_distance": float(cum_dist),
+                    }
+                )
+                seen_points.add((end_label, end_idx))
+
+            # Check if this is a discontinuous point (different from next start)
+            if i < len(self.kpaths) - 1:
+                next_kpath = self.kpaths[i + 1]
+                next_start_label = next_kpath["start"]
+                next_start_idx = next_kpath["start_nkpt"]
+
+                if end_label != next_start_label:
+                    # Discontinuous point: add next start label separately
+                    if (next_start_label, next_start_idx) not in seen_points:
+                        cum_dist_next = self.kpath_lengths[next_start_idx]
+                        kpoint_num_next = next_start_idx + 1  # Convert to 1-based index
+                        high_symm_info.append(
+                            {
+                                "kpoint_num": kpoint_num_next,
+                                "label": next_start_label,
+                                "cumulative_distance": float(cum_dist_next),
+                            }
+                        )
+                        seen_points.add((next_start_label, next_start_idx))
+                # If continuous, next_start_label is same as end_label, already added
+            # Last kpath end point already added above
+
+        return high_symm_info
+
+    def print_high_symmetry_labels(self):
+        """
+        Print high symmetry labels and coordinates to console.
+        """
+        print("-" * 60 + f"\n{'label':<10} {'Fractional coordinates in reciprocal space':<20}\n" + "-" * 60)
+        for label, pos in self.high_symm_labels.items():
+            print(f"{label:<10} ({pos[0]:12.9f}, {pos[1]:12.9f}, {pos[2]:12.9f})")
+        print("-" * 60)
+
+    def print_kpath_info(self):
+        """
+        Print high symmetry points information to console.
+        """
+        high_symm_info = self.get_high_symmetry_points_info()
+        
+        print("\nBand path information:")
+        print("-" * 60)
+        print(f"{'K-point No.':<12} {'Label':<15} {'Cumulative distance':<20}")
+        print("-" * 60)
+        
+        for info in high_symm_info:
+            print(f"{info['kpoint_num']:<12} {info['label']:<15} {info['cumulative_distance']:<20.8f}")
+        
+        print("-" * 60)
+
+    def write_kpath_info(self, filename="KPATH.txt"):
+        """
+        Write high symmetry points information to a file.
+        
+        Args:
+            filename (str): Output filename
+        """
+        high_symm_info = self.get_high_symmetry_points_info()
+        
+        filepath = Path(filename)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(filepath, "w") as f:
+            f.write("High symmetry points information\n")
+            f.write("-" * 60 + "\n")
+            f.write(f"{'K-point No.':<12} {'Label':<15} {'Cumulative distance':<20}\n")
+            f.write("-" * 60 + "\n")
+            for info in high_symm_info:
+                f.write(f"{info['kpoint_num']:<12} {info['label']:<15} {info['cumulative_distance']:<20.8f}\n")
+        
+        return str(filepath)
 
 
 class ProjBandData(BandData):
