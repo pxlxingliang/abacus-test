@@ -312,97 +312,15 @@ class PostBand:
                     else:
                         kpath_list.extend([kpath["start"], kpath["end"]])
                 
-                # Print high-symmetry point information
-                print("-"*60 + f"\n{'label':<10} {'Fractional coordinates in reciprocal space':<20}\n" + "-"*60)
-                for label, pos in band_data.high_symm_labels.items():
-                    print(f"{label:<10} ({pos[0]:12.9f}, {pos[1]:12.9f}, {pos[2]:12.9f})")
-                print("-"*60)
+                # Print high-symmetry point information using BandData method
+                band_data.print_high_symmetry_labels()
 
-                # print details of k-point path
-                high_symm_info = []
-                print("\nBand path information:")
-                print("-" * 60)
-                print(
-                    f"{'K-point No.':<12} {'Label':<15} {'Cumulative distance':<20}"
-                )
-                print("-" * 60)
-
-                # Collect high symmetry points in the order they appear in kpaths
-                seen_points = set()
-
-                # Process the first kpath start point
-                first_kpath = band_data.kpaths[0]
-                start_label = first_kpath["start"]
-                start_idx = first_kpath["start_nkpt"]
-                cum_dist = band_data.kpath_lengths[start_idx]
-                kpoint_num = start_idx + 1  # Convert to 1-based index
-                high_symm_info.append(
-                    {
-                        "kpoint_num": kpoint_num,
-                        "label": start_label,
-                        "cumulative_distance": float(cum_dist),
-                    }
-                )
-                seen_points.add((start_label, start_idx))
-                print(f"{kpoint_num:<12} {start_label:<15} {cum_dist:<20.8f}")
-
-                # Process all kpaths
-                for i, kpath in enumerate(band_data.kpaths):
-                    end_label = kpath["end"]
-                    end_idx = kpath["end_nkpt"]
-
-                    # Add end label of current kpath (if not already added)
-                    if (end_label, end_idx) not in seen_points:
-                        cum_dist = band_data.kpath_lengths[end_idx]
-                        kpoint_num = end_idx + 1  # Convert to 1-based index
-                        high_symm_info.append(
-                            {
-                                "kpoint_num": kpoint_num,
-                                "label": end_label,
-                                "cumulative_distance": float(cum_dist),
-                            }
-                        )
-                        seen_points.add((end_label, end_idx))
-                        print(
-                            f"{kpoint_num:<12} {end_label:<15} {cum_dist:<20.8f}"
-                        )
-
-                    # Check if this is a discontinuous point (different from next start)
-                    if i < len(band_data.kpaths) - 1:
-                        next_kpath = band_data.kpaths[i + 1]
-                        next_start_label = next_kpath["start"]
-                        next_start_idx = next_kpath["start_nkpt"]
-
-                        if end_label != next_start_label:
-                            # Discontinuous point: add next start label separately
-                            if (next_start_label, next_start_idx) not in seen_points:
-                                cum_dist_next = band_data.kpath_lengths[next_start_idx]
-                                kpoint_num_next = next_start_idx + 1  # Convert to 1-based index
-                                high_symm_info.append(
-                                    {
-                                        "kpoint_num": kpoint_num_next,
-                                        "label": next_start_label,
-                                        "cumulative_distance": float(cum_dist_next),
-                                    }
-                                )
-                                seen_points.add((next_start_label, next_start_idx))
-                                print(
-                                    f"{kpoint_num_next:<12} {next_start_label:<15} {cum_dist_next:<20.8f}"
-                                )
-                        # If continuous, next_start_label is same as end_label, already added
-                    # Last kpath end point already added above
-
-                print("-" * 60)
-                # Write high symmetry points information to a separate file
+                # print details of k-point path using BandData method
+                band_data.print_kpath_info()
+                # Write high symmetry points information to a separate file using BandData method
                 hs_filename = os.path.join(job, "KPATH.txt")
-                with open(hs_filename, "w") as f:
-                    f.write("High symmetry points information\n")
-                    f.write("-" * 60 + "\n")
-                    f.write(f"{'K-point No.':<12} {'Label':<15} {'Cumulative distance':<20}\n")
-                    f.write("-" * 60 + "\n")
-                    for info in high_symm_info:
-                        f.write(f"{info['kpoint_num']:<12} {info['label']:<15} {info['cumulative_distance']:<20.8f}\n")
-                print(f"High symmetry points information written to {hs_filename}\n")
+                output_path = band_data.write_kpath_info(hs_filename)
+                print(f"High symmetry points information written to {output_path}\n")
                 
 
                 band_gap = band_data.get_band_gap()
