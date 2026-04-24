@@ -471,10 +471,10 @@ def post_workfunc_calc(
             vacuum_dir_input = EFIELD_DIRECTION_MAP[vacuum_dir_input]
         
         abacus_version = version.parse(results['version'].split('(')[0].strip())
-        if abacus_version >= version.parse("v3.9.0.22") and abacus_version < version.parse("v3.10.0"):
-            pot_filename = "potes.cube"
+        if abacus_version < version.parse("v3.9.0.22") or (abacus_version >= version.parse("v3.10.0") and abacus_version < version.parse("v3.11.0")):
+            pot_filename = "ElecStaticPot.cube"  # old version
         else:
-            pot_filename = "ElecStaticPot.cube"
+            pot_filename = "potes.cube"
         pot_file = os.path.join(
             workfunc_job,
             f"OUT.{input_params.get('suffix', 'ABACUS')}/{pot_filename}",
