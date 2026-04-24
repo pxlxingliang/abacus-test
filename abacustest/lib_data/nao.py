@@ -35,17 +35,19 @@ class AbacusNAO:
         radius: float,
         lmax: int,
         l_orbs: List[int],
-        mesh: int,
-        dr: float,
-        orbs: Optional[List[Dict[str, Any]]] = None,
+        orbs: Optional[List[Dict[str, Any]]],
     ) -> None:
         self.element = element
         self.energy_cutoff = energy_cutoff
         self.radius = radius
         self.lmax = lmax
         self.l_orbs = l_orbs
-        self.mesh = mesh
-        self.dr = dr
+        orb_meshs = set([len(orb['data']) for orb in orbs])
+        if len(orb_meshs) > 1:
+            raise ValueError(f"Inconsistent mesh size in given orb data")
+        else:
+            self.mesh = orb_meshs.pop()
+        self.dr = self.radius / (self.mesh - 1)  # mesh contains endpoints at both sides
         self.orbs = orbs if orbs is not None else []
 
     @staticmethod
@@ -131,8 +133,6 @@ class AbacusNAO:
             radius=radius,
             lmax=lmax,
             l_orbs=l_orbs,
-            mesh=mesh,
-            dr=dr,
             orbs=orbs,
         )
 
