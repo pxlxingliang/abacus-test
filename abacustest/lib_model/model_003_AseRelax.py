@@ -316,6 +316,43 @@ class ExeAseRelax:
         with open(self.logfile,"w") as f:
             f.write(logs)
 
+    def set_cell_filter(self,fixed_axes):
+        """based on ABACUS INPUT fixed-axes, set the cell mask for ASE relax.
+
+    mask is six components in Voigt notation, which is [xx, yy, zz, yz, xz, xy]. 
+    True means the axis is relaxed, False means the axis is fixed.
+    
+    ase/stress.py:voigt_6_to_full_3x3_stress():
+    s1, s2, s3, s4, s5, s6 = np.transpose(stress_vector)
+    return np.transpose([[s1, s6, s5],
+                         [s6, s2, s4],
+                         [s5, s4, s3]])
+        """
+        if fixed_axes is not None:
+            print(f"ABACUS fixed_axes: {fixed_axes}, transfering to ASE relax")
+
+        if fixed_axes is None:
+            return {"mask": [True, True, True, True, True, True]}
+        elif fixed_axes.lower() == "a":
+            return {"mask": [False, True, True, True, True, True]}
+        elif fixed_axes.lower() == "b":
+            return {"mask": [True, False, True, True, True, True]}
+        elif fixed_axes.lower() == "c":
+            return {"mask": [True, True, False, True, True, True]}
+        elif fixed_axes.lower() == "ab":
+            return {"mask": [False, False, True, True, True, False]}
+        elif fixed_axes.lower() == "ac":
+            return {"mask": [False, True, False, True, False, True]}
+        elif fixed_axes.lower() == "bc":
+            return {"mask": [True, False, False, False, True, True]}
+        elif fixed_axes.lower() == "volume":
+            return {"constant_volume": True}
+        elif fixed_axes.lower() == "shape":
+            return {"hydrostatic_strain": True}
+        else:
+            raise ValueError(f"Do not support fixed_axes: {fixed_axes}")
+
+
     def exe_ase(self, atoms, input_param, optimizer):
         from ase.calculators.abacus import Abacus, AbacusProfile
         from ase.constraints import UnitCellFilter, ExpCellFilter
@@ -332,7 +369,8 @@ class ExeAseRelax:
                          **input_param)
 
         if self.relax_cell:
-            ucf = ExpCellFilter(atoms,)
+            cell_filter = self.set_cell_filter(input_param.get("fixed_axes"))
+            ucf = ExpCellFilter(atoms, **cell_filter)
             opt = optimizer(ucf, trajectory='init_opt.traj',logfile = self.logfile)
         else:
             opt = optimizer(atoms, trajectory='init_opt.traj', logfile=self.logfile)
