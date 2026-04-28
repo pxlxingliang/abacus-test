@@ -2,6 +2,7 @@ from .model import Model
 import os, json, sys, inspect
 from . import comm, comm_plot
 from abacustest.constant import RECOMMAND_IMAGE
+import numpy as np
 
 class AseRelax(Model):
     '''
@@ -332,23 +333,20 @@ class ExeAseRelax:
             print(f"ABACUS fixed_axes: {fixed_axes}, transfering to ASE relax")
 
         if fixed_axes is None:
-            return {"mask": [True, True, True, True, True, True]}
-        elif fixed_axes.lower() == "a":
-            return {"mask": [False, True, True, True, True, True]}
-        elif fixed_axes.lower() == "b":
-            return {"mask": [True, False, True, True, True, True]}
-        elif fixed_axes.lower() == "c":
-            return {"mask": [True, True, False, True, True, True]}
-        elif fixed_axes.lower() == "ab":
-            return {"mask": [False, False, True, True, True, False]}
-        elif fixed_axes.lower() == "ac":
-            return {"mask": [False, True, False, True, False, True]}
-        elif fixed_axes.lower() == "bc":
-            return {"mask": [True, False, False, False, True, True]}
+            return {}
         elif fixed_axes.lower() == "volume":
             return {"constant_volume": True}
         elif fixed_axes.lower() == "shape":
             return {"hydrostatic_strain": True}
+        elif fixed_axes.lower() in ["a", "b", "c", "ab", "ac", "bc"]:
+            mask = [[1,1,1],[1,1,1],[1,1,1]]
+            if "a" in fixed_axes.lower():
+                mask[0] = [0,0,0]
+            if "b" in fixed_axes.lower():
+                mask[1] = [0,0,0]
+            if "c" in fixed_axes.lower():
+                mask[2] = [0,0,0]
+            return {"mask": np.array(mask)}
         else:
             raise ValueError(f"Do not support fixed_axes: {fixed_axes}")
 
