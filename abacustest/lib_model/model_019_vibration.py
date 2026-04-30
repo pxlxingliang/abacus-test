@@ -82,7 +82,15 @@ class VibrationModel(Model):
         "1. Single temperature: -t 298.15 (calculate thermo properties at 298.15 K only) "
         "2. Temperature range: -t 100 500 41 (calculate thermo properties at 40 evenly spaced temperatures from 100K to 500K. ). "
         "Default is 298.15 K.")
-        return parser   
+        parser.add_argument('--traj', action='store_true', default=False, help='Output trajectory files with velocities for each vibration mode, suitable for Ovito and other visualization software.')
+        parser.add_argument('--traj-format', type=str, default='extxyz', choices=['extxyz', 'traj'], help='Format for trajectory files, default is extxyz. extxyz is readable by both ASE and Ovito; traj is ASE-native binary format.')
+        parser.add_argument('--frames', type=int, default=30, help='Number of frames per complete harmonic vibration period for trajectory output, default is 30.')
+        stru_group = parser.add_mutually_exclusive_group()
+        stru_group.add_argument('--output-stru', action='store_true', dest='output_stru', help='Output structure files with velocities, which can be used to view vibration modes by ASE.')
+        stru_group.add_argument('--no-output-stru', action='store_false', dest='output_stru', help='Do not output structure files with velocities.')
+        parser.set_defaults(output_stru=True)
+        parser.add_argument('--stru-format', type=str, default='extxyz', choices=['extxyz', 'poscar'], help='Format for structure files with velocities, which can be used in view vibration mode by ASE. The default is extxyz.')
+        return parser
 
     def run_postprocess(self,params):
         '''
@@ -101,7 +109,12 @@ class VibrationModel(Model):
 
         results = {}
         for job_path in params.job:
-            result = post_abacus_vibration_analysis_onejob(job_path, temperature)
+            result = post_abacus_vibration_analysis_onejob(job_path, temperature,
+                output_traj=params.traj,
+                traj_format=params.traj_format,
+                traj_frames=params.frames,
+                output_stru=params.output_stru,
+                stru_format=params.stru_format)
             results[job_path] = result
         
         # Save the vibration analysis results
@@ -226,7 +239,12 @@ def dump_cache_forces_json(stru: AbacusSTRU,
     return vib_cache_dir
 
 def post_abacus_vibration_analysis_onejob(work_dir: Path,
-                                          temperature: List[float] = [298.15]):
+                                          temperature: List[float] = [298.15],
+                                          output_traj: bool = False,
+                                          traj_format: str = 'extxyz',
+                                          traj_frames: int = 30,
+                                          output_stru: bool = True,
+                                          stru_format: str = 'extxyz'):
     """
     Post-process ABACUS vibration analysis results for one job.
     """
@@ -277,6 +295,137 @@ def post_abacus_vibration_analysis_onejob(work_dir: Path,
         thermo_corr[f'{t}K'] = {'entropy': float(entropy),
                                 'free_energy': float(free_energy)}
     
+    # Write velocity trajectory and structure files for external visualization
+    if output_traj or output_stru:
+        write_vibration_modes_with_velocities(vib, work_dir,
+            output_traj=output_traj, traj_format=traj_format, traj_frames=traj_frames,
+            output_stru=output_stru, stru_format=stru_format)
+
     return {'frequencies': freqs,
             'zero_point_energy': float(zero_point_energy),
             'thermo_corr': thermo_corr}
+
+
+def write_vibration_modes_with_velocities(vib,
+                                          work_dir: Path,
+                                          output_traj: bool = False,
+                                          traj_format: str = 'extxyz',
+                                          traj_frames: int = 30,
+                                          output_stru: bool = True,
+                                          stru_format: str = 'extxyz',
+                                          animation_temperature: float = 300.0):
+    """
+    Write vibration mode trajectory and structure files with velocities.
+
+    For each non-zero vibrational mode, this function generates:
+    - A trajectory file containing frames from one complete harmonic period,
+      with both atom positions and velocities.
+    - A structure file with equilibrium positions and velocity vectors for the mode.
+
+    The velocity at each frame is determined analytically from the vibrational
+    mode eigenvector and frequency:
+        velocity(t) = omega * cos(phase) * mode_displacement
+    where mode_displacement = eigenvector * sqrt(kT / |E|).
+
+    Args:
+        vib: ASE Vibrations object after summary() has been called.
+        work_dir: Working directory for output files.
+        output_traj: Whether to output trajectory files.
+        traj_format: Format for trajectory files ('extxyz', 'traj').
+        traj_frames: Number of frames per complete harmonic period.
+        output_stru: Whether to output structure files.
+        stru_format: Format for structure files ('extxyz', 'poscar').
+        animation_temperature: Temperature for thermal scaling of mode amplitude (default 300 K).
+    """
+    from ase import units
+    from ase.io import write
+    from copy import deepcopy
+
+    energies = vib.get_energies()
+    modes = vib.get_vibrations().get_modes(all_atoms=True)
+    freqs = vib.get_frequencies()
+    eq_atoms = vib.get_vibrations().get_atoms()
+
+    kT = units.kB * animation_temperature
+
+    # Scale so that a reference mode at 2500 cm^-1 has |velocity| ~ 0.5 at equilibrium
+    velocity_scale = 0.5 / np.sqrt(2500.0 * kT / 0.00012398)
+
+    traj_dir = os.path.join(work_dir, "vib", "mode_trajectories")
+    stru_dir = os.path.join(work_dir, "vib", "modes")
+
+    extxyz_momenta_tip = (
+        "Note: Velocities in extxyz format are stored in the 'momenta:R:3' property column, "
+        "which represents mass-weighted velocity (m_i * v_i) for each atom. "
+        "In ASE, use `atoms.get_velocities()` to retrieve the velocity vectors. "
+        "In Ovito, the 'momenta' data column can be visualized as velocity arrows."
+    )
+
+    if output_traj:
+        os.makedirs(traj_dir, exist_ok=True)
+
+    if output_stru:
+        os.makedirs(stru_dir, exist_ok=True)
+    
+    if (output_traj and traj_format == 'extxyz') or (output_stru and stru_format == 'extxyz'):
+        print("\nFor extxyz files, " + extxyz_momenta_tip)
+
+    n_modes = len(energies)
+
+    # Collect mode data first
+    mode_infos = []
+    mode_count = 0
+    for n in range(n_modes):
+        energy = energies[n]
+        if abs(energy) <= 1e-5:
+            continue
+        mode_count += 1
+        mode = modes[n].reshape(-1, 3)
+        freq = abs(freqs[n])
+        is_imag = abs(np.real(freqs[n])) < 1e-10 and abs(np.imag(freqs[n])) > 1e-10
+        freq_label = f"{freq:.2f}{'i' if is_imag else ' '}"
+        scale = np.sqrt(kT / abs(energy))
+        mode_disp = mode * scale
+        mode_infos.append((mode_count, mode_disp, freq, freq_label))
+
+    # Phase 1: write trajectory files
+    if output_traj:
+        for mode_count, mode_disp, freq, freq_label in mode_infos:
+            frames = []
+            phases = np.linspace(0, 2 * np.pi, traj_frames, endpoint=False)
+            for phase in phases:
+                frame_atoms = deepcopy(eq_atoms)
+                frame_atoms.positions += np.sin(phase) * mode_disp
+                velocities = velocity_scale * freq * np.cos(phase) * mode_disp
+                frame_atoms.set_velocities(velocities)
+                frames.append(frame_atoms)
+
+            if traj_format == 'traj':
+                traj_path = os.path.join(traj_dir, f"mode_{mode_count}.traj")
+                from ase.io import Trajectory as Asetrajectory
+                traj_writer = Asetrajectory(traj_path, 'w', frames[0])
+                for frame in frames[1:]:
+                    traj_writer.write(frame)
+                traj_writer.close()
+            else:
+                ext = {'extxyz': 'extxyz', 'traj': 'traj'}[traj_format]
+                traj_path = os.path.join(traj_dir, f"mode_{mode_count}.{ext}")
+                write(traj_path, frames, format=traj_format)
+
+            print(f"Trajectory  for mode {mode_count:4d} (freq: {freq_label:>9s} cm^-1) -> {traj_path}")
+
+    # Phase 2: write structure files
+    if output_stru:
+        for mode_count, mode_disp, freq, freq_label in mode_infos:
+            stru_atoms = deepcopy(eq_atoms)
+            velocities = velocity_scale * freq * mode_disp
+            stru_atoms.set_velocities(velocities)
+
+            if stru_format == 'poscar':
+                stru_path = os.path.join(stru_dir, f"mode_{mode_count}.poscar")
+                write(stru_path, stru_atoms, format='vasp')
+            else:
+                stru_path = os.path.join(stru_dir, f"mode_{mode_count}.xyz")
+                write(stru_path, stru_atoms, format='extxyz')
+
+            print(f"Structure   for mode {mode_count:4d} (freq: {freq_label:>9s} cm^-1) -> {stru_path}")
