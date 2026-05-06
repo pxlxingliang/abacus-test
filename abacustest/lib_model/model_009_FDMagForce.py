@@ -4,7 +4,7 @@ from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,WriteInput,WriteK
 from abacustest.lib_collectdata.collectdata import RESULT
 from abacustest.prepare import PrepareAbacus
 import numpy as np
-from ..model import Model
+from .model import Model
 from . import comm
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
 
@@ -34,20 +34,6 @@ class fdmagforce(Model):
     
     The model should have the following methods:
     '''
-    @staticmethod
-    def model_name():
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "fdmagforce"
-    
-    @staticmethod
-    def description():
-        '''
-        Description of the model
-        '''
-        return "finite difference of magenetic force"
-    
     @staticmethod
     def add_args(parser):
         '''

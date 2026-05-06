@@ -1,7 +1,7 @@
 import os,glob,json
 import copy
 import numpy as np
-from ..model import Model
+from .model import Model
 from . import comm
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,WriteInput,WriteKpt
 from abacustest.lib_prepare.comm import kspacing2kpt
@@ -12,20 +12,6 @@ class Eos(Model):
     '''
     Prepare the input files for the EOS calculation
     '''
-    @staticmethod
-    def model_name():
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "eos"
-    
-    @staticmethod
-    def description():
-        '''
-        Description of the model
-        '''
-        return "Prepare and postprocess the EOS calculation"
-    
     @staticmethod
     def add_args(parser):
         '''

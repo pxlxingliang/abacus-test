@@ -49,11 +49,12 @@ Homepage = "https://github.com/pxlxingliang/abacus-test"
 abacustest = "abacustest.main:main"
 
 [tool.setuptools]
-packages = ["abacustest"]
-package-dir = { "abacustest" = "abacustest" }
+packages = ["abacustest", "abacustest.skills"]
+package-dir = { "abacustest" = "abacustest", "abacustest.skills" = "skills" }
 
 [tool.setuptools.dynamic]
 version = { attr = "abacustest.version.__version__" }
 
 [tool.setuptools.package-data]
-abacustest = ["*.py", "*/*.py", "*/*/*.py"]
+abacustest = ["*.py", "*/*.py", "*/*/*.py", "lib_prepare/input-params.json"]
+"abacustest.skills" = ["*"]

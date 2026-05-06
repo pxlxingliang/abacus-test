@@ -412,9 +412,21 @@ class Abacus(ResultAbacus):
                     lg = []
                 lg.append(float(line.split()[-1]))
             elif "Largest gradient in stress" in line:
+                # Largest gradient in stress is 10.208693
                 if lg_stress == None:
                     lg_stress = []
-                lg_stress.append(float(line.split()[-2]))
+                lg_stress.append(float(line.split()[5]))
+        
+        if lg is None:
+            forces = self["forces"]
+            if forces is not None:
+                lg = [max([abs(i) for i in j]) for j in forces]
+        
+        if lg_stress is None:
+            stresses = self["stresses"]
+            if stresses is not None:
+                lg_stress = [max([abs(i) for i in j]) for j in stresses]
+
         self['largest_gradient'] = lg
         self['largest_gradient_stress'] = lg_stress
     
@@ -653,7 +665,8 @@ class Abacus(ResultAbacus):
                 for j in range(i+1,len(self.OUTPUT)):
                     if self.OUTPUT[j][1:3] in KS_SOLVER_LIST or (self.OUTPUT[j].startswith("1") and self.OUTPUT[j][2:4] in KS_SOLVER_LIST): 
                         scftime.append(float(self.OUTPUT[j].split()[-1]))
-                break
+                    elif self.OUTPUT[j].startswith(" -----------------------------------"):
+                        break
         if len(scftime) > 0:
             self['scf_time'] = np.array(scftime).sum()
             self['step1_time'] = scftime[0]
@@ -1004,6 +1017,26 @@ Fe2
         self['element_list'] = element_list
         self['atomlabel_list'] = atomlabel_list
     
+    @ResultAbacus.register(dos="dict, where keys are 'energy' and 'total', and value of 'total' is a dict of (nenergy,spin)",)
+    def GetDOS(self):
+        import glob
+        dosfiles = glob.glob(os.path.join(self.PATH,f"OUT.{self.SUFFIX}","DOS*_smearing.dat"))
+        print("DOS file: ", dosfiles)
+        dos_datas = []
+        for dosfile in dosfiles:
+            dos_data = np.loadtxt(dosfile)
+            energy = dos_data[:, 0].tolist()
+            dos_datas.append(dos_data[:, 1])
+
+        if len(dos_datas) == 1: # nspin = 1 or 4
+            dos_datas = dos_datas[0].T.reshape(-1, 1).tolist()
+        else:
+            dos_datas = np.array(dos_datas).T.tolist()
+        
+        dos = {'energy': energy, 'data': dos_datas}
+
+        self['dos'] = dos
+
     @ResultAbacus.register(pdos="dict, where keys are 'energy' and 'orbitals', and value of 'orbitals' is a dict of (index,species,l,m,z,data)",
                            )
     def GetPDOS(self): 
@@ -1012,33 +1045,28 @@ Fe2
         pdos = None
         if os.path.isfile(pdos_file):
             import xml.etree.ElementTree as ET
+            from io import StringIO
             tree = ET.parse(pdos_file)
             root = tree.getroot()
-            nspin = int(root.find('nspin').text)
             energy = [float(i) for i in root.find('energy_values').text.split()]
-
-            ne = len(energy)
 
             all_orbitals = []
             for iorb in root.findall('orbital'):
-                data = [[] for i in range(nspin)]
-                for i in iorb.find('data').text.split("\n"):
-                    for j,jj in enumerate(i.split()):
-                        if j == 1:
-                            data[j].append(-1*float(jj))
-                        else:
-                            data[j].append(float(jj))
-                if len(data[0]) != ne:
-                    print("WARNING: PDOS len(data[0]) != ne")      
-                all_orbitals.append({
+                pdos_data = np.loadtxt(StringIO(iorb.find('data').text))
+                if len(pdos_data.shape) == 1:
+                    pdos_data = pdos_data.reshape(-1, 1)
+                pdos_data = pdos_data.tolist()
+                
+                orbital_info = {
                     "index": int(iorb.get('index')),
                     "atom_index": int(iorb.get('atom_index')),
                     "species": iorb.get('species'),
                     "l": int(iorb.get('l')),
                     "m": int(iorb.get('m')),
                     "z": int(iorb.get('z')),
-                    "data": data
-                })
+                    "data": pdos_data
+                }
+                all_orbitals.append(orbital_info)
             pdos = {"energy":energy,"orbitals":all_orbitals}
         self["pdos"] = pdos
 
@@ -1046,24 +1074,42 @@ class AbacusRelax(ResultAbacus):
     @ResultAbacus.register(relax_converge="if the relax is converged")
     def GetRelaxConverge(self):
         #need read self.LOG
+        converge = None
         if self.LOG:
             for i in range(len(self.LOG)):
                 line = self.LOG[-i-1]
                 if "Relaxation is converged!" in line:
-                    self["relax_converge"] = True
-                    return
+                    converge = True
                 elif "Relaxation is not converged yet!" in line:
-                    self["relax_converge"] = False
-                    return
+                    converge = False
                 elif "Ion relaxation is not converged yet" in line or \
                     "Lattice relaxation is not converged yet" in line:
-                    self["relax_converge"] = False
-                    return
+                    converge = False
                 elif "Lattice relaxation is converged!" in line or \
                     "Ion relaxation is converged!" in line:
-                    self["relax_converge"] = True
-                    return
-        self["relax_converge"] = None
+                    converge = True
+                if converge is not None:
+                    break
+
+            # in some version, ABACUS will not output the statement of convergence, we need to check the last step
+            if converge is None:
+                lg_force = self["largest_gradient"]
+                lg_stress = self["largest_gradient_stress"]
+                job_type = self["INPUT"].get("calculation", "scf")
+                force_thr = self["INPUT"].get("force_thr_ev")
+                stress_thr = self["INPUT"].get("stress_thr")
+                if job_type == "relax" and lg_force is not None and force_thr is not None:
+                    if lg_force[-1] < force_thr:
+                        converge = True
+                    else:
+                        converge = False
+                elif job_type == "cell-relax" and lg_force is not None and force_thr is not None and lg_stress is not None and stress_thr is not None:
+                    if lg_force[-1] < force_thr and  lg_stress[-1] < stress_thr:
+                        converge = True
+                    else:
+                        converge = False
+
+        self["relax_converge"] = converge
     
     @ResultAbacus.register(relax_steps= "the total ION steps")
     def GetRelaxSteps(self):

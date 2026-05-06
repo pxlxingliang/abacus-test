@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 import os, glob, json, traceback
 from . import comm
 import numpy as np
@@ -11,20 +11,6 @@ import copy
 
 
 class SPTestModel(Model):
-    @staticmethod
-    def model_name(): # type: ignore
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "sptest"
-    
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Show the results of FP test"
-    
     @staticmethod
     def add_args(parser):
         parser.add_argument("-j","--job",default=[], action="extend",nargs="*" ,help='the path of calculated jobs, or a json file containing results. If the jobpath is in json file, the results in job path is prefered.')

@@ -1,6 +1,7 @@
 import os,json,glob,shutil,traceback
 import subprocess,copy
 from abacustest.lib_prepare.abacus import AbacusStru,ReadInput,ReadKpt
+from abacustest.lib_prepare.stru import AbacusSTRU
 import select
 from typing import List, Dict, Union, Optional, Tuple, Literal
 from abacustest.lib_prepare.comm import IsTrue
@@ -516,6 +517,37 @@ def write_gaussian_cube(data: dict, fcube: str, ndigits: int = 6):
             f.write("\n")
     return
 
+def profile1d(data: dict, axis: str, average: bool = False):
+    """integrate the 3D cube data to 2D plane.
+    Args:
+        data (dict): the dictionary containing the cube data.
+        axis (str): the axis to be integrated. 'x' means integrate yz plane, 'y' means xz plane, 'z' means xy plane.
+    
+    Returns:
+        data (dict): the dictionary containing the cube data.
+    """
+    import numpy as np
+    
+    mat3d = data["data"].reshape(int(data["nx"]), int(data["ny"]), int(data["nz"]))
+
+    func = np.mean if average else np.sum
+    if axis == "x":
+        val = func(mat3d, axis=2)
+        val = func(val, axis=1)
+    elif axis == "y":
+        val = func(mat3d, axis=0)
+        val = func(val, axis=1)
+    elif axis == "z":
+        val = func(mat3d, axis=0)
+        val = func(val, axis=0)
+
+    # remember to write the axis data
+    ngrid = data["nx"] if axis == "x" else data["ny"] if axis == "y" else data["nz"]
+    var = np.linspace(0, 1, int(ngrid))
+    # then combine the var and val to n x 2 array
+    data["data"] = np.vstack((var, val)).T
+    return data
+
 def read_abacus_chg(fcube: str):
     """Read the ABACUS CHG cube format volumetric data.
     
@@ -828,3 +860,124 @@ def copy_abacusjob(src_dir: str, dst_dir: str, input_file=True, stru=True, kpt=T
         if os.path.exists(out_dir_path) and os.path.isdir(out_dir_path):
             target_out_dir = os.path.join(dst_dir, os.path.basename(out_dir_path))
             shutil.copytree(out_dir_path, target_out_dir, dirs_exist_ok=True)
+
+def get_largest_vacuum_dir(coords: List[List[float]], cell: List[List[float]], coord_type: Optional[Literal['cart', 'direct']]="cart"):
+    # Get the direction containing largest vacuum (compare using cartesian coordinates)
+    import numpy as np
+    from abacustest.lib_prepare.comm import Cartesian2Direct
+
+    if coord_type == "cart":
+        direct_coords = np.array(Cartesian2Direct(coords, cell))
+    elif coord_type == "direct":
+        direct_coords = np.array(coords)
+    else:
+        raise ValueError(f"Invalid coord type: {coord_type}")
+
+    vacuums_direct = [0, 0, 0]
+    vacuum_boundary = [[], [], []]
+    for i in range(3): # Loop over the three directions
+        # Algorithm from void Efield::autoset in source/module_elecstate/potentials/efield.cpp in ABACUS source code
+        sorted_coords = direct_coords[np.argsort(direct_coords[:, i])]
+        vacuum = 0
+        for idx in range(1, sorted_coords.shape[0]): # loop over sorted coords
+            diff = sorted_coords[idx][i] - sorted_coords[idx-1][i]
+            if diff > vacuum:
+                vacuum = diff
+                vacuum_top, vacuum_bottom = sorted_coords[idx][i], sorted_coords[idx-1][i]
+        
+        diff = sorted_coords[0][i] + 1 - sorted_coords[-1][i]
+        if diff > vacuum:
+            vacuum = diff
+            # vacuum_top < vacuum_bottom, which means the vacuum region across the boundary of the cell
+            vacuum_top, vacuum_bottom = sorted_coords[0][i], sorted_coords[-1][i]
+        
+        vacuums_direct[i] = vacuum
+        vacuum_boundary[i] = (vacuum_top, vacuum_bottom)
+    
+    a, b, c, alpha, beta, gamma = cal_cellparam(cell)
+    vacuums_cart = [vacuums_direct[0]*a, vacuums_direct[1]*b, vacuums_direct[2]*c]
+    
+    max_vacuum_cart = max(vacuums_cart)
+    max_vacuum_idx = vacuums_cart.index(max_vacuum_cart)
+
+    if max_vacuum_cart < 4.0: # In Angstrom
+        print(f"WARNING: The largest vacuum ({max_vacuum_cart} Angstrom) is less than 4.0 Angstrom")
+
+    if max_vacuum_idx == 0:
+        vacuum_top, vacuum_bottom = vacuum_boundary[0][0] * a, vacuum_boundary[0][1] * a
+        return 'a', max_vacuum_cart, vacuum_top, vacuum_bottom
+    elif max_vacuum_idx == 1:
+        vacuum_top, vacuum_bottom = vacuum_boundary[1][0] * b, vacuum_boundary[1][1] * b
+        return 'b', max_vacuum_cart, vacuum_top, vacuum_bottom
+    else:
+        vacuum_top, vacuum_bottom = vacuum_boundary[2][0] * c, vacuum_boundary[2][1] * c
+        return 'c', max_vacuum_cart, vacuum_top, vacuum_bottom
+
+
+def download_file(url: str, save_file: str):
+    import requests
+    from tqdm import tqdm
+
+    try:
+        dir_name = os.path.dirname(save_file)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+
+        print(f"Downloading from {url} ...")
+        response = requests.get(url, stream=True, timeout=30)
+        response.raise_for_status()
+        total_size = int(response.headers.get('content-length', 0))
+
+        progress_bar = tqdm(
+            total=total_size, 
+            unit='iB', 
+            unit_scale=True, 
+            desc=os.path.basename(save_file)
+        )
+
+        with open(save_file, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    progress_bar.update(len(chunk))
+        progress_bar.close()
+        #
+        if not os.path.exists(save_file) or os.path.getsize(save_file) == 0:
+            raise Exception("File download failed.")
+        return save_file
+    
+    except Exception as e:
+        print(f"Download failed: {e}")
+        return None
+
+def smart_extract(archive_path, extract_dir="."):
+    """
+    utility function to extract archives
+    """
+    from pathlib import Path
+
+    archive_path = Path(archive_path)
+    if not archive_path.exists():
+        print(f"Error, can not find file {archive_path}")
+        return None
+
+    # get pre content
+    pre_content = set(os.listdir(extract_dir))
+
+    try:
+        print(f"Extracting {archive_path.name} ...")
+        shutil.unpack_archive(str(archive_path), extract_dir)
+        
+        post_content = set(os.listdir(extract_dir))
+        new_items = list(post_content - pre_content)
+
+        print(f"Extracted successfully: {new_items} items!")
+        return new_items
+
+    except ValueError:
+        print(f"Do not support: {archive_path.suffix}")
+    except Exception as e:
+        print(f"{e}")
+    
+    return None
+

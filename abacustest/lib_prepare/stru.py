@@ -204,6 +204,12 @@ class AbacusATOM(BaseModel):
             else:
                 return self.mag
     
+    @atommag.setter
+    def atommag(self, value:Optional[Union[float, Tuple[float, float, float]]]):
+        """Set the atomic magnetic moment
+        """
+        self.set_atommag(value)
+    
     def mag_angle(self):
         # Calculate angle of noncollinear magnetic moment
         if self.noncolinear:
@@ -219,7 +225,7 @@ class AbacusATOM(BaseModel):
         else:
             return (None, None)
 
-    def set_atommag(self, mag: Union[float,Tuple[float,float,float]],
+    def set_atommag(self, mag: Optional[Union[float,Tuple[float,float,float]]],
                     angle1: float = None,
                     angle2: float = None):
         """Set magnetic moment for the atom.
@@ -235,7 +241,7 @@ class AbacusATOM(BaseModel):
             assert len(mag) == 3, f"Magnetic moment tuple must have three components, got {mag}."
         elif isinstance(mag, np.ndarray):
             mag = mag.tolist()
-        elif isinstance(mag, (int, float)):
+        elif isinstance(mag, (int, float, type(None))):
             pass
         else:
             raise TypeError("Magnetic moment must be float or tuple of three floats")
@@ -378,6 +384,52 @@ class AbacusSTRU:
     def __len__(self):
         return len(self._atoms)
 
+    def __getitem__(self, key):
+        """Get one or list of atoms"""
+        if isinstance(key, (int, slice)):
+            return self._atoms[key]
+        else:
+            raise TypeError(f"{type(key)}")
+    
+    def __setitem__(self, key:int, value: AbacusATOM):
+        """set a new atom"""
+        if isinstance(key, int):
+            if isinstance(value, AbacusATOM):
+                self._atoms[key] = value
+            else:
+                raise TypeError(f"{type(value)}")
+        else:
+            raise TypeError(f"{type(key)}")
+
+    def __delitem__(self, key):
+        """delete an atom"""
+        if isinstance(key, int):
+            del self._atoms[key]
+        else:
+            raise TypeError(f"{type(key)}")
+
+    def append(self, atom: AbacusATOM):
+        """add one atom at the last"""
+        if isinstance(atom, AbacusATOM):
+            self._atoms.append(atom)
+        else:
+            raise TypeError(f"{type(atom)}")
+    
+    def extend(self, atoms: List[AbacusATOM]):
+        """extend a list of atoms to current structure"""
+        if all(isinstance(i, AbacusATOM) for i in atoms):
+            self._atoms.extend(atoms)
+        else:
+            raise TypeError(f"{[type(a) for a in atoms]}")
+    
+    def insert(self, idx:int, atom: AbacusATOM):
+        """insert a new atom to current structure"""
+        if isinstance(atom, AbacusATOM):
+            self._atoms.insert(idx, atom)
+        else:
+            raise TypeError(f"{type(atom)}")
+
+
     def sort(self,
              keep_first_order=True) -> List[int]:
         """Classify atoms according to their atom types.
@@ -477,6 +529,13 @@ class AbacusSTRU:
                 mags.append(atom.atommag)
         return mags
 
+    @atom_mags.setter
+    def atom_mags(self, mags:List[Optional[Union[float,Tuple[float,float,float]]]]):
+        assert len(mags) == len(self._atoms), f"Length of mags is {len(mags)}, which is not equal to the atom number ({len(self._atoms)})"
+        for i, imag in enumerate(mags):
+            self._atoms[i].atommag = imag
+
+
     @cell.setter
     def cell(self, value: Union[List[Tuple[float,float,float]], np.ndarray]):
         if isinstance(value, np.ndarray):
@@ -498,6 +557,20 @@ class AbacusSTRU:
         cart_coords = Direct2Cartesian(value, self.cell)
         for i in range(self.natoms):
             self._atoms[i].coord = cart_coords[i]
+    
+    @pps.setter
+    def pps(self, value: List[str]):
+        """set the pseudopotential for each atom"""
+        assert len(value) == len(self._atoms), f"length is not equal: {len(value)} / {len(self._atoms)}"
+        for i, iv in enumerate(value):
+            self._atoms[i].pp = iv
+    
+    @orbs.setter
+    def orbs(self, value: List[str]):
+        """set the orbital for each atom"""
+        assert len(value) == len(self._atoms), f"length is not equal: {len(value)} / {len(self._atoms)}"
+        for i, iv in enumerate(value):
+            self._atoms[i].orb = iv
 
     def set_pp(self, pp_dict: Dict[str, str], key_type:Literal["element","label"]="element"):
         """Set pseudopotential file names for atoms based on a provided dictionary.
@@ -550,6 +623,17 @@ class AbacusSTRU:
         for i in range(len(self._atoms)):
             self._atoms[i].coord = coords[i]
     
+    def get_cell_param(self):
+        # return the box parameter: a,b,c,alpha,beta,gamma, unit is Angstrom and degree
+        cell = np.array(self.cell)
+        a = np.linalg.norm(cell[0])
+        b = np.linalg.norm(cell[1])
+        c = np.linalg.norm(cell[2])
+        alpha = np.arccos(np.dot(cell[1],cell[2])/(b*c)) * 180 / np.pi
+        beta = np.arccos(np.dot(cell[0],cell[2])/(a*c)) * 180 / np.pi
+        gamma = np.arccos(np.dot(cell[0],cell[1])/(a*b)) * 180 / np.pi
+        return a,b,c,alpha,beta,gamma
+
     def pp_dict(self):
         """
         Get dict of pps
@@ -681,7 +765,7 @@ class AbacusSTRU:
             cell = np.array(self.cell) * A2BOHR / lc
             coord = np.array([atom.coord for atom in atom_list]) * A2BOHR / lc
             if direct:
-                coord = Cartesian2Direct(coord.tolist(), self.cell)
+                coord = Cartesian2Direct(coord.tolist(), cell)
             else:
                 coord = coord.tolist()
             cell = cell.tolist()
@@ -955,6 +1039,146 @@ class AbacusSTRU:
             self.rotate(trans_mat)
 
         return trans_mat
+    
+    def create_subset(self, indices: List[int]):
+        """
+        Using a subset of indices to create a new structure.
+        
+        Args:
+            indices (List[int]): List of indices of atoms to include in the subset. Starts from 0.
+        
+        Returns:
+            Subset of the structure.
+        """
+        subset_atoms = []
+        for idx in indices:
+            assert idx >= 0 and idx < self.natoms
+            subset_atoms.append(self._atoms[idx])
+        
+        return AbacusSTRU(self.cell, subset_atoms, self.dpks, self.metadata)
+    
+    def supercell(self, nrep: Union[List[int], Tuple[int, int, int]] = [1, 1, 1]):
+        """
+        Build a supercell of the structure.
+        
+        Args:
+            nrep (List[int] or Tuple[int, int, int] or np.ndarray): Replication factors along the three lattice vectors. 
+                For example, [2, 2, 2] creates a 2x2x2 supercell.
+        
+        Returns:
+            AbacusSTRU: A new AbacusSTRU object representing the supercell.
+        
+        Example:
+            >>> stru = AbacusSTRU.read("STRU")
+            >>> stru_super = stru.supercell([2, 2, 2])  # 2x2x2 supercell
+            >>> stru_super.write("STRU_2x2x2", fmt="stru")
+        """
+        nrep = np.array(nrep, dtype=int)
+        assert nrep.shape == (3,), "nrep must be a list/tuple/array of 3 integers"
+        assert all(n > 0 for n in nrep), "All replication factors must be positive integers"
+        
+        # Build new cell
+        new_cell = [
+            [self.cell[i][j] * nrep[j] for j in range(3)]
+            for i in range(3)
+        ]
+        
+        # Build new atoms
+        new_atoms = []
+        for i in range(nrep[0]):
+            for j in range(nrep[1]):
+                for k in range(nrep[2]):
+                    for atom in self._atoms:
+                        # Deep copy the atom
+                        new_atom = copy.deepcopy(atom)
+                        # Calculate shift vector
+                        shift = (
+                            i * np.array(self.cell[0]) +
+                            j * np.array(self.cell[1]) +
+                            k * np.array(self.cell[2])
+                        )
+                        # Apply shift to coordinates
+                        new_atom.coord = tuple(np.array(atom.coord) + shift)
+                        new_atoms.append(new_atom)
+        
+        return AbacusSTRU(cell=new_cell, atoms=new_atoms, dpks=self.dpks, metadata=copy.deepcopy(self.metadata))
+    
+    def get_kline(self,
+                  with_time_reversal: bool=True,
+                  recipe: Literal["hpkot"] = "hpkot",
+                  threshold: float=1e-7,
+                  symprec: float=1e-5,
+                  angle_tolerance: float=-1.0):
+        """
+        Find high symmetry kpoints, recommended k-point path and other information related to the symmetry of the structure.
+        """
+        from ase.atom import atomic_numbers, chemical_symbols
+        import seekpath
+
+        # Ensure atom.element is not None
+        atom_nums = []
+        for atom in self._atoms:
+            if atom.element is None:
+                # Try to infer element from label
+                element = atom._infer_element_from_label()
+                if element is None:
+                    raise ValueError(f"Cannot determine element for atom with label '{atom.label}'")
+                atom.element = element
+            atom_nums.append(atomic_numbers[atom.element])
+
+        direct_coords = Cartesian2Direct(self.coords, self.cell)
+
+        kpath = seekpath.get_path(
+            (self.cell, direct_coords, atom_nums),
+            with_time_reversal=with_time_reversal,
+            recipe=recipe,
+            threshold=threshold,
+            symprec=symprec,
+            angle_tolerance=angle_tolerance,
+        )
+
+        # Replace GAMMA with G in point_coords and path
+        point_coords = {}
+        for label, coord in kpath["point_coords"].items():
+            point_coords[label.replace("GAMMA", "G")] = coord
+
+        path = [(start.replace("GAMMA", "G"), end.replace("GAMMA", "G"))
+                for start, end in kpath["path"]]
+
+        if write_prim_stru:
+            atoms = []
+            primitive_lattice = kpath["primitive_lattice"]
+            for atom_num, coord in zip(kpath["primitive_types"], kpath["primitive_positions"]):
+                element_symbol = chemical_symbols[atom_num]
+                # Find matching atomtype by element
+                matching_atomtype = None
+                for atomtype in self.atomtypes:
+                    if atomtype.element == element_symbol:
+                        matching_atomtype = atomtype
+                        break
+                
+                if matching_atomtype is None:
+                    raise ValueError(f"No atomtype found for element {element_symbol} in the original structure")
+
+                # Convert fractional coordinates (relative to primitive lattice) to Cartesian
+                coord_cart = Direct2Cartesian([coord], primitive_lattice)[0]
+                atom = AbacusATOM(
+                    label=matching_atomtype.label,
+                    coord=coord_cart,
+                    element=matching_atomtype.element,
+                    pp=matching_atomtype.pp,
+                    orb=matching_atomtype.orb,
+                    paw=matching_atomtype.paw,
+                    type_mag=matching_atomtype.type_mag,
+                )
+                atoms.append(atom)
+            prim_stru = AbacusSTRU(
+                primitive_lattice, atoms=atoms, metadata=self.metadata
+            )
+            prim_stru.write(prim_stru_file)
+
+        return point_coords, path
+
 
 def parse_stru_position(pos_line):
     '''
@@ -1080,7 +1304,7 @@ def read_stru_file(stru:str = "STRU"):
     NOTE:
         1. Do not support bravais lattice now.
         2. the value for cell/coords/lattice_constant are the exact values in STRU file
-        3. Only direct/cartessian coordinate type is supported.
+        3. Only direct/cartesian coordinate type is supported.
     
     '''
     def get_block(keyname):

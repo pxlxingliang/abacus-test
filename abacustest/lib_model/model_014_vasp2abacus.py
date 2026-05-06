@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 from . import comm
 import argparse,json, os
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, AbacusStru
@@ -14,20 +14,8 @@ import warnings
 
 
 class Vasp2AbacusModel(Model):
-    @staticmethod
-    def model_name(): # type: ignore
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "vasp2abacus"
-    
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Transform VASP input files to ABACUS input files."
-    
+    HAS_PREPARE_POST_COMMAND = False # set false if the model does not have prepare and postprocess
+
     @staticmethod
     def add_args(parser):
         '''

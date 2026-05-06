@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 import json, os
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, AbacusStru
 from abacustest.lib_prepare.comm import kspacing2kpt
@@ -14,20 +14,6 @@ from abacustest.outresult import pandas_out
 
 
 class ElasticModel(Model):
-    @staticmethod
-    def model_name(): # type: ignore
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "elastic"
-    
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Prepare and postprocess the elastic"
-    
     @staticmethod
     def prepare_args(parser):
         '''

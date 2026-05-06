@@ -9,21 +9,6 @@ class Model:
     '''
     HAS_PREPARE_POST_COMMAND = True
 
-
-    @staticmethod
-    def model_name():
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "Model"
-    
-    @staticmethod
-    def description():
-        '''
-        Description of the model
-        '''
-        return ""
-    
     @staticmethod
     def add_args(parser):
         '''

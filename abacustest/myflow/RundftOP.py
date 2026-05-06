@@ -68,7 +68,8 @@ class RunDFT(OP):
             example_path = os.path.relpath(str(iexample),str(root_path))
             if op_in["sub_save_path"] != None and str(op_in["sub_save_path"]).strip() != "":
                 example_path = os.path.join(str(op_in["sub_save_path"]),example_path)
-                            
+            os.makedirs(os.path.join(cwd,example_path), exist_ok=True)
+                                     
             work_path = iexample
             print("work path:",work_path,file=sys.stderr)
 

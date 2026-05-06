@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 import json, os
 from typing import List, Dict, Any, Literal, Tuple, Optional, Union
 import re
@@ -19,20 +19,6 @@ from abacustest.lib_model.model_013_inputs import PrepInput, InputsModel
 from abacustest.outresult import pandas_out
 
 class VacancyModel(Model):
-    @staticmethod
-    def model_name(): # type: ignore
-        """
-        Name of the model, which will be used as the subcommand
-        """
-        return "vacancy"
-    
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Calculate the vacancy formation energy for uncharged systems"
-    
     @staticmethod
     def prepare_args(parser):
         '''

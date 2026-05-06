@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 import json, os
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, AbacusStru, ReadKpt
 from abacustest.constant import RECOMMAND_IMAGE, RECOMMAND_COMMAND, RECOMMAND_MACHINE
@@ -11,20 +11,6 @@ from abacustest.lib_model.comm import clean_none_list
 
 
 class BECModel(Model):
-    @staticmethod
-    def model_name(): # type: ignore
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "bec"
-    
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Calculate the Born effective charge by finite difference method."
-    
     @staticmethod
     def prepare_args(parser):
         '''

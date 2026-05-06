@@ -122,7 +122,7 @@ def stru2cp2k(stru:AbacusStru):
     coord = stru.get_coord(bohr=False,direct=False)
     label = stru.get_label(total=True)
     element = stru.get_element(number=False,total=True)
-    mag = stru.get_mag()
+    mag = stru.get_atommag()
     
     tmp = {
         "FORCE_EVAL": {

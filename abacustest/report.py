@@ -446,11 +446,6 @@ def gen_html(report_setting, output):
         f.write(html)
     return html
 
-def ReportArgs(parser):  
-    parser.description = "Read metrics.json and generate the report"
-    parser.add_argument('-p', '--param', type=str, help='the parameter file, should be .json type',required=True)
-    parser.add_argument('-o', '--output', type=str,  default="abacustest.html",help='The output file name, default is abacustest.html')
-    return parser
 
 def Report(param):
     globV._init()
@@ -468,6 +463,7 @@ def Report(param):
     
 
 def main():
+    from abacustest.arguments import ReportArgs
     parser = argparse.ArgumentParser()
     param = ReportArgs(parser).parse_args()
     Report(param)

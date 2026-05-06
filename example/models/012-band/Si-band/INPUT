@@ -1,0 +1,11 @@
+INPUT_PARAMETERS
+suffix                Si
+pseudo_dir            /mnt/e/profsoftfiles/abacusfiles/SG15/pot
+orbital_dir           /mnt/e/profsoftfiles/abacusfiles/SG15/orb
+ecutwfc               100
+scf_thr               1e-6
+init_chg              file
+basis_type            lcao
+calculation           nscf
+out_band              1
+out_bandgap           1

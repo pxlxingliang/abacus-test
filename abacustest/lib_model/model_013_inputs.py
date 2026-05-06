@@ -1,4 +1,4 @@
-from ..model import Model
+from .model import Model
 from . import comm
 import argparse,json, os
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, gen_stru, ReadInput, AbacusStru
@@ -76,20 +76,8 @@ MAG_ELEMENT = ELEMENT_DFTU_D + ELEMENT_DFTU_F
 
 
 class InputsModel(Model):
-    @staticmethod
-    def model_name(): # type: ignore
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "inputs"
-    
-    @staticmethod
-    def description(): # type: ignore
-        '''
-        Description of the model
-        '''
-        return "Prepare the ABACUS inputs of specified model"
-    
+    HAS_PREPARE_POST_COMMAND = False # set false if the model does not have prepare and postprocess
+
     @staticmethod
     def add_args(parser):
         '''
@@ -113,6 +101,7 @@ class InputsModel(Model):
         parser.add_argument("--afm", action="store_true", help="whether to use antiferromagnetic calculation, default is False. Only valid when init_mag is set.")
         parser.add_argument("--copy_pp_orb", action="store_true", help="whether to copy the pseudopotential and orbital files to each job directory or link them. Default is False, which means linking the files.")
         parser.add_argument("--folder-syntax", default=None, type=str, help="A python syntax to create the directory name. Using string variable 'x' to represent the path of input structure file, and put the processing of x in {}, following the format of f-string. Such as: '{x[:-4]}' to remove the file extension like Fe.cif to Fe, and 'aa-{x[:-4]}-bb' will transfer Fe.cif to aa-Fe-bb. Default is None, which means using number like 000000/000001...")
+        parser.add_argument("--overwrite", action="store_true", help="Whether to overwrite existing folder (default: False, create new folder with numbered suffix if exists)")
         parser.add_argument("--download-pporb", nargs="?", type=str,default=None,const="apns-v1",choices=["apns-v1"], help="Download the recommended pseudopotential and orbital files from AISquare.")
         return parser
     
@@ -149,38 +138,10 @@ class InputsModel(Model):
             else:
                 warnings.warn(f"Element {element} already has an initial magnetic moment, overwriting it with {mag_value}.")
         return init_mag   
-    
-    def download_pporb(self, version):
-        """
-        Download the recommended pseudopotential and orbital files from AISquare.
-        """
-        if version is None:
-            return
-        
-        apns_v1 = "https://store.aissquare.com/datasets/af21b5d9-19e6-462f-ada1-532f47f165f2/ABACUS-APNS-PPORBs-v1.zip"
-        
-        if version == "apns-v1":
-            # download the apns-v1 pseudopotential and orbital files
-            import urllib.request
-            import zipfile
-            
-            zip_file = "ABACUS-APNS-PPORBs-v1.zip"
-            print(f"Downloading the recommended pseudopotential and orbital files from {apns_v1} ...")
-            urllib.request.urlretrieve(apns_v1, zip_file)
-            print(f"Unzipping the file {zip_file} ...")
-            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-                zip_ref.extractall(".")
-            os.remove(zip_file)
-            print("Download and unzip completed.")
-            # set the pp and orb path
-        
-            print("You can set the pseudopotential and orbital path by --pp and --orb, or set the environment variable ABACUS_PP_PATH and ABACUS_ORB_PATH.")
-            
-        
-    
+
     def run(self,params):
         if params.download_pporb is not None:
-            self.download_pporb(params.download_pporb)
+            download_abacus_pporb(params.download_pporb)
             return 0
         
         if params.kpt is not None and len(params.kpt) not in [1, 3]:
@@ -195,6 +156,9 @@ class InputsModel(Model):
             init_mag = self.parse_init_mag(params.init_mag)
         else:
             init_mag = None
+        
+        if not params.file:
+            raise ValueError("Please specify the structure file.")
         
         pinput = PrepInput(
             files=params.file,
@@ -215,10 +179,37 @@ class InputsModel(Model):
             machine=RECOMMAND_MACHINE,  # default Bohrium machine type for CPU jobs
             image=RECOMMAND_IMAGE,  # default recommended image for ABACUS jobs 
             copy_pp_orb=params.copy_pp_orb, 
-            folder_syntax=params.folder_syntax
+            folder_syntax=params.folder_syntax,
+            overwrite=params.overwrite
         )
         pinput.run()
         return 0
+
+def download_abacus_pporb(version):
+    """
+    Download the recommended pseudopotential and orbital files from AISquare.
+    """
+    import shutil
+
+    if version is None:
+        return
+    if version == "apns-v1":
+        url = "https://store.aissquare.com/datasets/af21b5d9-19e6-462f-ada1-532f47f165f2/ABACUS-APNS-PPORBs-v1.zip"
+        target_name = "ABACUS-APNS-PPORBs-v1.zip"
+    else:
+        raise ValueError(f"Invalid version: {version}")
+    download_file = comm.download_file(url, target_name)
+    out_files = None
+    if download_file is not None:
+        print("Downloaded file:", download_file)
+        out_files = comm.smart_extract(download_file, ".")
+
+        if out_files is not None:
+            os.remove(download_file)
+            print("Extracted files:", out_files)
+            print("You can set the pseudopotential and orbital path by --pp and --orb, or set the environment variable ABACUS_PP_PATH and ABACUS_ORB_PATH.")
+    
+    return out_files
 
 class PrepInput:
     """Prepare the ABACUS inputs for the specified model.
@@ -270,6 +261,7 @@ class PrepInput:
                    The default is None, indicating the generation of 00001, 00002
                    If the folder already exists, the function will add a number to the folder name. 
                    Like Fe.1, Fe.2, ...
+    overwrite: bool, Whether to overwrite existing folder (default: False, create new folder with numbered suffix if exists)
     """
     
     def __init__(self, files: Union[str, List[str], Path, List[Path]],
@@ -290,7 +282,8 @@ class PrepInput:
                  init_mag: Optional[Dict[str, float]] =None,
                  afm: bool = False, 
                  copy_pp_orb: bool = False,
-                 folder_syntax: Optional[str] = None
+                 folder_syntax: Optional[str] = None,
+                 overwrite: bool = False
                  ):
         if jobtype not in JOB_TYPES:
             raise ValueError(f"Unsupported job type: {jobtype}.\nSupported job types are {list(JOB_TYPES.keys())}.")
@@ -323,6 +316,7 @@ class PrepInput:
         self.afm = afm
         self.copy_pp_orb = copy_pp_orb
         self.folder_syntax = folder_syntax
+        self.overwrite = overwrite
         
         self.pp_path = pp_path
         self.orb_path = orb_path
@@ -353,7 +347,8 @@ class PrepInput:
     def run(self):
         jobs = gen_stru(self.files, self.filetype, self.pp_path, self.orb_path, tpath=".", 
                         copy_pp_orb=self.copy_pp_orb,
-                        folder_syntax=self.folder_syntax)
+                        folder_syntax=self.folder_syntax,
+                        overwrite=self.overwrite)
 
         if self.input_file is not None:
             if not os.path.isfile(self.input_file):

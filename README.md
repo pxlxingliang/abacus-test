@@ -467,12 +467,12 @@ Job type: abacus, all modules:  ['abacus']
 ```
 The avial modules are listed in the first line, and you can add some of them if needed.
 
-### 3.2 import collectdata.RESULT in your python script
-You can also use this collectdata function in your python script by `from abacustest.lib_collectdata.collectdata import RESULT`.
+### 3.2 import RESULT in your python script
+You can also use this collectdata function in your python script by `from abacustest import RESULT`.
 
 For example, if you want to collect the total energy, force, and stress from an ABACUS job, you can use the following code:
 ```
-from abacustest.lib_collectdata.collectdata import RESULT
+from abacustest import RESULT
 
 abacusresult = RESULT(fmt="abacus",path="abacusjob") 
 # path is the path to the ABACUS job folder, such as "abacusjob"
@@ -576,8 +576,29 @@ Z  0.0000  0.0021  7.2830
 ```
 The row and column indices represent the displacement direction and the polarization direction. Note that the polarization calculated via the Berry phase is usually along the direction of the cell vectors. Here, we have performed the calculation for each cell vector direction and then transformed the values onto the Cartesian XYZ axes.
 
-Besides, two files are generated simultaneously: the file "metrics.json" compiles detailed information on each sub-job (unless specifically defined otherwise, the unit of length is angstrom, and the unit of energy is eV); the file "metrics_bec.json" compiles the results for each atom. Note that `p_vec_org` denotes the polarization of the original structure along the cell vectors, and `mod_org` is the modulus of the polarization along the cell vectors (since the polarization of a periodic structure is indeterminate, for a series of consecutive structures, we can calculate the change in polarization by adding a specific modulus to render their polarization relatively continuous). Additionally, `p_vec_disp` represents the change in polarization along the cell vectors caused by atomic displacement in the XYZ directions.
+ Besides, two files are generated simultaneously: the file "metrics.json" compiles detailed information on each sub-job (unless specifically defined otherwise, the unit of length is angstrom, and the unit of energy is eV); the file "metrics_bec.json" compiles the results for each atom. Note that `p_vec_org` denotes the polarization of the original structure along the cell vectors, and `mod_org` is the modulus of the polarization along the cell vectors (since the polarization of a periodic structure is indeterminate, for a series of consecutive structures, we can calculate the change in polarization by adding a specific modulus to render their polarization relatively continuous). Additionally, `p_vec_disp` represents the change in polarization along the cell vectors caused by atomic displacement in the XYZ directions.
+
+### 4.4 Band structure
+The band structure calculation is one of the most fundamental electronic structure calculations. It describes the energy distribution of electrons along the high symmetry directions in reciprocal space and can be used to obtain band gap and other important electronic properties.
+
+For a detailed example and usage guide, see the [band structure calculation example](example/models/012-band/README.md).
+
+`abacustest` can automatically prepare the input files for band structure calculation based on the input files of the initial structure, and postprocess the calculated results to plot the band structure and get the band gap.
+
+If you have prepared the ABACUS input directory containing the structure information, you can use the following command to prepare the input:
+```
+abacustest model band prepare -j 000000
+```
+Here, `000000` is the directory containing the ABACUS input files. After preparation, the input files for scf and nscf calculations will be generated, and the high symmetry k-path will be automatically generated and written to the `KPT.nscf` file. For more detailed parameters, you can use `abacustest model band prepare -h` to view.
+
+After the calculation is completed, you can use the following command for postprocessing:
+```
+abacustest model band post -j 000000
+```
+Postprocessing will automatically identify the band data, automatically determine the Fermi level, plot the band structure, and calculate the band gap. For non-metallic systems, it will also find the positions of the conduction band minimum (CBM) and valence band maximum (VBM), including their k-point coordinates and energies. The results (band gap, CBM, VBM information) will be saved in `metrics_band.json`, and the band structure plot will be saved in `band.png`. Additionally, the model supports:
+- Adjusting the energy range of the plotted band structure via `--range` parameter
+- Plotting projected band structure by using `--plot-pband` parameter, with projection modes including `species`, `shell` and `orbital`
 
 
-## 5. example
+ ## 5. example
 [examples](https://github.com/pxlxingliang/abacus-test/tree/develop/example)

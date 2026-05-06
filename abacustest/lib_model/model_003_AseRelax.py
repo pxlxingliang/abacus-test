@@ -1,7 +1,8 @@
-from ..model import Model
+from .model import Model
 import os, json, sys, inspect
 from . import comm, comm_plot
-
+from abacustest.constant import RECOMMAND_IMAGE
+import numpy as np
 
 class AseRelax(Model):
     '''
@@ -12,20 +13,6 @@ class AseRelax(Model):
     
     The model should have the following methods:
     '''
-    @staticmethod
-    def model_name():
-        '''
-        Name of the model, which will be used as the subcommand
-        '''
-        return "aserelax"
-
-    @staticmethod
-    def description():
-        '''
-        Description of the model
-        '''
-        return "Prepare the inputs for relax by ASE + ABACUS"
-
     @staticmethod
     def add_args(parser):
         '''
@@ -60,7 +47,7 @@ class AseRelax(Model):
         The arguments can not be command, model, modelcommand '''
         parser.add_argument("-j","--jobs",type=str,help="the path of jobs to be tested",action="extend",nargs="*",)
         parser.add_argument("-c", "--rundftcommand", type=str, default="abacustest model aserelax -o BFGS --mpi 32 --omp 1",help="the command to execute aserelax, default is 'abacustest model aserelax -o BFGS' ")
-        parser.add_argument("-i","--image",default="registry.dp.tech/dptech/prod-471/abacus-ase:20240522",type=str,help="the used image. Should has ABACUS/ASE-ABACUS/abacustest in image", )
+        parser.add_argument("-i","--image",default=RECOMMAND_IMAGE,type=str,help="the used image. Should has ABACUS/ASE-ABACUS/abacustest in image", )
         parser.add_argument("--machine", default="c32_m128_cpu", help="the machine to run the abacus. Default is c32_m128_cpu")
         parser.add_argument("-r", "--run", default=0, help="if run the test. Default is 0.", type=int)
         
@@ -88,14 +75,14 @@ class AseRelax(Model):
         comm.dump_setting(setting)
         comm.doc_after_prepare("ASE-ABACUS relax", real_jobs, ["setting.json"],has_prepare=False)
         print("After finish the calculation, you can run below command to do the postprocess:")
-        print(f"    abacustest model {self.model_name()} post -j {' '.join(real_jobs)} -r result.json\n")
+        print(f"    abacustest model aserelax post -j {' '.join(real_jobs)} -r result.json\n")
         
         if params.run:
             bash_script = "aserelax.sh"
             with open(bash_script,"w") as f:
                 f.write("abacustest submit -p setting.json\n")
                 f.write("cd results\n")
-                f.write(f"abacustest model {self.model_name()} post -j {' '.join(real_jobs)} -r result.json\n")
+                f.write(f"abacustest model aserelax post -j {' '.join(real_jobs)} -r result.json\n")
             os.system(f"bash {bash_script} &")
 
     @staticmethod
@@ -106,7 +93,7 @@ class AseRelax(Model):
         parser.add_argument("-j","--jobs",type=str,default=["."],help="The path of aserelax job. Should has metrics.json file generated after aserelax.",action="extend",nargs="*",)
         parser.add_argument("-o","--output",default="aserelax.png",help="the output picture name, default is aserelax.png",)
         parser.add_argument("-r","--result",default="result.json",help="Save the data of the plot to a json file. Default is result.json.",)
-        parser.add_argument('--abacus', nargs='?',type=int, const=1, default=None,help='postprocess the job as an abacus relax job' )
+        parser.add_argument("-t", "--type", default="ase", choices=["ase","abacus","vasp"], help="the type of the job, which will determine how to read the data. Can be ase/abacus/vasp, default is ase" )
         parser.add_argument('--metric', nargs='?',type=str, const="metrics.json", default=None,help='postprocess a metrics.json file. If set metric, then will only plot data in this file' )
         parser.add_argument('--noplot', nargs='?',type=int, const=1, default=None,help='If not plot the image' )
 
@@ -121,10 +108,13 @@ class AseRelax(Model):
                 print("No jobs are specified.")
                 return {}
 
-            if params.abacus:
+            job_type = params.type
+
+            if job_type in ["abacus", "vasp"]:
                 from abacustest.lib_collectdata.collectdata import RESULT
                 for ijob in jobs:
-                    result = RESULT(path=ijob,fmt="abacus")
+                    print(f"Processing job: {ijob}")
+                    result = RESULT(path=ijob,fmt=job_type)
                     forces = result["forces"]
                     stresses = result["stresses"]
                     fmax = []
@@ -147,6 +137,7 @@ class AseRelax(Model):
                     }
             else:
                 for ijob in jobs:
+                    print(f"Processing job: {ijob}")
                     if os.path.isfile(os.path.join(ijob,"metrics.json")):
                         metrics = json.load(open(os.path.join(ijob,"metrics.json")))
                         allmetrics[ijob.rstrip("/")] = metrics
@@ -213,6 +204,7 @@ class AseRelax(Model):
             else:
                 fmax_max = max(plot_data[example]["fmax"])
                 fmax_min = min(plot_data[example]["fmax"])
+            fmax_min = max(fmax_min,1e-4)
             ax0.set_ylim(ene_min,ene_max + (ene_max - ene_min)*0.2)
             ax1.set_ylim(fmax_min,fmax_max + (fmax_max - fmax_min)*0.2)
             # plot line y = 0.01
@@ -282,7 +274,7 @@ class ExeAseRelax:
         pp = stru.get_pp()
         orb = stru.get_orb()
         input_param["pp"] = {labels[i]:os.path.abspath(os.path.join(init_path,input_param.get("pseudo_dir",""),pp[i])) for i in range(len(labels))}
-        if input_param.get("basis_type") in ["lcao"] and orb:
+        if orb:
             input_param["basis"]  = {labels[i]:os.path.abspath(os.path.join(init_path,input_param.get("orbital_dir",""),orb[i])) for i in range(len(labels))}
 
         kpt = ReadKpt(init_path)
@@ -325,6 +317,40 @@ class ExeAseRelax:
         with open(self.logfile,"w") as f:
             f.write(logs)
 
+    def set_cell_filter(self,fixed_axes):
+        """based on ABACUS INPUT fixed-axes, set the cell mask for ASE relax.
+
+    mask is six components in Voigt notation, which is [xx, yy, zz, yz, xz, xy]. 
+    True means the axis is relaxed, False means the axis is fixed.
+    
+    ase/stress.py:voigt_6_to_full_3x3_stress():
+    s1, s2, s3, s4, s5, s6 = np.transpose(stress_vector)
+    return np.transpose([[s1, s6, s5],
+                         [s6, s2, s4],
+                         [s5, s4, s3]])
+        """
+        if fixed_axes is not None:
+            print(f"ABACUS fixed_axes: {fixed_axes}, transfering to ASE relax")
+
+        if fixed_axes is None:
+            return {}
+        elif fixed_axes.lower() == "volume":
+            return {"constant_volume": True}
+        elif fixed_axes.lower() == "shape":
+            return {"hydrostatic_strain": True}
+        elif fixed_axes.lower() in ["a", "b", "c", "ab", "ac", "bc"]:
+            mask = [[1,1,1],[1,1,1],[1,1,1]]
+            if "a" in fixed_axes.lower():
+                mask[0] = [0,0,0]
+            if "b" in fixed_axes.lower():
+                mask[1] = [0,0,0]
+            if "c" in fixed_axes.lower():
+                mask[2] = [0,0,0]
+            return {"mask": np.array(mask)}
+        else:
+            raise ValueError(f"Do not support fixed_axes: {fixed_axes}")
+
+
     def exe_ase(self, atoms, input_param, optimizer):
         from ase.calculators.abacus import Abacus, AbacusProfile
         from ase.constraints import UnitCellFilter, ExpCellFilter
@@ -341,7 +367,8 @@ class ExeAseRelax:
                          **input_param)
 
         if self.relax_cell:
-            ucf = ExpCellFilter(atoms,)
+            cell_filter = self.set_cell_filter(input_param.get("fixed_axes"))
+            ucf = ExpCellFilter(atoms, **cell_filter)
             opt = optimizer(ucf, trajectory='init_opt.traj',logfile = self.logfile)
         else:
             opt = optimizer(atoms, trajectory='init_opt.traj', logfile=self.logfile)
