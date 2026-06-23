@@ -571,6 +571,14 @@ class AbacusSTRU:
         assert len(value) == len(self._atoms), f"length is not equal: {len(value)} / {len(self._atoms)}"
         for i, iv in enumerate(value):
             self._atoms[i].orb = iv
+    
+    @moves.setter
+    def moves(self, value: List[Tuple[bool,bool,bool]]):
+        """set the move for each atom"""
+        assert len(value) == len(self._atoms), f"length is not equal: {len(value)} / {len(self._atoms)}"
+        for i, iv in enumerate(value):
+            assert len(iv) == 3, f"move must be a tuple of three bools, got {iv}"
+            self._atoms[i].move = [bool(iv[0]), bool(iv[1]), bool(iv[2])]
 
     def set_pp(self, pp_dict: Dict[str, str], key_type:Literal["element","label"]="element"):
         """Set pseudopotential file names for atoms based on a provided dictionary.

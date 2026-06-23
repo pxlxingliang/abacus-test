@@ -58,7 +58,11 @@ def plot_line_point(x,
                     colors:List[str] =None,
                     markers:List[str] =None,
                     grid:bool=True,
-                    legend_outbox:bool=False):
+                    legend_outbox:bool=False,
+                    xmin=None,
+                    xmax=None,
+                    ymin=None,
+                    ymax=None):
     """Plot x vs ys[i] with line and point.
 
     Args:
@@ -121,6 +125,18 @@ def plot_line_point(x,
         plt.xticks(x, xlabels, fontsize=fontsize-2,rotation=30)
     if grid:
         plt.grid()
+    
+    if xmin is not None:
+        plt.xlim(left=xmin)
+    if xmax is not None:
+        plt.xlim(right=xmax)
+
+    if ymin is not None:
+        plt.ylim(bottom=ymin)
+    if ymax is not None:
+        plt.ylim(top=ymax)
+
+
     plt.tick_params(axis='x', labelsize=fontsize-2)
     plt.tick_params(axis='y', labelsize=fontsize-2) 
     plt.tight_layout()
