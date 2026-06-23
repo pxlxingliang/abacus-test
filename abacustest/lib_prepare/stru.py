@@ -683,6 +683,8 @@ class AbacusSTRU:
         Returns:
             AbacusSTRU: An AbacusSTRU object representing the structure.
         """
+        if not os.path.exists(filename):
+            raise FileNotFoundError(f"File {filename} does not exist.")
         fmt = fmt.lower()
         if fmt in ["stru", "abacus/stru"]:
             stru_data = read_stru_file(stru=filename)
