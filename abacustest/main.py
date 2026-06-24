@@ -77,6 +77,11 @@ COMMANDS = {
         "module": "skills",
         "handler": "show_skills",
     },
+    "tools": {
+        "help": "Miscellaneous utility tools",
+        "module": "tools",
+        "handler": "tools.RunTool",
+    },
 }
 
 def main():
@@ -96,10 +101,21 @@ def main():
         else:
             model_subcommand = sys.argv[2] if len(sys.argv) > 2 else None
             model_mod.ModelArgs(model_parser, list_all_models=False, model_subcommand=model_subcommand)
+    elif len(sys.argv) > 1 and sys.argv[1] == "tools":
+        from . import tools as tools_mod
+
+        tools_parser = subparser.add_parser("tools", help=COMMANDS["tools"]["help"])
+
+        if len(sys.argv) == 2 or (len(sys.argv) > 2 and sys.argv[2] in ["-h", "--help"]) or \
+           (len(sys.argv) > 2 and sys.argv[2] not in tools_mod.TOOLS_ARGS):
+            tools_mod.ToolsArgs(tools_parser, list_all_tools=True)
+        else:
+            tool_subcommand = sys.argv[2] if len(sys.argv) > 2 else None
+            tools_mod.ToolsArgs(tools_parser, list_all_tools=False, tool_subcommand=tool_subcommand)
     else:
         from . import arguments as args_mod
         for cmd, cfg in COMMANDS.items():
-            if cmd in ["model", "skills"]:
+            if cmd in ["model", "skills", "tools"]:
                 subparser.add_parser(cmd, help=cfg["help"])
             else:
                 args_func = getattr(args_mod, cfg["args_func"])
@@ -119,6 +135,12 @@ def main():
             return
         from . import model as model_mod
         model_mod.RunModel(param)
+    elif param.command == "tools":
+        if not hasattr(param, 'tool') or param.tool is None:
+            tools_parser.print_help()
+            return
+        from . import tools as tools_mod
+        tools_mod.RunTool(param)
     else:
         mod = __import__(f"abacustest.{cfg['module']}", fromlist=[cfg['handler'].split('.')[-1]])
         handler = getattr(mod, cfg['handler'].split('.')[-1])

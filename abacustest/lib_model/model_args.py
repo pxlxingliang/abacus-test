@@ -117,11 +117,6 @@ MODEL_ARGS = {
         "file": "model_017_vacancy",
         "class_name": "VacancyModel"
     },
-    "supercell": {
-        "description": "extend the unit cell to supercell",
-        "file": "model_018_supercell",
-        "class_name": "SuperCellModel"
-    },
     "vibration": {
         "description": "Calculate the vibration frequency of selected atoms",
         "file": "model_019_vibration",
