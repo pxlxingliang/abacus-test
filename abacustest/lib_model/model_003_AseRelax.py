@@ -97,6 +97,21 @@ class AseRelax(Model):
         parser.add_argument('--metric', nargs='?',type=str, const="metrics.json", default=None,help='postprocess a metrics.json file. If set metric, then will only plot data in this file' )
         parser.add_argument('--noplot', nargs='?',type=int, const=1, default=None,help='If not plot the image' )
 
+    def mask_force(self, job_path, forces):
+        from abacustest import ReadInput, AbacusSTRU
+        input_param = ReadInput(os.path.join(job_path,"INPUT"))
+        stru = AbacusSTRU.read(os.path.join(job_path,input_param.get("stru_file","STRU")))
+        move = stru.moves # dimension: natom x 3, 0 means fixed, 1 means move
+        # forces dimenasion: nstep, natom x 3
+        if forces:
+            nframe = len(forces)
+            forces = np.array(forces).reshape(nframe, len(move), 3)
+            forces = forces * np.array(move)[np.newaxis,:,:]
+            forces = forces.reshape(nframe, -1).tolist()
+            
+        return forces
+
+
     def _post_gen_allmetrics(self,params):
         if params.metric:
             allmetrics = json.load(open(params.metric))
@@ -115,7 +130,8 @@ class AseRelax(Model):
                 for ijob in jobs:
                     print(f"Processing job: {ijob}")
                     result = RESULT(path=ijob,fmt=job_type)
-                    forces = result["forces"]
+                    # here, if the relax fixed some atoms, we need use a mask to set the forces to 0 for those atoms
+                    forces = self.mask_force(ijob, result["forces"])
                     stresses = result["stresses"]
                     fmax = []
                     smax = []

@@ -244,12 +244,12 @@ def plot_boxplot(x,
 
 
 def gen_force_fd_1(ax1, ax2, x, e, ana, fd,
-                   x_title = "Position ($\mathrm{\AA}$)",
+                   x_title = r"Position ($\mathrm{\AA}$)",
                    e_title = "Energy (eV)",
-                   f_title = "Force (eV/$\mathrm{\AA}$)",
+                   f_title = r"Force (eV/$\mathrm{\AA}$)",
                    e_label = "Energy (eV)",
-                   ana_label = "Analytic (eV/$\mathrm{\AA}$)",
-                   fd_label = "Finite Difference (eV/$\mathrm{\AA}$)",
+                   ana_label = r"Analytic (eV/$\mathrm{\AA}$)",
+                   fd_label = r"Finite Difference (eV/$\mathrm{\AA}$)",
                    title = None,
                    font_size = None,
                    grid = True
