@@ -40,4 +40,9 @@ TOOLS_ARGS = {
         "file": "tool_002_vasp2abacus",
         "class_name": "Vasp2AbacusTool",
     },
+    "conv": {
+        "description": "Convert structure files between formats (POSCAR, CIF, ABACUS STRU)",
+        "file": "tool_003_conv",
+        "class_name": "StructureConvertTool",
+    },
 }

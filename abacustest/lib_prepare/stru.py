@@ -1688,7 +1688,9 @@ def write_poscar(
         if move and move[i] and len(move[i]) == 3:
             cc += " " + " ".join(["T" if mv else "F" for mv in move[i]])
         cc += "\n"
-    os.makedirs(os.path.dirname(poscar), exist_ok=True)
+    out_dir = os.path.dirname(poscar)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     with open(poscar,"w") as f1:
         f1.write(cc)
     return cc
