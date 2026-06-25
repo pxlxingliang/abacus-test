@@ -431,14 +431,15 @@ class AbacusSTRU:
 
 
     def sort(self,
-             keep_first_order=True) -> List[int]:
+             keep_first_order=True,
+             only_label=False) -> List[int]:
         """Classify atoms according to their atom types.
         The new atom type order is the order of first appearance in the original atom list.
 
         Returns:
             List[int]: Indices of the rearranged atoms in the original list.
         """
-        new_atom_list, index = AbacusATOM.sort(self._atoms, keep_first_order=keep_first_order)
+        new_atom_list, index = AbacusATOM.sort(self._atoms, keep_first_order=keep_first_order, only_label=only_label)
         self._atoms = new_atom_list
         return index
     
@@ -630,6 +631,27 @@ class AbacusSTRU:
             coords = Direct2Cartesian(coords, self.cell)
         for i in range(len(self._atoms)):
             self._atoms[i].coord = coords[i]
+    
+    def set_masses(self, masses: Union[List[float], Dict[str, float]], key_type: Literal["element","label"]="element"):
+        """Set atomic masses for atoms based on a provided list or dictionary.
+
+        Args:
+            masses (List[float] or Dict[str, float]): List of masses for each atom or a dictionary mapping element symbols to masses.
+            key_type (str): If masses is a dictionary, this specifies whether to use the element symbol or label as the key. Default is "element".
+        """
+        if isinstance(masses, list):
+            assert len(masses) == len(self._atoms), f"Length of masses list ({len(masses)}) does not match number of atoms ({len(self._atoms)})."
+            for i, mass in enumerate(masses):
+                self._atoms[i].mass = mass
+        elif isinstance(masses, dict):
+            for atom in self._atoms:
+                key = atom.element if key_type == "element" else atom.label
+                if key in masses:
+                    atom.mass = masses[key]
+                else:
+                    raise KeyError(f"Mass for {key_type}: {key} not found in provided dictionary.")
+        else:
+            raise TypeError("masses must be a list or a dictionary.")
     
     def get_cell_param(self):
         # return the box parameter: a,b,c,alpha,beta,gamma, unit is Angstrom and degree

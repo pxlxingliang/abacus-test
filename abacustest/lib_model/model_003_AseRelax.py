@@ -200,16 +200,16 @@ class AseRelax(Model):
                 ax0 = axes[i//ncol][i%ncol]
             ax0.plot(plot_data[example]["enes"],label="Energy (eV)",color="blue",linestyle="-",marker="o")
             ax1 = ax0.twinx()
-            ax1.plot(plot_data[example]["fmax"],label="Fmax (eV/$\mathrm{\AA}$)",color="red",linestyle="--",marker="o")
+            ax1.plot(plot_data[example]["fmax"],label=r"Fmax (eV/$\mathrm{\AA}$)",color="red",linestyle="--",marker="o")
             if plot_data[example].get("smax"):
                 ax1.plot(np.array(plot_data[example]["smax"])/100,label="Stress_max (kbar/100)",color="green",linestyle="--",marker="x")
             ax0.set_title(example)
             ax0.set_xlabel("Step")
             ax0.set_ylabel("Energy (eV)")
             if plot_data[example].get("smax"):
-                ax1.set_ylabel("Force (eV/$\mathrm{\AA}$)/Stress (kbar/100)")
+                ax1.set_ylabel(r"Force (eV/$\mathrm{\AA}$)/Stress (kbar/100)")
             else:
-                ax1.set_ylabel("Fmax (eV/$\mathrm{\AA}$)")
+                ax1.set_ylabel(r"Fmax (eV/$\mathrm{\AA}$)")
             ax0.legend(loc="upper left")
             ax1.legend(loc="upper right")
             ene_max = max(plot_data[example]["enes"])
@@ -240,7 +240,7 @@ class AseRelax(Model):
             self._post_plot(plot_data,params.output)
             json.dump(comm.gen_supermetrics(params.output),open("supermetrics.json","w"),indent=4)
         if not params.metric: 
-            json.dump(all_metrics,open(comm.bak_file("metrics.json",bak_org=False),"w"),indent=4)
+            json.dump(all_metrics,open("metrics.json","w"),indent=4)
         json.dump(plot_data,open(params.result,"w"),indent=4)
         
 
