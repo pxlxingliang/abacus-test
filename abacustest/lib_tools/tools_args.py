@@ -35,4 +35,9 @@ TOOLS_ARGS = {
         "file": "tool_001_supercell",
         "class_name": "SuperCellTool",
     },
+    "vasp2abacus": {
+        "description": "Transform VASP input files to ABACUS input files.",
+        "file": "tool_002_vasp2abacus",
+        "class_name": "Vasp2AbacusTool",
+    },
 }

@@ -97,11 +97,6 @@ MODEL_ARGS = {
         "file": "model_013_inputs",
         "class_name": "InputsModel"
     },
-    "vasp2abacus": {
-        "description": "Transform VASP input files to ABACUS input files.",
-        "file": "model_014_vasp2abacus",
-        "class_name": "Vasp2AbacusModel"
-    },
     "elastic": {
         "description": "Prepare and postprocess the elastic",
         "file": "model_015_elastic",
