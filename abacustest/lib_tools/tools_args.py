@@ -45,4 +45,9 @@ TOOLS_ARGS = {
         "file": "tool_003_conv",
         "class_name": "StructureConvertTool",
     },
+    "abacus2vasp": {
+        "description": "Transform ABACUS input files to VASP input files",
+        "file": "tool_004_abacus2vasp",
+        "class_name": "Abacus2VaspTool",
+    },
 }
