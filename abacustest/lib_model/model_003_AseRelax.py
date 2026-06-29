@@ -1,5 +1,5 @@
 from .model import Model
-import os, json, sys, inspect
+import os, json, sys
 from . import comm, comm_plot
 from abacustest.constant import RECOMMAND_IMAGE
 import numpy as np
@@ -21,10 +21,8 @@ class AseRelax(Model):
         '''
         parser.description = "This script is used to run relax job by ase-abacus!\n Need all inputs file of abaucs in one folder."
         parser.add_argument('-o', '--optimize', type=str, default="BFGS",help="the relax optimize method of ASE, can be: 'CG', 'BFGS', 'BFGSLineSearch', 'Berny', 'FIRE', 'GPMin', 'GoodOldQuasiNewton', 'LBFGS', 'LBFGSLineSearch', 'MDMin', 'ODE12r', 'QuasiNewton', 'RestartError'. Default is BFGS")
-        parser.add_argument('-a', '--abacus', type=str,  default="abacus",help='the path of abacus executable, default is abacus')
+        parser.add_argument('-c', '--run-command', type=str, default="mpirun -np 4 abacus",help='the command to run ABACUS, e.g. "mpirun -np 4 abacus"')
         parser.add_argument('--fmax', type=float,  default=None,help='the fmax for the relax (eV/A). Default is None. and will read from INPUT file or 0.0257112 eV/A.') 
-        parser.add_argument('--omp', type=int,  default=1,help='number of OMP parrallel, default 1 ')
-        parser.add_argument('--mpi', type=int,  default=0,help='number of MPI parrallel, default 0, which means all cores/number of omp.' )
         parser.add_argument('--cellrelax', nargs='?',type=int, const=1, default=None,help='if relax the box. 0: no, 1: yes. Default will read the INPUT, and set to 1 only when calculation is cell-relax' )
         parser.add_argument('-j','--job', type=str,  default=".",help='the path of abacus inputs, default is current folder.' )
 
@@ -32,12 +30,7 @@ class AseRelax(Model):
         '''
         Parse the parameters and run the model
         '''
-        if params.mpi == 0:
-            tcore = comm.get_physical_cores()
-            mpi = int(int(tcore)/params.omp)
-        else:
-            mpi = params.mpi
-        aserelax = ExeAseRelax(params.job, params.abacus, params.omp, mpi, params.optimize, params.fmax, params.cellrelax,"aserelax")
+        aserelax = ExeAseRelax(params.job, params.run_command, params.optimize, params.fmax, params.cellrelax, "aserelax")
         aserelax.run()
 
     @staticmethod
@@ -46,7 +39,7 @@ class AseRelax(Model):
         Add arguments for the prepare subcommand
         The arguments can not be command, model, modelcommand '''
         parser.add_argument("-j","--jobs",type=str,help="the path of jobs to be tested",action="extend",nargs="*",)
-        parser.add_argument("-c", "--rundftcommand", type=str, default="abacustest model aserelax -o BFGS --mpi 32 --omp 1",help="the command to execute aserelax, default is 'abacustest model aserelax -o BFGS' ")
+        parser.add_argument("-c", "--rundftcommand", type=str, default="abacustest model aserelax -o BFGS --run-command 'mpirun -np 32 abacus'",help="the command to execute aserelax")
         parser.add_argument("-i","--image",default=RECOMMAND_IMAGE,type=str,help="the used image. Should has ABACUS/ASE-ABACUS/abacustest in image", )
         parser.add_argument("--machine", default="c32_m128_cpu", help="the machine to run the abacus. Default is c32_m128_cpu")
         parser.add_argument("-r", "--run", default=0, help="if run the test. Default is 0.", type=int)
@@ -245,11 +238,9 @@ class AseRelax(Model):
         
 
 class ExeAseRelax:
-    def __init__(self, job, abacus, omp, mpi, optimize, fmax, relax_cell, wrok_path):
+    def __init__(self, job, run_command, optimize, fmax, relax_cell, wrok_path):
         self.job = job
-        self.abacus = abacus
-        self.omp = omp
-        self.mpi = mpi
+        self.run_command = run_command
         self.optimize = optimize
         self.fmax = fmax
         self.work_path = wrok_path
@@ -320,14 +311,12 @@ class ExeAseRelax:
 
     def print_info(self, opt_module):
         logs = ""
-        logs += "SETTING OMP_NUM_THREADS: {}\n".format(self.omp)
-        logs += "SETTING     mpi process: {}\n".format(self.mpi)
-        logs += "SETTING     ABACUS path: {}\n".format(self.abacus)
-        logs += "SETTING        job path: {}\n".format(os.path.abspath(self.job))
-        logs += "SETTING       work path: {}\n".format(os.path.abspath(self.work_path))
-        logs += "SETTING      fmax(eV/A): {}\n".format(self.fmax)
-        logs += "SETTING      cell relax: {}\n".format(bool(self.relax_cell))
-        logs += "SETTING    ASE OPTIMIZE: {}\n".format(opt_module)
+        logs += "SETTING  run command: {}\n".format(self.run_command)
+        logs += "SETTING     job path: {}\n".format(os.path.abspath(self.job))
+        logs += "SETTING    work path: {}\n".format(os.path.abspath(self.work_path))
+        logs += "SETTING   fmax(eV/A): {}\n".format(self.fmax)
+        logs += "SETTING   cell relax: {}\n".format(bool(self.relax_cell))
+        logs += "SETTING ASE OPTIMIZE: {}\n".format(opt_module)
         logs += "\n"
         print("\n" + logs)
         with open(self.logfile,"w") as f:
@@ -368,23 +357,21 @@ class ExeAseRelax:
 
 
     def exe_ase(self, atoms, input_param, optimizer):
-        from ase.calculators.abacus import Abacus, AbacusProfile
-        from ase.constraints import UnitCellFilter, ExpCellFilter
+        from ase.filters import FrechetCellFilter
+        from abacustest.ase_abacus import AbacusCalculator
 
-        os.environ['OMP_NUM_THREADS'] = f'{self.omp}'
-        init_signature = inspect.signature(AbacusProfile.__init__)
-        if "command" in init_signature.parameters:
-            command = f'mpirun -np {self.mpi} {self.abacus}'
-            profile = AbacusProfile(command=command)
-        else:
-            profile = AbacusProfile(
-                argv=['mpirun', '-np', f'{self.mpi}', self.abacus])
-        atoms.calc = Abacus(profile=profile, directory=self.work_path,
-                         **input_param)
+        pp_dict = input_param.pop("pp")
+        orb_dict = input_param.pop("basis", None)
+        kpts = input_param.pop("kpts", None)
+        atoms.calc = AbacusCalculator(
+            command=self.run_command, directory=self.work_path,
+            pp_dict=pp_dict, orb_dict=orb_dict, kpts=kpts,
+            input_param=input_param,
+        )
 
         if self.relax_cell:
             cell_filter = self.set_cell_filter(input_param.get("fixed_axes"))
-            ucf = ExpCellFilter(atoms, **cell_filter)
+            ucf = FrechetCellFilter(atoms, **cell_filter)
             opt = optimizer(ucf, trajectory='init_opt.traj',logfile = self.logfile)
         else:
             opt = optimizer(atoms, trajectory='init_opt.traj', logfile=self.logfile)
