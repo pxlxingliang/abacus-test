@@ -1,5 +1,7 @@
-import unittest,os,shutil,re
+import unittest,os,sys,shutil,re
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from abacustest.myflow import flow,dflowOP,globV
 from dflow import (
@@ -35,8 +37,8 @@ class TestPredft(unittest.TestCase):
         for i in self.exatrafiles2: Path(i).touch()
 
     def tearDown(self):
-        #if self.work_path.exists():
-        #    shutil.rmtree(self.work_path)
+        if self.work_path.exists():
+            shutil.rmtree(self.work_path)
         os.chdir(self.cwd)
 
     

@@ -122,8 +122,6 @@ class TestAbacusNAO(unittest.TestCase):
             radius=5.0,
             lmax=1,
             l_orbs=[1, 1],
-            mesh=3,
-            dr=0.02,
             orbs=orbs,
         )
         self.assertEqual(nao.element, "Test")
@@ -132,7 +130,7 @@ class TestAbacusNAO(unittest.TestCase):
         self.assertEqual(nao.lmax, 1)
         self.assertEqual(nao.l_orbs, [1, 1])
         self.assertEqual(nao.mesh, 3)
-        self.assertEqual(nao.dr, 0.02)
+        self.assertAlmostEqual(nao.dr, 2.5)
         self.assertEqual(len(nao.orbs), 2)
 
     def test_direct_initialization_with_default_orbs(self):
@@ -143,10 +141,10 @@ class TestAbacusNAO(unittest.TestCase):
             radius=5.0,
             lmax=1,
             l_orbs=[1, 1],
-            mesh=3,
-            dr=0.02,
+            orbs=None,
         )
         self.assertEqual(nao.orbs, [])
+        self.assertEqual(nao.mesh, 0)
 
     def test_file_not_found(self):
         """Test reading non-existent file raises FileNotFoundError"""

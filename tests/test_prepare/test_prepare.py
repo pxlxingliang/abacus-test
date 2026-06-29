@@ -1,5 +1,7 @@
-import unittest,os,shutil,re
+import unittest,os,sys,shutil,re
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from abacustest import prepare
 import defaultset
