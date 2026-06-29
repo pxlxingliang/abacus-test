@@ -35,20 +35,22 @@ class AbacusNAO:
         radius: float,
         lmax: int,
         l_orbs: List[int],
-        orbs: Optional[List[Dict[str, Any]]],
+        orbs: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
         self.element = element
         self.energy_cutoff = energy_cutoff
         self.radius = radius
         self.lmax = lmax
         self.l_orbs = l_orbs
-        orb_meshs = set([len(orb['data']) for orb in orbs])
-        if len(orb_meshs) > 1:
-            raise ValueError(f"Inconsistent mesh size in given orb data")
-        else:
-            self.mesh = orb_meshs.pop()
-        self.dr = self.radius / (self.mesh - 1)  # mesh contains endpoints at both sides
         self.orbs = orbs if orbs is not None else []
+        if self.orbs:
+            orb_meshs = set([len(orb['data']) for orb in self.orbs])
+            if len(orb_meshs) > 1:
+                raise ValueError(f"Inconsistent mesh size in given orb data")
+            self.mesh = orb_meshs.pop()
+        else:
+            self.mesh = 0
+        self.dr = self.radius / (self.mesh - 1) if self.mesh > 1 else 0.0
 
     @staticmethod
     def read_from_file(nao_file: str) -> "AbacusNAO":
