@@ -133,6 +133,7 @@ class StructureConvertTool(Tool):
 
         direct = params.direct if params.direct is not None else None
         try:
+            stru.sort()
             stru.write(out_file, fmt=out_fmt, direct=direct)
         except Exception as e:
             print(f"Error writing to '{out_file}' as {out_fmt}: {e}")
