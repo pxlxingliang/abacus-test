@@ -232,7 +232,6 @@ def ParamAbacus2Vasp(abacus_input):
                 if k.startswith("vdw_"):
                     abacus_input.pop(k)
         elif vdw_method in ["d3_bj", "d3_0", "d2"]:
-            vasp_input["LUSE_VDW"] = True
             if vdw_method == "d3_bj":
                 vasp_input["IVDW"] = 12
             elif vdw_method == "d3_0":
