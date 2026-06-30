@@ -120,12 +120,16 @@ def ParamAbacus2Vasp(abacus_input):
             else:
                 raise ValueError(f"kspacing {kspacing} is not supported.")
         vasp_input["KSPACING"] = kspacing / constant.BOHR2A
-        
+
+    nsw = 60     
     if calculation in ["relax","cell-relax"] and "relax_nmax" in abacus_input:
-        vasp_input["NSW"] = abacus_input.pop("relax_nmax")
+        nsw = abacus_input.pop("relax_nmax")
     
     if calculation == "md" and "md_nstep" in abacus_input:
-        vasp_input["NSW"] = abacus_input.pop("md_nstep")   
+        new = abacus_input.pop("md_nstep") 
+    
+    if calculation in ["relax", "cell-relax", "md"]:
+        vasp_input["NSW"] = nsw 
     
     if "nspin" in abacus_input:
         vasp_input["ISPIN"] = abacus_input.pop("nspin")
