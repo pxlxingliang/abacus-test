@@ -38,8 +38,4 @@ class Abacus2VaspTool(Tool):
 
         result = Abacus2Vasp(abacus_path, save_path=save_path, potcar=potcar, vasp_setting=vasp_setting)
         print(f"VASP input files written to '{save_path}'")
-        print(f"  INCAR   : {os.path.join(save_path, 'INCAR')}")
-        print(f"  POSCAR  : {os.path.join(save_path, 'POSCAR')}")
-        print(f"  POTCAR  : {os.path.join(save_path, 'POTCAR')}")
-        print(f"  KPOINTS : {os.path.join(save_path, 'KPOINTS')}")
         return result
