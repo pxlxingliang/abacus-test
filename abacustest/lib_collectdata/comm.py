@@ -322,3 +322,15 @@ def get_mulliken(mullikenf):
                         atom_elec[-1][-1][-1].append(float(lines[j].split()[4]))
                 j += 1
     return atom_mag,atom_elec, atom_labels
+
+def cal_cell_lattice_constant(cell):
+    """Calculate the lattice constant of a cell.
+    """
+    import numpy as np
+    a = np.linalg.norm(cell[0])
+    b = np.linalg.norm(cell[1])
+    c = np.linalg.norm(cell[2])
+    alpha = np.arccos(np.dot(cell[1],cell[2])/(b*c))*180/np.pi
+    beta = np.arccos(np.dot(cell[0],cell[2])/(a*c))*180/np.pi
+    gamma = np.arccos(np.dot(cell[0],cell[1])/(a*b))*180/np.pi
+    return [a,b,c,alpha,beta,gamma]

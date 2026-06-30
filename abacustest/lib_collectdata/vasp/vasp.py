@@ -219,7 +219,10 @@ class Vasp(ResultVasp):
                          pressure="kBar, the pressure, 1/3*trace(stress)",
                         pressures="list of the pressure of each ION steps",
                          cell = 'list[list], Angstrom, the vector of cell. If is RELAX or MD job, will output the last cell.',
-                         cells = 'list of the cell of each ION steps, list[list[list]]'
+                         cells = 'list of the cell of each ION steps, list[list[list]]',
+                         lattice_constant="a list of six float which is a/b/c,alpha,beta,gamma of cell. If has more than one ION step, will output the last one.",
+                        lattice_constants="a list of list of six float which is a/b/c,alpha,beta,gamma of cell",
+                           
                          )
     def GetForceStress(self):
         forces = []
@@ -271,9 +274,16 @@ class Vasp(ResultVasp):
         if len(cells) > 0:
             self['cells'] = cells
             self['cell'] = cells[-1]
+            lcs = []
+            for cell in cells:
+                lcs.append(comm.cal_cell_lattice_constant(cell))
+            self["lattice_constant"] = lcs[-1]
+            self["lattice_constants"] = lcs
         else:
             self['cells'] = None
             self['cell'] = None
+            self["lattice_constant"] = None
+            self["lattice_constants"] = None
         
     @ResultVasp.register(total_time = 'Total CPU time (s)',
                          scf_time = 'the total SCF times, s',

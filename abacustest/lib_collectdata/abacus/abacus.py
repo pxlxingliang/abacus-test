@@ -928,13 +928,7 @@ Fe2
             # calculate a/b/c,alpha,beta,gamma
             lattice_constants = []
             for cell in cells:
-                a = np.linalg.norm(cell[0])
-                b = np.linalg.norm(cell[1])
-                c = np.linalg.norm(cell[2])
-                alpha = np.arccos(np.dot(cell[1],cell[2])/(b*c))*180/np.pi
-                beta = np.arccos(np.dot(cell[0],cell[2])/(a*c))*180/np.pi
-                gamma = np.arccos(np.dot(cell[0],cell[1])/(a*b))*180/np.pi
-                lattice_constants.append([a,b,c,alpha,beta,gamma])
+                lattice_constants.append(comm.cal_cell_lattice_constant(cell))
             self['lattice_constants'] = lattice_constants
             self['lattice_constant'] = lattice_constants[-1]
         else:
