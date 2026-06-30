@@ -222,6 +222,34 @@ def ParamAbacus2Vasp(abacus_input):
             if efield_amp > 0.0:
                 vasp_input["EFIELD"] = efield_amp * 51.4220632 # transfer a.u. to eV/A: 1 a.u. = 51.4220632*10^10 V/m.
         
+    # vdw method
+    if "vdw_method" in abacus_input:
+        vdw_method = abacus_input.pop("vdw_method")
+        keys = abacus_input.keys()
+        if vdw_method == "none":
+            # vdw is not used, so pop the key starts with vdw_
+            for k in keys:
+                if k.startswith("vdw_"):
+                    abacus_input.pop(k)
+        elif vdw_method in ["d3_bj", "d3_0", "d2"]:
+            vasp_input["LUSE_VDW"] = True
+            if vdw_method == "d3_bj":
+                vasp_input["IVDW"] = 12
+            elif vdw_method == "d3_0":
+                vasp_input["IVDW"] = 11
+            elif vdw_method == "d2":
+                vasp_input["IVDW"] = 10
+            
+            for vdw_a, vdw_v in [("vdw_s6", "VDW_S6"),
+                                 ("vdw_d", "VDW_D"),
+                                 ("vdw_s8", "VDW_S8"),
+                                 ("vdw_a1", "VDW_A1"),
+                                  ("vdw_a2", "VDW_A2")]:
+                if vdw_a in abacus_input:
+                    vasp_input[vdw_v] = abacus_input.pop(vdw_a)
+        else:
+            print(f"WARNING: vdw_method: {vdw_method} is not supported now!!!")
+
 
     if len(abacus_input) > 0:
         print("WARNING: The following parameters are not converted to VASP:")
