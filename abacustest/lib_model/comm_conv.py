@@ -72,10 +72,10 @@ class PostConv:
         self.job_type = job_type
 
         self.plot_keys = {"energy_per_atom":"Energy (meV/atom)", 
-                          "force":"Force (eV/$\mathrm{\AA}$)", 
+                          "force":r"Force (eV/$\mathrm{\AA}$)", 
                           "stress":"Stress (kbar)", 
-                          "atom_mag":"Atomic maganetic moment ($\mathrm{\mu}$B)", 
-                          "ds_mag_force": "Maganetic force ($\mathrm{\mu}$B/$\mathrm{\AA}$)",
+                          "atom_mag":r"Atomic maganetic moment ($\mathrm{\mu}$B)", 
+                          "ds_mag_force": r"Maganetic force ($\mathrm{\mu}$B/$\mathrm{\AA}$)",
                           "band_gap":"Band gap (eV)"}
         # key is the metric name, value is the y title
         
@@ -89,7 +89,7 @@ class PostConv:
         elif shift_data == "min":
             self.shift_idx = 0
         elif shift_data == None:
-            if self.test_key in ["ecutwfc", "kpt"]:
+            if self.test_key in ["ecutwfc", "kpt", "encut"]:
                 self.shift_idx = -1
             elif self.test_key == "kspacing":
                 self.shift_idx = 0
@@ -103,6 +103,8 @@ class PostConv:
                 self.x_name = "Kspacing (1/bohr)"
             elif test_key == "kpt":
                 self.x_name = "K-point mesh"
+            elif test_key == "encut":
+                self.x_name = "ENCUT (ev)"
             else:
                 self.x_name = test_key.capitalize()
 
