@@ -1171,7 +1171,7 @@ class AbacusSTRU:
         
         # Build new cell
         new_cell = [
-            [self.cell[i][j] * nrep[j] for j in range(3)]
+            [self.cell[i][j] * nrep[i] for j in range(3)]
             for i in range(3)
         ]
         
