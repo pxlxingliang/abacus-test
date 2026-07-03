@@ -1,26 +1,8 @@
 from abacustest.lib_tools.tool import Tool
-from abacustest.lib_prepare.stru import AbacusSTRU
+from abacustest.lib_prepare.stru import AbacusSTRU, _guess_format
 from abacustest.lib_prepare.comm import collect_pp
+from abacustest.lib_prepare.abacus2vasp import gen_potcar
 import os, shutil
-
-
-_SUPPORTED_FORMATS = {
-    "stru": ("stru", "abacus/stru"),
-    "poscar": ("poscar", "vasp"),
-    "vasp": ("poscar", "vasp"),
-    "cif": ("cif",),
-}
-
-
-def _guess_format(path: str) -> str:
-    name = os.path.basename(path)
-    if name == "POSCAR" or name.endswith(".vasp") or name.endswith(".poscar"):
-        return "poscar"
-    if name in ["STRU", "STRU_ION_D"] or name.endswith(".stru"):
-        return "stru"
-    if name.endswith(".cif"):
-        return "cif"
-    return None
 
 
 class StructureConvertTool(Tool):
@@ -39,6 +21,8 @@ class StructureConvertTool(Tool):
                             help="Path to pseudopotential library (or use ABACUS_PP_PATH env). Only used when output is STRU.")
         parser.add_argument("--orb", default=None, type=str,
                             help="Path to orbital library (or use ABACUS_ORB_PATH env). Only used when output is STRU.")
+        parser.add_argument("--potcar", default=None, type=str,
+                            help="Path to VASP POTCAR library (or use VASP_POTCAR_PATH env). Only used when output is POSCAR.")
         parser.add_argument("--direct", action="store_true", default=None,
                             help="Write atomic positions in direct coordinates")
         parser.add_argument("--copy-pp-orb", action="store_true",
@@ -53,27 +37,17 @@ class StructureConvertTool(Tool):
             print(f"Error: input file '{in_file}' does not exist.")
             return
 
+        stru = AbacusSTRU.read(in_file, fmt=params.from_fmt)
+        if stru is None:
+            return
+
         in_fmt = params.from_fmt or _guess_format(in_file)
-        out_fmt = params.to_fmt or _guess_format(out_file)
-
-        if in_fmt is None:
-            print(f"Error: cannot detect input format from '{in_file}'. Please use --from.")
-            return
-        if out_fmt is None:
-            print(f"Error: cannot detect output format from '{out_file}'. Please use --to.")
-            return
-
-        in_fmt = _SUPPORTED_FORMATS[in_fmt][0]
-        out_fmt = _SUPPORTED_FORMATS[out_fmt][0]
-
-        try:
-            stru = AbacusSTRU.read(in_file, fmt=in_fmt)
-        except Exception as e:
-            print(f"Error reading '{in_file}' as {in_fmt}: {e}")
-            return
-
         print(f"Read structure from '{in_file}' ({in_fmt}): {len(stru)} atoms")
 
+        out_dir = os.path.dirname(os.path.abspath(out_file))
+        os.makedirs(out_dir, exist_ok=True)
+
+        out_fmt = params.to_fmt or _guess_format(out_file)
         if out_fmt == "stru":
             pp_path = params.pp
             orb_path = params.orb
@@ -81,9 +55,6 @@ class StructureConvertTool(Tool):
                 pp_path = os.environ.get("ABACUS_PP_PATH", None)
             if orb_path is None:
                 orb_path = os.environ.get("ABACUS_ORB_PATH", None)
-
-            out_dir = os.path.dirname(os.path.abspath(out_file))
-            os.makedirs(out_dir, exist_ok=True)
 
             if pp_path is not None:
                 pp_lib = collect_pp(pp_path)
@@ -132,11 +103,16 @@ class StructureConvertTool(Tool):
                     stru.set_orb(orb_dict, key_type="element")
 
         direct = params.direct if params.direct is not None else None
-        try:
-            stru.sort()
-            stru.write(out_file, fmt=out_fmt, direct=direct)
-        except Exception as e:
-            print(f"Error writing to '{out_file}' as {out_fmt}: {e}")
+        stru.sort()
+        if not stru.write(out_file, fmt=params.to_fmt, direct=direct):
             return
 
-        print(f"Wrote structure to '{out_file}' ({out_fmt}): {len(stru)} atoms")
+        print(f"Wrote structure to '{out_file}': {len(stru)} atoms")
+
+        if out_fmt == "poscar":
+            potcar_path = params.potcar
+            if potcar_path is None:
+                potcar_path = os.environ.get("VASP_POTCAR_PATH", None)
+            if potcar_path is not None:
+                elements = list(dict.fromkeys(stru.elements))
+                gen_potcar(potcar_path, elements, os.path.join(out_dir, "POTCAR"))

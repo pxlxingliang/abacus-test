@@ -347,6 +347,33 @@ class AbacusATOM(BaseModel):
                                  angle2)
 
 
+_SUPPORTED_FORMATS = {
+    "stru": ("stru", "abacus/stru"),
+    "poscar": ("poscar", "vasp"),
+    "vasp": ("poscar", "vasp"),
+    "cif": ("cif",),
+}
+
+
+def _guess_format(path: str) -> str:
+    """Guess the file format from its filename.
+
+    Args:
+        path (str): Path to the structure file.
+
+    Returns:
+        str: Guessed format ("stru", "poscar", "cif"), or None if cannot guess.
+    """
+    name = os.path.basename(path)
+    if name in ["POSCAR", "CONTCAR"] or name.endswith(".vasp") or name.endswith(".poscar"):
+        return "poscar"
+    if name in ["STRU", "STRU_ION_D"] or name.endswith(".stru"):
+        return "stru"
+    if name.endswith(".cif"):
+        return "cif"
+    return None
+
+
 class AbacusSTRU:
     """ABACUS STRU class
 
@@ -695,89 +722,116 @@ class AbacusSTRU:
         return paws
 
     @staticmethod
-    def read(filename: str, fmt: Literal["stru", "abacus/stru", "poscar","vasp", "cif"]="stru") -> "AbacusSTRU":
+    def read(filename: str, fmt: Optional[Literal["stru", "abacus/stru", "poscar","vasp", "cif"]]=None) -> "AbacusSTRU":
         """Read structure from a file in the specified format.
 
         Args:
             filename (str): Input file name.
-            fmt (str): Format of the input file. Options are "stru", "poscar", "cif". Default is "stru".
+            fmt (str, optional): Format of the input file. Options are "stru", "poscar", "cif".
+                If None, the format will be guessed from the filename. Default is None.
 
         Returns:
             AbacusSTRU: An AbacusSTRU object representing the structure.
         """
         if not os.path.exists(filename):
-            raise FileNotFoundError(f"File {filename} does not exist.")
-        fmt = fmt.lower()
-        if fmt in ["stru", "abacus/stru"]:
-            stru_data = read_stru_file(stru=filename)
-            cell = (np.array(stru_data["cell"]) * stru_data['lattice_constant'] * BOHR2A).tolist()
-            if stru_data["cartesian"]:
-                coords = (np.array(stru_data["coord"]) * stru_data['lattice_constant'] * BOHR2A).tolist()
-            else:
-                coords = Direct2Cartesian(stru_data["coord"], cell)
-            atom_list = []
-            label_tot = get_total_property(stru_data, "label")
-            pp_tot = get_total_property(stru_data, "pp")
-            orb_tot = get_total_property(stru_data, "orb")
-            paw_tot = get_total_property(stru_data, "paw")
-            type_mag_tot = get_total_property(stru_data, "magmom")
-
-            for i in range(len(coords)):
-                atom = AbacusATOM(
-                    label=label_tot[i],
-                    coord=tuple(coords[i]),
-                    element=None,
-                    mass=None,
-                    pp=None if len(stru_data['pp']) == 0 else pp_tot[i],
-                    orb=None if len(stru_data['orb']) == 0 else orb_tot[i],
-                    paw=None if len(stru_data['paw']) == 0 else paw_tot[i],
-                    type_mag=type_mag_tot[i],
-                    move=stru_data["move"][i],
-                    mag=stru_data["magmom_atom"][i],
-                    angle1=stru_data["angle1"][i],
-                    angle2=stru_data["angle2"][i],
-                    velocity=stru_data["velocity"][i],
-                    constrain=stru_data["constrain"][i],
-                    lambda_=stru_data["lambda_"][i],
-                )
-                atom_list.append(atom)
-            dpks = stru_data.get("dpks", None)
-            metadata = {
-                "lattice_constant": stru_data.get("lattice_constant", 1.0),
-                "atom_type": "cartesian" if stru_data.get("cartesian", True) else "direct",
-            }
-            return AbacusSTRU(cell=cell, atoms=atom_list, dpks=dpks, metadata=metadata)
-        elif fmt in ["poscar", "vasp", "cif"]:
-            # use ase to read poscar/vasp/cif file
-            from ase.io import read as ase_read
-            if fmt == "poscar":
-                fmt = "vasp"
-            atom_type = "direct"
-            if fmt == "vasp":
-                with open(filename, 'r') as f: lines = f.readlines()
-                if lines[5].strip().lower().startswith("c"):
-                    atom_type = "cartesian"
-    
-            ase_stru = ase_read(filename, format=fmt)
-            return AbacusSTRU.from_ase(ase_stru, metadata={
-                "lattice_constant": A2BOHR,
-                "atom_type": atom_type,
-            })
+            print(f"Error: file '{filename}' does not exist.")
+            return None
+        if fmt is None:
+            fmt = _guess_format(filename)
+            if fmt is None:
+                #print(f"Warning: cannot guess format from filename '{filename}'. Try to read with fmt='stru'")
+                fmt = "stru"
         else:
-            raise ValueError(f"Unsupported format: {fmt}")
+            fmt = fmt.lower()
+            fmt = _SUPPORTED_FORMATS.get(fmt, (fmt,))[0]
+        try:
+            if fmt in ["stru", "abacus/stru"]:
+                stru_data = read_stru_file(stru=filename)
+                cell = (np.array(stru_data["cell"]) * stru_data['lattice_constant'] * BOHR2A).tolist()
+                if stru_data["cartesian"]:
+                    coords = (np.array(stru_data["coord"]) * stru_data['lattice_constant'] * BOHR2A).tolist()
+                else:
+                    coords = Direct2Cartesian(stru_data["coord"], cell)
+                atom_list = []
+                label_tot = get_total_property(stru_data, "label")
+                pp_tot = get_total_property(stru_data, "pp")
+                orb_tot = get_total_property(stru_data, "orb")
+                paw_tot = get_total_property(stru_data, "paw")
+                type_mag_tot = get_total_property(stru_data, "magmom")
+
+                for i in range(len(coords)):
+                    atom = AbacusATOM(
+                        label=label_tot[i],
+                        coord=tuple(coords[i]),
+                        element=None,
+                        mass=None,
+                        pp=None if len(stru_data['pp']) == 0 else pp_tot[i],
+                        orb=None if len(stru_data['orb']) == 0 else orb_tot[i],
+                        paw=None if len(stru_data['paw']) == 0 else paw_tot[i],
+                        type_mag=type_mag_tot[i],
+                        move=stru_data["move"][i],
+                        mag=stru_data["magmom_atom"][i],
+                        angle1=stru_data["angle1"][i],
+                        angle2=stru_data["angle2"][i],
+                        velocity=stru_data["velocity"][i],
+                        constrain=stru_data["constrain"][i],
+                        lambda_=stru_data["lambda_"][i],
+                    )
+                    atom_list.append(atom)
+                dpks = stru_data.get("dpks", None)
+                metadata = {
+                    "lattice_constant": stru_data.get("lattice_constant", 1.0),
+                    "atom_type": "cartesian" if stru_data.get("cartesian", True) else "direct",
+                }
+                return AbacusSTRU(cell=cell, atoms=atom_list, dpks=dpks, metadata=metadata)
+            elif fmt in ["poscar", "vasp", "cif"]:
+                # use ase to read poscar/vasp/cif file
+                from ase.io import read as ase_read
+                if fmt == "poscar":
+                    fmt = "vasp"
+                atom_type = "direct"
+                if fmt == "vasp":
+                    with open(filename, 'r') as f: lines = f.readlines()
+                    if lines[5].strip().lower().startswith("c"):
+                        atom_type = "cartesian"
+        
+                ase_stru = ase_read(filename, format=fmt)
+                return AbacusSTRU.from_ase(ase_stru, metadata={
+                    "lattice_constant": A2BOHR,
+                    "atom_type": atom_type,
+                })
+            else:
+                print(f"Error: unsupported format '{fmt}'.")
+                return None
+        except Exception as e:
+            print(f"Error reading '{filename}' as {fmt}: {e}")
+            traceback.print_exc()
+            return None
 
     def write(self, filename: str,
-              fmt: Literal["stru", "poscar","vasp", "cif"]="stru",
+              fmt: Optional[Literal["stru", "abacus/stru", "poscar","vasp", "cif"]]=None,
               empty2x: bool = False,
-              direct: Optional[bool]=None):
+              direct: Optional[bool]=None) -> bool:
         """Write the structure to a file in the specified format.
+
         Args:
             filename (str): Output file name.
-            fmt (str): Format of the output file. Options are "stru", "poscar", "cif". Default is "stru".
+            fmt (str, optional): Format of the output file. Options are "stru", "poscar", "cif".
+                If None, the format will be guessed from the filename. Default is None.
             empty2x (bool): If True, convert 'empty' atoms to 'X' element before writing. Default is False.
             direct (bool, optional): If True, write atomic positions in direct coordinates. If False, write in cartesian coordinates. If None, use the value from metadata. Default is None.
+
+        Returns:
+            bool: True if write succeeded, False otherwise.
         """
-        fmt = fmt.lower()
+        if fmt is None:
+            fmt = _guess_format(filename)
+            if fmt is None:
+                #print(f"Warning: cannot guess format from filename '{filename}'. Try to write with fmt='stru'")
+                fmt = "stru"
+        else:
+            fmt = fmt.lower()
+            fmt = _SUPPORTED_FORMATS.get(fmt, (fmt,))[0]
         if direct is None:
             direct = (self.metadata.get("atom_type","cartesian").lower() == "direct")
         else:
@@ -789,47 +843,53 @@ class AbacusSTRU:
                 if "empty" in self.labels[i]:
                     elements[i] = 'X'
 
+        try:
+            if fmt in ["stru", "abacus/stru"]:
+                atom_list = copy.deepcopy(self._atoms)
+                unique_types = AbacusATOM.find_uniq_atomtypes(atom_list)
+                lc = self.metadata.get("lattice_constant", 1.0)
+                cell = np.array(self.cell) * A2BOHR / lc
+                coord = np.array([atom.coord for atom in atom_list]) * A2BOHR / lc
+                if direct:
+                    coord = Cartesian2Direct(coord.tolist(), cell)
+                else:
+                    coord = coord.tolist()
+                cell = cell.tolist()
 
-        if fmt in ["stru", "abacus/stru"]:
-            atom_list = copy.deepcopy(self._atoms)
-            unique_types = AbacusATOM.find_uniq_atomtypes(atom_list)
-            lc = self.metadata.get("lattice_constant", 1.0)
-            cell = np.array(self.cell) * A2BOHR / lc
-            coord = np.array([atom.coord for atom in atom_list]) * A2BOHR / lc
-            if direct:
-                coord = Cartesian2Direct(coord.tolist(), cell)
+                write_stru_file(cell=cell, coord=coord, 
+                                label=[ut.label for ut in unique_types],
+                                atom_number=[ut.natom for ut in unique_types],
+                                struf=filename,
+                                direct=direct,
+                                pp =[ut.pp for ut in unique_types],
+                                mass = [ut.mass for ut in unique_types],
+                                orb = [ut.orb for ut in unique_types],
+                                paw = [ut.paw for ut in unique_types],
+                                magmom_global=[ut.type_mag for ut in unique_types],
+                                lattice_constant=lc,
+                                move = [atom.move for atom in  atom_list],
+                                magmom = [atom.mag for atom in atom_list],
+                                velocity = [atom.velocity for atom in atom_list],
+                                angle1 = [atom.angle1 for atom in atom_list],
+                                angle2 = [atom.angle2 for atom in atom_list],
+                                constrain = [atom.constrain for atom in atom_list],
+                                lambda_ = [atom.lambda_ for atom in atom_list],
+                                dpks = self.dpks)
+            elif fmt in  ["poscar", "vasp"]:
+                write_poscar(cell = self.cell,
+                             coord=self.coords if not direct else self.coords_direct,
+                             label=elements, poscar=filename, direct=direct, move=self.moves)
+            elif fmt == "cif":
+                ase_stru = self.to(fmt="ase", empty2x=empty2x)
+                ase_stru.write(filename, format="cif")
             else:
-                coord = coord.tolist()
-            cell = cell.tolist()
-
-            write_stru_file(cell=cell, coord=coord, 
-                            label=[ut.label for ut in unique_types],
-                            atom_number=[ut.natom for ut in unique_types],
-                            struf=filename,
-                            direct=direct,
-                            pp =[ut.pp for ut in unique_types],
-                            mass = [ut.mass for ut in unique_types],
-                            orb = [ut.orb for ut in unique_types],
-                            paw = [ut.paw for ut in unique_types],
-                            magmom_global=[ut.type_mag for ut in unique_types],
-                            lattice_constant=lc,
-                            move = [atom.move for atom in  atom_list],
-                            magmom = [atom.mag for atom in atom_list],
-                            velocity = [atom.velocity for atom in atom_list],
-                            angle1 = [atom.angle1 for atom in atom_list],
-                            angle2 = [atom.angle2 for atom in atom_list],
-                            constrain = [atom.constrain for atom in atom_list],
-                            lambda_ = [atom.lambda_ for atom in atom_list],
-                            dpks = self.dpks)
-        elif fmt in  ["poscar", "vasp"]:
-            write_poscar(cell = self.cell,
-                         coord=self.coords if not direct else self.coords_direct,
-                         label=elements, poscar=filename, direct=direct, move=self.moves)
-        elif fmt == "cif":
-            ase_stru = self.to(fmt="ase", empty2x=empty2x)
-            ase_stru.write(filename, format="cif")
-        else:
-            raise ValueError(f"Unsupported format: {fmt}")
+                print(f"Error: unsupported format '{fmt}'.")
+                return False
+        except Exception as e:
+            print(f"Error writing to '{filename}' as {fmt}: {e}")
+            traceback.print_exc()
+            return False
+        return True
     
     @staticmethod
     def from_ase(ase_stru,
@@ -1679,6 +1739,9 @@ def write_poscar(
     cc += " ".join(unique_labels) + "\n"
     cc += " ".join([str(num) for num in atom_number]) + "\n"
     #write coordinates
+    # if there has False in move, write "Selective dynamics" line
+    if move and any([mv and not all(mv) for mv in move]):
+        cc += "Selective dynamics\n"
     if direct:
         cc += "Direct\n"
     else:
