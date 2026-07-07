@@ -287,22 +287,30 @@ class Vasp(ResultVasp):
         
     @ResultVasp.register(total_time = 'Total CPU time (s)',
                          scf_time = 'the total SCF times, s',
+                         scf_times = 'list, the times of each SCF step, s',
                          stress_time = 'the time of calculating stress')                         
     def GetTimeInfo(self):
         stresst = None
-        scft = 0
+        scf_times = []
         for line in self.OUTCAR:
             if 'STRESS:  cpu time' in line:
                 stresst = float(line.split()[-1])
             elif 'LOOP:  cpu time' in line:
-                scft += float(line.split()[-1])
+                scf_times.append(float(line.split()[-1]))
             elif 'Total CPU time used (sec):' in line:
                 self['total_time'] = float(line.split()[-1])
 
         if stresst != None:
             self['stress_time'] = stresst
-        if scft > 0:
-            self['scf_time'] = scft
+        else:
+            self['stress_time'] = None
+
+        if len(scf_times) > 0:
+            self['scf_time'] = sum(scf_times)
+            self['scf_times'] = scf_times
+        else:
+            self['scf_time'] = None
+            self['scf_times'] = None
 
     @ResultVasp.register(total_mag = 'total magnization',
                          absolute_mag="absolute magnetism, the summation of the magnetic moment of all atoms",

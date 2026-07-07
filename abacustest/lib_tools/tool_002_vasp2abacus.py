@@ -196,8 +196,11 @@ class Vasp2Abacus():
     def find_recommand_ecutwfc(self, elements):
         if elements is None:
             return None
-        recommand_e = [self.recommand_ecutwfc.get(e, None) for e in elements]
-        recommand_e_nonone = [e for e in recommand_e if e is not None]
+        if self.recommand_ecutwfc is None:
+            recommand_e_nonone = []
+        else:
+            recommand_e = [self.recommand_ecutwfc.get(e, None) for e in elements]
+            recommand_e_nonone = [e for e in recommand_e if e is not None]
 
         if len(recommand_e_nonone) > 0:
             print(f"Recommanded ecutwfc for elements {elements} is {recommand_e}, set to {max(recommand_e_nonone)} Ry.")
