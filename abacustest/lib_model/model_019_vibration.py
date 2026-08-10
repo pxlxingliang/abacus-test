@@ -6,8 +6,6 @@ from pathlib import Path
 from typing import List, Tuple
 
 import numpy as np
-from ase.vibrations import Vibrations
-from ase.thermochemistry import HarmonicThermo
 
 from abacustest import AbacusSTRU, WriteInput, ReadInput
 from abacustest.lib_model.comm import copy_abacusjob
@@ -248,6 +246,9 @@ def post_abacus_vibration_analysis_onejob(work_dir: Path,
     """
     Post-process ABACUS vibration analysis results for one job.
     """
+    from ase.vibrations import Vibrations
+    from ase.thermochemistry import HarmonicThermo
+
     # Read parameters from prepare process
     with open(os.path.join(work_dir, "vib/SCF/eq/prepare_params.json"), "r") as fin:
         prepare_params = json.load(fin)
