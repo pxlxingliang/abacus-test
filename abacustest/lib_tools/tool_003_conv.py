@@ -25,9 +25,48 @@ class StructureConvertTool(Tool):
                             help="Path to VASP POTCAR library (or use VASP_POTCAR_PATH env). Only used when output is POSCAR.")
         parser.add_argument("--direct", action="store_true", default=None,
                             help="Write atomic positions in direct coordinates")
-        parser.add_argument("--copy-pp-orb", action="store_true",
-                            help="Copy pp/orb files instead of symlinking them")
+        parser.add_argument("--pporb-type", default=1, type=int, choices=[1, 2, 3],
+                            help="How to handle pp/orb files: 1 = set absolute path in STRU file (default), "
+                                 "2 = symlink pp/orb files to output dir, 3 = copy pp/orb files to output dir")
         return parser
+
+    @staticmethod
+    def _setup_pporb(stru, lib, out_dir, pporb_type, kind="pp"):
+        """Handle pp/orb files according to pporb_type and return a dict mapping element to the value to write into STRU.
+
+        Args:
+            stru: AbacusSTRU object.
+            lib (dict): Element -> source file path, returned by collect_pp.
+            out_dir (str): Output directory where the STRU file is located.
+            pporb_type (int): 1 = set absolute path in STRU file, 2 = symlink to out_dir, 3 = copy to out_dir.
+            kind (str): "pp" or "orb".
+
+        Returns:
+            dict: Element -> pp/orb value to write into STRU, or {} if nothing found.
+        """
+        what = "pseudopotential" if kind == "pp" else "orbital"
+        names = []
+        elements = list(dict.fromkeys(stru.elements))
+        for el in elements:
+            if el in lib:
+                src = lib[el]
+                if pporb_type == 1:
+                    value = os.path.abspath(src)
+                else:
+                    dst = os.path.join(out_dir, os.path.basename(src))
+                    if pporb_type == 2:
+                        if os.path.exists(dst):
+                            os.remove(dst)
+                        os.symlink(os.path.abspath(src), dst)
+                    else:
+                        shutil.copy2(src, dst)
+                    value = os.path.basename(src)
+                names.append(value)
+            else:
+                print(f"Warning: no {what} found for element '{el}'")
+                names.append(None)
+        d = dict(zip(elements, names))
+        return {k: v for k, v in d.items() if v is not None}
 
     def run(self, params):
         in_file = params.input
@@ -58,47 +97,13 @@ class StructureConvertTool(Tool):
 
             if pp_path is not None:
                 pp_lib = collect_pp(pp_path)
-                pp_names = []
-                elements = list(dict.fromkeys(stru.elements))
-                for el in elements:
-                    if el in pp_lib:
-                        src = pp_lib[el]
-                        dst = os.path.join(out_dir, os.path.basename(src))
-                        if params.copy_pp_orb:
-                            shutil.copy2(src, dst)
-                        else:
-                            if os.path.exists(dst):
-                                os.remove(dst)
-                            os.symlink(os.path.abspath(src), dst)
-                        pp_names.append(os.path.basename(src))
-                    else:
-                        print(f"Warning: no pseudopotential found for element '{el}'")
-                        pp_names.append(None)
-                pp_dict = dict(zip(elements, pp_names))
-                pp_dict = {k: v for k, v in pp_dict.items() if v is not None}
+                pp_dict = self._setup_pporb(stru, pp_lib, out_dir, params.pporb_type, kind="pp")
                 if pp_dict:
                     stru.set_pp(pp_dict, key_type="element")
 
             if orb_path is not None:
                 orb_lib = collect_pp(orb_path)
-                orb_names = []
-                elements = list(dict.fromkeys(stru.elements))
-                for el in elements:
-                    if el in orb_lib:
-                        src = orb_lib[el]
-                        dst = os.path.join(out_dir, os.path.basename(src))
-                        if params.copy_pp_orb:
-                            shutil.copy2(src, dst)
-                        else:
-                            if os.path.exists(dst):
-                                os.remove(dst)
-                            os.symlink(os.path.abspath(src), dst)
-                        orb_names.append(os.path.basename(src))
-                    else:
-                        print(f"Warning: no orbital found for element '{el}'")
-                        orb_names.append(None)
-                orb_dict = dict(zip(elements, orb_names))
-                orb_dict = {k: v for k, v in orb_dict.items() if v is not None}
+                orb_dict = self._setup_pporb(stru, orb_lib, out_dir, params.pporb_type, kind="orb")
                 if orb_dict:
                     stru.set_orb(orb_dict, key_type="element")
 
