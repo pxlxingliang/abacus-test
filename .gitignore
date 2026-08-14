@@ -1,7 +1,6 @@
-abacustest/*/__pycache__
-abacustest/*/*/__pycache__
-abacustest/__pycache__
 abacustest.egg-info
+*__pycache__
+develop-docs/*
 build
 .vscode/
 dist/*
