@@ -1,11 +1,11 @@
 from abacustest.lib_tools.tool import Tool
-import json, os
+import json, os, shutil
 from abacustest.lib_prepare.abacus import WriteKpt, WriteInput, ReadInput, AbacusStru
 
 from typing import List, Dict, Any
 from typing import Union
 from pathlib import Path
-from abacustest.constant import EV2RY
+from abacustest.constant import EV2RY, BOHR2A
 from abacustest.lib_prepare.comm import collect_pp
 import warnings
 
@@ -18,6 +18,7 @@ class Vasp2AbacusTool(Tool):
         parser.add_argument("--pp", default=None, type=str, help="the path of pseudopotential library, or read from enviroment variable ABACUS_PP_PATH")
         parser.add_argument("--orb", default=None, type=str, help="the path of orbital library, or read from enviroment variable ABACUS_ORB_PATH")
         parser.add_argument("--input", default=None, type=str, help="A template input file, used to set the default parameters in ABACUS INPUT. The setting in this file will overwrite the parameters transferred from VASP INCAR.")
+        parser.add_argument("--pporb", default=1, type=int, choices=[1, 2, 3], help="the way to handle the pseudopotential and orbital files: 1: write the absolute path in the STRU file; 2: create soft links in the job directory; 3: copy the files to the job directory. Default is 1.")
         return parser
 
     def run(self, params):
@@ -30,7 +31,7 @@ class Vasp2AbacusTool(Tool):
         if orb_path is None:
             orb_path = os.environ.get("ABACUS_ORB_PATH", None)
 
-        vasp2abacus = Vasp2Abacus(jobs, pp_path, orb_path, params.input)
+        vasp2abacus = Vasp2Abacus(jobs, pp_path, orb_path, params.input, pporb=params.pporb)
         vasp2abacus.run()
 
 
@@ -53,16 +54,26 @@ class Vasp2Abacus():
         If not set, the below default parameters will be used:
         - basis_type: "pw" if lcao is False, "lcao" if lcao is True
         - ecutwfc: 80 Ry for pw, 100 Ry for lcao.
+    pporb: int, optional
+        The way to handle the pseudopotential and orbital files:
+        1: write the absolute path in the STRU file;
+        2: create soft links in the job directory;
+        3: copy the files to the job directory.
+        Default is 1.
     """
     def __init__(self,
                  jobs: List[Union[str,Path]],
                  pp_path: Union[str,Path]=None,
                  orb_path: Union[str,Path]=None,
                  input_file: Union[str,Path]=None,
+                 pporb: int=1,
                  ):
         self.jobs = jobs
         self.pp_path = pp_path
         self.orb_path = orb_path
+        self.pporb = pporb
+        if self.pporb not in [1, 2, 3]:
+            raise ValueError(f"Invalid pporb value {self.pporb}, should be 1, 2 or 3.")
 
         self.pp_lib = None
         self.orb_lib = None
@@ -112,12 +123,18 @@ class Vasp2Abacus():
                     stru.set_atommag(magmom)
 
                 pps, orbs = self.set_pporb(elements)
-                if pps is not None:
-                    pp_names = self.link_pporb(job, pps)
-                    stru.set_pp(pp_names)
-                if orbs is not None:
-                    orb_names = self.link_pporb(job, orbs)
-                    stru.set_orb(orb_names)
+                if self.pporb == 1:
+                    if pps is not None:
+                        stru.set_pp([os.path.abspath(p) if p else p for p in pps])
+                    if orbs is not None:
+                        stru.set_orb([os.path.abspath(p) if p else p for p in orbs])
+                else:
+                    if pps is not None:
+                        pp_names = self.link_pporb(job, pps)
+                        stru.set_pp(pp_names)
+                    if orbs is not None:
+                        orb_names = self.link_pporb(job, orbs)
+                        stru.set_orb(orb_names)
 
                 stru.write(os.path.join(job, "STRU"))
             else:
@@ -143,11 +160,15 @@ class Vasp2Abacus():
 
     def link_pporb(self, job_path, pporbs):
         for pporb in pporbs:
+            if not os.path.isfile(pporb):
+                continue
             tpporb = os.path.join(job_path, os.path.basename(pporb))
-            if os.path.isfile(tpporb):
+            if os.path.isfile(tpporb) or os.path.islink(tpporb):
                 os.remove(tpporb)
-            if os.path.isfile(pporb):
-                os.symlink(pporb, tpporb)
+            if self.pporb == 2:
+                os.symlink(os.path.abspath(pporb), tpporb)
+            else:
+                shutil.copy(pporb, tpporb)
         return [os.path.basename(pporb) for pporb in pporbs]
 
     def set_pporb(self, elements):
@@ -236,6 +257,14 @@ class Vasp2Abacus():
         for key in oneone_keys:
             if key in vasp_param:
                 input_param[oneone_keys[key]] = vasp_param.pop(key)
+
+        if "KSPACING" in vasp_param:
+            kspacing = vasp_param.pop("KSPACING")
+            if isinstance(kspacing, (list, tuple)):
+                kspacing = [k * BOHR2A for k in kspacing]
+            else:
+                kspacing = kspacing * BOHR2A
+            input_param["kspacing"] = kspacing
 
         if "LSORBIT" in vasp_param or "LNONCOLLINEAR" in vasp_param:
             input_param["lspinorb"] = vasp_param.pop("LSORBIT", False)
