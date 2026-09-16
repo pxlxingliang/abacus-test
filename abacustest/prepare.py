@@ -391,7 +391,7 @@ class PrepareAbacus:
             if stru_path == "": stru_path = os.getcwd()
             labels = []
             for ilabel in stru_data.get_label():
-                if ilabel not in labels:
+                if len(labels) == 0 or ilabel != labels[-1]:
                     labels.append(ilabel)
             linkstru = True
             skipstru = False
