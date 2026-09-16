@@ -18,7 +18,9 @@ class Vasp(ResultVasp):
         for line in self.OUTCAR:
             if "running on" in line and "total cores" in line:
                 self['ncore'] = int(line.split()[2])
-    
+            elif re.search(r"running\s+\d+\s+mpi-ranks,\s+on\s+\d+\s+nodes",line):
+                #  running   24 mpi-ranks, on    1 nodes
+                self['ncore'] = int(line.split()[1])
     @ResultVasp.register(normal_end="if the job is normal ending")
     def GetNormalEnd(self):
         if len(self.OUTCAR) == 0:
