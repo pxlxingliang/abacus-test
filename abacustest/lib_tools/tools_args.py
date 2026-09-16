@@ -50,4 +50,14 @@ TOOLS_ARGS = {
         "file": "tool_004_abacus2vasp",
         "class_name": "Abacus2VaspTool",
     },
+    "conv-out": {
+        "description": "Convert DFT output files to other formats for visualization (ABACUS -> gview)",
+        "file": "tool_005_convout",
+        "class_name": "ConvOutTool",
+    },
+    "bsse": {
+        "description": "Prepare STRU files for BSSE (counterpoise) correction",
+        "file": "tool_006_bsse",
+        "class_name": "BsseTool",
+    },
 }
