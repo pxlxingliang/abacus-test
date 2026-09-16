@@ -801,8 +801,18 @@ class AbacusSTRU:
                     "atom_type": atom_type,
                 })
             else:
-                print(f"Error: unsupported format '{fmt}'.")
-                return None
+                try:
+                    # finally try to use ase to read any format
+                    from ase.io import read as ase_read
+                    ase_stru = ase_read(filename)
+                    return AbacusSTRU.from_ase(ase_stru, metadata={
+                        "lattice_constant": A2BOHR,
+                        "atom_type": "cartesian",
+                    })
+                except Exception as e:
+                    print(f"Error: unsupported format '{fmt}'.")
+                    traceback.print_exc()
+                    return None
         except Exception as e:
             print(f"Error reading '{filename}' as {fmt}: {e}")
             traceback.print_exc()
